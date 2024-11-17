@@ -1,0 +1,17 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+Dockerfile
+config/*
+!config/environment.R
+!config/config-wkt_main.R
+extdata/datapackage.json
+extdata/deployments.csv
+extdata/media.csv
+extdata/observations.csv
+cache
+tangential
+config/.env
+www/cache

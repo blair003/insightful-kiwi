@@ -1,0 +1,320 @@
+      /*
+        Paths are relative to where the css file will be after a report is created
+        So relative to the cache
+      */
+
+      @font-face {
+        font-family: 'Source Sans Pro';
+        src: url('../../resources/fonts/SourceSansPro-Regular.ttf') format('truetype');
+        font-weight: 400; /* Normal weight */
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Source Sans Pro';
+        src: url('../../resources/fonts/SourceSansPro-Semibold.ttf') format('truetype');
+        font-weight: 600; /* Semi-Bold weight */
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Source Sans Pro';
+        src: url('../../resources/fonts/SourceSansPro-Bold.ttf') format('truetype');
+        font-weight: 700; /* Bold weight */
+        font-style: normal;
+      }
+      
+      @font-face {
+        font-family: 'Source Sans Pro';
+        src: url('../../resources/fonts/SourceSansPro-Italic.ttf') format('truetype');
+        font-weight: 400; /* Normal weight */
+        font-style: italic;
+      }
+      @font-face {
+        font-family: 'Source Sans Pro';
+        src: url('../../resources/fonts/SourceSansPro-SemiboldItalic.ttf') format('truetype');
+        font-weight: 600; /* Semi-bold weight */
+        font-style: italic;
+      }
+      
+      @font-face {
+        font-family: 'Source Sans Pro';
+        src: url('../../resources/fonts/SourceSansPro-BoldItalic.ttf') format('truetype');
+        font-weight: 700; /* Bold weight */
+        font-style: italic;
+      }
+
+
+
+      @page {
+        size: a4 portrait; 
+        margin: 7mm 10mm 15mm 10mm;
+        
+        @bottom-right {
+          content: "Page " counter(page) " of " counter(pages);
+          font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          font-size: 10px;
+          width: 20%;
+        }
+        @bottom-left {
+          content: "Automated report by InsightfulKiwi";
+          font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          font-size: 10px;
+          font-style: italic;
+          width: 80%;
+        }
+      }
+      
+      /*
+      Setup for outputting some pages in landscape. Not worth it
+      @page landscape {
+        size: a4 landscape;
+        margin: 1mm 10mm 0mm 10mm;
+      }
+      .landscape-page {
+        page: landscape;
+      }
+      .rotated-heading h2 {
+          transform: rotate(-90deg);
+      }
+
+      */
+
+      body {
+        font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        line-height: 1.4;
+        font-size: 13px;
+      }
+      
+      /* So the PDF output doesn't exceed page */
+      img {
+        max-width: 100%;
+        height: auto; /* Maintain aspect ratio */
+      }
+      
+            
+      h1 {
+        font-size: 32px;
+        text-transform: uppercase;
+        font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        line-height: 1.1;
+        margin-top: 10px;
+        margin-bottom: 5px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+        letter-spacing: 1px;
+      }
+      
+
+      h1.title {
+          font-size: 46px;
+          text-align: center;
+          border-bottom: none;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 50mm 20mm 150mm 20mm;
+          border: 5px solid rgba(121, 161, 47, 0.5);
+          margin-bottom: 10mm;
+      }
+
+      h4.author, h4.date {
+        margin: 0;
+        font-weight: 400;
+        font-style: italic;
+        text-align: center;
+      }
+      
+
+      h2 {
+        font-size: 24px;
+        font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 600;
+        line-height: 1.1;
+        margin-top: 20px;
+        margin-bottom: 10px;
+      }
+      
+      h3 {
+        font-size: 18px;
+        font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 600;
+        line-height: 1.1;
+        margin-top: 20px;
+        margin-bottom: 10px;
+      }
+      
+      h4 {
+          margin-bottom: 5px;
+      }
+      
+
+      
+      small, figcaption {
+        font-size: 85%;
+      }
+      
+      em {
+        font-style: italic;
+      }
+      
+      .page-break-header {
+          position: relative;
+          font-size: 85%;
+          height: 42px; /* Adjust based on your logo's height */
+          padding-right: 150px; /* Space for the logo to prevent text overlap */
+          padding-bottom: 3px; /* Adjust as needed for visual gap to bottom border */
+          border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+          margin-top: 0mm;
+          margin-bottom: 5mm;
+      }
+      
+      .page-break-header img {
+          height: 42px;
+          position: absolute;
+          right: 0;
+          top: 0;
+      }
+
+      .page-break-header > span {
+          position: absolute; /* Absolute positioning relative to its parent */
+          bottom: 3px; /* Aligns the bottom of the span to the bottom of its parent, adjust as needed */
+          left: 0; /* Aligns the span to the left */
+          right: 150px; /* Keeps a space for the logo */
+          height: auto; /* Allows the span to grow with content */
+      }
+
+      .page-break-header, .page-break {
+          page-break-before: always;
+      }
+      
+      
+      /* TABLE OF CONTENTS STYLING */
+      
+      #TOC {
+        page-break-before: always;
+        margin-left: 70px;
+        margin-right: 70px;
+        padding: 10px;
+      }
+
+      #TOC a {
+        text-decoration: none; /* Removes the underline */
+         color: #000;  
+      }
+      /* Inserts a heading above the YAML generated TOC */
+      #TOC:before {
+        margin-top: 5mm;
+      /*  content: "Table of Contents";  */
+        content: "TABLE OF CONTENTS";
+        font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        font-size: 32px;
+        letter-spacing: 0.5px;
+        display: block;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+      }
+      
+      #TOC > ul {
+        margin-right: 30px;
+      }
+      
+      #TOC > ul > li {
+        list-style-type: none;
+        padding-bottom: 10px; /* Adjusts the space between each main heading */
+        border-bottom: 1px solid rgba(121, 161, 47, 0.5);
+        padding-top: 10px; /* Adjusts the space between each main heading */
+      }
+      /* Styling to top level headings in TOC */
+      #TOC > ul > li > a {
+          font-weight: bold;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+      }
+      
+       /* In the output, all tables are class table, then additional classes for short and long */
+       
+      table.table {
+        border-collapse: collapse;
+        margin: 10px 0;
+        width: 100%;
+        border-spacing: 0;
+      }
+      
+      table caption, .caption {
+        padding-top: 0px;
+        margin-bottom: 10px;
+        color: #414141;
+        text-align: left;
+      }
+      
+      
+      table.table>thead>tr>th {
+        border-bottom: 2px solid rgba(121, 161, 47, 0.3);
+      
+      }
+      
+      table.table>tbody>tr>td {
+        border-top: 1px solid  rgba(121, 161, 47, 0.15);
+      }
+      
+      table.table thead tr {
+        color: #000000;
+        text-align: left;
+        background-color: transparent;
+      }
+
+      table.short th,
+        .table td {
+          padding: 5px 6px; /* First is top and bottom, second is left and right */
+      }
+
+      table.long th,
+        .long td {
+          padding: 2px 6px;
+      }
+      
+      table.table tbody tr:nth-of-type(even) {
+        background-color: rgba(121, 161, 47, 0.15);
+      }
+
+      table.table tbody tr:last-of-type {
+        border-bottom: 1px solid rgba(121, 161, 47, 0.3);
+      }
+      
+      /* Apply extra padding to the first column */
+      table.table th:first-child, table.table td:first-child {
+        padding-left: 15px; /* Adjust the value as needed */
+      }
+      
+      /* Apply extra padding to the last column */
+      table.table th:last-child, table.table td:last-child {
+        padding-right: 10px; /* Adjust the value as needed */
+      }
+      
+      .column-descriptions-container {
+        border: 1px solid #999999; /* Replace rgba with a solid color */
+        position: relative; /* This enables absolute positioning for child elements */
+        padding: 10px; /* Adjust padding as needed */
+        margin-top: 15px; /* Space below the container */
+      }
+      
+      .column-descriptions-heading {
+        font-size: 85%;
+        font-weight: 700;
+        position: absolute;
+        top: -10px; /* Adjust this value to move the heading up over the border */
+        right: 10px; /* Adjust according to padding and desired positioning */
+        background: white; /* Match the background to the page for the merge effect */
+        padding: 0 5px; /* Small padding around the text */
+        z-index: 10; /* Ensure it's above the border */
+      }
+            
+      .description-item {
+        margin-bottom: 8px; /* Adjust this value to control spacing between items */
+        font-size: 0.8em;
+      }
+      
+      .custom-line-break {
+        height: 3px; /* Or any specific height to match the desired spacing */
+        display: block; /* Ensures it behaves as a block-level element, creating a clear break */
+      }
+      
