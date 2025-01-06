@@ -20,7 +20,6 @@ source("modules/reporting_data_module.R")
 source("modules/reporting_visualisations_module.R")
 source("modules/reporting_rendering_module.R")
 
-source("includes/static_column_rename_override.R")
 source("includes/data_preparation_functions.R")
 source("includes/data_presentation_functions.R")
 source("includes/get_column_descriptions.R")

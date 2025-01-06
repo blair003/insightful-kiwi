@@ -13,8 +13,9 @@ source("config/config-wkt_main.R")
 source("includes/global_functions.R")
 source("config/environment.R")
 
-install_if_missing_cran(config$env$required_cran_packages)
-install_if_missing_github(config$env$required_github_packages)
+# Install required packages
+install_if_missing(config$env$required_cran_packages, "cran")
+install_if_missing(config$env$required_github_packages, "github")
 
 # Load all packages
 all_packages <- c(
