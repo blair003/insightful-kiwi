@@ -45,6 +45,15 @@
         min-width: min-content; /* Minimum width based on the narrowest content */
       }
       
+      /* For the sidebar fieldset */
+      .plot-options-label {
+        display: block;
+        margin-bottom: 8px; /* Space after heading before input elements */
+       /* font-weight: bold; */
+      }
+
+
+
       /* Table captions default to bottom with bslib */
       caption { caption-side:top !important; } 
       

@@ -33,8 +33,25 @@ plotting_module_ui <- function(id,
           multiple = multiple,
           selectize = TRUE 
         ),
+        checkboxInput(ns("combine_localities"), "Combine selected localities", value = TRUE)
+
         
-        checkboxInput(ns("combine_localities"), "Combine locality data", value = TRUE)
+      )
+    )
+  } else if (view == "select_plot_options") {
+    return(
+      tagList(
+        div(
+          class = "form-group",  # Ensures consistent styling
+          tags$label(
+            class = "control-label plot-options-label",
+            tagList(icon("sliders-h"), "Toggle options:")
+          ),
+          checkboxInput(ns("stacked"), "Stacked", value = TRUE),
+          checkboxInput(ns("data_labels"), "Data labels", value = TRUE)
+        )
+        
+        
       )
     )
   } else if (view == "plot") {
@@ -153,7 +170,7 @@ plotting_module_server <- function(id,
       
       # Set the period factor levels in chronological order (oldest to newest)
       aggregated_data$period <- factor(aggregated_data$period, levels = rev(periods_without_all))
-      
+      #browser()
       return(list(
         aggregated_data = aggregated_data,
         localities = localities
@@ -162,47 +179,81 @@ plotting_module_server <- function(id,
     })
     
     
+  
     output$obs_plot <- renderPlot({
       req(plotting_data())
-      #browser()
       data <- plotting_data()
       
       if (nrow(data$aggregated_data) == 0) {
-        plot(1, type = "n", xlab = "", ylab = "", xaxt = "n", yaxt = "n")  # Empty plot
+        plot(1, type = "n", xlab = "", ylab = "", xaxt = "n", yaxt = "n")
         title("No data available")
         return(NULL)
       }
       
+      # Convert period to a factor so that ggplot treats the x-axis as discrete
+      data$aggregated_data$period <- factor(data$aggregated_data$period)
+      
+      # Determine bar position based on stack checkbox
+      bar_position <- if (input$stacked) "stack" else position_dodge(width = 0.9)
+      
+      # Create the base plot depending on whether localities are combined or not
       if (!input$combine_localities) {
-        ggplot(data$aggregated_data, aes(x = period, y = count, color = species_name, group = interaction(species_name, locality))) +
-          geom_line() +
-          geom_point(size = 2) +
-          labs(x = "Period", y = "Individuals Count", color = "") +
-          scale_y_continuous(limits = c(0, NA)) +
+        p <- ggplot(data$aggregated_data, aes(x = period, y = count, fill = species_name)) +
+          geom_bar(stat = "identity", position = bar_position) +
+          labs(x = "Period", y = "Individuals Count", fill = "Species") +
           facet_wrap(~ locality) +
-          theme_minimal(base_size = 14) %+replace%
-          theme(plot.title = element_text(size = rel(1), face = "bold"),
-                strip.text = element_text(size = rel(1), face = "bold"),
-                axis.text = element_text(size = 12),
-                legend.position = "bottom",
-                axis.text.x = element_text(angle = 90)) +
-          scale_color_brewer(palette = "Set1")
+          theme_minimal(base_size = 14) +
+          theme(
+            strip.text = element_text(size = rel(1.3), face = "bold"),
+            axis.text = element_text(size = rel(1)),
+            legend.position = "bottom",
+            legend.text = element_text(size = rel(1)),
+            legend.title = element_text(size = rel(1)),
+            legend.key.size = unit(1.5, "lines"),
+            axis.text.x = element_text(angle = 90)
+          ) +
+          scale_fill_brewer(palette = "Set1")
         
-      } else {             
-        title <- sprintf("Single line per species represents combined total across: %s", 
+      } else {
+        title <- sprintf("Combined observations across: %s", 
                          paste(data$localities, collapse = ", "))
         
-        ggplot(data$aggregated_data, aes(x = period, y = count, color = species_name, group = species_name)) +
-          geom_line() + geom_point(size = 2) +
-          labs(title = title, x = "Period", y = "Individuals Count", color = "") +
-          scale_y_continuous(limits = c(0, NA)) +
-          theme_minimal(base_size = 14) %+replace%
-          theme(plot.title = element_text(size = rel(1), face = "bold"),
-                axis.text = element_text(size = 12),
-                legend.position = "bottom") +
-          scale_color_brewer(palette = "Set1")
+        p <- ggplot(data$aggregated_data, aes(x = period, y = count, fill = species_name)) +
+          geom_bar(stat = "identity", position = bar_position) +
+          labs(title = title, x = "Period", y = "Individuals Count", fill = "Species") +
+          theme_minimal(base_size = 14) +
+          theme(
+            plot.title = element_text(size = rel(1.3), face = "bold"),
+            axis.text = element_text(size = rel(1)),
+            legend.position = "bottom",
+            legend.text = element_text(size = rel(1)),  
+            legend.title = element_text(size = rel(1)),
+            legend.key.size = unit(1.5, "lines")
+          ) +
+          scale_fill_brewer(palette = "Set1")
       }
+      
+      # Conditionally add data labels
+      if (input$data_labels) {
+        if (input$stacked) {
+          p <- p + geom_text(aes(label = ifelse(count == 0, "", count)), 
+                             position = position_stack(vjust = 0.5), 
+                             size = 5, 
+                             color = "white")
+        } else {
+          p <- p + geom_text(aes(y = count/2, label = ifelse(count == 0, "", count)), 
+                             position = position_dodge(width = 0.9), 
+                             size = 5, 
+                             color = "white")
+        }
+      }
+      
+      print(p)
     })
+    
+    
+    
+    
     
   })
 }

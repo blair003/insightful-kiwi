@@ -16,3 +16,23 @@ install_if_missing_github <- function(packages) {
     }
   }
 }
+
+
+
+
+ensure_directories_exist <- function(dirs) {
+  if (length(dirs) == 0) {
+    logger::log_warn("No directories provided to ensure_directories_exist().")
+    return(invisible(NULL))
+  }
+  
+  lapply(names(dirs), function(name) {
+    dir_path <- dirs[[name]]
+    if (!fs::dir_exists(dir_path)) {
+      fs::dir_create(dir_path)
+      logger::log_info(sprintf("Created directory '%s' at path: %s", name, dir_path))
+    } else {
+      logger::log_debug(sprintf("Directory '%s' already exists at path: %s", name, dir_path))
+    }
+  })
+}

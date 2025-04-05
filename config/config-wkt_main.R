@@ -1,3 +1,7 @@
+# This contains configuration options for your project. Take a backup copy before
+# editing. Specify the config to use in global.R 
+# Also see environment.R for environment config
+
 config <- list()
 
 config$meta <- list(
@@ -17,7 +21,7 @@ config$meta <- list(
 
 config$globals <- list(
   # Set logger threshold as required: DEBUG, INFO, SUCCESS, WARN, ERROR, FATAL
-  log_threshold = "WARN",
+  log_threshold = "DEBUG",
   
   # Google analytics code, read in from config/.env
   ga_tag = Sys.getenv("GA_TAG"),
@@ -52,10 +56,10 @@ config$globals <- list(
   rai_norm_hours  = 2000,
   
   # in minutes (decimal), used for the possible duplicate logic
-  dup_detect_threshold = 60.1,
+  dup_detect_threshold = 30.1,
   
   # Show RAI calculations based on net individuals count (excluding duplicates)
-  rai_net_count = FALSE,
+  rai_net_count = TRUE,
   
   # For species that have no observations on a particular line, we create '0' entries 
   # so we can get accurate standard error calculations. The following field determine 
@@ -96,7 +100,7 @@ config$globals <- list(
       # in this list, otherwise you'll end up with two taxonomic entries
       old_scientificName = c("Rattus norvegicus", "Rattus rattus", "Rattus"),
       new_vernacularNames.eng = "Rats",
-      new_vernacularNames.nld = "Ratten",
+      #new_vernacularNames.nld = "Ratten",
       
       # Used in observations and taxonomic
       new_taxonID = "https://www.checklistbank.org/dataset/COL2023/taxon/63QK6",
@@ -119,6 +123,20 @@ config$globals <- list(
       new_taxonRank = "class",
       new_taxon_order = "",
       new_taxon_family = ""
+    ),
+    
+    # Combine Felis and Felis catus into Felis catus
+    # Because the AI detects as Felis, and we only have Felis catus in our area
+    "Felis catus" = list(
+      old_scientificName = c("Felis", "Felis catus"),
+      new_vernacularNames.eng = "domestic cat",
+     # new_vernacularNames.nld = "kat",
+      
+      # Used in observations and taxonomic
+      new_taxonID = "https://www.checklistbank.org/dataset/COL2023/taxon/3DXV3",
+      new_taxonRank = "species",
+      new_taxon_order = "Carnivora",
+      new_taxon_family = "Felidae"
     )
   ),
   
@@ -128,34 +146,69 @@ config$globals <- list(
   # You are limited based on what will fit the default reporting template
   
   spp_classes = list(
-    "protected" = c(
-      "Apteryx mantelli"
-    ),
-    "managed" = c(
+
+    "target" = c(
       "Mustela erminea", 
-      "Mustela nivalis", 
+      "Mustela nivalis",
+      "Mustela putorius furo", 
       "Felis catus", 
       "Rattus"
     ),
-    "watchlist" = c(
-      "Mustela putorius furo", 
+    "interesting" = c(
+      "Apteryx mantelli",
       "Sus scrofa", 
       "Canis lupus familiaris", 
       "Trichosurus vulpecula", 
       "Erinaceus europaeus", 
-      "Mus musculus"
-    ),
-    "monitored" = c(
+      "Mus musculus",
       "Gallirallus australis"
     )
   ),
   
   # Any species not in a class will be put into a class with this name
-  spp_class_unclassified = "general",
+  spp_class_unclassified = "other",
   
   # Determines whether unclassified species are shown in selects
   spp_show_unclassified = FALSE,
   
   # Default height output for all leaflet maps
-  leaflet_height = "calc(100vh - 150px)"
+  leaflet_height = "calc(100vh - 150px)",
+  
+  # By default, we output column names (exploded by underscore), with capitalisation 
+  # applied to each word. The list below lets you completely change the output name. 
+  # Note that get_column_descriptions.R tries to match the new name (right side)
+  
+  # name = "New Name"
+  column_renames = list(
+    locationName = "Location",
+    #  line = "Ln",
+    observationID = "ObID",
+    scientificName = "Species",
+    `vernacularNames.eng` = "Species",
+    # count = "#",
+    individuals_count = "Total Individuals",
+    net_individuals_count = "Net Count",
+    unique_species_count = "Unique Species",
+    individuals_count_protected = "Protected Individuals",
+    individuals_count_managed = "Managed Individuals",
+    individuals_count_watchlist = "Watchlist Individuals",
+    individuals_count_monitored = "Monitored Individuals",
+    deploymentID = "Deployment ID",
+    # camera_hours = "Hours",
+    mean_detection_interval = "Detection Interval",
+    blank_detections_percentage = "Blanks %",
+    blank_detections_count = "Blanks",
+    unknown_detections_count = "Unknowns",
+    possible_duplicates_percentage = "Possible Duplicates %",
+    possible_duplicates_count = "Dup Count?",
+    possible_duplicate = "Dup?",
+    RAI_net = "RAI (Net)",
+    mRAI_SE = "RAI ± SE",
+    mRAI_SE_net = "RAI ± SE (Net)",
+    mmRAI_SE = "Network RAI ± SE",
+    mmRAI_SE_net = "Network RAI ± SE (Net)",
+    encompassed_area_km2 = "Coverage Area (km²)",
+    camera_density_km2 = "Camera Density (per km²)"
+  )
+  
 ) # End of config list

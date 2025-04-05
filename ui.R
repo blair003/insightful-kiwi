@@ -93,11 +93,14 @@ ui <- tagList(
         plotting_module_ui(
           id = "spp_obs_plot_dashboard",
           view = "select_species",
-          choices = core_data$spp_classes_list,
+          choices = core_data$spp_classes,
           selected = c(
-            core_data$spp_classes_list[[1]][1],  # First species from the first list
-            core_data$spp_classes_list[[2]][1],  # First species from the second list
-            core_data$spp_classes_list[[2]][2]   # Second species from the second list
+            core_data$spp_classes[[1]][1],  # First species from the first list
+            core_data$spp_classes[[1]][2],  # First species from the first list
+            core_data$spp_classes[[1]][3]  # First species from the first list
+            
+            #core_data$spp_classes[[2]][1],  # First species from the second list
+            #core_data$spp_classes[[2]][2]   # Second species from the second list
           )
         ),
         plotting_module_ui(
@@ -105,6 +108,10 @@ ui <- tagList(
           view = "select_localities",
           choices = unique(core_data$deps$locality),  # Set choices to unique localities
           selected = unique(core_data$deps$locality)  # Default selection is all localities
+        ),
+        plotting_module_ui(
+          id = "spp_obs_plot_dashboard",
+          view = "select_plot_options"
         )
       ),
       
@@ -113,7 +120,9 @@ ui <- tagList(
       conditionalPanel(
         condition = "input.nav === 'reporting'",
         
-        period_selection_module_ui(id = "primary_period", view = "summary", summary_output_id = "summary_output_reporting"),
+        period_selection_module_ui(id = "primary_period", 
+                                   view = "summary", 
+                                   summary_output_id = "summary_output_reporting")
         
       ), # conditionalPanel
       
@@ -126,10 +135,10 @@ ui <- tagList(
         mapping_module_ui(
           id = "density_map_primary",
           view = "select_species",
-          choices = core_data$spp_classes_list,
+          choices = core_data$spp_classes,
           selected = c(
-            core_data$spp_classes_list[[2]][1],   # First species from the second list
-            core_data$spp_classes_list[[2]][2]   # Second species from the second list
+            core_data$spp_classes[[2]][1],   # First species from the second list
+            core_data$spp_classes[[2]][2]   # Second species from the second list
           )
         ),
         
@@ -173,11 +182,11 @@ ui <- tagList(
         selectizeInput(
           inputId = "explorer_map_selected_species",
           label = tagList(icon("paw"), "Species selection:"),
-          choices = core_data$spp_classes_list,
+          choices = core_data$spp_classes,
           selected = c(
-            core_data$spp_classes_list[[1]][1],  # First species from the first list
-            core_data$spp_classes_list[[2]][1],  # First species from the second list
-            core_data$spp_classes_list[[2]][2]   # Second species from the second list
+            core_data$spp_classes[[1]][1],  # First species from the first list
+            core_data$spp_classes[[2]][1],  # First species from the second list
+            core_data$spp_classes[[2]][2]   # Second species from the second list
           ),
           multiple = TRUE,
           options = list(
@@ -220,7 +229,7 @@ ui <- tagList(
         
           card(
               card_header(
-                tagList(icon("eye"), "Species Observations, grouped by time period")  # Camera icon in header
+                tagList(icon("eye"), "Species Observation, grouped by time period")  
               ),
               plotting_module_ui(id = "spp_obs_plot_dashboard", view = "plot"),
           #  full_screen = TRUE
@@ -363,7 +372,8 @@ ui <- tagList(
             "Data",
             h3("Browse observations shown on the map"),
             p(
-              "The map is showing graphically the (unfiltered) results in this table, subject to limits imposed for species with high counts (see notes tab)."
+              "The map is showing graphically the (unfiltered) results in this table, 
+              subject to limits imposed for species with high counts (see notes tab)."
             ),
             DT::dataTableOutput("network_observations_browse"),
             value = "explorer_map_data"

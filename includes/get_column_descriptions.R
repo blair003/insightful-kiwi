@@ -102,11 +102,10 @@ column_descriptions <- list(
     interest is highlighted. Species in a named class are collectively referred to as 'important species'. 
     The named classes are:<br><br>
     
-    <em>protected:</em> Species under conservation management to maintain or increase population numbers.<br>
-    <em>managed:</em> Species subject to active population control measures.<br>
-    <em>watchlist:</em> Species that are managed when the need arises, but are not the primary focus of species management efforts.<br>
-    <em>monitored:</em> Species tracked primarily for population trends or conservation purposes, where the focus is on observation 
-    and data collection rather than intervention.<br><br>
+    <em>target:</em> Species specifically targetted by the protocol.<br>
+    <em>interesting:</em> Non-target species of most interest<br>
+    <em>other:</em> Not a target species nor as interesting, but still likely to be useful data.
+    <br><br>
     
     Any species not falling into a named class is labelled as %s.
   ", config$globals$spp_class_unclassified),
@@ -151,48 +150,50 @@ column_descriptions <- list(
   ",
     
   "RAI" = sprintf("
-    The RAI (Relative Abundance Index) figures provide an estimate of a species' population on the Line relative 
-    to other species observed on the line.<br><br>
+    The Relative Abundance Index (RAI) provides a standardised measure of species detections within a Line, 
+    facilitating comparisons over time and across Lines. However, it does not directly estimate population size and may 
+    not be comparable between species due to differences in detection probability.
     
-    They are based on the total species count for the line, divided by the total camera hours for all locations 
-    on the line, normalized to %s camera hours. The accuracy of these metrics correlating back to relative species 
-    population is determined by the methodology employed by the monitoring program and the consistent execution of that methodology. 
-    The methodology factors in target species and their behaviours, camera line and camera positioning, deployment duration, 
-    and sampling rates.<br><br>
-    
-    These RAI figures for each Line are the basis for calculating the standard error of the mean RAI for the Locality.
+    This calculation is based on on Individuals Count, divided by the total camera hours for all locations on the line, 
+    normalised to %s camera hours.<br><br>
+
+    The RAI figures for each Line are the basis for calculating the standard error of the mean RAI for the Locality.
   ", config$globals$rai_norm_hours),
     
   "RAI (Net)" = sprintf("
-    The RAI (Relative Abundance Index) figures provide an estimate of a species' population on the Line relative 
-    to other species observed on the line, based on Net Individuals, excluding possible duplicates.<br><br>
+    The Relative Abundance Index (RAI) provides a standardised measure of species detections within a Line, 
+    facilitating comparisons over time and across Lines. However, it does not directly estimate population size and may 
+    not be comparable between species due to differences in detection probability.
     
-    They are based on the total species count for the line, divided by the total camera hours for all locations 
-    on the line, normalized to %s camera hours. The accuracy of these metrics correlating back to relative species 
-    population is determined by the methodology employed by the monitoring program and the consistent execution of that methodology. 
-    The methodology factors in target species and their behaviours, camera line and camera positioning, deployment duration, 
-    and sampling rates.<br><br>
-    
-    These RAI figures for each Line are the basis for calculating the standard error of the mean RAI for the Locality.
+    This calculation is based on on Net Individuals Count (excluding possible duplicates), divided by the total camera hours
+    for all locations on the line, normalised to %s camera hours. <br><br>
+
+    The RAI figures for each Line are the basis for calculating the standard error of the mean RAI for the Locality.
   ", config$globals$rai_norm_hours),
     
   "RAI ± SE" = sprintf("
-    The mean RAI (Relative Abundance Index) provides an estimate of a species' population in a Locality relative to 
-    other species observed. The ± SE (standard error) calculations are based on RAI figures for the species across each 
-    Line in the Locality. All RAI figures have been normalized to %s camera hours.<br><br>
-    
-    The accuracy of these metrics correlating back to relative species population is determined by the methodology 
-    employed by the monitoring program and the consistent execution of that methodology. The methodology factors in 
-    target species and their behaviours, camera line and camera positioning, deployment duration, and sampling rates.
+    RAI ± SE: The Relative Abundance Index (RAI) provides a standardised measure of species detections within a Locality, 
+    facilitating comparisons over time and across Localities. However, it does not directly estimate population size and may 
+    not be comparable between species due to differences in detection probability.
+
+    The ± SE (standard error) is calculated as the standard deviation of RAI across Lines within a Locality, divided by 
+    the square root of the number of Lines. This reflects the variability in detection rates within a Locality.
+
+    RAI values are standardised to %s camera hours to enable more consistent comparisons across deployments.<br><br>
+
+    The accuracy of these metrics in representing species trends depends on the monitoring methodology and its consistent application. 
+    Key methodological factors include target species behavior, camera line and camera positioning, deployment duration, and sampling effort.
   ", config$globals$rai_norm_hours),
     
   "Network RAI ± SE" = "
-    The Network mean RAI (Relative Abundance Index) figure provides an estimate of a species' population across the 
-    entire network (all Localities), relative to other species observed. The ± SE calculations are based on RAI figures 
-    for the species in each Locality.<br><br>
+    The Network RAI (Relative Abundance Index) provides a standardised measure of species detections across the entire project, 
+    facilitating comparisons over time. However, it does not directly estimate population size and may 
+    not be comparable between species due to differences in detection probability.<b,r><br>
     
-    The Network RAI ± SE data is intended to be a quick glance into the overall relative species population. The RAI ± SE 
-    data for each Locality is more relevant to measure the results of control programs, which are normally organized within the Locality.
+    The ± SE calculations are based on RAI figures for the species in each Locality.<br><br>
+    
+    The Network RAI ± SE data is intended to be a quick glance into species detections. The RAI ± SE data for each Locality is 
+    more relevant to measure the results of control programs, which are normally organised within the Locality.
   ",
 
   "Coverage Area (ha)" = "

@@ -89,7 +89,7 @@ collate_reporting_data <- function(start_date, end_date, period_name, reporting_
 
 generate_density_maps <- function(named_class_species, period_name, reports_cache_dir, package_date_string, obs, deps, species_name_type) {
   density_maps <- list()
-  
+ # browser()
   for(i in seq_len(nrow(named_class_species))) {
     species_name_for_file <- as.character(named_class_species[[species_name_type]])[i]
     species_name_safe <- gsub(" ", "_", species_name_for_file)
@@ -99,8 +99,19 @@ generate_density_maps <- function(named_class_species, period_name, reports_cach
     map_png_file_path <- file.path(reports_cache_dir, "density_maps", gsub(" ", "_", paste0(period_name, "_", species_name_safe, "_map_", package_date_string, ".png")))
     
     if (!file.exists(map_png_file_path)) {
+     # browser()
       density_map <- create_density_map(obs, deps, species_scientificName, TRUE)
+      
+      # Save the map as an HTML file
+      # htmlwidgets::saveWidget(density_map, map_html_file_path, selfcontained = TRUE)
       mapview::mapshot(density_map, url = map_html_file_path)
+      
+
+    #  options(chromote.launch.echo_cmd = TRUE)
+    #  options(chromote.launch.args = c("--headless=new", "--remote-debugging-port=0"))
+    #  options(chromote.chrome_args = c("--headless=new", "--remote-debugging-port=0"))
+      
+      
       webshot2::webshot(url = map_html_file_path, file = map_png_file_path)
     }
     
@@ -145,6 +156,7 @@ generate_locality_plots <- function(obs, unique_localities, period_name, reports
 
 
 render_report <- function(period_name, package_date_string, reports_cache_dir, data_to_export) {
+  #browser()
   report_template <- "resources/templates/deployment_report.Rmd"
   report_css <- "resources/templates/custom_report.css"
   
@@ -167,7 +179,7 @@ render_report <- function(period_name, package_date_string, reports_cache_dir, d
 
 
 convert_to_pdf <- function(report_html, report_pdf) {
-  #browser()
+  # browser()
   if (!file.exists(report_pdf)) {
     system2("weasyprint", args = c(shQuote(report_html), shQuote(report_pdf)))
   }

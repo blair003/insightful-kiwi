@@ -24,7 +24,7 @@ get_columns_to_round <- function() {
 
 
 get_table_specification <- function(table_id = NULL) {
-  
+   
   table <- get_table_name_and_view(table_id)
   table_name = table$name
   table_view = table$view
@@ -39,47 +39,58 @@ get_table_specification <- function(table_id = NULL) {
            names_list <- names(config$globals$spp_classes)
            all_classes_list = paste(names_list, collapse = ", ")
            
-           # Initialize an empty list to hold class lists with links
-           classes_list_with_links <- list()
-           
-           # Loop through each class in names_list to generate linked species names
-           for (i in seq_along(names_list)) {
-             class_name <- names_list[i]
-             # Generate linked species names for each class
-             classes_list_with_links[[class_name]] <- generate_linked_species_names(config$globals$spp_classes[[i]],
-                                                                                    core_data$taxonomic,
-                                                                                    config$globals$species_name_type)
-           }
+           # Generate class lists with linked species names
+           classes_with_links <- lapply(
+             seq_along(names_list),
+             function(i) generate_linked_species_names(
+               config$globals$spp_classes[[i]],
+               core_data$taxonomic,
+               config$globals$species_name_type
+             )
+           )
+           names(classes_with_links) <- names_list
            
            # Construct the title and caption
            output_data$title = "Mean RAI ± SE: important species"
            
-           output_data$caption = sprintf("Table showing species mean RAI ± SE per %s camera hours by Locality, for each species in a named class (%s).
-                                          If a species in a named class is absent from this table, it means there were no observations of that species 
-                                         in any Locality during the deployment selection period.", 
-                                         config$globals$rai_norm_hours , all_classes_list)
+           output_data$caption = sprintf(
+              "Table showing species mean RAI ± SE per %s camera hours by Locality, 
+              for each species in a named class (%s). If a species in a named class 
+              is absent from this table, it means there were no observations of that 
+              species in any Locality during the deployment selection period.", 
+              config$globals$rai_norm_hours , all_classes_list)
            
-           # Dynamically construct the footnote based on the actual names and their lists
-           footnote_parts <- sapply(names(classes_list_with_links), function(name) {
-             sprintf("Full <strong>%s</strong> species list: %s", name, classes_list_with_links[[name]])
-           }, USE.NAMES = FALSE)
-           
-           footnote_parts_combined = paste(footnote_parts, collapse = ".<br>")
+           # Construct footnote
+           footnote_parts <- sapply(
+             names(classes_with_links),
+             function(name) sprintf(
+               "Full <strong>%s</strong> species list: %s",
+               name, classes_with_links[[name]]
+             ),
+             USE.NAMES = FALSE
+           )
+           combined_footnote <- paste(footnote_parts, collapse = ".<br>")
            
            if (config$globals$rai_net_count) {
-             output_data$footnote = "The RAI ± SE figures have been calcualted based on Net Individuals Count (i.e. excluding Possible Duplicates)<br><br>"
+             output_data$footnote <- paste(
+               "The RAI ± SE figures have been calculated based on 
+                Net Individuals Count (i.e. excluding Possible Duplicates).<br><br>",
+               combined_footnote
+             )
+           } else {
+             output_data$footnote <- combined_footnote
            }
            
-           output_data$footnote = paste(output_data$footnote, footnote_parts_combined)
-           
            output_data$fields <- c("ALL")
-         },  
-         
+         },
          
          "deployments_browse" = {
-           output_data$title = "Deployments browse"
-           output_data$caption = "Table showing deployments included in the deployment selection. Default sorting is by start date, which 
-                         shows the order in which they were deployed."
+           output_data$title <- "Deployments browse"
+           output_data$caption <- paste(
+              "Table showing deployments included in the deployment selection. 
+              Default sorting is by start date, which shows the order in which 
+              they were deployed."
+           )
            
            
            switch(table_view,
@@ -114,7 +125,8 @@ get_table_specification <- function(table_id = NULL) {
 
            switch(table_view,
                   "network" = {
-                    output_data$caption = "Table showing observations during the deployment selection."
+                    output_data$caption <- "Table showing observations during the 
+                    deployment selection."
                     
                     output_data$fields <- c("locality", 
                                             "line", 
@@ -127,7 +139,8 @@ get_table_specification <- function(table_id = NULL) {
                     
                   },
                   "rawdata" = {
-                    output_data$caption = "Table showing all observation records from the entire project."
+                    output_data$caption <- "Table showing all observation records 
+                    from the entire project."
                     
                     output_data$fields <- c("locality", 
                                             "line", 
@@ -142,31 +155,27 @@ get_table_specification <- function(table_id = NULL) {
                     
                   }
            )
-           
-           
-           
-           #      output_data$columnDefs <- list(
-           #         list(targets = 3, className = "nowrap"),   # "Timestamp" with no wrap
-           #         list(targets = 5, className = "nowrap"),   # Output Species name with no wrap
-           #         list(targets = 6, className = "wrap", width = "10%")      # "Possible Duplicate" wrap
-           #       )
-           
          },
          
          
          "observation_viewer" = {
-           output_data$title = "Observations browse"
-           output_data$caption = NULL
-           output_data$fields <- c("locality", "line", "locationName", "timestamp", "count", config$globals$species_name_type, "comments")
+           output_data$title <- "Observations browse"
+           output_data$caption <- NULL
+           output_data$fields <- c("locality", "line", "locationName", "timestamp", 
+                                   "count", config$globals$species_name_type, "comments")
            
          },
          
          
          "camera_monitoring_network_overview" = {
-           output_data$title = "Spatial overview of the network"
-           output_data$caption = "Table showing an overview including spatial data for each Locality that was active during the 
-           deployment selection period. Spatial data has been automatically calculated based on the latittude and longitude coordinates of 
-           each Location, and will not change over time unless camera lines change, or the underlying methodology changes."
+           output_data$title <- "Spatial overview of the network"
+           output_data$caption <- paste(
+              "Table showing an overview including spatial data for each Locality 
+              that was active during the deployment selection period. Spatial data 
+              has been automatically calculated based on the latittude and longitude 
+              coordinates of each Location, and will not change over time unless 
+              camera lines change, or the underlying methodology changes."
+           )
            
            output_data$fields <- c("locality", 
                                    "lines",
@@ -180,11 +189,10 @@ get_table_specification <- function(table_id = NULL) {
          
          
          "deployments_overview" = {
-           
-           #output_data$title = sprintf("Deployments summary, by %s", str_to_title(formatted_table_view))
-           output_data$title = "Deployments summary"
-           output_data$caption = sprintf("Table summarising deployments included in the deployment selection 
-           period, grouped by %s.", str_to_title(formatted_table_view))
+           output_data$title <- "Deployments summary"
+           output_data$caption <- sprintf(
+              "Table summarising deployments included in the deployment selection 
+              period, grouped by %s.", str_to_title(formatted_table_view))
            
            switch(table_view,
                   "locality" = {
@@ -225,10 +233,10 @@ get_table_specification <- function(table_id = NULL) {
          
          
          "observations_overview" = {
-           
-           output_data$title = "Observations summary"
-           output_data$caption = sprintf("Table summarising observations relating to deployments in the deployment 
-           selection period, grouped by %s.", str_to_title(formatted_table_view))
+           output_data$title <- "Observations summary"
+           output_data$caption <- sprintf(
+              "Table summarising observations relating to deployments in the deployment 
+              selection period, grouped by %s.", str_to_title(formatted_table_view))
            
            spp_class_names <- names(config$globals$spp_classes)
            
@@ -266,10 +274,11 @@ get_table_specification <- function(table_id = NULL) {
          },
          
          "spp_summary" = {
-           #  output_data$title = sprintf("Species observations summary, by %s", str_to_title(formatted_table_view))
-           output_data$title = "Species observations summary"
-           output_data$caption = sprintf("Table summarising species observations, grouped by '%s'. By default this
-           table is arranged by species class, most important at top.", str_to_title(formatted_table_view))
+           output_data$title <- "Species observations summary"
+           output_data$caption <- sprintf(
+              "Table summarising species observations, grouped by '%s'. By default 
+              this table is arranged by species class, most important at top.", 
+              str_to_title(formatted_table_view))
            
            
            switch(table_view,
@@ -296,17 +305,30 @@ get_table_specification <- function(table_id = NULL) {
                     
                     if (config$globals$rai_net_count) {
                       output_data$fields <- c(output_data$fields, "RAI_net")
-                      output_data$footnote <-  "The RAI figures have been calculated based on Net Individuals Count (i.e. excluding Possible Duplicates)<br><br>"
+                      output_data$footnote <- paste(
+                        "The RAI figures have been calculated based on Net Individuals 
+                        Count (i.e. excluding Possible Duplicates)<br><br>"
+                      )
                     } else {
                       output_data$fields <- c(output_data$fields, "RAI")
-                      output_data$footnote <-  sprintf("All RAI calculations are based on Individuals Count, <strong>including</strong> Possible Duplicates.")
+                      output_data$footnote <- paste(
+                        "All RAI calculations are based on Individuals Count, 
+                        <strong>including</strong> Possible Duplicates."
+                      )
                     }
                     
                     if (config$globals$spp_summary_rm_zeros$line) {
-                      output_data$footnote <-  paste(output_data$footnote, "For the purpose of calculating accurate standard error (SE) figures to accompany mean RAI calculations, 
-                      we create a '0' count record for every species on every Line that contained no observations of that species. 
-                      However, the configuration option to remove records where the Individuals Count is 0 (after performing SE calcualtions) 
-                      is enabled for this table. You will only see a record if there were observations of that species on that Line within that Locality.")
+                      output_data$footnote <-  paste(
+                          output_data$footnote, 
+                          "For the purpose of calculating accurate standard error (SE) 
+                          figures to accompany mean RAI calculations, we create a '0' 
+                          count record for every species on every Line that contained 
+                          no observations of that species. However, the configuration 
+                          option to remove records where the Individuals Count is 0 
+                          (after performing SE calcualtions) is enabled for this table. 
+                          You will only see a record if there were observations of that 
+                          species on that Line within that Locality."
+                      )
                     }
                     
                   },
@@ -321,34 +343,47 @@ get_table_specification <- function(table_id = NULL) {
                     
                     if (config$globals$rai_net_count) {
                       output_data$fields <- c(output_data$fields, "mRAI_SE_net")
-                      output_data$footnote <-  sprintf("All RAI calculations are based on Net Individuals Count (i.e. excluding Possible Duplicates).")
+                      output_data$footnote <-  paste(
+                        "All RAI calculations are based on Net Individuals Count 
+                        (i.e. excluding Possible Duplicates).<br><br>"
+                      )
                     } else {
                       output_data$fields <- c(output_data$fields, "mRAI_SE")
-                      output_data$footnote <-  sprintf("All RAI calculations are based on Individuals Count, <strong>including</strong> Possible Duplicates.")
+                      output_data$footnote <- paste(
+                        "All RAI calculations are based on Individuals Count,
+                        <strong>including</strong> Possible Duplicates.<br><br>"
+                      )
                     }
                     
                     if (config$globals$spp_summary_rm_zeros$locality) {
-                      output_data$footnote <-   paste(output_data$footnote, "For the purpose of calculating accurate standard error (SE) figures 
-                      to accompany mean RAI calculations, we create a '0' count record for every species on every Line that contained no observations of 
-                      that species. This Locality view is an aggreation of the Line data, and would show these '0' entries. However, the configuration 
-                      option to remove records where the Individuals Count is 0 (after performing SE calcualtions) is enabled for this table. You will 
-                      only see a record if there were observations of that species in that Locality.")
+                      output_data$footnote <- paste(
+                        output_data$footnote, 
+                        "For the purpose of calculating accurate standard error (SE) 
+                        figures to accompany mean RAI calculations, we create a '0' 
+                        count record for every species on every Line that contained 
+                        no observations of that species. This Locality view is an 
+                        aggreation of the Line data, and would show these '0' entries. 
+                        However, the configuration option to remove records where the 
+                        Individuals Count is 0 (after performing SE calcualtions) is 
+                        enabled for this table. You will only see a record if there 
+                        were observations of that species in that Locality."
+                      )
                     }
                     
                   },
-                  # Not currenty showing Network RAI ± SE (mmRAI_SE) , possibly too confusing and Locality data better
+
                   "network" = {
                     
-                    output_data$caption = "Table summarising species observations across the entire network. By default this
-                     table is arranged by species class, most important at top."
+                    output_data$caption <- paste(
+                      "Table summarising species observations across the entire network. 
+                      By default this table is arranged by species class, most important at top."
+                    )
+                    
                     output_data$fields <- c(config$globals$species_name_type, 
                                             "species_class", 
                                             "individuals_count",
                                             "possible_duplicates_count",
                                             "net_individuals_count")
-                    
-                    # output_data$footnote <- "NOTE: The Network RAI ± SE is the mean RAI of the species across the entire camera monitoring
-                    # network (all Localities), with the ± SE data being calculated from the mean RAI data for each Locality."
                     
                   }
            )
@@ -411,10 +446,12 @@ setup_table_output <- function(output,
     HTML(paste0('<h3>', table_spec$title, '</h3>'))
   })
   
-  
+
   output[[table_id]] <- DT::renderDataTable({
-    logger::log_debug(sprintf("setup_table_output() is rendering %s output for %s\n", 
-                              table_type, table_id))
+    logger::log_debug(
+      sprintf("setup_table_output() is rendering %s output for %s\n", 
+              table_type, table_id)
+    )
     
     output_data <- prepare_table_data(data, 
                                       table_id,
@@ -432,7 +469,11 @@ setup_table_output <- function(output,
   })
   
   output[[paste0(table_id, "_footnote")]] <- renderUI({
-    HTML(paste0('<div style="padding-top: 10px;"><small><em>', table_spec$footnote, '</em></small></div>'))
+    HTML(paste0(
+      '<div style="padding-top: 10px;"><small><em>', 
+      table_spec$footnote, 
+      '</em></small></div>')
+    )
   })
   
 }
@@ -490,11 +531,17 @@ setup_kable_output <- function(table_id = NULL,
   # Add bold styling to the totals row if needed
   last_row_index <- nrow(output_data$table_data)
   
-  if ("Locality" %in% names(output_data$table_data) && output_data$table_data[last_row_index, "Locality"] == "Aggregate") {
+  if ("Locality" %in% names(output_data$table_data) && 
+      output_data$table_data[last_row_index, "Locality"] == "Aggregate") {
+    
+    bold_css <- "font-weight: bold; border-top: 2px solid rgba(121, 161, 47, 0.3);"
+    
     table_output <- table_output %>%
-      kableExtra::row_spec(row = last_row_index, extra_css = "font-weight: bold; border-top: 2px solid rgba(121, 161, 47, 0.3);")
+      kableExtra::row_spec(
+        row = last_row_index, 
+        extra_css = bold_css
+      )
   }
-  
   
   if (table_view == "special") {
     # invisible() so it does not output to console
@@ -543,8 +590,8 @@ prepare_table_data <- function(data,
   if ("observationID" %in% names(data) && "observationID" %in% fields) {
     project_id <- data_package$project$id
     truncate_uuid <- TRUE
-    action_type <- "edit_sequence|modal" 
-    #action_type <- "view_sequence"
+    #action_type <- "edit_sequence|modal" 
+    action_type <- "view_sequence|modal"
     
     # Pre-fetch observation-to-sequence mappings to avoid repeated filtering
     observation_to_sequence <- core_data$obs %>%
@@ -553,13 +600,18 @@ prepare_table_data <- function(data,
       filter(observationID %in% selected_data$observationID)
     
     # Convert to a named vector for fast lookup
-    sequence_lookup <- setNames(observation_to_sequence$sequenceID, observation_to_sequence$observationID)
+    sequence_lookup <- setNames(observation_to_sequence$sequenceID, 
+                                observation_to_sequence$observationID)
     
     # Define the hyperlink format based on action_type
     hyperlink_format <- if (startsWith(action_type, "edit_sequence")) {
-      "<a href='https://www.agouti.eu/#/project/%s/annotate/sequence/%s' target='_blank' class='observation-link' data-observationid='%s' data-sequenceid='%s' data-action-type='%s'>%s</a>"
+      "<a href='https://www.agouti.eu/#/project/%s/annotate/sequence/%s' 
+     target='_blank' class='observation-link' 
+     data-observationid='%s' data-sequenceid='%s' 
+     data-action-type='%s'>%s</a>"
     } else if (startsWith(action_type, "view_sequence")) {
-      "<a href='javascript:void(0);' class='observation-link' data-observationid='%s' data-action-type='%s'>%s</a>"
+      "<a href='javascript:void(0);' class='observation-link' 
+     data-observationid='%s' data-action-type='%s'>%s</a>"
     } else {
       stop("Invalid action_type specified.")
     }
@@ -570,7 +622,8 @@ prepare_table_data <- function(data,
       display_id <- if (truncate_uuid) paste0(substr(id, 1, 8), "...") else id
       
       if (startsWith(action_type, "edit_sequence")) {
-        sprintf(hyperlink_format, project_id, sequence_id, id, sequence_id, action_type, display_id)
+        sprintf(hyperlink_format, 
+                project_id, sequence_id, id, sequence_id, action_type, display_id)
       } else {
         sprintf(hyperlink_format, id, action_type, display_id)
       }
@@ -594,17 +647,17 @@ prepare_table_data <- function(data,
 format_fieldnames <- function(data) {
   
   date_columns <- list("start", "end", "timestamp")
-  
-  # Moved to global.R  
-  # source("includes/static_column_rename_override.R")
-  # source("includes/columns_to_round.R")
+
   columns_to_round <- get_columns_to_round()
   
   # Loop through each specified date column name
   for (col_name in date_columns) {
     if (col_name %in% names(data)) {
       # Convert the column to POSIXct with the specified format, they will be chr strings
-      data[[col_name]] <- format(as.POSIXct(data[[col_name]], tz = config$globals$timezone), format = "%Y-%m-%d %H:%M:%S")
+      data[[col_name]] <- format(
+        as.POSIXct(data[[col_name]], tz = config$globals$timezone), 
+        format = "%Y-%m-%d %H:%M:%S"
+      )
     }
   }
   
@@ -645,15 +698,15 @@ format_fieldnames <- function(data) {
     return(formatted_name)
   }
   
-  # Identify columns in data that exist in static_column_rename_override
-  columns_to_rename_override <- intersect(names(data), names(static_column_rename_override))
+  # Identify columns in data that exist in config$globals$column_renames
+  columns_to_rename_override <- intersect(names(data), names(config$globals$column_renames))
   
   # Create a list of renamed columns from columns_to_rename_override so we don't re-rename them
-  renamed_columns <- sapply(columns_to_rename_override, function(col) static_column_rename_override[[col]])
+  renamed_columns <- sapply(columns_to_rename_override, function(col) config$globals$column_renames[[col]])
   
-  # Rename columns in data based on static_column_rename_override
+  # Rename columns in data based on config$globals$column_renames
   for (col in columns_to_rename_override) {
-    new_col_name <- static_column_rename_override[[col]]
+    new_col_name <- config$globals$column_renames[[col]]
     names(data)[names(data) == col] <- new_col_name
   }
   
@@ -679,15 +732,17 @@ enhance_colnames_with_column_help <- function(final_colnames, table_id) {
 
 
 
-# Takes the column names and enhances them with the column_html generated by helper function generate_column_info_link 
+# Takes the column names and enhances them with the column_html generated by 
+# helper function generate_column_info_link 
 generate_colnames_with_html <- function(final_colnames, table_id) {
   
   generate_column_info_link <- function(field, table_id) {
     btn_id <- paste("info_btn", table_id, field, sep = "_")
     # Update the column_html to include a console.log statement for debugging
     column_html <- sprintf(
-      "<i class=\"fa fa-info-circle\" onclick=\"customInfoButtonClickHandler('%s', '%s')\" style=\"cursor: pointer;\"></i>",
-      field, btn_id  # Passing both field and btn_id to the JavaScript function
+      "<i class=\"fa fa-info-circle\" 
+      onclick=\"customInfoButtonClickHandler('%s', '%s')\" style=\"cursor: pointer;\"></i>",
+      field, btn_id
     )
     
     return(column_html)

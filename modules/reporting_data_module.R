@@ -15,7 +15,6 @@ reporting_data_module_server <- function(id, obs, deps) {
       logger::log_info(sprintf("reporting_data_module_server, reporting_data() reactive triggered, %s obs, %s deps.",
                       nrow(obs), nrow(deps)))
 
-
       tryCatch({
         result <- generate_summary_reporting(obs(), deps())
 
@@ -52,7 +51,7 @@ generate_summary_reporting <- function (obs, deps) {
   summary_data <- generate_summary_data(obs, deps)
 
   camera_network_overview <- generate_camera_network_overview(deps)
-  
+  browser()
   return(list(
     camera_network_overview = camera_network_overview,
     summary_data = summary_data,

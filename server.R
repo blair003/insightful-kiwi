@@ -20,7 +20,6 @@ source("modules/reporting_data_module.R")
 source("modules/reporting_visualisations_module.R")
 source("modules/reporting_rendering_module.R")
 
-source("includes/static_column_rename_override.R")
 source("includes/data_preparation_functions.R")
 source("includes/data_presentation_functions.R")
 source("includes/get_column_descriptions.R")
@@ -604,7 +603,7 @@ server <- function(input, output, session) {
   
   # Updated create_observation_viewer_output function
   create_observation_viewer_output <- function(observation_id = NULL, action_type) {
-    browser()
+   # browser()
     # Parse the action_type to extract the action and view_mode
     action_parts <- strsplit(action_type, "\\|")[[1]]
     action <- action_parts[1]      # "view_sequence" or "edit_sequence"
@@ -1014,7 +1013,7 @@ server <- function(input, output, session) {
       }
       
       if (input$report_format == "pdf") {
-    #    browser()
+      #  browser()
         report_pdf <- file.path(reports_cache_dir, gsub(" ", "-", paste0(period_name, "_deployment_report_", package_date_string, ".pdf")))
         convert_to_pdf(report_html, report_pdf)
         file.copy(report_pdf, file, overwrite = TRUE)

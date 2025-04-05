@@ -3,10 +3,11 @@
 process_camtrapdp_package <- function() {
  # browser()
   tryCatch({
+
     # Step 1: Read the camtrapdp data package
     logger::log_info("Starting Step 1: Reading the camtrapdp package")
     package <- read_camtrapdp()
-    
+    #browser()
     # Check for failure to read data
     if (is.null(package)) {
       logger::log_error("Error reading the camtrapdp package with read_camtrapdp()")
@@ -24,7 +25,11 @@ process_camtrapdp_package <- function() {
     
     # Step 2: Transform the observations data
     logger::log_info("Starting Step 2: Consolidating species observations")
-    core_data$obs <- consol_spp_obs(package$data$observations, config$globals$spp_consol_defs)
+    #browser()
+    core_data$obs <- consol_spp_obs(
+      package$data$observations, 
+      config$globals$spp_consol_defs
+    )
     
     if (is.null(core_data$obs)) {
       logger::log_error("Error consolidating species with consol_spp_obs()")
@@ -34,7 +39,11 @@ process_camtrapdp_package <- function() {
     
     # Step 3: Transform the taxonomic data
     logger::log_info("Starting Step 3: Consolidating taxonomic data")
-    core_data$taxonomic <- consol_taxa(package$taxonomic, config$globals$spp_consol_defs)
+    
+    core_data$taxonomic <- consol_taxa(
+      package$taxonomic, 
+      config$globals$spp_consol_defs
+    )
     
     if (is.null(core_data$taxonomic)) {
       logger::log_error("Error consolidating species with consol_taxa()")
@@ -45,7 +54,10 @@ process_camtrapdp_package <- function() {
     # Step 4: Handle media data
     logger::log_info("Starting Step 4: Processing media data")
     core_data$media <- package$data$media %>%
-      select(mediaID, deploymentID, sequenceID, timestamp, filePath, fileName, fileMediatype, favourite)
+      dplyr::select(
+        mediaID, deploymentID, sequenceID, timestamp, filePath, fileName, 
+        fileMediatype, favourite
+      )
     
     # Perform any additional transformations or enhancements as needed
     logger::log_info("Success in Step 4: Data processing complete")
@@ -55,7 +67,7 @@ process_camtrapdp_package <- function() {
     
   }, error = function(e) {
     # Log the error
-    logger::log_error(logger, paste("An error occurred while preparing the data:", e$message))
+    logger::log_error("An error occurred while preparing the data:", e$message)
     stop(paste("An error occurred while preparing the data:", e$message))
   })
 }
@@ -64,7 +76,9 @@ process_camtrapdp_package <- function() {
 
 
 
-create_period_groups <- function(deps, period_grouping_type = NULL, hemisphere = NULL) {
+create_period_groups <- function(deps, 
+                                 period_grouping_type = NULL, 
+                                 hemisphere = NULL) {
   tryCatch({
   #  browser()
     period_groups <- NULL
@@ -74,8 +88,9 @@ create_period_groups <- function(deps, period_grouping_type = NULL, hemisphere =
       period_groups <- create_seasons_available_list(deps, hemisphere)
     } else {
       # Placeholder for other grouping types in the future
-      logger::log_warn(paste("Unhandled period grouping type:", period_grouping_type))
-      stop(paste("No valid period grouping method found for the provided type:", period_grouping_type))
+      logger::log_warn("Unhandled period grouping type:", period_grouping_type)
+      stop(paste("No valid period grouping method found for the provided type:", 
+                 period_grouping_type))
     }
     
     # Check if period_groups was successfully created
@@ -83,11 +98,12 @@ create_period_groups <- function(deps, period_grouping_type = NULL, hemisphere =
       stop(paste("Error creating period groups with method:", period_grouping_type))
     }
     
-    logger::log_info(paste("Period groups created successfully with method:", period_grouping_type))
+    logger::log_info("Period groups created successfully with method:", 
+                     period_grouping_type)
     return(period_groups)
     
   }, error = function(e) {
-    logger::log_error(paste("An error occurred while creating period groups:", e$message))
+    logger::log_error("An error occurred while creating period groups:", e$message)
     stop(e)  # Propagate the original error message
   })
 }
@@ -130,100 +146,146 @@ enhance_core_data <- function(obs, deps, period_groups) {
   
   # Try-catch block for period grouping and filtering
   deps <- tryCatch({
-      # Filter out the "ALL" entry, if it exists
-      filtered_periods <- period_groups[!names(period_groups) %in% "ALL"]
-      period_levels <- names(filtered_periods)
-      
-      # Determine period for a given date
-      determine_period <- function(date) {
-        for (period_name in period_levels) {
-          period <- filtered_periods[[period_name]]
-          if (date >= period$start_date & date <= period$end_date) {
-            return(period_name)
-          }
+    # Filter out the "ALL" entry, if it exists
+    filtered_periods <- period_groups[!names(period_groups) %in% "ALL"]
+    period_levels <- names(filtered_periods)
+    
+    # Determine period for a given date
+    determine_period <- function(date) {
+      for (period_name in period_levels) {
+        period <- filtered_periods[[period_name]]
+        if (date >= period$start_date & date <= period$end_date) {
+          return(period_name)
         }
-        return(NA)
       }
-      
-      # Add period to deployments
-      deps <- deps %>%
-        mutate(
-          period = factor(sapply(start, determine_period), levels = period_levels)
-        ) %>%
-        select(-c(coordinateUncertainty, timestampIssues, session, array, featureType, habitat, tags, `_id`)) %>%
-        arrange(start)
+      return(NA)
+    }
+    
+    # Add period to deployments and clean up fields
+    deps <- deps %>%
+      dplyr::mutate(
+        period = factor(
+          sapply(start, determine_period), 
+          levels = period_levels
+        )
+      ) %>%
+      dplyr::select(
+        -c(coordinateUncertainty, timestampIssues, session, array, featureType, 
+           habitat, tags, `_id`)
+      ) %>%
+      dplyr::arrange(start)
+    
     deps
   }, error = function(e) {
-    logger::log_error("Error processing period groups in enhance_core_data: ", e$message)
+    logger::log_error(
+      "Error processing period groups in enhance_core_data: ", e$message
+    )
     stop(e)
   })
   
+  #browser()
   # Summarizing observations and adding them to deployments
   obs_summary <- obs %>%
-    select(deploymentID, observationType, observationID) %>%
+    dplyr::select(deploymentID, observationType, observationID) %>%
     dplyr::filter(deploymentID %in% deps$deploymentID) %>%
-    group_by(deploymentID) %>%
-    summarise(
-      blank_detections_count = sum(observationType == "blank"),
-      unknown_detections_count = sum(observationType == "unknown"),
-      animal_detections_count = sum(observationType == "animal"),
-      .groups = 'drop'
+    dplyr::group_by(deploymentID) %>%
+    dplyr::count(deploymentID, observationType, name = "count") %>%
+    tidyr::pivot_wider(
+      names_from = observationType,
+      values_from = count,
+      values_fill = 0,
+      names_glue = "{observationType}_detections_count"
     )
 
 
-
-  
   deps <- tryCatch({
     deps %>%
-      left_join(obs_summary, by = "deploymentID") %>%
-      mutate(
+      dplyr::left_join(obs_summary, by = "deploymentID") %>%
+      dplyr::mutate(
+        # Calculate camera hours
         camera_hours = as.numeric(difftime(end, start, units = "hours")),
         
         # Extract locality as everything before the first space
-        locality = unlist(config$meta$localities_list[str_extract(locationName, "^[^ ]+")]),
+        locality = unlist(
+          config$meta$localities_list[
+            str_extract(locationName, "^[^ ]+")
+          ]
+        ),
         
         # Extract line as the number between the space and underscore
-        line = as.integer(str_extract(locationName, "(?<= )[0-9]+")),
-        
-        blank_detections_count = replace_na(blank_detections_count, 0),
-        unknown_detections_count = replace_na(unknown_detections_count, 0),
-        animal_detections_count = replace_na(animal_detections_count, 0)
-      )
+        line = as.integer(
+          str_extract(locationName, "(?<= )[0-9]+")
+        )
+      ) %>%
+      # Replace NA values with 0 for any detection count columns that exist
+      dplyr::mutate(across(ends_with("_detections_count"), ~ tidyr::replace_na(.x, 0)))
   }, error = function(e) {
     logger::log_error("Error merging observation summary with deployments: ", e$message)
     stop(e)
   })
   
   
+  spp_classes <- lapply(
+    config$globals$spp_classes, 
+    function(x) tolower(unlist(x))
+  )
   
-  spp_classes <- lapply(config$globals$spp_classes, function(x) tolower(unlist(x)))
-  #browser()
   # Processing observations and joining with deployments
   obs_merged <- tryCatch({
     obs %>%
-      dplyr::filter(deploymentID %in% deps$deploymentID) %>%
-      dplyr::filter(observationType == "animal") %>%
-      select(-c(mediaID, observationType, cameraSetup, taxonIDReference, individualID, speed, radius, angle, `_id`, `vernacularNames.nld`)) %>%
-      mutate(
+      dplyr::filter(
+        deploymentID %in% deps$deploymentID,
+        observationType %in% c("animal", "human")
+      ) %>%
+      
+      # Remove fields we never need
+      dplyr::select(
+        -c(
+          mediaID, cameraSetup, taxonIDReference, individualID, 
+          speed, radius, angle, `_id`, `vernacularNames.nld`
+        )
+      ) %>%
+      
+      # Format species names and add lower-case scientific name
+      dplyr::mutate(
         `vernacularNames.eng` = capitalise_first_word(`vernacularNames.eng`),
         scientificName = capitalise_first_word(scientificName),
         scientificName_lower = tolower(scientificName)
       ) %>%
-      left_join(deps %>% select(deploymentID, locationID, locality, line, locationName, longitude, latitude, period), by = "deploymentID") %>%
-      mutate(
+      
+      # Join with deployments and add derived fields
+      dplyr::left_join(
+        deps %>% dplyr::select(
+          deploymentID, locationID, locality, line, locationName, longitude, 
+          latitude, period
+        ),
+        by = "deploymentID"
+      ) %>%
+      dplyr::mutate(
         period = factor(period, levels = period_levels),
         species_class = determine_species_class(scientificName_lower, spp_classes),
         species_rank = create_species_rank(scientificName_lower, spp_classes)
       ) %>%
-      # 1. Arrange by relevant fields to ensure consecutive rows are sorted correctly
-      arrange(deploymentID, scientificName, count, sex, lifeStage, timestamp) %>%
-      # 2. Group by deploymentID, scientificName, count, sex, and lifeStage for duplicate checking within groups
-      group_by(deploymentID, scientificName, count, sex, lifeStage) %>%
-      # 3. Calculate possible_duplicate only within each group
-      mutate(
-        possible_duplicate = difftime(timestamp, lag(timestamp, default = first(timestamp)), units = "mins") <= config$globals$dup_detect_threshold & row_number() > 1
+      
+      # Arrange by relevant fields for possible duplicate checking
+      dplyr::arrange(
+        deploymentID, scientificName, count, sex, lifeStage, timestamp
       ) %>%
-      ungroup()
+      
+      # Group for duplicate checking
+      dplyr::group_by(
+        deploymentID, scientificName, count, sex, lifeStage
+      ) %>%
+      
+      # Mark possible duplicates within groups
+      dplyr::mutate(
+        possible_duplicate = difftime(
+          timestamp, 
+          lag(timestamp, default = first(timestamp)), 
+          units = "mins"
+        ) <= config$globals$dup_detect_threshold & dplyr::row_number() > 1
+      ) %>%
+      dplyr::ungroup()
   }, error = function(e) {
     logger::log_error("Error processing and merging observations: ", e$message)
     stop(e)
@@ -242,9 +304,9 @@ enhance_core_data <- function(obs, deps, period_groups) {
 
 # Finds the camtrap data package and reads it in from csv into R objects
 read_camtrapdp <- function() {
-
+  # browser()
   # Construct file path
-  file_path <- file.path(getwd(), config$env$camtrap_package_dir, "datapackage.json")
+  file_path <- file.path(config$env$dirs$camtrap_package, "datapackage.json")
   
   # Function to check and log problems in a dataset
   check_and_log_problems <- function(data, dataset_name) {
@@ -270,8 +332,8 @@ read_camtrapdp <- function() {
   }, warning = function(w) {
     # Log the warning message using logger::log_warn
     logger::log_warn(paste0("WARNING: ", conditionMessage(w)))
-    # Continue with the normal flow of execution
-    invokeRestart("muffleWarning")  # Prevents  warning from being printed to the console again
+    # Prevents  warning from being printed to the console again
+    invokeRestart("muffleWarning")  
   })
   
   
@@ -279,14 +341,14 @@ read_camtrapdp <- function() {
 }
 
 
-# Consolidates species observations based on spp_consol_defs by overwriting the scientificName, 
-# vernacularNames.eng and taxonID of the matching observations
+# Consolidates species observations based on spp_consol_defs by overwriting the 
+# scientificName, vernacularNames.eng and taxonID of the matching observations
 
 consol_spp_obs <- function(obs, spp_consol_defs) {
   # Convert scientificName in obs to lowercase
   obs$scientificName <- tolower(obs$scientificName)
   
-  for(species in names(spp_consol_defs)) {
+  for (species in names(spp_consol_defs)) {
     def <- spp_consol_defs[[species]]
     
     # Convert species and old scientific names to lowercase for comparison
@@ -296,39 +358,43 @@ consol_spp_obs <- function(obs, spp_consol_defs) {
     # Identify indices where scientificName matches any of the old_scientificName entries
     idx_sci <- which(obs$scientificName %in% old_sci_names_lower)
     
-    # If there are matching indices, update scientificName, vernacularNames.eng, taxonID, and taxonRank
-    if(length(idx_sci) > 0) {
+    # If there are matching indices, update fields
+    if (length(idx_sci) > 0) {
       obs$scientificName[idx_sci] <- species_lower
-      obs$`vernacularNames.eng`[idx_sci] <- def$new_vernacularNames.eng
-      obs$`vernacularNames.nld`[idx_sci] <- def$new_vernacularNames.nld
-      obs$taxonID[idx_sci] <- def$new_taxonID
-      obs$taxonRank[idx_sci] <- def$new_taxonRank
+      if (!is.null(def$new_vernacularNames.eng)) obs$`vernacularNames.eng`[idx_sci] <- def$new_vernacularNames.eng
+      if (!is.null(def$new_vernacularNames.nld)) obs$`vernacularNames.nld`[idx_sci] <- def$new_vernacularNames.nld
+      if (!is.null(def$new_taxonID)) obs$taxonID[idx_sci] <- def$new_taxonID
+      if (!is.null(def$new_taxonRank)) obs$taxonRank[idx_sci] <- def$new_taxonRank
     }
   }
   
   return(obs)
 }
 
+
 # Consolidates taxonomic based on spp_consol_defs by removing taxonomic
 # entries for removed species, and adding a new entry for the remaining species
 
 consol_taxa <- function(taxonomic, spp_consol_defs) {
-  
+ # browser()
   for (species in names(spp_consol_defs)) {
     def <- spp_consol_defs[[species]]
     species_lower <- tolower(species)
     old_sci_names_lower <- tolower(def$old_scientificName)
     
-    # Remove entries in taxonomic where scientificName matches any old_scientificName (case-insensitive check)
+    # Remove entries in taxonomic where scientificName matches any old_scientificName
     taxonomic <- taxonomic[!sapply(taxonomic, function(entry) {
       tolower(entry$scientificName) %in% old_sci_names_lower
     })]
     
-    # Create a new entry for the updated species with available fields from spp_consol_defs
-    new_entry <- list(
-      scientificName = species,  # Preserve original case from spp_consol_defs
-      vernacularNames = list(eng = def$new_vernacularNames.eng, nld = def$new_vernacularNames.nld)
-    )
+    # Initialize new entry with scientific name
+    new_entry <- list(scientificName = species)  # Preserve original case
+    
+    # Add vernacular names only if they exist
+    vernacular_names <- list()
+    if (!is.null(def$new_vernacularNames.eng)) vernacular_names$eng <- def$new_vernacularNames.eng
+    if (!is.null(def$new_vernacularNames.nld)) vernacular_names$nld <- def$new_vernacularNames.nld
+    if (length(vernacular_names) > 0) new_entry$vernacularNames <- vernacular_names
     
     # Conditionally add fields if they exist in the definition
     if (!is.null(def$new_taxonID)) new_entry$taxonID <- def$new_taxonID
@@ -347,6 +413,7 @@ consol_taxa <- function(taxonomic, spp_consol_defs) {
 
 
 
+
 # Determine the season based on the month
 get_season <- function(month, hemisphere) {
   hemisphere <- tolower(hemisphere)
@@ -357,8 +424,11 @@ get_season <- function(month, hemisphere) {
   
   # Define seasons for both hemispheres
   seasons <- list(
-    north = c("Winter", "Winter", "Spring", "Spring", "Spring", "Summer", "Summer", "Summer", "Fall", "Fall", "Fall", "Winter"),
-    south = c("Summer", "Summer", "Autumn", "Autumn", "Autumn", "Winter", "Winter", "Winter", "Spring", "Spring", "Spring", "Summer")
+    north = c("Winter", "Winter", "Spring", "Spring", "Spring", 
+              "Summer", "Summer", "Summer", "Fall", "Fall", "Fall", "Winter"),
+    
+    south = c("Summer", "Summer", "Autumn", "Autumn", "Autumn", 
+              "Winter", "Winter", "Winter", "Spring", "Spring", "Spring", "Summer")
   )
   
   # Map months to seasons using the defined vectors
@@ -433,19 +503,35 @@ create_seasons_available_list <- function(deps, hemisphere) {
 
 get_species_name <- function(scientific_name, nametype) {
   scientific_name_lower <- tolower(scientific_name)
-  species_entry <- core_data$taxonomic[sapply(core_data$taxonomic, function(x) tolower(x$scientificName) == scientific_name_lower)]
   
-  if (length(species_entry) == 0) return(scientific_name)
+  # Find the species entry by matching scientificName
+  species_entry <- core_data$taxonomic[
+    sapply(core_data$taxonomic, function(x) tolower(x$scientificName) == scientific_name_lower)
+  ]
+  
+  # Return the scientific name if no match is found
+  if (length(species_entry) == 0) {
+    return(scientific_name)
+  }
   
   species_entry <- species_entry[[1]]
-  if (nametype == "scientificName") return(species_entry$scientificName)
   
-  vernacular_name <- species_entry$vernacularNames[[sub("vernacularNames\\.", "", nametype)]]
-  if (is.null(vernacular_name) || is.na(vernacular_name)) return(species_entry$scientificName)
+  # Return the scientific name if nametype matches
+  if (nametype == "scientificName") {
+    return(species_entry$scientificName)
+  }
   
-  vernacular_name <- capitalise_first_word(vernacular_name)
+  # Extract the vernacular name based on nametype
+  vernacular_key <- sub("vernacularNames\\.", "", nametype)
+  vernacular_name <- species_entry$vernacularNames[[vernacular_key]]
   
-  return(vernacular_name)
+  # Return scientific name if vernacular name is missing or NA
+  if (is.null(vernacular_name) || is.na(vernacular_name)) {
+    return(species_entry$scientificName)
+  }
+  
+  # Capitalize the vernacular name and return it
+  return(capitalise_first_word(vernacular_name))
 }
 
 
@@ -462,7 +548,7 @@ create_species_list <- function(obs) {
   filter_observed_species <- function(species_list, observed_species) {
     tolower(species_list) %in% observed_species
   }
-  
+  #browser()
   # Helper function to build species list with the desired name type
   build_species_list <- function(species, nametype) {
     setNames(species, sapply(species, get_species_name, nametype = nametype))
@@ -471,8 +557,8 @@ create_species_list <- function(obs) {
   # Get observed species in lowercase
   observed_species <- unique(tolower(obs$scientificName))
   
-  # Create spp_classes_list based on config$globals$spp_classes without filtering
-  spp_classes_list <- setNames(
+  # Create spp_classes list based on config$globals$spp_classes without filtering
+  spp_classes <- setNames(
     lapply(names(config$globals$spp_classes), function(category) {
       species_list <- config$globals$spp_classes[[category]]
       # Build list with all species in config$globals$spp_classes, unfiltered
@@ -489,12 +575,12 @@ create_species_list <- function(obs) {
     
     # Add unclassified species if any
     if (length(uncategorised_species) > 0) {
-      spp_classes_list[[tools::toTitleCase(config$globals$spp_class_unclassified)]] <- 
+      spp_classes[[tools::toTitleCase(config$globals$spp_class_unclassified)]] <- 
         build_species_list(uncategorised_species, config$globals$species_name_type)
     }
   }
   
-  return(spp_classes_list)
+  return(spp_classes)
 }
 
 

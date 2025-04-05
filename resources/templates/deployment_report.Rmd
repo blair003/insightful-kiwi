@@ -574,7 +574,7 @@ setup_kable_output(table_id = "locality_camera_monitoring_network_overview",
                    heading_level = "###"
                    )
 
-generate_column_descriptions(c("Coverage Area (km²)", "Camera Density (per km²)", "Mean Location Pair Spacing", "Location Pair Exceptions"))
+generate_column_descriptions(c("Coverage Area (ha)", "Camera Density (per hectare)", "Mean Location Pair Spacing", "Location Pair Exceptions"))
 ```
 
 <!-- Page header and page break for printing -->
