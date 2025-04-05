@@ -7,6 +7,7 @@ Dockerfile
 config/*
 !config/environment.R
 !config/config-wkt_main.R
+!config/config-wkt_ohiwa_forest.R
 extdata/datapackage.json
 extdata/deployments.csv
 extdata/media.csv
