@@ -242,7 +242,7 @@ setup_kable_output(table_id = "locality_deployments_overview",
                    heading_level = "##"
                    )
 
-generate_column_descriptions(c("Camera Hours", "Animal Detections", "Mean Detection Interval"))
+generate_column_descriptions(c("Camera Hours", "Animal Detections", "Detection Interval"))
 ```
 
 

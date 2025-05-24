@@ -15,6 +15,8 @@ library(dotenv)
 library(logger)
 # fs, jsonlite, devtools will be loaded later by the comprehensive lapply call,
 # or you can load them here if their functions are directly called before that.
+logger::log_formatter(logger::formatter_sprintf)
+
 
 # 4. Load environment variables (dotenv is now available)
 dotenv::load_dot_env("config/.env")

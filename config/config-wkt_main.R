@@ -207,8 +207,8 @@ config$globals <- list(
     mRAI_SE_net = "RAI ± SE (Net)",
     mmRAI_SE = "Network RAI ± SE",
     mmRAI_SE_net = "Network RAI ± SE (Net)",
-    encompassed_area_km2 = "Coverage Area (km²)",
-    camera_density_km2 = "Camera Density (per km²)"
+    encompassed_area_ha = "Coverage Area (ha)",
+    camera_density_ha = "Camera Density (per ha)"
   )
   
 ) # End of config list

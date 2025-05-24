@@ -9,7 +9,7 @@ ui <- tagList(
       'dashboard': true,
       'reporting': true,
       'density_map': true,
-      'explorer_map': true,
+      'observation_map': true,
       'raw_data': false
     };
     
@@ -62,7 +62,7 @@ ui <- tagList(
       id = "global_sidebar",
       
       conditionalPanel(
-        condition = "['reporting', 'explorer_map'].includes(input.nav) || 
+        condition = "['reporting', 'observation_map'].includes(input.nav) || 
         (input.nav === 'density_map' && input.density_map_tabs === 'primary')",
 
         period_selection_module_ui(
@@ -96,8 +96,8 @@ ui <- tagList(
           choices = core_data$spp_classes,
           selected = c(
             core_data$spp_classes[[1]][1],  # First species from the first list
-            core_data$spp_classes[[1]][2],  # First species from the first list
-            core_data$spp_classes[[1]][3]  # First species from the first list
+            core_data$spp_classes[[1]][2],  # Second species from the first list
+            core_data$spp_classes[[1]][3]  # Third species from the first list
             
             #core_data$spp_classes[[2]][1],  # First species from the second list
             #core_data$spp_classes[[2]][2]   # Second species from the second list
@@ -137,8 +137,9 @@ ui <- tagList(
           view = "select_species",
           choices = core_data$spp_classes,
           selected = c(
-            core_data$spp_classes[[2]][1],   # First species from the second list
-            core_data$spp_classes[[2]][2]   # Second species from the second list
+            core_data$spp_classes[[1]][1],  # First species from the first list
+            core_data$spp_classes[[1]][2],  # Second species from the first list
+            core_data$spp_classes[[1]][3]  # Third species from the first list
           )
         ),
         
@@ -149,15 +150,15 @@ ui <- tagList(
           selected = unique(core_data$deps$locality)  # Default selection is all localities
         ),
         
-        hr()
+        hr(),
+        
+        div(class = "sidebar_heading", "OBSERVATIONS SUMMARY"),
         
       ), # conditionalPanel
       
       conditionalPanel(
         condition = "input.nav === 'density_map' && input.density_map_tabs === 'primary'",
-        
-        div(class = "sidebar_heading", "OBSERVATIONS SUMMARY"),
-        
+
         period_selection_module_ui(
           id = "primary_period", 
           view = "summary", 
@@ -170,48 +171,49 @@ ui <- tagList(
       conditionalPanel(
         condition = "input.nav === 'density_map' && input.density_map_tabs === 'comparative'",
         
-        div(class = "sidebar_heading", "OBSERVATIONS SUMMARY"),
         period_selection_module_ui(id = "comparative_period", view = "summary"),
         mapping_module_ui("density_map_comparative", view = "summary")
       ),
       
-      ######### EXPLORER MAP #########
+      
+      ######### OBSERVATION MAP #########
+      # Global sidebar conditional content for Observation Map
       conditionalPanel(
-        condition = "input.nav === 'explorer_map'",
+        condition = "input.nav === 'observation_map'",
         
-        selectizeInput(
-          inputId = "explorer_map_selected_species",
-          label = tagList(icon("paw"), "Species selection:"),
-          choices = core_data$spp_classes,
-          selected = c(
+        # Call module UI for species selection
+        mapping_module_ui(
+          id = "observation_map", # Must match the server and main layout ID
+          view = "select_species",
+          choices = core_data$spp_classes, # Pass choices
+          selected = c( # Default selected
             core_data$spp_classes[[1]][1],  # First species from the first list
-            core_data$spp_classes[[2]][1],  # First species from the second list
-            core_data$spp_classes[[2]][2]   # Second species from the second list
+            core_data$spp_classes[[1]][2],  # Second species from the first list
+            core_data$spp_classes[[1]][3]  # Third species from the first list
           ),
-          multiple = TRUE,
-          options = list(
-            placeholder = "Select species...",
-            closeAfterSelect = TRUE
-          )
+          label = "Species selection:"
         ),
+        # Call module UI for locality selection
+         mapping_module_ui(
+           id = "observation_map",
+           view = "select_localities",
+           choices = unique(core_data$deps$locality),
+           selected = unique(core_data$deps$locality),
+           label = "Locality selection:"
+         ),
         
- 
-        checkboxInput(
-          inputId = "enhance_map_details",
-          label = "Show area calc"
+        # Call module UI for other options
+        mapping_module_ui(
+          id = "observation_map",
+          view = "select_observation_map_options"
         ),
-        
-#        materialSwitch(
-#          inputId = "enhance_map_details",
-#          label = "Show area calc",
-#          status = "primary"
-#        ),
         
         hr(),
-        # period_selection_module_ui(id = "primary_period", view = "summary", summary_output_id = "summary_output_explorer_map"),
-        uiOutput("explorer_map_obs_summary"),
+        # Call module UI for the sidebar summary display
+        mapping_module_ui(id = "observation_map", view = "observation_map_sidebar_summary")
         
       ), # conditionalPanel
+      
       
       conditionalPanel(
         condition = "input.nav === 'raw_data'",
@@ -353,35 +355,18 @@ ui <- tagList(
           )
         )
       ),
-      
-      nav_panel(
-        title = "Explorer Map",
-        #icon = icon("kiwi-bird"),
-        icon = icon("map"),
-        value = "explorer_map",
-        navset_tab(
-          id = "explorer_map_tabs",  # Assign an ID to track tab changes
-          nav_panel(
-            "Map",
-            leafletOutput("explorer_map", height = config$globals$leaflet_height),
-            uiOutput("explorer_map_textoverlay"),
-            uiOutput("explorer_map_textoverlay_warning"),
-            value = "explorer_map_map"
-          ),
-          nav_panel(
-            "Data",
-            h3("Browse observations shown on the map"),
-            p(
-              "The map is showing graphically the (unfiltered) results in this table, 
-              subject to limits imposed for species with high counts (see notes tab)."
-            ),
-            DT::dataTableOutput("network_observations_browse"),
-            value = "explorer_map_data"
-          )
-        )
-      ),
 
-    
+      ######### OBSERVATION MAP OUTPUT #########
+      nav_panel(
+        title = "Observation Map", 
+        # icon = icon("bullseye"),
+        # icon = icon("layer-group"),
+        icon = icon("map-location-dot"), # Example new icon
+        value = "observation_map",
+        # Call the module UI for the main layout
+        mapping_module_ui(id = "observation_map", view = "observation_map_layout")
+      ),
+        
     
       nav_panel(
         "Raw Data",

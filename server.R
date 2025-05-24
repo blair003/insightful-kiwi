@@ -23,7 +23,7 @@ source("modules/reporting_rendering_module.R")
 source("includes/data_preparation_functions.R")
 source("includes/data_presentation_functions.R")
 source("includes/get_column_descriptions.R")
-source("includes/mapping_functions.R")
+# source("includes/mapping_functions.R")
 source("includes/other_functions.R")
 
 
@@ -195,182 +195,7 @@ server <- function(input, output, session) {
  
 
   
-  # This reactive function filters obs_filtered <- core_data$obs based on selected dates and species 
-  explorer_map_data <- reactive({
-    #browser()
-    req(explorer_map_selected())
-    
-    start_date <- as.Date(primary_period$start_date())  
-    end_date <- as.Date(primary_period$end_date()) 
-    
-    logger::log_info(paste("explorer_map_data() reactive triggered, filtering data based on ", start_date, end_date))
 
-    species_classes_selected <- unlist(
-      lapply(input$explorer_map_selected_species, tolower)
-    )
-
-    #str(species_classes_all)
-    obs_filtered <- core_data$obs %>%
-      dplyr::filter(timestamp <= end_date & timestamp >= start_date) %>%
-      dplyr::filter(tolower(scientificName) %in% species_classes_selected)
-
-    # Create a summary of observations, ordered by species_rank
-    obs_summary <- obs_filtered %>%
-      group_by(!!sym(config$globals$species_name_type), species_class, species_rank) %>%  # Include species_rank in group_by
-      summarise(Count = sum(count, na.rm = TRUE)) %>%
-      ungroup() %>%  # Remove grouping
-      rename(Species = !!sym(config$globals$species_name_type)) %>%
-      arrange(species_rank) %>%  # Now arrange based on species_rank
-      select(Species, Count)  # Keep only Species and Count for display
-    
-    
-    # Iniitalise a list to hold mapping data
-    mapping_data <- list()
-    mapping_data$observations <- obs_filtered
-   # browser()
-    active_locations <- core_data$deps %>%
-      dplyr::filter(core_data$deps$start <= as.Date(end_date) & core_data$deps$end >= as.Date(start_date)) %>%
-      distinct(locationID, .keep_all = TRUE)  # Keep only unique locationIDs and retain other columns
-    
-
-    # Determine which active_locations had no observations
-    no_obs_locations <- active_locations %>% 
-      dplyr::filter(!locationName %in% obs_filtered$locationName) 
-    
-    mapping_data$no_obs_deployments <- no_obs_locations
-      
-    # Clear warning
-    explorer_map_warning_content(NULL)
-    logger::log_info("server.R, explorer_map_data() calling create_map_markers()")
-    prepared_markers <- create_map_markers(mapping_data)
-    
-    # Check for warnings and output them if present
-    if (!is.null(prepared_markers$warnings) && length(prepared_markers$warnings) > 0) {
-      logger::log_info("Warnings detected after create_map_markers() run from explorer_map_data()")
-      # Concatenate all warnings into a single string
-      concatenated_warnings <- paste("Warning: ", prepared_markers$warnings, collapse = "<br>")
-      
-      explorer_map_warning_content(concatenated_warnings)
-    }
-   # browser()
-    # Finally, prepare obs_filtered  for the browse by filtering fields. Doing this last
-    # because we needed lat/lng etc in mapping_data and no_obs_deployments needed deploymentID
-    obs_filtered <- obs_filtered %>%
-      select(locality, line, locationName, timestamp, count, `vernacularNames.eng`, scientificName, possible_duplicate, observationID) 
-    
-    
-    return(list(
-      observations = obs_filtered,       # For Observations by day data table browse
-      obs_summary = obs_summary,
-      prepared_markers = prepared_markers,
-      active_locations = active_locations,
-      no_obs_locations = no_obs_locations
-      )
-    )
-  })
-  
-  
-  observe({
-    req(input$nav == "explorer_map")
-    logger::log_info("server.R, observer req input$nav explorer_map, updating the explorer_map data table...")
-    # Ensure explorer_map_data() is updated reactively
-    species_data <- explorer_map_data()$observations
-    
-    # Setup the table output to react to changes in explorer_map_data()
-    setup_table_output(output, 
-                       table_id = "network_observations_browse", 
-                       data = species_data,
-                       table_type = "paged",
-                       table_order = list(list(3, 'asc')))
-  })
-  
-  output$explorer_map_obs_summary <- renderUI({
-    
-    title <- "<strong>OBSERVATIONS SUMMARY</strong>"
-    
-    # Header: formatted start and end dates
-    start_date <- as.Date(primary_period$start_date())  
-    end_date <- as.Date(primary_period$end_date())
-    
-    formatted_start_date <- paste0("<strong>", format(start_date, "%d %b %Y"), " (", format(start_date, "%a"), ")</strong>")
-    formatted_end_date <- paste0("<strong>", format(end_date, "%d %b %Y"), " (", format(end_date, "%a"), ")</strong>")
-    
-    # Create a table for the date display using kable, with no border or extra styling
-    date_table <- data.frame(
-      Label = c("Start:", "End:"),
-      Date = c(formatted_start_date, formatted_end_date)
-    )
-    
-    header <- knitr::kable(date_table, format = "html", col.names = NULL, escape = FALSE)
-    
-    # Kable summary table
-    data <- explorer_map_data()$obs_summary
-    
-    kable_table <- knitr::kable(data, format = "html", col.names = c("Species", "Count")) %>%
-      kableExtra::kable_styling(
-        full_width = FALSE,
-        bootstrap_options = c("hover", "bordered", "responsive"),
-        font_size = 12
-      )
-    
-    # Footer: No observations count
-    no_obs_locations_count <- nrow(explorer_map_data()$no_obs_locations)
-    #footer <- paste0("<small>There were <strong>", no_obs_locations_count, "</strong> locations that contained no observations of any selected species.</small>")
-   
-    footer <- paste0("<div><small>Locations containing no observations of any selected species: <strong>", no_obs_locations_count, "</strong></small></div>")
-    
-    
-    # Combine all parts into a single HTML output
-    HTML(paste0(title, header, kable_table, footer))
-  })
-  
-
-  
-  
-  explorer_map_markers_summary <- reactiveVal(NULL)
-  
-#  output$explorer_map_textoverlay <- renderUI({
-#    message("output$playback_map_textoverlay rendered")
-#    
-#    start_date <- as.Date(primary_period$start_date())  
-#    end_date <- as.Date(primary_period$end_date()) 
-#    
-#    # Format the dates
-#    formatted_start_date <- format(start_date, "%A, %d %b %Y")
-#    formatted_end_date <- format(end_date, "%A, %d %b %Y")
-#    
-#    # Extract the summary data
-#    summary_data <- explorer_map_markers_summary()
-#
-#    # Convert the summary data to a formatted text
-#    summary_text <- sapply(names(summary_data), function(species) {
-#      paste(species, ": ", summary_data[[species]])
-#    })
-#    
-#    # Combine the date and summary text
-#    text_content <- paste0(
-#      strong(formatted_start_date), " to ", strong(formatted_end_date),
-#      "<br>", 
-#      strong("Markers showing "),
-#      paste(summary_text, collapse = " | ")
-#    )
-#    
-#    tags$div(class = "map-overlay", HTML(text_content))
-#  })
-  
-  # This is not being used currently.
-  explorer_map_warning_content <- reactiveVal(NULL)
-  
-  output$explorer_map_textoverlay_warning <- renderUI({
-    # Check if there is any content to display
-    if (!is.null(explorer_map_warning_content())) {
-      div(
-        class = "map-overlay-warning",  # Check custom.css for this class
-        HTML(explorer_map_warning_content())
-      )
-    }
-  })
-  
 
   current_reporting <- reporting_data_module_server("current_reporting", filtered_obs_primary, filtered_deps_primary)
   current_visualisations <- reporting_visualisations_module_server("current_visualisations", filtered_obs_primary)
@@ -411,12 +236,7 @@ server <- function(input, output, session) {
 #    reporting_rendering_module_ui("current_tables", "reporting_raw_data_browse")
 #  })
   
-  
-  # Reactive values to track if a map is visible. 
-  explorer_map_selected <- reactiveVal(FALSE)
 
-  logger::log_debug("server.R, explorer_map_selected set to FALSE in main server function")
-  
   
   # Updates visibility reactiveVal's based on which which menu is showing
   # Covers standard map features and autoplay features
@@ -424,17 +244,12 @@ server <- function(input, output, session) {
     nav_item <- input$nav
 
     runjs(sprintf("gtag('config', '%s', {'page_path': '/%s'});", config$globals$ga_tag, nav_item))
-    
-    
-    explorer_map_selected(FALSE)
-
-    #message("observeEvent triggered on input$nav, resetting explorer_map_selected and density_map_selected to FALSE")
 
     
     if (nav_item  == "dashboard") {
       # Run latest images
       #message("observeEvent(input$nav, viewing dashboard page -- triggered image update")
-      latest_images(get_latest_images())
+      # latest_images(get_latest_images())
     }
 
     
@@ -461,59 +276,8 @@ server <- function(input, output, session) {
       })
     }
 
-    # Check if 'explorer_map' is the current main menu item
-    if (nav_item == "explorer_map") {
-        explorer_map_selected(TRUE)
-        logger::log_info("observeEvent(input$nav, setting explorer_map_selected to TRUE")
-        
-        
-        output$explorer_map <- renderLeaflet({
-          logger::log_debug("server.R, output$explorer_map renderLeaflet")
-          
-          leaflet() %>%
-            # addProviderTiles(providers$Esri.WorldImagery)
-            addTiles()
-        })
-        
-      } 
 
   })
-  
-  
-  # The req() statement checks to ensure the reactiveVal explorer_map_selected() is true,but it also triggers reactivity 
-  # by referencing the reactive function map_params(). This causes the map to redraw if the window resizes
-  # The check on if (input$explorer_map_tabsetpanel == "Map") { before running update_map() allows markers to be updated on 
-  # data selection changes from the Browse observations tab, but does not run update_map() unless you are viewing it
-  # This observer still triggers update_map even if data has not changed, but I think that is fine and better than not triggering
-  # at all even if data has changed while on a different tabsetpanel.
-  observe({
-    req(explorer_map_selected())
-    
-    if (input$nav == "explorer_map") {
-      logger::log_debug("Main observer for explorer_map triggering")
-
-      
-      # Only actually update the map if we are on the Map tabsetPanel
-      
-      if (input$explorer_map_tabs == "explorer_map_map") {
-        all_markers_data <- explorer_map_data()$prepared_markers
-        active_locations <- explorer_map_data()$active_locations
-        
-        logger::log_debug("Viewing the Map tab, updating map..")
-        res <- update_map(all_markers_data, "explorer_map", active_locations)
-        explorer_map_markers_summary(res)
-        
-        # Check if 'enhance_map_details' switch is on
-        if (!is.null(input$enhance_map_details) && !is.na(input$enhance_map_details) && input$enhance_map_details) {
-          update_map_area("explorer_map", active_locations)
-          # Optionally calculate distances or other spatial data
-          # result <- calculate_distance_between_line_locations(active_locations, config$globals$min_distance_threshold)
-        }
-      }
-    }
-  })
-
-
 
   
   
@@ -883,39 +647,6 @@ server <- function(input, output, session) {
     
   )
   
-  # Tab switch observer
-  observe({
-    req(input$nav == "density_map", input$density_map_tabs == "primary")
-    
-    runjs(sprintf("gtag('event', 'tab_switch', {
-      'event_category': 'sub_tab_navigation',
-      'event_label': 'main_menu_%s_tab_switch',
-      'value': '%s'
-    });", input$nav, input$density_map_tabs))
-    
-    isolate({
-      logger::log_debug("server.R, observer triggered density_map_primary$recenter_map()")
-      density_map_primary$recenter_map()
-    })
-  })
-  
-  # Tab switch observer for comparative map
-  observe({
-    req(input$nav == "density_map", input$density_map_tabs == "comparative")
-    
-    runjs(sprintf("gtag('event', 'tab_switch', {
-      'event_category': 'sub_tab_navigation',
-      'event_label': 'main_menu_%s_tab_switch',
-      'value': '%s'
-    });", input$nav, input$density_map_tabs))
-    
-    isolate({
-      logger::log_debug("server.R, observer triggered density_map_comparative$recenter_map()")
-      density_map_comparative$recenter_map()
-    })
-  })
-  
-
   # Used for the tab names
   output$primary_season_name <- renderText({
     primary_period$period_name()
@@ -926,12 +657,24 @@ server <- function(input, output, session) {
   })
   
   
-#  output$selected_dates_summary_reporting <- renderUI({
-#    output_text <- primary_period$selected()$html_string
-#    HTML(output_text)
-#  })
   
-
+  ########### OBSERVATION MAP FEATURE ###########
+  
+  logger::log_debug("server.R, calling mapping_module_server() for observation_map")
+  
+  observation_map <- NULL
+  
+  observation_map <- mapping_module_server(
+    id = "observation_map",
+    type = "observation",
+    obs = filtered_obs_primary,
+    deps = filtered_deps_primary,
+    period_start_date = primary_period$start_date, # Pass reactive from period_selection_module
+    period_end_date = primary_period$end_date     # Pass reactive from period_selection_module
+    # The module will use its own internal input$selected_species and input$enhance_map_details
+    # from the UI elements defined by mapping_module_ui in the sidebar.
+  )
+  
 
   ########### REPORT DOWNLOAD ###########
   
@@ -972,7 +715,7 @@ server <- function(input, output, session) {
           filtered_deps_primary(),
           config
         )
-        
+      #  browser()
         # Maintain ordering per config$globals$spp_classes
         named_class_species <- reporting_data$spp_summary$locality %>% 
           dplyr::filter(species_class != config$globals$spp_class_unclassified) %>% 

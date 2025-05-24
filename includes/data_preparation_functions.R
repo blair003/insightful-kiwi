@@ -89,35 +89,41 @@ collate_reporting_data <- function(start_date, end_date, period_name, reporting_
 
 generate_density_maps <- function(named_class_species, period_name, reports_cache_dir, package_date_string, obs, deps, species_name_type) {
   density_maps <- list()
- # browser()
   for(i in seq_len(nrow(named_class_species))) {
     species_name_for_file <- as.character(named_class_species[[species_name_type]])[i]
     species_name_safe <- gsub(" ", "_", species_name_for_file)
     species_scientificName <- as.character(named_class_species$scientificName[i])
     
-    map_html_file_path <- file.path(reports_cache_dir, "density_maps", gsub(" ", "_", paste0(period_name, "_", species_name_safe, "_map_", package_date_string, ".html")))
-    map_png_file_path <- file.path(reports_cache_dir, "density_maps", gsub(" ", "_", paste0(period_name, "_", species_name_safe, "_map_", package_date_string, ".png")))
+    # Define file paths
+    html_output_dir <- file.path(reports_cache_dir, "density_maps", "html")
+    png_output_dir <- file.path(reports_cache_dir, "density_maps", "png")
+    
+    # Ensure directories exist
+    if (!dir.exists(html_output_dir)) dir.create(html_output_dir, recursive = TRUE)
+    if (!dir.exists(png_output_dir)) dir.create(png_output_dir, recursive = TRUE)
+    
+    map_html_file_path <- file.path(html_output_dir, gsub(" ", "_", paste0(period_name, "_", species_name_safe, "_map_", package_date_string, ".html")))
+    map_png_file_path <- file.path(png_output_dir, gsub(" ", "_", paste0(period_name, "_", species_name_safe, "_map_", package_date_string, ".png")))
     
     if (!file.exists(map_png_file_path)) {
-     # browser()
       density_map <- create_density_map(obs, deps, species_scientificName, TRUE)
       
-      # Save the map as an HTML file
-      # htmlwidgets::saveWidget(density_map, map_html_file_path, selfcontained = TRUE)
-      mapview::mapshot(density_map, url = map_html_file_path)
+      # Save the map as an HTML file using htmlwidgets::saveWidget
+      htmlwidgets::saveWidget(density_map, map_html_file_path, selfcontained = TRUE, libdir = "map_libs")
       
-
-    #  options(chromote.launch.echo_cmd = TRUE)
-    #  options(chromote.launch.args = c("--headless=new", "--remote-debugging-port=0"))
-    #  options(chromote.chrome_args = c("--headless=new", "--remote-debugging-port=0"))
-      
-      
-      webshot2::webshot(url = map_html_file_path, file = map_png_file_path)
+      # Check if HTML file was created successfully before attempting to webshot it
+      if (file.exists(map_html_file_path)) {
+        logger::log_info(sprintf("Successfully created HTML map: %s", map_html_file_path))
+        # Convert HTML to PNG using webshot2
+        webshot2::webshot(url = map_html_file_path, file = map_png_file_path, delay = 2) # Added a small delay
+        logger::log_info(sprintf("Successfully created PNG map: %s", map_png_file_path))
+      } else {
+        logger::log_error(sprintf("Failed to create HTML map: %s", map_html_file_path))
+      }
     }
     
-    density_maps[[species_name_for_file]] <- gsub(paste0("^", reports_cache_dir, "/"), "", map_png_file_path)
-    
-    
+    # Store the relative path to the PNG for the report
+    density_maps[[species_name_for_file]] <- file.path("density_maps", "png", basename(map_png_file_path))
   }
   
   return(density_maps)
