@@ -51,7 +51,7 @@ generate_summary_reporting <- function (obs, deps) {
   summary_data <- generate_summary_data(obs, deps)
 
   camera_network_overview <- generate_camera_network_overview(deps)
-  browser()
+ # browser()
   return(list(
     camera_network_overview = camera_network_overview,
     summary_data = summary_data,
