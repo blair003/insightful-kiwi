@@ -24,7 +24,6 @@ config$env <- list(
   
 )
 
-
 # Add subdirectories dynamically based off root path
 config$env$dirs$reports <- file.path(config$env$dirs$cache, "reports")
 config$env$dirs$plots <- file.path(config$env$dirs$cache, "plots")
@@ -32,4 +31,3 @@ config$env$dirs$maps <- file.path(config$env$dirs$cache, "maps")
 config$env$dirs$media <- file.path(config$env$dirs$cache, "media")
 
 logger::log_debug("config$env$dirs structure:\n{paste(capture.output(str(config$env$dirs)), collapse = '\n')}")
-

@@ -1,50 +1,41 @@
 # global.R
 
-# 1. Source the installer function FIRST
-# This ensures install_if_missing is defined.
+# This ensures install_if_missing is defined
 source("includes/global_functions.R")
 
-# 2. Define and install truly essential bootstrap CRAN packages
 # These are needed before their first use or before config/environment.R is sourced.
-bootstrap_cran_packages <- c("logger", "dotenv", "fs", "jsonlite", "devtools")
+bootstrap_cran_packages <- c("logger")
 install_if_missing(bootstrap_cran_packages, "cran")
 
-# 3. Now load the absolutely essential libraries that were just ensured to be installed
-# and are needed immediately.
-library(dotenv)
+# Essential libraries we just installed that are needed immediately
+
 library(logger)
-# fs, jsonlite, devtools will be loaded later by the comprehensive lapply call,
-# or you can load them here if their functions are directly called before that.
+# fs, jsonlite, devtools will be loaded later by the comprehensive lapply call
+
 logger::log_formatter(logger::formatter_sprintf)
 
 
-# 4. Load environment variables (dotenv is now available)
-dotenv::load_dot_env("config/.env")
-
-# 5. Source project configurations and environment settings
-# config-wkt_main.R is sourced.
+# Source project configurations and environment settings
 source("config/config-wkt_main.R")
-# source("config/config-wkt_ohiwa_forest.R") # If you switch to this one
+# source("config/config-wkt_ohiwa_forest.R")
 
 # environment.R can now be sourced (it uses logger, which is now available).
 source("config/environment.R")
 
-# 6. Set log threshold (logger is loaded, config$globals from config-wkt_main.R is available)
+# Set log threshold (logger is loaded, config$globals from config-wkt_main.R is available)
 if (!is.null(config$globals$log_threshold)) {
   log_threshold(config$globals$log_threshold)
 } else {
   logger::log_warn("config$globals$log_threshold is not defined. Using default logger threshold.")
 }
 
-# 7. Ensure directories exist (fs is installed, logger is available)
-# ensure_directories_exist is defined in global_functions.R, sourced in step 1.
-ensure_directories_exist(config$env$dirs)
+
 
 ################################################################
 # Main package installation and loading for the application
 ################################################################
 
-# 8. Install all other required CRAN & GitHub packages
+# Install all other required CRAN & GitHub packages
 # install_if_missing will skip packages already installed in the bootstrap phase.
 logger::log_info("Checking and installing main list of CRAN packages...")
 install_if_missing(config$env$required_cran_packages, "cran")
@@ -52,7 +43,7 @@ install_if_missing(config$env$required_cran_packages, "cran")
 logger::log_info("Checking and installing main list of GitHub packages...")
 install_if_missing(config$env$required_github_packages, "github") # devtools is now available
 
-# 9. Load all application packages
+# Load all application packages
 logger::log_info("Loading all required packages...")
 all_packages <- c(
   config$env$required_cran_packages,
@@ -61,7 +52,12 @@ all_packages <- c(
 lapply(all_packages, library, character.only = TRUE)
 logger::log_info("All required packages loaded.")
 
+# Ensure directories exist (fs is installed)
+# ensure_directories_exist is defined in global_functions.R
+ensure_directories_exist(config$env$dirs)
 
+# Load environment variables (dotenv is now available)
+dotenv::load_dot_env("config/.env")
 
 
 # Code to check if this data package has been processed before
@@ -91,7 +87,7 @@ if (file.exists(cache_file)) {
   
   core_data <- process_camtrapdp_package()
   
-  # Trim the
+  # Trim the dataset -- not sure about doing this as part of the source dataset
   if (!is.null(config$globals$custom_start_date)) {
     core_data$deps <- core_data$deps %>%
       dplyr::filter(start >= as.Date(config$globals$custom_start_date))
@@ -116,7 +112,7 @@ if (file.exists(cache_file)) {
   saveRDS(core_data, cache_file)
 }
 
-# Required for UI and server. Dependent on core_data$period_groups
+# These modules are required for UI and server. Dependent on core_data$period_groups
 source("modules/period_selection_module.R")
 source("modules/plotting_module.R")
 source("modules/mapping_module.R")
