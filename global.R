@@ -1,15 +1,17 @@
 # global.R
+# At R console, run: install.packages("shiny") before running this code
 
 # This ensures install_if_missing is defined
 source("includes/global_functions.R")
 
 # These are needed before their first use or before config/environment.R is sourced.
+# Need shiny installed independently of this just to run this code
 bootstrap_cran_packages <- c("logger")
 install_if_missing(bootstrap_cran_packages, "cran")
 
 # Essential libraries we just installed that are needed immediately
-
 library(logger)
+
 # fs, jsonlite, devtools will be loaded later by the comprehensive lapply call
 
 logger::log_formatter(logger::formatter_sprintf)
@@ -52,9 +54,8 @@ all_packages <- c(
 lapply(all_packages, library, character.only = TRUE)
 logger::log_info("All required packages loaded.")
 
-# Ensure directories exist (fs is installed)
-# ensure_directories_exist is defined in global_functions.R
-ensure_directories_exist(config$env$dirs)
+# create_directories_if_missing is defined in global_functions.R
+create_directories_if_missing(config$env$dirs)
 
 # Load environment variables (dotenv is now available)
 dotenv::load_dot_env("config/.env")
@@ -87,7 +88,7 @@ if (file.exists(cache_file)) {
   
   core_data <- process_camtrapdp_package()
   
-  # Trim the dataset -- not sure about doing this as part of the source dataset
+  # Trim the dataset -- a hack for Ohiwa as we want to ignore intial deployments
   if (!is.null(config$globals$custom_start_date)) {
     core_data$deps <- core_data$deps %>%
       dplyr::filter(start >= as.Date(config$globals$custom_start_date))
