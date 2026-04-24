@@ -300,7 +300,13 @@ server <- function(input, output, session) {
     # Further split action_type to determine main action and mode
     action_parts <- strsplit(action_type, "\\|")[[1]]
     main_action <- action_parts[1]  # Extract main action (e.g., "view_sequence")
-    view_mode <- if (length(action_parts) > 1) action_parts[2] else NULL  # Extract mode if present
+    view_mode <- if (length(action_parts) > 1) action_parts[2] else "modal"  # Default to modal if missing
+
+    # Backwards compatibility: if main_action is "modal", it likely meant view_sequence in modal mode
+    if (main_action == "modal") {
+      main_action <- "view_sequence"
+      view_mode <- "modal"
+    }
     
     # Validate that at least one ID is present and valid
     if ((!nchar(observation_id) > 0 || !is_valid_UUID(observation_id)) &&
@@ -322,9 +328,13 @@ server <- function(input, output, session) {
   
   
   # Handle viewing a sequence
-  handle_view_sequence <- function(observation_id, view_mode) {
+  handle_view_sequence <- function(observation_id, view_mode = NULL) {
     #browser()
-    observation_details <- create_observation_viewer_output(observation_id, "view_sequence|modal")
+    if (is.null(view_mode) || view_mode == "") {
+      view_mode <- "modal"
+    }
+    action_type <- paste0("view_sequence|", view_mode)
+    observation_details <- create_observation_viewer_output(observation_id, action_type)
 
     if (!is.null(observation_details)) {
       image_output <- create_observation_images_ui(observation_details$sequence_media_info, 
