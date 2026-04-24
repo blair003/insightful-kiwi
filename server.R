@@ -23,7 +23,6 @@ source("modules/reporting_rendering_module.R")
 source("includes/data_preparation_functions.R")
 source("includes/data_presentation_functions.R")
 source("includes/get_column_descriptions.R")
-# source("includes/mapping_functions.R")
 source("includes/other_functions.R")
 
 
