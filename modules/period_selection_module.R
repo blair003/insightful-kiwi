@@ -109,9 +109,9 @@ period_selection_module_server <- function(id,
         
         # Trigger Google Analytics event when the selection changes
         runjs(sprintf("gtag('event', 'select', {
-          'event_category': '%s', 
-          'event_label': '%s'
-        });", id, input$period_selection))
+          'event_category': %s,
+          'event_label': %s
+        });", jsonlite::toJSON(id, auto_unbox = TRUE), jsonlite::toJSON(input$period_selection, auto_unbox = TRUE)))
       }
     }, ignoreNULL = TRUE)
     
