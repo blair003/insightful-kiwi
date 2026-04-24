@@ -743,7 +743,7 @@ create_marker_from_record <- function(obs_record, scientific_name_lower) {
       "
         <div>
           Sighting of %s (%s) <strong>%s</strong> at %s (%s) on %s. Classified by %s, with %s confidence.
-          <a href='javascript:void(0);' class='observation-link' data-observationid='%s' data-action-type='modal'>View Images</a>
+          <a href='javascript:void(0);' class='observation-link' data-observationid='%s' data-action-type='view_sequence|modal'>View Images</a>
         </div>
       ",
       int_to_text(obs_record$count),
