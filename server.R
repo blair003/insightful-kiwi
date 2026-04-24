@@ -135,15 +135,16 @@ server <- function(input, output, session) {
       logger::log_debug(sprintf("server.R, observer triggered, input$nav is %s", nav_value))
       
       # Debugging: Log the current value of input$nav to the console
-      runjs(sprintf("console.log('Nav changed to: %s');", nav_value))
+      runjs(sprintf("console.log(%s);", jsonlite::toJSON(paste0("Nav changed to: ", nav_value), auto_unbox = TRUE)))
       
       # JavaScript code to handle sidebar toggling. Only applies on non-mobile
       # devices or likely mobile devices in portrait mode (768)
+      nav_json <- jsonlite::toJSON(nav_value, auto_unbox = TRUE)
       runjs(sprintf("
       if (window.innerWidth > 768) {
-        if (defaultSidebarState['%s'] !== undefined) {
-          console.log('Default sidebar state for %s is: ' + defaultSidebarState['%s']);
-          if (defaultSidebarState['%s']) {
+        if (defaultSidebarState[%s] !== undefined) {
+          console.log('Default sidebar state for ' + %s + ' is: ' + defaultSidebarState[%s]);
+          if (defaultSidebarState[%s]) {
             if (!$('.collapse-toggle').attr('aria-expanded') || $('.collapse-toggle').attr('aria-expanded') === 'false') {
               console.log('Opening the sidebar by clicking the toggle button.');
               $('.collapse-toggle').click();  // Click the toggle button to open the sidebar
@@ -158,7 +159,7 @@ server <- function(input, output, session) {
       } else {
         console.log('Skipping sidebar toggle logic on mobile devices.');
       }
-    ", nav_value, nav_value, nav_value, nav_value))
+    ", nav_json, nav_json, nav_json, nav_json))
     })
 
   # Listens for info_field_clicked returning from JS customInfoButtonClickHandler in ui.R head tags
@@ -189,7 +190,7 @@ server <- function(input, output, session) {
       logger::log_warn(paste("Clicked field not recognised:", field_name))
     }
     
-    runjs(sprintf("gtag('event', 'click', {'event_category': 'info_button', 'event_label': '%s'});", field_name))
+    runjs(sprintf("gtag('event', 'click', {'event_category': 'info_button', 'event_label': %s});", jsonlite::toJSON(field_name, auto_unbox = TRUE)))
     
   })
  
@@ -243,7 +244,9 @@ server <- function(input, output, session) {
   observeEvent(input$nav, {
     nav_item <- input$nav
 
-    runjs(sprintf("gtag('config', '%s', {'page_path': '/%s'});", config$globals$ga_tag, nav_item))
+    runjs(sprintf("gtag('config', %s, {'page_path': %s});",
+                  jsonlite::toJSON(config$globals$ga_tag, auto_unbox = TRUE),
+                  jsonlite::toJSON(paste0("/", nav_item), auto_unbox = TRUE)))
 
     
     if (nav_item  == "dashboard") {

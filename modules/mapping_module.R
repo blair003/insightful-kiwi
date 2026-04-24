@@ -181,17 +181,20 @@ mapping_module_server <- function(id,
     #' (Targets the unified MAP_ID)
     invalidate_map_size <- function() {
       logger::log_debug(sprintf("mapping_module_server [%s], ID: %s calling invalidateSize for map: %s", type, id, MAP_ID))
+      map_id_selector_json <- jsonlite::toJSON(paste0("#", MAP_ID), auto_unbox = TRUE)
+      map_id_json <- jsonlite::toJSON(MAP_ID, auto_unbox = TRUE)
+      type_json <- jsonlite::toJSON(type, auto_unbox = TRUE)
       shinyjs::runjs(sprintf(
         'setTimeout(function() {
-           var mapWidget = HTMLWidgets.find("#%s");
+           var mapWidget = HTMLWidgets.find(%s);
            if (mapWidget) {
              var mapObj = mapWidget.getMap();
              if (mapObj) {
                mapObj.invalidateSize();
-               console.log("invalidateSize() called on %s map: %s");
-             } else { console.error("Leaflet map object not found for %s map: %s"); }
-           } else { console.error("Map widget not found for %s map: %s"); }
-         }, 100);', MAP_ID, type, MAP_ID, type, MAP_ID, type, MAP_ID
+               console.log("invalidateSize() called on " + %s + " map: " + %s);
+             } else { console.error("Leaflet map object not found for " + %s + " map: " + %s); }
+           } else { console.error("Map widget not found for " + %s + " map: " + %s); }
+         }, 100);', map_id_selector_json, type_json, map_id_json, type_json, map_id_json, type_json, map_id_json
       ))
     }
     
@@ -329,10 +332,11 @@ mapping_module_server <- function(id,
         shinyjs::runjs(sprintf( # GA event
           "gtag('event','tab_switch',{
              'event_category':'sub_tab_navigation',
-             'event_label':'main_menu_%s_tab_switch',
-             'value':'%s'
+             'event_label': %s,
+             'value': %s
            });",
-          main_nav, sub_tab
+          jsonlite::toJSON(paste0("main_menu_", main_nav, "_tab_switch"), auto_unbox = TRUE),
+          jsonlite::toJSON(sub_tab, auto_unbox = TRUE)
         ))
         
         logger::log_debug(sprintf(
