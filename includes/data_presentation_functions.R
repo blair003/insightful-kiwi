@@ -683,16 +683,7 @@ format_fieldnames <- function(data) {
       formatted_name <- str_to_title(new_name)
     } else {
       # Remove underscore and apply str_to_title to all other column headings
-      formatted_name <- str_replace_all(name, "_", " ")
-      words <- str_split(formatted_name, " ")[[1]]
-      formatted_words <- sapply(words, function(word) {
-        if (toupper(word) != word) {
-          str_to_title(word)
-        } else {
-          word
-        }
-      })
-      formatted_name <- paste(formatted_words, collapse = " ")
+      formatted_name <- str_to_title(str_replace_all(name, "_", " "))
     }
     
     return(formatted_name)
