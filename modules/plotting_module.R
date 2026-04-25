@@ -57,7 +57,7 @@ plotting_module_ui <- function(id,
   } else if (view == "plot") {
     return(
       tagList(
-        plotOutput(ns("obs_plot"))
+        plotOutput(ns("obs_plot"), height = "360px")
       )
     )
   } else if (view == "summary") {

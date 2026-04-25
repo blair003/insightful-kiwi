@@ -27,6 +27,8 @@ ui <- tagList(
       ),
       "InsightfulKiwi"
     ),
+    fillable = FALSE,
+    fillable_mobile = FALSE,
     
     theme = bs_theme(version = 5, font_scale = 0.9, bootswatch = 'default'),
     
@@ -69,7 +71,7 @@ ui <- tagList(
           id = "primary_period",
           view = "select",
           choices = names(core_data$period_groups),
-          selected = names(core_data$period_groups)[config$globals$default_primary_period],
+          selected = core_data$period_defaults$primary_period,
           label = "Primary season:"
         )
       ),
@@ -81,7 +83,7 @@ ui <- tagList(
           "comparative_period",
           view = "select",
           choices = names(core_data$period_groups),
-          selected = names(core_data$period_groups)[config$globals$default_comparative_period], 
+          selected = core_data$period_defaults$comparative_period,
           label = "Comparative season:"
         )
       ),
@@ -228,8 +230,10 @@ ui <- tagList(
         "Dashboard",
         value = "dashboard",
         icon = icon("dashboard"),
-        
+        div(
+          class = "dashboard-page",
           card(
+            class = "dashboard-plot-card",
               card_header(
                 tagList(icon("eye"), "Species Observation, grouped by time period")  
               ),
@@ -238,48 +242,35 @@ ui <- tagList(
             full_screen = FALSE
         ),
           
+        uiOutput("dashboard_current_period_cards"),
+
+        div(class = "dashboard-section-heading", "Whole Project"),
+
         layout_column_wrap(
           width = "180px",
-          
-          card(
-            card_header(
-              tagList(icon("kiwi-bird"), "Kiwi Detections")
-            ),
-            card_body(div(textOutput("dashcard_kiwi_observations"), class = "dashcard-output")),
-            full_screen = FALSE
-          ),
 
-          card(
-            card_header(
-              tagList(icon("otter"), "Mustelid Detections")
-            ),
-            card_body(div(textOutput("dashcard_mustelid_detections"), class = "dashcard-output")),
-            full_screen = FALSE
-          ),
-          
-          card(
-            card_header(
-              tagList(icon("paw"), "Animal Detections")
-            ),
-            card_body(div(textOutput("dashcard_animal_detections"), class = "dashcard-output")),
-            full_screen = FALSE
-          ),
-          
           card(
             card_header(
               tagList(icon("camera"), "Camera Hours")
             ),
-            card_body(div(textOutput("dashcard_camera_hours"), class = "dashcard-output")),
+            card_body(
+              div(textOutput("dashcard_camera_hours"), class = "dashcard-output"),
+              div(textOutput("dashcard_camera_days"), class = "dashcard-period")
+            ),
             full_screen = FALSE
           ),
           
           card(
             card_header(
-              tagList(icon("rotate"), "Data Updated")
+              tagList(icon("rotate"), "Data Package")
             ),
-            card_body(div(textOutput("dashcard_data_updated"), class = "dashcard-output")),
+            card_body(
+              div(textOutput("dashcard_data_updated"), class = "dashcard-output"),
+              div(textOutput("dashcard_data_package_name"), class = "dashcard-period")
+            ),
             full_screen = FALSE
           )
+        )
         )
         
         

@@ -70,6 +70,7 @@ period_selection_module_ui <- function(id,
 #'   POSIXct objects.
 #' @param summary_output_ids A character vector. The output IDs in the UI where
 #'   the formatted date summary should be rendered. Defaults to "dates_summary".
+#' @param selected A character string. The initial selected period name.
 #' @return A list containing reactive expressions:
 #'   \itemize{
 #'     \item `start_date`: A reactive value holding the start date of the
@@ -83,7 +84,8 @@ period_selection_module_ui <- function(id,
 #' 
 period_selection_module_server <- function(id, 
                                            period_groups, 
-                                           summary_output_ids = "dates_summary") {
+                                           summary_output_ids = "dates_summary",
+                                           selected = NULL) {
   
   moduleServer(id, function(input, output, session) {
 
@@ -93,10 +95,16 @@ period_selection_module_server <- function(id,
     start_date <- reactiveVal(NULL)
     end_date <- reactiveVal(NULL)
     period_name <- reactiveVal(NULL)
+
+    initial_period_name <- if (!is.null(selected) && selected %in% names(period_groups)) {
+      selected
+    } else {
+      names(period_groups)[[1]]
+    }
     
-    start_date(period_groups[[1]]$start_date)
-    end_date(period_groups[[1]]$end_date)
-    period_name(period_groups[[1]])
+    start_date(period_groups[[initial_period_name]]$start_date)
+    end_date(period_groups[[initial_period_name]]$end_date)
+    period_name(initial_period_name)
     
     observeEvent(input$period_selection, {
       logger::log_info(sprintf("period_selection_module_server() period_selection changing for %s, new period is %s", 

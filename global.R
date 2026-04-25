@@ -114,6 +114,12 @@ if (file.exists(cache_file)) {
 }
 
 # These modules are required for UI and server. Dependent on core_data$period_groups
+source("includes/period_group_functions.R")
+core_data$period_defaults <- get_default_complete_period_selection(
+  core_data$deps,
+  core_data$period_groups
+)
+
 source("modules/period_selection_module.R")
 source("modules/plotting_module.R")
 source("modules/mapping_module.R")

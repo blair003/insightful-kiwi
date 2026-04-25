@@ -166,6 +166,9 @@ config$globals <- list(
   # Species groups for combined RAI calculations.
   # These are analytical groupings, separate from spp_classes used for presentation/classification.
   rai_groups = list(
+    "Kiwi" = c(
+      "Apteryx mantelli"
+    ),
     "Mustelids" = c(
       "Mustela erminea",
       "Mustela nivalis",

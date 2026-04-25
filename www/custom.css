@@ -6,17 +6,219 @@
 
       /* Dashcards formatting  */
       .card-body {
-        overflow-y: hidden;  /* Ensure no vertical scrollbars */
+        overflow-y: visible; /* Let page-level scrolling handle overflow */
         height: auto;        /* Allow card to expand based on content */
       }
-      
+
+      .dashboard-page {
+        box-sizing: border-box;
+        overflow-x: hidden;
+        overflow-y: visible;
+        padding-bottom: 1rem;
+      }
+
+      .dashboard-page .card,
+      .dashboard-page .bslib-card {
+        flex: 0 0 auto;
+      }
+
+      .dashboard-page .card-body {
+        overflow-y: visible;
+      }
+
+      .dashboard-plot-card .card-body {
+        min-height: 390px;
+      }
+
+      .dashboard-plot-card .shiny-plot-output {
+        min-height: 340px;
+      }
+
       .dashcard-output {
         text-align: center;
         font-size: 24px; /* Adjust this value to your preference */
         font-weight: bold; /* Optional: Bold the text */
         margin: 0 auto; /* Center the text */
+        width: 100%;
       }
-      
+
+      .dashcard-output-rai {
+        font-size: 22px;
+        white-space: nowrap;
+      }
+
+      .dashboard-section-heading {
+        color: #6c757d;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        margin: 0.8rem 0 0.35rem;
+        text-transform: uppercase;
+      }
+
+      .dashboard-locality-heading {
+        color: #495057;
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0.9rem 0 0.35rem;
+      }
+
+      .dashcard-header-row {
+        align-items: center;
+        display: flex;
+        gap: 0.35rem;
+        justify-content: space-between;
+        min-width: 0;
+        width: 100%;
+      }
+
+      .dashcard-header-title {
+        align-items: center;
+        display: inline-flex;
+        gap: 0.35rem;
+        min-width: 0;
+      }
+
+      .dashcard-metric-state {
+        box-sizing: border-box;
+        position: relative;
+        margin: 0;
+        min-height: 100%;
+        padding: 0.45rem 0.5rem;
+        border-left: 4px solid transparent;
+        border-radius: 4px;
+        text-align: center;
+        width: 100%;
+      }
+
+      .dashcard-state-improved {
+        background-color: rgba(25, 135, 84, 0.08);
+        border-left-color: #198754;
+      }
+
+      .dashcard-state-worse {
+        background-color: rgba(176, 42, 55, 0.08);
+        border-left-color: #b02a37;
+      }
+
+      .dashcard-state-mixed {
+        background-color: rgba(207, 104, 25, 0.1);
+        border-left-color: #cf6819;
+      }
+
+      .dashcard-state-unchanged {
+        background-color: rgba(73, 80, 87, 0.06);
+        border-left-color: #adb5bd;
+      }
+
+      .dashcard-state-no_prior,
+      .dashcard-state-unavailable {
+        background-color: rgba(108, 117, 125, 0.06);
+        border-left-color: #ced4da;
+      }
+
+      .dashcard-period {
+        display: block;
+        text-align: center;
+        font-size: 0.78rem;
+        line-height: 1.2;
+        color: #6c757d;
+        margin-top: 0.15rem;
+        width: 100%;
+      }
+
+      .dashcard-comparison {
+        display: block;
+        text-align: center;
+        font-size: 0.8rem;
+        line-height: 1.2;
+        margin-top: 0.2rem;
+        width: 100%;
+      }
+
+      .dashcard-comparison-good {
+        color: #198754;
+      }
+
+      .dashcard-comparison.dashcard-state-improved {
+        color: #198754;
+        background-color: transparent;
+        border-left-color: transparent;
+      }
+
+      .dashcard-comparison-bad {
+        color: #b02a37;
+      }
+
+      .dashcard-comparison.dashcard-state-worse {
+        color: #b02a37;
+        background-color: transparent;
+        border-left-color: transparent;
+      }
+
+      .dashcard-comparison.dashcard-state-mixed {
+        color: #9a4d12;
+        background-color: transparent;
+        border-left-color: transparent;
+      }
+
+      .dashcard-comparison-neutral {
+        color: #495057;
+      }
+
+      .dashcard-comparison.dashcard-state-unchanged {
+        color: #495057;
+        background-color: transparent;
+        border-left-color: transparent;
+      }
+
+      .dashcard-comparison-muted {
+        color: #6c757d;
+      }
+
+      .dashcard-comparison.dashcard-state-no_prior,
+      .dashcard-comparison.dashcard-state-unavailable {
+        color: #6c757d;
+        background-color: transparent;
+        border-left-color: transparent;
+      }
+
+      .dashcard-card-action {
+        position: absolute;
+        top: 0.45rem;
+        right: 0.5rem;
+        z-index: 1;
+      }
+
+      .dashcard-info-link {
+        color: #6c757d;
+        font-size: 0.9rem;
+        line-height: 1;
+        text-decoration: none;
+      }
+
+      .dashcard-info-link:hover {
+        color: #212529;
+      }
+
+      .dashcard-header-info-link {
+        flex: 0 0 auto;
+      }
+
+      .rai-detail-table:not(.rai-period-table) th {
+        width: 42%;
+      }
+
+      .rai-period-table th,
+      .rai-period-table td {
+        vertical-align: top;
+      }
+
+      .rai-period-table thead th,
+      .rai-period-table tbody td {
+        text-align: center;
+      }
+
 
       .sidebar_heading {
         text-align: center;     /* Center the text */

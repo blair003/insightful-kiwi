@@ -105,61 +105,56 @@ get_sequence_media_urls <- function(media) {
 
 update_image_cache <- function(sequence_media_info) {
   local_cache_dir <- "www/cache/images"
+  favourites_dir <- file.path(local_cache_dir, "favourites")
   
-  # Define the favourites directories
-  favourites_dir <- paste0(local_cache_dir, "/favourites")
-
-  # Loop through each image_info item
   for (image_info in sequence_media_info) {
-    favourite <- image_info$favourite
-    
-    path_components <- unlist(strsplit(image_info$filePath, "/"))
-    hash_dir_name <- path_components[length(path_components) - 1]
-    image_dir_path <- file.path(local_cache_dir, hash_dir_name)
-    
-    # Create the directory if it doesn't exist
-    if (!dir.exists(image_dir_path)) {
-      dir.create(image_dir_path, recursive = TRUE)
-    }
-    
-    local_file_path <- file.path(image_dir_path, image_info$fileName)
-    
-    # Download and process the image if it doesn't exist
-    if (!file.exists(local_file_path)) {
-      future({
-        tryCatch({
-          logger::log_info("Downloading image %s to %s", image_info$filePath, local_file_path)
-          download_image(image_info$filePath, local_file_path)
-          resized_file_path <- create_resized_image(local_file_path, config$globals$image_resize_width_pixels)
-          
-          if (!is.character(resized_file_path)) {
-            logger::log_error("Resized file path is not a character vector")
-            stop("Resized file path is not a character vector.")
-          }
-          
-          # If the image is a favourite, store the resized image in the favourites directories
-          if (!is.null(favourite) && favourite == TRUE) {
+    local({
+      image_info_local <- image_info
+      favourite_local <- image_info_local$favourite
+      
+      path_components <- unlist(strsplit(image_info_local$filePath, "/"))
+      hash_dir_name <- path_components[length(path_components) - 1]
+      
+      image_dir_path <- file.path(local_cache_dir, hash_dir_name)
+      dir.create(image_dir_path, recursive = TRUE, showWarnings = FALSE)
+      
+      local_file_path <- file.path(image_dir_path, image_info_local$fileName)
+      source_file_path <- image_info_local$filePath
+      file_name <- image_info_local$fileName
+      
+      if (!file.exists(local_file_path)) {
+        future({
+          tryCatch({
+            logger::log_info("Downloading image %s to %s", source_file_path, local_file_path)
             
-            # Ensure the favourites directories exist
-            if (!dir.exists(favourites_dir)) {
-              dir.create(favourites_dir, recursive = TRUE)
+            download_image(source_file_path, local_file_path)
+            
+            resized_file_path <- create_resized_image(
+              local_file_path,
+              config$globals$image_resize_width_pixels
+            )
+            
+            if (!is.character(resized_file_path)) {
+              stop("Resized file path is not a character vector.")
             }
             
-            # Copy additional versions to make other website functionality e.g. gallery simpler
-            favourite_file_path <- file.path(favourites_dir, basename(resized_file_path))
+            if (!is.null(favourite_local) && favourite_local == TRUE) {
+              dir.create(favourites_dir, recursive = TRUE, showWarnings = FALSE)
+              
+              favourite_file_path <- file.path(favourites_dir, basename(resized_file_path))
+              file.copy(resized_file_path, favourite_file_path, overwrite = TRUE)
+            }
             
-            file.copy(resized_file_path, favourite_file_path)
-
-          }
-        }, error = function(e) {
-          logger::log_error("Error in future block: ", e$message)
-        })
-      }, seed = TRUE) %...>% {
-        logger::log_info("Download and processing completed for: ", local_file_path)
+          }, error = function(e) {
+            logger::log_error("Error in future block for %s: %s", local_file_path, e$message)
+          })
+        }, seed = TRUE) %...>% {
+          logger::log_info("Download and processing completed for: %s", local_file_path)
+        }
+      } else {
+        logger::log_info("Image exists: %s", local_file_path)
       }
-    } else {
-      logger::log_info("Image exists: %s", local_file_path)
-    }
+    })
   }
 }
 

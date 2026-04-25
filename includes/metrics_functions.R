@@ -316,6 +316,319 @@ generate_rai_group_summary <- function(obs, deployment_data, rai_groups, rai_nor
   )
 }
 
+generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net = TRUE) {
+  empty_metric <- list(
+    value = NA_real_,
+    se = NA_real_,
+    formatted_value = "N/A",
+    animal_detections = NA_real_,
+    individuals_count = NA_real_,
+    possible_duplicates_count = NA_real_,
+    net_individuals_count = NA_real_,
+    camera_hours = NA_real_,
+    locality_count = NA_integer_,
+    line_count = NA_integer_,
+    rai_norm_hours = rai_norm_hours,
+    use_net = use_net
+  )
+
+  if (is.null(rai_groups) || is.null(rai_groups[[rai_group]]) || nrow(deps) == 0) {
+    return(empty_metric)
+  }
+
+  deployment_data <- deps %>%
+    group_by(locality, line) %>%
+    summarise(
+      camera_hours = sum(camera_hours, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  rai_group_summary <- generate_rai_group_summary(
+    obs,
+    deployment_data,
+    rai_groups,
+    rai_norm_hours
+  )
+
+  locality_summary <- rai_group_summary$locality
+  network_summary <- rai_group_summary$network
+  if (is.null(locality_summary) || nrow(locality_summary) == 0 || is.null(network_summary) || nrow(network_summary) == 0) {
+    return(empty_metric)
+  }
+
+  group_locality_rows <- locality_summary[locality_summary$rai_group == rai_group, , drop = FALSE]
+  if (nrow(group_locality_rows) == 0) {
+    return(empty_metric)
+  }
+
+  if (nrow(group_locality_rows) == 1) {
+    group_row <- group_locality_rows
+    value_column <- if (isTRUE(use_net)) "mRAI_net" else "mRAI"
+    se_column <- if (isTRUE(use_net)) "SE_filtered" else "SE"
+    formatted_column <- if (isTRUE(use_net)) "mRAI_SE_net" else "mRAI_SE"
+    locality_count <- 1L
+  } else {
+    value_column <- if (isTRUE(use_net)) "mmRAI_net" else "mmRAI"
+    se_column <- if (isTRUE(use_net)) "SE_filtered" else "SE"
+    formatted_column <- if (isTRUE(use_net)) "mmRAI_SE_net" else "mmRAI_SE"
+    if (!all(c(value_column, se_column, formatted_column) %in% names(network_summary))) {
+      return(empty_metric)
+    }
+
+    group_row <- network_summary[network_summary$rai_group == rai_group, , drop = FALSE]
+    if (nrow(group_row) == 0) {
+      return(empty_metric)
+    }
+    locality_count <- as.integer(group_row$mrai_count[1])
+  }
+
+  if (!all(c(value_column, se_column, formatted_column) %in% names(group_row))) {
+    return(empty_metric)
+  }
+
+  group_line_summary <- rai_group_summary$line[rai_group_summary$line$rai_group == rai_group, , drop = FALSE]
+
+  list(
+    value = as.numeric(group_row[[value_column]][1]),
+    se = as.numeric(group_row[[se_column]][1]),
+    formatted_value = as.character(group_row[[formatted_column]][1]),
+    animal_detections = as.numeric(group_row$animal_detections[1]),
+    individuals_count = as.numeric(group_row$individuals_count[1]),
+    possible_duplicates_count = as.numeric(group_row$possible_duplicates_count[1]),
+    net_individuals_count = as.numeric(group_row$net_individuals_count[1]),
+    camera_hours = as.numeric(group_row$camera_hours[1]),
+    locality_count = locality_count,
+    line_count = nrow(group_line_summary),
+    rai_norm_hours = rai_norm_hours,
+    use_net = use_net
+  )
+}
+
+generate_rai_group_network_value <- function(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net = TRUE) {
+  metric <- generate_rai_group_network_metric(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net)
+  metric$value
+}
+
+generate_rai_group_period_comparison <- function(obs,
+                                                 deps,
+                                                 period_groups,
+                                                 rai_groups,
+                                                 rai_group,
+                                                 rai_norm_hours,
+                                                 use_net = TRUE,
+                                                 current_period_index = 1,
+                                                 lower_is_better = TRUE) {
+  period_names <- names(period_groups)
+  period_names <- period_names[period_names != "ALL"]
+
+  empty_period_metric <- function(period_name = NA_character_) {
+    list(
+      period = period_name,
+      start_date = NA,
+      end_date = NA,
+      value = NA_real_,
+      se = NA_real_,
+      formatted_value = "N/A",
+      animal_detections = NA_real_,
+      individuals_count = NA_real_,
+      possible_duplicates_count = NA_real_,
+      net_individuals_count = NA_real_,
+      camera_hours = NA_real_,
+      locality_count = NA_integer_,
+      line_count = NA_integer_,
+      rai_norm_hours = rai_norm_hours,
+      use_net = use_net
+    )
+  }
+
+  compare_periods <- function(current_metric, comparison_metric) {
+    comparison_period <- comparison_metric$period
+    delta <- current_metric$value - comparison_metric$value
+    display_delta <- round(delta, 1)
+    direction <- dplyr::case_when(
+      is.na(current_metric$value) || is.na(comparison_metric$value) ~ "unavailable",
+      display_delta < 0 ~ "down",
+      display_delta > 0 ~ "up",
+      TRUE ~ "unchanged"
+    )
+    state <- dplyr::case_when(
+      direction == "unavailable" ~ "unavailable",
+      direction == "unchanged" ~ "unchanged",
+      lower_is_better && direction == "down" ~ "improved",
+      lower_is_better && direction == "up" ~ "worse",
+      !lower_is_better && direction == "up" ~ "improved",
+      !lower_is_better && direction == "down" ~ "worse"
+    )
+    message <- dplyr::case_when(
+      state == "unavailable" ~ "No comparison period",
+      direction == "down" ~ sprintf("Down %.1f vs %s", abs(display_delta), comparison_period),
+      direction == "up" ~ sprintf("Up %.1f vs %s", abs(display_delta), comparison_period),
+      TRUE ~ sprintf("No change vs %s", comparison_period)
+    )
+
+    list(
+      period = comparison_period,
+      value = comparison_metric$value,
+      formatted_value = comparison_metric$formatted_value,
+      delta = delta,
+      direction = direction,
+      state = state,
+      message = message
+    )
+  }
+
+  overall_state <- function(comparisons) {
+    states <- vapply(comparisons, function(x) x$state, character(1))
+    states <- states[states != "unavailable"]
+
+    if (length(states) == 0) {
+      return("unavailable")
+    }
+    if (all(states == "improved")) {
+      return("improved")
+    }
+    if (all(states == "worse")) {
+      return("worse")
+    }
+    if (all(states == "unchanged")) {
+      return("unchanged")
+    }
+
+    "mixed"
+  }
+
+  find_matching_prior_season <- function(current_period_name) {
+    current_match <- regexec("^(.+)\\s+(\\d{4})$", current_period_name)
+    current_parts <- regmatches(current_period_name, current_match)[[1]]
+    if (length(current_parts) != 3) {
+      return(NA_character_)
+    }
+
+    target_period_name <- paste(trimws(current_parts[[2]]), as.integer(current_parts[[3]]) - 1)
+    if (target_period_name %in% period_names) {
+      return(target_period_name)
+    }
+
+    NA_character_
+  }
+
+  empty_result <- function(message) {
+    list(
+      rai_group = rai_group,
+      current_period = NA_character_,
+      prior_period = NA_character_,
+      matching_prior_season_period = NA_character_,
+      current_value = NA_real_,
+      current_se = NA_real_,
+      current_formatted_value = "N/A",
+      current_metric = empty_period_metric(),
+      prior_value = NA_real_,
+      prior_se = NA_real_,
+      prior_formatted_value = "N/A",
+      prior_metric = empty_period_metric(),
+      matching_prior_season_value = NA_real_,
+      matching_prior_season_se = NA_real_,
+      matching_prior_season_formatted_value = "N/A",
+      matching_prior_season_metric = empty_period_metric(),
+      comparisons = list(),
+      comparison_state = "unavailable",
+      comparison_message = message
+    )
+  }
+
+  if (length(period_names) == 0) {
+    return(empty_result("No period data"))
+  }
+
+  current_period_index <- suppressWarnings(as.integer(current_period_index[1]))
+  if (is.na(current_period_index) || current_period_index < 1) {
+    current_period_index <- 1
+  }
+
+  current_period_index <- min(current_period_index, length(period_names))
+  prior_period_index <- current_period_index + 1
+
+  current_period_name <- period_names[[current_period_index]]
+  prior_period_name <- if (prior_period_index <= length(period_names)) {
+    period_names[[prior_period_index]]
+  } else {
+    NA_character_
+  }
+  matching_prior_season_period_name <- find_matching_prior_season(current_period_name)
+  if (!is.na(matching_prior_season_period_name) &&
+      !is.na(prior_period_name) &&
+      matching_prior_season_period_name == prior_period_name) {
+    matching_prior_season_period_name <- NA_character_
+  }
+
+  calculate_period_metric <- function(period_name) {
+    if (is.na(period_name) || !period_name %in% names(period_groups)) {
+      return(empty_period_metric(period_name))
+    }
+
+    period <- period_groups[[period_name]]
+    period_obs <- filter_obs(obs, period$start_date, period$end_date)
+    period_deps <- filter_deps(deps, period$start_date, period$end_date)
+
+    metric <- generate_rai_group_network_metric(
+      period_obs,
+      period_deps,
+      rai_groups,
+      rai_group,
+      rai_norm_hours,
+      use_net
+    )
+
+    c(
+      list(
+        period = period_name,
+        start_date = period$start_date,
+        end_date = period$end_date
+      ),
+      metric
+    )
+  }
+
+  current_metric <- calculate_period_metric(current_period_name)
+  prior_metric <- calculate_period_metric(prior_period_name)
+  matching_prior_season_metric <- calculate_period_metric(matching_prior_season_period_name)
+  current_value <- current_metric$value
+  prior_value <- prior_metric$value
+  matching_prior_season_value <- matching_prior_season_metric$value
+
+  comparisons <- list(
+    prior_period = compare_periods(current_metric, prior_metric),
+    matching_prior_season = compare_periods(current_metric, matching_prior_season_metric)
+  )
+  comparison_state <- overall_state(comparisons)
+  comparison_message <- paste(
+    vapply(comparisons, function(x) x$message, character(1)),
+    collapse = "\n"
+  )
+
+  list(
+    rai_group = rai_group,
+    current_period = current_period_name,
+    prior_period = prior_period_name,
+    matching_prior_season_period = matching_prior_season_period_name,
+    current_value = current_value,
+    current_se = current_metric$se,
+    current_formatted_value = current_metric$formatted_value,
+    current_metric = current_metric,
+    prior_value = prior_value,
+    prior_se = prior_metric$se,
+    prior_formatted_value = prior_metric$formatted_value,
+    prior_metric = prior_metric,
+    matching_prior_season_value = matching_prior_season_value,
+    matching_prior_season_se = matching_prior_season_metric$se,
+    matching_prior_season_formatted_value = matching_prior_season_metric$formatted_value,
+    matching_prior_season_metric = matching_prior_season_metric,
+    comparisons = comparisons,
+    comparison_state = comparison_state,
+    comparison_message = comparison_message
+  )
+}
+
 generate_rai_species_comparison_table <- function(spp_summary, species) {
 
   # Determine which column to use based on config

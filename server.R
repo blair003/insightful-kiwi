@@ -17,6 +17,7 @@
 # We later convert the locality_code to Location e.g. KP to Kohi Point
 
 source("includes/metrics_functions.R")
+source("includes/dashboard_functions.R")
 source("modules/reporting_data_module.R")
 source("modules/reporting_visualisations_module.R")
 source("modules/reporting_rendering_module.R")
@@ -35,12 +36,14 @@ server <- function(input, output, session) {
     period_groups = core_data$period_groups,
     summary_output_ids = c("summary_output_reporting", 
                            "summary_output_density_map", 
-                           "summary_output_explorer_map")
+                           "summary_output_explorer_map"),
+    selected = core_data$period_defaults$primary_period
   )
 
   comparative_period <- period_selection_module_server(
     id = "comparative_period", 
-    period_groups = core_data$period_groups
+    period_groups = core_data$period_groups,
+    selected = core_data$period_defaults$comparative_period
   )
 
   # Reactive filtering of deps and obs for primary and comparative periods
@@ -62,35 +65,56 @@ server <- function(input, output, session) {
   
   
   # Dashboard widgets
-  # Kiwi Detections: Sum the count for "Apteryx mantelli"
-  output$dashcard_kiwi_observations <- renderText({
-    sum(core_data$obs %>% 
-          filter(scientificName_lower == "apteryx mantelli") %>% 
-          pull(count), na.rm = TRUE)
+  dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
+  dashboard_plot_periods <- dashboard_plot_periods[
+    seq(core_data$period_defaults$primary_period_index, length(dashboard_plot_periods))
+  ]
+  dashboard_plot_deps <- core_data$deps %>%
+    dplyr::filter(as.character(period) %in% dashboard_plot_periods)
+
+  output$dashboard_current_period_cards <- renderUI({
+    combine_localities <- input[["spp_obs_plot_dashboard-combine_localities"]]
+    if (is.null(combine_localities)) {
+      combine_localities <- TRUE
+    }
+
+    selected_localities <- input[["spp_obs_plot_dashboard-selected_localities"]]
+    if (is.null(selected_localities) || length(selected_localities) == 0) {
+      selected_localities <- unique(core_data$deps$locality)
+    }
+
+    if (isTRUE(combine_localities)) {
+      return(render_dashboard_metric_cards())
+    }
+
+    tagList(lapply(selected_localities, function(locality) {
+      tagList(
+        div(class = "dashboard-locality-heading", locality_display_name(locality)),
+        render_dashboard_metric_cards(locality)
+      )
+    }))
   })
 
-  # Mustelid Detections: Sum the count for configured Mustela species
-  output$dashcard_mustelid_detections <- renderText({
-    mustelid_scientific_names <- tolower(
-      grep("^Mustela\\b", unlist(config$globals$spp_classes), value = TRUE)
-    )
+  observeEvent(input$dashboard_rai_details_clicked, {
+    detail_parts <- strsplit(input$dashboard_rai_details_clicked, "\\|", fixed = FALSE)[[1]]
+    rai_group <- detail_parts[[1]]
+    locality <- if (length(detail_parts) > 1 && detail_parts[[2]] != "ALL") {
+      detail_parts[[2]]
+    } else {
+      NULL
+    }
 
-    format(
-      round(sum(core_data$obs %>%
-                  filter(scientificName_lower %in% mustelid_scientific_names) %>%
-                  pull(count), na.rm = TRUE)),
-      big.mark = ","
-    )
-  })
-  
-  # Total Animal Detections: Sum of animal detections
-  output$dashcard_animal_detections <- renderText({
-    format(round(sum(core_data$deps$animal_detections_count, na.rm = TRUE)), big.mark = ",")
+    lower_is_better <- identical(rai_group, "Mustelids")
+    show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality))
   })
   
   # Camera Hours Logged: Sum of camera hours
   output$dashcard_camera_hours <- renderText({
     format(round(sum(core_data$deps$camera_hours, na.rm = TRUE)), big.mark = ",")
+  })
+
+  output$dashcard_camera_days <- renderText({
+    paste(format_dash_number(sum(core_data$deps$camera_hours, na.rm = TRUE) / 24), "camera days")
   })
   
   output$dashcard_data_updated <- renderText({
@@ -98,11 +122,15 @@ server <- function(input, output, session) {
            "%d/%m/%Y")
   })
 
+  output$dashcard_data_package_name<- renderText({
+    core_data$name
+  })
+
   plotting_module_server(
     id = "spp_obs_plot_dashboard",
     type = NULL,
     obs = core_data$obs,
-    deps = core_data$deps,
+    deps = dashboard_plot_deps,
     species_override = NULL
   )
   
