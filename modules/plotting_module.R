@@ -75,11 +75,49 @@ plotting_module_ui <- function(id,
 plotting_module_server <- function(id,
                                    type = "density",
                                    obs,
-                                   deps, 
+                                   deps,
                                    species_override = NULL) {
-  
+
   moduleServer(id, function(input, output, session) {
     logger::log_debug(sprintf("plotting_module_server, %s moduleServer() running", id))
+
+    get_plot_width <- function() {
+      plot_width <- session$clientData[[paste0("output_", session$ns("obs_plot"), "_width")]]
+
+      if (is.null(plot_width)) {
+        plot_width <- session$clientData[["output_obs_plot_width"]]
+      }
+
+      if (is.null(plot_width) || is.na(plot_width) || plot_width <= 0) {
+        return(0)
+      }
+
+      plot_width
+    }
+
+    x_axis_text_theme <- function(periods, plot_width, facet_count = 1) {
+      period_labels <- unique(as.character(periods))
+      period_labels <- period_labels[!is.na(period_labels)]
+      label_count <- length(period_labels)
+
+      if (label_count == 0) {
+        return(element_text())
+      }
+
+      longest_label <- max(nchar(period_labels))
+      facet_columns <- if (facet_count <= 1) 1 else ceiling(sqrt(facet_count))
+      panel_width <- plot_width / max(1, facet_columns)
+      estimated_required_width <- label_count * longest_label * 7
+      should_rotate <- plot_width > 0 && (
+        estimated_required_width > panel_width * 0.85
+      )
+
+      if (should_rotate) {
+        element_text(angle = 90, hjust = 1, vjust = 0.5)
+      } else {
+        element_text(angle = 0, hjust = 0.5, vjust = 1)
+      }
+    }
 
     selected_species <- reactive({
      # req(input$selected_species)  # Ensure species is selected
@@ -161,7 +199,7 @@ plotting_module_server <- function(id,
         summarize(count = sum(count), .groups = 'drop')
       
       # Check if 'Combine into single graph' is selected
-      if (input$combine_localities) {
+      if (isTRUE(input$combine_localities)) {
         # Combine data for all localities into a single line
         aggregated_data <- aggregated_data %>%
           group_by(species_name, period) %>%
@@ -183,7 +221,18 @@ plotting_module_server <- function(id,
     output$obs_plot <- renderPlot({
       req(plotting_data())
       data <- plotting_data()
-      
+      plot_width <- get_plot_width()
+      facet_count <- if (isTRUE(input$combine_localities)) {
+        1
+      } else {
+        length(unique(data$aggregated_data$locality))
+      }
+      axis_text_x <- x_axis_text_theme(
+        data$aggregated_data$period,
+        plot_width,
+        facet_count
+      )
+
       if (nrow(data$aggregated_data) == 0) {
         plot(1, type = "n", xlab = "", ylab = "", xaxt = "n", yaxt = "n")
         title("No data available")
@@ -197,7 +246,7 @@ plotting_module_server <- function(id,
       bar_position <- if (input$stacked) "stack" else position_dodge(width = 0.9)
       
       # Create the base plot depending on whether localities are combined or not
-      if (!input$combine_localities) {
+      if (!isTRUE(input$combine_localities)) {
         p <- ggplot(data$aggregated_data, aes(x = period, y = count, fill = species_name)) +
           geom_bar(stat = "identity", position = bar_position) +
           labs(x = "Period", y = "Individuals Count", fill = "Species") +
@@ -210,10 +259,10 @@ plotting_module_server <- function(id,
             legend.text = element_text(size = rel(1)),
             legend.title = element_text(size = rel(1)),
             legend.key.size = unit(1.5, "lines"),
-            axis.text.x = element_text(angle = 90)
+            axis.text.x = axis_text_x
           ) +
           scale_fill_brewer(palette = "Set1")
-        
+
       } else {
         title <- sprintf("Combined observations across: %s", 
                          paste(data$localities, collapse = ", "))
@@ -226,9 +275,10 @@ plotting_module_server <- function(id,
             plot.title = element_text(size = rel(1.3), face = "bold"),
             axis.text = element_text(size = rel(1)),
             legend.position = "bottom",
-            legend.text = element_text(size = rel(1)),  
+            legend.text = element_text(size = rel(1)),
             legend.title = element_text(size = rel(1)),
-            legend.key.size = unit(1.5, "lines")
+            legend.key.size = unit(1.5, "lines"),
+            axis.text.x = axis_text_x
           ) +
           scale_fill_brewer(palette = "Set1")
       }

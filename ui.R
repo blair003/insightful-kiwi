@@ -239,13 +239,21 @@ ui <- tagList(
         ),
           
         layout_column_wrap(
-          width = 1 / 4,
+          width = "180px",
           
           card(
             card_header(
               tagList(icon("kiwi-bird"), "Kiwi Detections")
             ),
             card_body(div(textOutput("dashcard_kiwi_observations"), class = "dashcard-output")),
+            full_screen = FALSE
+          ),
+
+          card(
+            card_header(
+              tagList(icon("otter"), "Mustelid Detections")
+            ),
+            card_body(div(textOutput("dashcard_mustelid_detections"), class = "dashcard-output")),
             full_screen = FALSE
           ),
           

@@ -164,6 +164,16 @@ config$globals <- list(
       "Gallirallus australis"
     )
   ),
+
+  # Species groups for combined RAI calculations.
+  # These are analytical groupings, separate from spp_classes used for presentation/classification.
+  rai_groups = list(
+    "Mustelids" = c(
+      "Mustela erminea",
+      "Mustela nivalis",
+      "Mustela putorius furo"
+    )
+  ),
   
   # Any species not in a class will be put into a class with this name
   spp_class_unclassified = "other",

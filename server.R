@@ -16,6 +16,7 @@
 
 # We later convert the locality_code to Location e.g. KP to Kohi Point
 
+source("includes/metrics_functions.R")
 source("modules/reporting_data_module.R")
 source("modules/reporting_visualisations_module.R")
 source("modules/reporting_rendering_module.R")
@@ -86,6 +87,20 @@ server <- function(input, output, session) {
     sum(core_data$obs %>% 
           filter(scientificName_lower == "apteryx mantelli") %>% 
           pull(count), na.rm = TRUE)
+  })
+
+  # Mustelid Detections: Sum the count for configured Mustela species
+  output$dashcard_mustelid_detections <- renderText({
+    mustelid_scientific_names <- tolower(
+      grep("^Mustela\\b", unlist(config$globals$spp_classes), value = TRUE)
+    )
+
+    format(
+      round(sum(core_data$obs %>%
+                  filter(scientificName_lower %in% mustelid_scientific_names) %>%
+                  pull(count), na.rm = TRUE)),
+      big.mark = ","
+    )
   })
   
   # Total Animal Detections: Sum of animal detections
