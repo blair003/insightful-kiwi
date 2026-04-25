@@ -120,3 +120,23 @@ source("modules/mapping_module.R")
 
 # For future call
 plan(multisession)
+
+
+# --- Background Caching of favourite and target species images on Startup ---
+logger::log_info("Attempting to launch background caching process...")
+
+future::future({
+  tryCatch({
+    cache_selected_images(core_data$media, core_data$obs, config)
+    TRUE
+  }, error = function(e) {
+    msg <- conditionMessage(e)
+    logger::log_error("Background caching process failed: %s", msg)
+    stop(msg)
+  })
+}, seed = TRUE) %...>% {
+  logger::log_info("Background caching complete.")
+} %...!% (function(error) {
+  logger::log_error("Failed to launch background caching process: %s", conditionMessage(error))
+})
+# --- End Background Caching ---
