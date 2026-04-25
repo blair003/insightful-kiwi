@@ -31,7 +31,7 @@ server <- function(input, output, session) {
 
   # --- Background Caching of favourite and target species images on Startup ---
   logger::log_info("Attempting to launch background caching process...")
-
+  
   future::future({
     tryCatch({
       cache_selected_images(core_data$media, core_data$obs, config)
@@ -43,9 +43,9 @@ server <- function(input, output, session) {
     })
   }, seed = TRUE) %...>% {
     logger::log_info("Background caching complete.")
-  } %...!% function(error) {
-      logger::log_error("Failed to launch background caching process: %s", conditionMessage(error))
-  }
+  } %...!% (function(error) {
+    logger::log_error("Failed to launch background caching process: %s", conditionMessage(error))
+  })
   # --- End Background Caching ---
 
 
