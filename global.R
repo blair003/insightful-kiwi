@@ -117,3 +117,6 @@ if (file.exists(cache_file)) {
 source("modules/period_selection_module.R")
 source("modules/plotting_module.R")
 source("modules/mapping_module.R")
+
+# For future call
+plan(multisession)
