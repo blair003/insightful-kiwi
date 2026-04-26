@@ -244,7 +244,7 @@ ui <- tagList(
           
         div(
           class = "dashboard-section-heading dashboard-current-period-heading",
-          core_data$period_defaults$primary_period
+          paste(core_data$period_defaults$primary_period, " - Key metrics")
         ),
 
         uiOutput("dashboard_current_period_cards"),
@@ -337,38 +337,45 @@ ui <- tagList(
           nav_spacer()
         )
       ),
-      ######### DENSITY MAP OUTPUT #########
-      nav_panel(
-        title = "Density Map", 
-       # icon = icon("bullseye"),
-        icon = icon("layer-group"),
-        value = "density_map",
-      #  h3(textOutput("density_map_title"), style = "text-align: center;"),
-       
-        navset_tab( 
-          id = "density_map_tabs",
-          nav_panel(
-            div(textOutput("primary_season_name")),  # dynamic season name
-            mapping_module_ui("density_map_primary", view = "map"),
-            value = "primary"
-          ),
-          nav_panel(
-            div(textOutput("comparative_season_name")),  # dynamic comparative season name
-            mapping_module_ui("density_map_comparative", view = "map"),
-            value = "comparative"
-          )
-        )
-      ),
 
-      ######### OBSERVATION MAP OUTPUT #########
-      nav_panel(
-        title = "Observation Map", 
-        # icon = icon("bullseye"),
-        # icon = icon("layer-group"),
-        icon = icon("map-location-dot"), # Example new icon
-        value = "observation_map",
-        # Call the module UI for the main layout
-        mapping_module_ui(id = "observation_map", view = "observation_map_layout")
+      ######### VISUALISATIONS MENU #########
+      nav_menu(
+        title = "Visualisations",
+        icon = icon("chart-bar"),
+
+        ######### DENSITY MAP OUTPUT #########
+        nav_panel(
+          title = "Density Map",
+         # icon = icon("bullseye"),
+          icon = icon("layer-group"),
+          value = "density_map",
+        #  h3(textOutput("density_map_title"), style = "text-align: center;"),
+
+          navset_tab(
+            id = "density_map_tabs",
+            nav_panel(
+              div(textOutput("primary_season_name")),  # dynamic season name
+              mapping_module_ui("density_map_primary", view = "map"),
+              value = "primary"
+            ),
+            nav_panel(
+              div(textOutput("comparative_season_name")),  # dynamic comparative season name
+              mapping_module_ui("density_map_comparative", view = "map"),
+              value = "comparative"
+            )
+          )
+        ),
+
+        ######### OBSERVATION MAP OUTPUT #########
+        nav_panel(
+          title = "Observation Map",
+          # icon = icon("bullseye"),
+          # icon = icon("layer-group"),
+          icon = icon("map-location-dot"), # Example new icon
+          value = "observation_map",
+          # Call the module UI for the main layout
+          mapping_module_ui(id = "observation_map", view = "observation_map_layout")
+        )
       ),
         
     

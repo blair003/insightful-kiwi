@@ -1,0 +1,581 @@
+INFO [2026-04-26 13:09:58] Checking and installing main list of CRAN packages...
+Installing packages into ‘/usr/local/lib/R/site-library’
+(as ‘lib’ is unspecified)
+also installing the dependencies ‘credentials’, ‘gert’, ‘gh’, ‘downlit’, ‘httr2’, ‘ragg’, ‘xopen’, ‘waldo’, ‘highr’, ‘tinytex’, ‘systemfonts’, ‘textshaping’, ‘terra’, ‘geojsonsf’, ‘pillar’, ‘tibble’, ‘tidyselect’, ‘vctrs’, ‘timechange’, ‘purrr’, ‘usethis’, ‘miniUI’, ‘pak’, ‘pkgbuild’, ‘pkgdown’, ‘pkgload’, ‘profvis’, ‘rcmdcheck’, ‘roxygen2’, ‘rversions’, ‘testthat’, ‘urlchecker’, ‘crosstalk’, ‘knitr’, ‘xml2’, ‘rmarkdown’, ‘svglite’, ‘raster’, ‘isoband’, ‘lazyeval’, ‘data.table’, ‘curl’, ‘openssl’, ‘globals’, ‘listenv’, ‘parallelly’, ‘yaml’, ‘classInt’, ‘DBI’, ‘s2’, ‘units’, ‘callr’, ‘leafem’, ‘leafpop’, ‘satellite’, ‘servr’, ‘sp’, ‘processx’, ‘websocket’, ‘zip’
+
+trying URL 'https://cloud.r-project.org/src/contrib/credentials_2.0.3.tar.gz'
+Content type 'application/x-gzip' length 283143 bytes (276 KB)
+==================================================
+downloaded 276 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/gert_2.3.1.tar.gz'
+Content type 'application/x-gzip' length 130066 bytes (127 KB)
+==================================================
+downloaded 127 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/gh_1.5.0.tar.gz'
+Content type 'application/x-gzip' length 46366 bytes (45 KB)
+==================================================
+downloaded 45 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/downlit_0.4.5.tar.gz'
+Content type 'application/x-gzip' length 37263 bytes (36 KB)
+==================================================
+downloaded 36 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/httr2_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 277334 bytes (270 KB)
+==================================================
+downloaded 270 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/ragg_1.5.2.tar.gz'
+Content type 'application/x-gzip' length 438353 bytes (428 KB)
+==================================================
+downloaded 428 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/xopen_1.0.1.tar.gz'
+Content type 'application/x-gzip' length 11855 bytes (11 KB)
+==================================================
+downloaded 11 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/waldo_0.6.2.tar.gz'
+Content type 'application/x-gzip' length 45913 bytes (44 KB)
+==================================================
+downloaded 44 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/highr_0.12.tar.gz'
+Content type 'application/x-gzip' length 13622 bytes (13 KB)
+==================================================
+downloaded 13 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/tinytex_0.59.tar.gz'
+Content type 'application/x-gzip' length 37498 bytes (36 KB)
+==================================================
+downloaded 36 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/systemfonts_1.3.2.tar.gz'
+Content type 'application/x-gzip' length 594775 bytes (580 KB)
+==================================================
+downloaded 580 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/textshaping_1.0.5.tar.gz'
+Content type 'application/x-gzip' length 77066 bytes (75 KB)
+==================================================
+downloaded 75 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/terra_1.9-11.tar.gz'
+Content type 'application/x-gzip' length 1071693 bytes (1.0 MB)
+==================================================
+downloaded 1.0 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/geojsonsf_2.0.5.tar.gz'
+Content type 'application/x-gzip' length 1488224 bytes (1.4 MB)
+==================================================
+downloaded 1.4 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/pillar_1.11.1.tar.gz'
+Content type 'application/x-gzip' length 409508 bytes (399 KB)
+==================================================
+downloaded 399 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/tibble_3.3.1.tar.gz'
+Content type 'application/x-gzip' length 557135 bytes (544 KB)
+==================================================
+downloaded 544 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/tidyselect_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 103591 bytes (101 KB)
+==================================================
+downloaded 101 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/vctrs_0.7.3.tar.gz'
+Content type 'application/x-gzip' length 1083213 bytes (1.0 MB)
+==================================================
+downloaded 1.0 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/timechange_0.4.0.tar.gz'
+Content type 'application/x-gzip' length 103966 bytes (101 KB)
+==================================================
+downloaded 101 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/purrr_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 278508 bytes (271 KB)
+==================================================
+downloaded 271 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/usethis_3.2.1.tar.gz'
+Content type 'application/x-gzip' length 393912 bytes (384 KB)
+==================================================
+downloaded 384 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/miniUI_0.1.2.tar.gz'
+Content type 'application/x-gzip' length 100855 bytes (98 KB)
+==================================================
+downloaded 98 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/pak_0.9.4.tar.gz'
+Content type 'application/x-gzip' length 3335973 bytes (3.2 MB)
+==================================================
+downloaded 3.2 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/pkgbuild_1.4.8.tar.gz'
+Content type 'application/x-gzip' length 51302 bytes (50 KB)
+==================================================
+downloaded 50 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/pkgdown_2.2.0.tar.gz'
+Content type 'application/x-gzip' length 1280630 bytes (1.2 MB)
+==================================================
+downloaded 1.2 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/pkgload_1.5.2.tar.gz'
+Content type 'application/x-gzip' length 88118 bytes (86 KB)
+==================================================
+downloaded 86 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/profvis_0.4.0.tar.gz'
+Content type 'application/x-gzip' length 301123 bytes (294 KB)
+==================================================
+downloaded 294 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/rcmdcheck_1.4.0.tar.gz'
+Content type 'application/x-gzip' length 73522 bytes (71 KB)
+==================================================
+downloaded 71 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/roxygen2_7.3.3.tar.gz'
+Content type 'application/x-gzip' length 303523 bytes (296 KB)
+==================================================
+downloaded 296 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/rversions_3.0.0.tar.gz'
+Content type 'application/x-gzip' length 86682 bytes (84 KB)
+==================================================
+downloaded 84 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/testthat_3.3.2.tar.gz'
+Content type 'application/x-gzip' length 834043 bytes (814 KB)
+==================================================
+downloaded 814 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/urlchecker_1.0.1.tar.gz'
+Content type 'application/x-gzip' length 13340 bytes (13 KB)
+==================================================
+downloaded 13 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/crosstalk_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 297847 bytes (290 KB)
+==================================================
+downloaded 290 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/knitr_1.51.tar.gz'
+Content type 'application/x-gzip' length 483744 bytes (472 KB)
+==================================================
+downloaded 472 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/xml2_1.5.2.tar.gz'
+Content type 'application/x-gzip' length 154697 bytes (151 KB)
+==================================================
+downloaded 151 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/rmarkdown_2.31.tar.gz'
+Content type 'application/x-gzip' length 2199845 bytes (2.1 MB)
+==================================================
+downloaded 2.1 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/svglite_2.2.2.tar.gz'
+Content type 'application/x-gzip' length 125651 bytes (122 KB)
+==================================================
+downloaded 122 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/raster_3.6-32.tar.gz'
+Content type 'application/x-gzip' length 575813 bytes (562 KB)
+==================================================
+downloaded 562 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/isoband_0.3.0.tar.gz'
+Content type 'application/x-gzip' length 1593511 bytes (1.5 MB)
+==================================================
+downloaded 1.5 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/lazyeval_0.2.3.tar.gz'
+Content type 'application/x-gzip' length 130115 bytes (127 KB)
+==================================================
+downloaded 127 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/data.table_1.18.2.1.tar.gz'
+Content type 'application/x-gzip' length 6023973 bytes (5.7 MB)
+==================================================
+downloaded 5.7 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/curl_7.1.0.tar.gz'
+Content type 'application/x-gzip' length 717725 bytes (700 KB)
+==================================================
+downloaded 700 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/openssl_2.4.0.tar.gz'
+Content type 'application/x-gzip' length 1180292 bytes (1.1 MB)
+==================================================
+downloaded 1.1 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/globals_0.19.1.tar.gz'
+Content type 'application/x-gzip' length 56552 bytes (55 KB)
+==================================================
+downloaded 55 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/listenv_0.10.1.tar.gz'
+Content type 'application/x-gzip' length 47895 bytes (46 KB)
+==================================================
+downloaded 46 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/parallelly_1.47.0.tar.gz'
+Content type 'application/x-gzip' length 346491 bytes (338 KB)
+==================================================
+downloaded 338 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/yaml_2.3.12.tar.gz'
+Content type 'application/x-gzip' length 108975 bytes (106 KB)
+==================================================
+downloaded 106 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/classInt_0.4-11.tar.gz'
+Content type 'application/x-gzip' length 440406 bytes (430 KB)
+==================================================
+downloaded 430 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/DBI_1.3.0.tar.gz'
+Content type 'application/x-gzip' length 744704 bytes (727 KB)
+==================================================
+downloaded 727 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/s2_1.1.9.tar.gz'
+Content type 'application/x-gzip' length 2967364 bytes (2.8 MB)
+==================================================
+downloaded 2.8 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/units_1.0-1.tar.gz'
+Content type 'application/x-gzip' length 369348 bytes (360 KB)
+==================================================
+downloaded 360 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/callr_3.7.6.tar.gz'
+Content type 'application/x-gzip' length 104358 bytes (101 KB)
+==================================================
+downloaded 101 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/leafem_0.2.5.tar.gz'
+Content type 'application/x-gzip' length 963667 bytes (941 KB)
+==================================================
+downloaded 941 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/leafpop_0.1.0.tar.gz'
+Content type 'application/x-gzip' length 1870372 bytes (1.8 MB)
+==================================================
+downloaded 1.8 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/satellite_1.0.6.tar.gz'
+Content type 'application/x-gzip' length 2300211 bytes (2.2 MB)
+==================================================
+downloaded 2.2 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/servr_0.32.tar.gz'
+Content type 'application/x-gzip' length 25384 bytes (24 KB)
+==================================================
+downloaded 24 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/sp_2.2-1.tar.gz'
+Content type 'application/x-gzip' length 4472598 bytes (4.3 MB)
+==================================================
+downloaded 4.3 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/processx_3.9.0.tar.gz'
+Content type 'application/x-gzip' length 195281 bytes (190 KB)
+==================================================
+downloaded 190 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/websocket_1.4.4.tar.gz'
+Content type 'application/x-gzip' length 201849 bytes (197 KB)
+==================================================
+downloaded 197 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/zip_2.3.3.tar.gz'
+Content type 'application/x-gzip' length 115472 bytes (112 KB)
+==================================================
+downloaded 112 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/shiny_1.13.0.tar.gz'
+Content type 'application/x-gzip' length 2712329 bytes (2.6 MB)
+==================================================
+downloaded 2.6 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/dplyr_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 923509 bytes (901 KB)
+==================================================
+downloaded 901 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/lubridate_1.9.5.tar.gz'
+Content type 'application/x-gzip' length 429855 bytes (419 KB)
+==================================================
+downloaded 419 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/stringr_1.6.0.tar.gz'
+Content type 'application/x-gzip' length 195833 bytes (191 KB)
+==================================================
+downloaded 191 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/tidyr_1.3.2.tar.gz'
+Content type 'application/x-gzip' length 809031 bytes (790 KB)
+==================================================
+downloaded 790 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/bslib_0.10.0.tar.gz'
+Content type 'application/x-gzip' length 5769350 bytes (5.5 MB)
+==================================================
+downloaded 5.5 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/devtools_2.5.1.tar.gz'
+Content type 'application/x-gzip' length 411408 bytes (401 KB)
+==================================================
+downloaded 401 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/bsicons_0.1.2.tar.gz'
+Content type 'application/x-gzip' length 246734 bytes (240 KB)
+==================================================
+downloaded 240 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/DT_0.34.0.tar.gz'
+Content type 'application/x-gzip' length 1664306 bytes (1.6 MB)
+==================================================
+downloaded 1.6 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/kableExtra_1.4.0.tar.gz'
+Content type 'application/x-gzip' length 1824636 bytes (1.7 MB)
+==================================================
+downloaded 1.7 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/leaflet_2.2.3.tar.gz'
+Content type 'application/x-gzip' length 2013248 bytes (1.9 MB)
+==================================================
+downloaded 1.9 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/leaflet.extras_2.0.2.tar.gz'
+Content type 'application/x-gzip' length 1396753 bytes (1.3 MB)
+==================================================
+downloaded 1.3 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/ggplot2_4.0.3.tar.gz'
+Content type 'application/x-gzip' length 6327703 bytes (6.0 MB)
+==================================================
+downloaded 6.0 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/scales_1.4.0.tar.gz'
+Content type 'application/x-gzip' length 328671 bytes (320 KB)
+==================================================
+downloaded 320 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/plotly_4.12.0.tar.gz'
+Content type 'application/x-gzip' length 4614623 bytes (4.4 MB)
+==================================================
+downloaded 4.4 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/httr_1.4.8.tar.gz'
+Content type 'application/x-gzip' length 113914 bytes (111 KB)
+==================================================
+downloaded 111 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/magick_2.9.1.tar.gz'
+Content type 'application/x-gzip' length 4596497 bytes (4.4 MB)
+==================================================
+downloaded 4.4 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/future_1.70.0.tar.gz'
+Content type 'application/x-gzip' length 450683 bytes (440 KB)
+==================================================
+downloaded 440 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/shinybusy_0.3.3.tar.gz'
+Content type 'application/x-gzip' length 2053521 bytes (2.0 MB)
+==================================================
+downloaded 2.0 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/htmlwidgets_1.6.4.tar.gz'
+Content type 'application/x-gzip' length 868895 bytes (848 KB)
+==================================================
+downloaded 848 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/shinyjs_2.1.1.tar.gz'
+Content type 'application/x-gzip' length 992492 bytes (969 KB)
+==================================================
+downloaded 969 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/sf_1.1-0.tar.gz'
+Content type 'application/x-gzip' length 9876822 bytes (9.4 MB)
+==================================================
+downloaded 9.4 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/geosphere_1.6-8.tar.gz'
+Content type 'application/x-gzip' length 879922 bytes (859 KB)
+==================================================
+downloaded 859 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/webshot2_0.1.2.tar.gz'
+Content type 'application/x-gzip' length 530252 bytes (517 KB)
+==================================================
+downloaded 517 KB
+
+trying URL 'https://cloud.r-project.org/src/contrib/mapview_2.11.4.tar.gz'
+Content type 'application/x-gzip' length 1691274 bytes (1.6 MB)
+==================================================
+downloaded 1.6 MB
+
+trying URL 'https://cloud.r-project.org/src/contrib/dotenv_1.0.3.tar.gz'
+Content type 'application/x-gzip' length 4092 bytes
+==================================================
+downloaded 4092 bytes
+
+trying URL 'https://cloud.r-project.org/src/contrib/chromote_0.5.1.tar.gz'
+Content type 'application/x-gzip' length 298113 bytes (291 KB)
+==================================================
+downloaded 291 KB
+
+* installing *source* package ‘waldo’ ...
+** package ‘waldo’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (waldo)
+* installing *source* package ‘highr’ ...
+** package ‘highr’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (highr)
+* installing *source* package ‘tinytex’ ...
+** package ‘tinytex’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tinytex)
+* installing *source* package ‘systemfonts’ ...
+** package ‘systemfonts’ successfully unpacked and MD5 sums checked
+** using staged installation
+Found pkg-config cflags and libs!
+Using PKG_CFLAGS=-I/usr/include/freetype2 -I/usr/include/libpng16
+Using PKG_LIBS=-lfontconfig -lfreetype
+** libs
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+rm -f systemfonts.so caches.o cpp11.o dev_metrics.o font_matching.o font_local.o font_variation.o font_registry.o ft_cache.o string_shape.o font_metrics.o font_outlines.o font_fallback.o string_metrics.o emoji.o cache_store.o init.o unix/FontManagerLinux.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c caches.cpp -o caches.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cpp11.cpp -o cpp11.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c dev_metrics.cpp -o dev_metrics.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c font_matching.cpp -o font_matching.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c font_local.cpp -o font_local.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c font_variation.cpp -o font_variation.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c font_registry.cpp -o font_registry.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c ft_cache.cpp -o ft_cache.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c string_shape.cpp -o string_shape.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c font_metrics.cpp -o font_metrics.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c font_outlines.cpp -o font_outlines.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c font_fallback.cpp -o font_fallback.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c string_metrics.cpp -o string_metrics.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c emoji.cpp -o emoji.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cache_store.cpp -o cache_store.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.cpp -o init.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I/usr/include/freetype2 -I/usr/include/libpng16  -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c unix/FontManagerLinux.cpp -o unix/FontManagerLinux.o
+g++ -std=gnu++17 -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o systemfonts.so caches.o cpp11.o dev_metrics.o font_matching.o font_local.o font_variation.o font_registry.o ft_cache.o string_shape.o font_metrics.o font_outlines.o font_fallback.o string_metrics.o emoji.o cache_store.o init.o unix/FontManagerLinux.o -lfontconfig -lfreetype -L/usr/lib/R/lib -lR
+installing to /usr/local/lib/R/site-library/00LOCK-systemfonts/00new/systemfonts/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (systemfonts)
+* installing *source* package ‘terra’ ...
+** package ‘terra’ successfully unpacked and MD5 sums checked
+** using staged installation
+configure: CC: gcc
+configure: CXX: g++ -std=gnu++17
+checking for gdal-config... no
+configure: error: gdal-config not found or not executable.
+*** Installing this package from source requires the prior
+*** installation of external software, see for details
+*** https://rspatial.github.io/terra/
+ERROR: configuration failed for package ‘terra’
+* removing ‘/usr/local/lib/R/site-library/terra’
+* installing *source* package ‘geojsonsf’ ...
+** package ‘geojsonsf’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/usr/local/lib/R/site-library/geometries/include' -I'/usr/local/lib/R/site-library/jsonify/include' -I'/usr/local/lib/R/site-library/rapidjsonr/include' -I'/usr/local/lib/R/site-library/Rcpp/include' -I'/usr/local/lib/R/site-library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c RcppExports.cpp -o RcppExports.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/usr/local/lib/R/site-library/geometries/include' -I'/usr/local/lib/R/site-library/jsonify/include' -I'/usr/local/lib/R/site-library/rapidjsonr/include' -I'/usr/local/lib/R/site-library/Rcpp/include' -I'/usr/local/lib/R/site-library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c df_geojson.cpp -o df_geojson.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/usr/local/lib/R/site-library/geometries/include' -I'/usr/local/lib/R/site-library/jsonify/include' -I'/usr/local/lib/R/site-library/rapidjsonr/include' -I'/usr/local/lib/R/site-library/Rcpp/include' -I'/usr/local/lib/R/site-library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c geojson_to_sf.cpp -o geojson_to_sf.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/usr/local/lib/R/site-library/geometries/include' -I'/usr/local/lib/R/site-library/jsonify/include' -I'/usr/local/lib/R/site-library/rapidjsonr/include' -I'/usr/local/lib/R/site-library/Rcpp/include' -I'/usr/local/lib/R/site-library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c geojson_to_wkt.cpp -o geojson_to_wkt.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/usr/local/lib/R/site-library/geometries/include' -I'/usr/local/lib/R/site-library/jsonify/include' -I'/usr/local/lib/R/site-library/rapidjsonr/include' -I'/usr/local/lib/R/site-library/Rcpp/include' -I'/usr/local/lib/R/site-library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c geojson_wkt.cpp -o geojson_wkt.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/usr/local/lib/R/site-library/geometries/include' -I'/usr/local/lib/R/site-library/jsonify/include' -I'/usr/local/lib/R/site-library/rapidjsonr/include' -I'/usr/local/lib/R/site-library/Rcpp/include' -I'/usr/local/lib/R/site-library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c read_geojson.cpp -o read_geojson.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/usr/local/lib/R/site-library/geometries/include' -I'/usr/local/lib/R/site-library/jsonify/include' -I'/usr/local/lib/R/site-library/rapidjsonr/include' -I'/usr/local/lib/R/site-library/Rcpp/include' -I'/usr/local/lib/R/site-library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c sf_geojson.cpp -o sf_geojson.o
+g++ -std=gnu++17 -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o geojsonsf.so RcppExports.o df_geojson.o geojson_to_sf.o geojson_to_wkt.o geojson_wkt.o read_geojson.o sf_geojson.o -L/usr/lib/R/lib -lR
+installing to /usr/local/lib/R/site-library/00LOCK-geojsonsf/00new/geojsonsf/libs
+** R
+** data
+*** moving datasets to lazyload DB
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (geojsonsf)
+ERROR: failed to lock directory ‘/usr/local/lib/R/site-library’ for modifying
+Try removing ‘/usr/local/lib/R/site-library/00LOCK-vctrs’
+* installing *source* package ‘timechange’ ...
+** package ‘timechange’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c common.cpp -o common.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cpp11.cpp -o cpp11.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c get.cpp -o get.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c parse.c -o parse.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c round.cpp -o round.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c tzone.cpp -o tzone.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c update.cpp -o update.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cctz/src/time_zone_fixed.cc -o cctz/src/time_zone_fixed.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cctz/src/time_zone_if.cc -o cctz/src/time_zone_if.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cctz/src/time_zone_impl.cc -o cctz/src/time_zone_impl.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I. -I./cctz/src/ -I'/usr/local/lib/R/site-library/cpp11/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cctz/src/time_zone_info.cc -o cctz/src/time_zone_info.o
