@@ -242,6 +242,11 @@ ui <- tagList(
             full_screen = FALSE
         ),
           
+        div(
+          class = "dashboard-section-heading dashboard-current-period-heading",
+          paste(core_data$period_defaults$primary_period, " - Key metrics")
+        ),
+
         uiOutput("dashboard_current_period_cards"),
 
         div(class = "dashboard-section-heading", "Whole Project"),

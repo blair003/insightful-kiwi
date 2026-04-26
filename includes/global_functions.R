@@ -58,14 +58,13 @@ create_directories_if_missing <- function(dirs) {
 
 
 
-#' Caches favourite and target species images using a pre-calculated 'period' column.
+#' Caches favourite and selected species images into period folders.
 #'
-#' Assumes the input media_df already contains a 'period' column for subfolder
-#' sorting. It processes all favourites and target species, downloading missing ones in the background
-#' or copying existing ones, and organizes them into period-based subfolders.
+#' Uses the media period when available, otherwise derives the period from the
+#' matching observation sequence. Images without a period are skipped rather
+#' than cached into an unhelpful Uncategorized folder.
 #'
-#' @param media_df The dataframe of media entries (e.g., core_data$media), which
-#'   must include a 'period' column.
+#' @param media_df The dataframe of media entries (e.g., core_data$media).
 #' @param obs_df The dataframe of observations.
 #' @param config A configuration list containing globals, such as resize width.
 #' @return Invisibly returns NULL. Called for its side-effect of managing cached files.
@@ -73,32 +72,129 @@ create_directories_if_missing <- function(dirs) {
 cache_selected_images <- function(media_df, obs_df, config) {
   local_cache_dir <- "www/cache/images"
   favourites_base_dir <- file.path(local_cache_dir, "favourites")
-  
+  cache_species_classes <- c("target", "interesting")
+
+  get_cache_scalar <- function(value, fallback = NA_character_) {
+    if (is.null(value) || length(value) == 0 || is.na(value[[1]])) {
+      return(fallback)
+    }
+
+    value <- trimws(as.character(value[[1]]))
+    if (nchar(value) == 0) {
+      return(fallback)
+    }
+
+    value
+  }
+
+  sanitize_cache_folder <- function(value, fallback) {
+    folder <- get_cache_scalar(value, fallback)
+    if (is.na(folder)) {
+      return(fallback)
+    }
+
+    folder <- gsub("[^a-zA-Z0-9_ -]", "", folder)
+
+    if (is.na(folder) || nchar(trimws(folder)) == 0) {
+      return(fallback)
+    }
+
+    folder
+  }
+
+  get_column_value <- function(df, column, row_index, fallback = NA_character_) {
+    if (!column %in% names(df)) {
+      return(fallback)
+    }
+
+    get_cache_scalar(df[[column]][row_index], fallback)
+  }
+
+  sequence_period_lookup <- character(0)
+  if (all(c("sequenceID", "period") %in% names(obs_df))) {
+    obs_periods <- obs_df[
+      !is.na(obs_df$sequenceID) & !is.na(obs_df$period),
+      c("sequenceID", "period"),
+      drop = FALSE
+    ]
+    obs_periods <- obs_periods[!duplicated(obs_periods$sequenceID), , drop = FALSE]
+    sequence_period_lookup <- setNames(as.character(obs_periods$period), obs_periods$sequenceID)
+  }
+
+  get_sequence_period <- function(sequence_id, existing_period = NA_character_) {
+    period <- get_cache_scalar(existing_period)
+    if (!is.na(period)) {
+      return(period)
+    }
+
+    sequence_id <- get_cache_scalar(sequence_id)
+    if (is.na(sequence_id) || !sequence_id %in% names(sequence_period_lookup)) {
+      return(NA_character_)
+    }
+
+    sequence_period_lookup[[sequence_id]]
+  }
+
   if (!dir.exists(favourites_base_dir)) {
     dir.create(favourites_base_dir, recursive = TRUE)
   }
-  
+
+  uncategorized_dir <- file.path(favourites_base_dir, "Uncategorized")
+  if (dir.exists(uncategorized_dir)) {
+    unlink(uncategorized_dir, recursive = TRUE, force = TRUE)
+    logger::log_info("Removed stale uncategorized image cache folder: %s", uncategorized_dir)
+  }
+
   # Identify favourite images
-  favourite_images <- media_df[which(media_df$favourite == TRUE), ]
+  favourite_flags <- rep(FALSE, nrow(media_df))
+  if ("favourite" %in% names(media_df)) {
+    favourite_flags <- !is.na(media_df$favourite) & media_df$favourite == TRUE
+  }
+  favourite_images <- media_df[which(favourite_flags), , drop = FALSE]
   if (nrow(favourite_images) > 0) {
     favourite_images$category <- "favourite"
   } else {
     favourite_images$category <- character(0)
   }
-  
-  # Identify target species images
-  target_species <- config$globals$spp_classes[["target"]]
-  target_obs <- obs_df[tolower(obs_df$scientificName) %in% tolower(target_species), ]
-  target_media <- media_df[media_df$sequenceID %in% target_obs$sequenceID, ]
-  
-  if (nrow(target_media) > 0) {
+
+  # Identify selected species images
+  spp_classes <- config$globals$spp_classes
+  selected_species <- unique(unlist(
+    spp_classes[intersect(cache_species_classes, names(spp_classes))],
+    use.names = FALSE
+  ))
+
+  excluded_species <- config$globals$image_cache_excluded_species
+  if (is.null(excluded_species)) {
+    excluded_species <- character(0)
+  }
+
+  selected_species <- selected_species[
+    !tolower(trimws(selected_species)) %in% tolower(trimws(excluded_species))
+  ]
+
+  selected_obs <- obs_df[tolower(obs_df$scientificName) %in% tolower(selected_species), , drop = FALSE]
+  selected_media <- media_df[media_df$sequenceID %in% selected_obs$sequenceID, , drop = FALSE]
+
+  if (nrow(selected_media) > 0) {
     # Merge with obs to get the scientificName for the subfolder
     # A sequence might have multiple observations, so we might have duplicates here,
     # but since we are just caching, we just need to copy the image to each species folder it belongs to.
-    target_media_merged <- merge(target_media, target_obs[, c("sequenceID", "scientificName")], by = "sequenceID")
-    target_media_merged$category <- "target"
+    selected_obs_for_merge <- selected_obs[, c("sequenceID", "scientificName"), drop = FALSE]
+    selected_obs_for_merge$obs_period <- if ("period" %in% names(selected_obs)) {
+      selected_obs$period
+    } else {
+      NA_character_
+    }
+
+    selected_media_merged <- merge(
+      selected_media,
+      selected_obs_for_merge,
+      by = "sequenceID"
+    )
+    selected_media_merged$category <- "selected_species"
   } else {
-    target_media_merged <- data.frame(category = character(0))
+    selected_media_merged <- data.frame(category = character(0))
   }
   
   # Combine
@@ -109,69 +205,97 @@ cache_selected_images <- function(media_df, obs_df, config) {
       all_images[[length(all_images) + 1]] <- list(
         filePath = favourite_images$filePath[i],
         fileName = favourite_images$fileName[i],
-        period = favourite_images$period[i],
+        period = get_sequence_period(
+          favourite_images$sequenceID[i],
+          get_column_value(favourite_images, "period", i)
+        ),
         category = "favourite",
         species = NA
       )
     }
   }
   
-  if (nrow(target_media_merged) > 0) {
-    for (i in 1:nrow(target_media_merged)) {
+  if (nrow(selected_media_merged) > 0) {
+    for (i in 1:nrow(selected_media_merged)) {
       all_images[[length(all_images) + 1]] <- list(
-        filePath = target_media_merged$filePath[i],
-        fileName = target_media_merged$fileName[i],
-        period = target_media_merged$period[i],
-        category = "target",
-        species = target_media_merged$scientificName[i]
+        filePath = selected_media_merged$filePath[i],
+        fileName = selected_media_merged$fileName[i],
+        period = get_sequence_period(
+          selected_media_merged$sequenceID[i],
+          get_column_value(selected_media_merged, "period", i, selected_media_merged$obs_period[i])
+        ),
+        category = "selected_species",
+        species = selected_media_merged$scientificName[i]
       )
     }
   }
   
   total_images <- length(all_images)
-  
+
   if (total_images == 0) {
-    logger::log_info("No favourite or target species images found to cache.")
+    logger::log_info("No favourite or selected species images found to cache.")
     return(invisible(NULL))
   }
-  
-  logger::log_info("Found %d images to cache (favourites & target species). Checking cache status...", total_images)
-  
+
+  logger::log_info(
+    "Found %d images to cache (favourites & selected species). Excluded species: %s",
+    total_images,
+    paste(excluded_species, collapse = ", ")
+  )
+
   for (i in seq_len(total_images)) {
     image_info <- all_images[[i]]
-    
-    period_folder <- image_info$period
-    if (is.na(period_folder) || nchar(trimws(period_folder)) == 0) {
-      period_folder <- "Uncategorized"
+
+    file_path <- get_cache_scalar(image_info$filePath)
+    file_name <- get_cache_scalar(image_info$fileName)
+
+    if (is.na(file_path) || is.na(file_name)) {
+      logger::log_warn(
+        "[%d/%d] Skipping image with missing file path or name.",
+        i,
+        total_images
+      )
+      next
     }
-    period_folder <- gsub("[^a-zA-Z0-9_ -]", "", period_folder)
-    
+
+    period_folder <- sanitize_cache_folder(image_info$period, NA_character_)
+    if (is.na(period_folder)) {
+      logger::log_warn(
+        "[%d/%d] Skipping image with no period group: %s",
+        i,
+        total_images,
+        file_name
+      )
+      next
+    }
+
     if (image_info$category == "favourite") {
       dest_dir <- file.path(favourites_base_dir, period_folder)
     } else {
-      # Target species: nested inside species name
-      species_folder <- image_info$species
-      if (is.na(species_folder) || nchar(trimws(species_folder)) == 0) {
-        species_folder <- "Unknown"
-      }
-      species_folder <- gsub("[^a-zA-Z0-9_ -]", "", species_folder)
+      # Selected species: nested inside species name
+      species_folder <- sanitize_cache_folder(image_info$species, "Unknown")
       dest_dir <- file.path(favourites_base_dir, period_folder, species_folder)
     }
-    
-    path_components <- unlist(strsplit(image_info$filePath, "/"))
+
+    path_components <- unlist(strsplit(file_path, "/"))
+    if (length(path_components) < 2) {
+      logger::log_warn("[%d/%d] Skipping image with invalid file path: %s", i, total_images, file_path)
+      next
+    }
+
     hash_dir_name <- path_components[length(path_components) - 1]
     image_dir_path <- file.path(local_cache_dir, hash_dir_name)
-    local_file_path <- file.path(image_dir_path, image_info$fileName)
+    local_file_path <- file.path(image_dir_path, file_name)
     dest_file_path <- file.path(dest_dir, basename(local_file_path))
-    
+
     tryCatch({
       if (!file.exists(local_file_path)) {
-        logger::log_info("[%d/%d] Downloading: %s", i, total_images, image_info$fileName)
-        
+        logger::log_info("[%d/%d] Downloading: %s", i, total_images, file_name)
+
         if (!dir.exists(image_dir_path)) dir.create(image_dir_path, recursive = TRUE)
         if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
-        
-        download_image(image_info$filePath, local_file_path)
+
+        download_image(file_path, local_file_path)
         create_resized_image(local_file_path, config$globals$image_resize_width_pixels)
         file.copy(local_file_path, dest_file_path, overwrite = TRUE)
         
@@ -194,7 +318,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
     }, error = function(e) {
       logger::log_error(
         "Failed to process %s. Error: %s",
-        image_info$filePath,
+        file_path,
         conditionMessage(e)
       )
     })

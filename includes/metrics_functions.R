@@ -329,7 +329,22 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
     locality_count = NA_integer_,
     line_count = NA_integer_,
     rai_norm_hours = rai_norm_hours,
-    use_net = use_net
+    use_net = use_net,
+    line_rai_values = tibble::tibble(
+      locality = character(),
+      line = character(),
+      line_rai = numeric(),
+      formatted_value = character(),
+      animal_detections = numeric(),
+      individuals_count = numeric(),
+      possible_duplicates_count = numeric(),
+      net_individuals_count = numeric(),
+      camera_hours = numeric()
+    ),
+    locality_rai_values = tibble::tibble(
+      locality = character(),
+      formatted_value = character()
+    )
   )
 
   if (is.null(rai_groups) || is.null(rai_groups[[rai_group]]) || nrow(deps) == 0) {
@@ -387,6 +402,30 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
   }
 
   group_line_summary <- rai_group_summary$line[rai_group_summary$line$rai_group == rai_group, , drop = FALSE]
+  line_value_column <- if (isTRUE(use_net)) "RAI_net" else "RAI"
+  line_rai_values <- group_line_summary %>%
+    mutate(
+      line_rai = as.numeric(.data[[line_value_column]]),
+      formatted_value = sprintf("%0.1f", line_rai)
+    ) %>%
+    arrange(locality, line) %>%
+    select(
+      locality,
+      line,
+      line_rai,
+      formatted_value,
+      animal_detections,
+      individuals_count,
+      possible_duplicates_count,
+      net_individuals_count,
+      camera_hours
+    )
+
+  locality_value_column <- if (isTRUE(use_net)) "mRAI_SE_net" else "mRAI_SE"
+  locality_rai_values <- group_locality_rows %>%
+    mutate(formatted_value = as.character(.data[[locality_value_column]])) %>%
+    arrange(locality) %>%
+    select(locality, formatted_value)
 
   list(
     value = as.numeric(group_row[[value_column]][1]),
@@ -400,7 +439,9 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
     locality_count = locality_count,
     line_count = nrow(group_line_summary),
     rai_norm_hours = rai_norm_hours,
-    use_net = use_net
+    use_net = use_net,
+    line_rai_values = line_rai_values,
+    locality_rai_values = locality_rai_values
   )
 }
 
@@ -437,7 +478,22 @@ generate_rai_group_period_comparison <- function(obs,
       locality_count = NA_integer_,
       line_count = NA_integer_,
       rai_norm_hours = rai_norm_hours,
-      use_net = use_net
+      use_net = use_net,
+      line_rai_values = tibble::tibble(
+        locality = character(),
+        line = character(),
+        line_rai = numeric(),
+        formatted_value = character(),
+        animal_detections = numeric(),
+        individuals_count = numeric(),
+        possible_duplicates_count = numeric(),
+        net_individuals_count = numeric(),
+        camera_hours = numeric()
+      ),
+      locality_rai_values = tibble::tibble(
+        locality = character(),
+        formatted_value = character()
+      )
     )
   }
 
@@ -445,15 +501,42 @@ generate_rai_group_period_comparison <- function(obs,
     comparison_period <- comparison_metric$period
     delta <- current_metric$value - comparison_metric$value
     display_delta <- round(delta, 1)
+    display_current_value <- round(current_metric$value, 1)
+    display_current_se <- round(current_metric$se, 2)
+    display_comparison_se <- round(comparison_metric$se, 2)
     direction <- dplyr::case_when(
       is.na(current_metric$value) || is.na(comparison_metric$value) ~ "unavailable",
       display_delta < 0 ~ "down",
       display_delta > 0 ~ "up",
       TRUE ~ "unchanged"
     )
+
+    unchanged_state <- function() {
+      if (is.na(display_current_value)) {
+        return("unavailable")
+      }
+
+      if (display_current_value == 0) {
+        return(if (isTRUE(lower_is_better)) "improved" else "worse")
+      }
+
+      if (is.na(display_current_se) || is.na(display_comparison_se) ||
+          display_current_se == display_comparison_se) {
+        return("unchanged")
+      }
+
+      current_se_is_better <- if (isTRUE(lower_is_better)) {
+        display_current_se > display_comparison_se
+      } else {
+        display_current_se < display_comparison_se
+      }
+
+      if (current_se_is_better) "improved" else "worse"
+    }
+
     state <- dplyr::case_when(
       direction == "unavailable" ~ "unavailable",
-      direction == "unchanged" ~ "unchanged",
+      direction == "unchanged" ~ unchanged_state(),
       lower_is_better && direction == "down" ~ "improved",
       lower_is_better && direction == "up" ~ "worse",
       !lower_is_better && direction == "up" ~ "improved",

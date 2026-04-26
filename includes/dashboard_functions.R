@@ -5,8 +5,8 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL) {
   metric_deps <- core_data$deps
 
   if (!is.null(locality)) {
-    metric_obs <- metric_obs %>% dplyr::filter(.data$locality == !!locality)
-    metric_deps <- metric_deps %>% dplyr::filter(.data$locality == !!locality)
+    metric_obs <- metric_obs %>% dplyr::filter(.data$locality %in% !!locality)
+    metric_deps <- metric_deps %>% dplyr::filter(.data$locality %in% !!locality)
   }
 
   metric <- generate_rai_group_period_comparison(
@@ -21,8 +21,25 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL) {
     lower_is_better = lower_is_better
   )
 
-  metric$scope_label <- if (is.null(locality)) "Combined localities" else locality_display_name(locality)
+  metric$scope_label <- locality_scope_label(locality)
   metric
+}
+
+locality_scope_label <- function(locality = NULL) {
+  if (is.null(locality)) {
+    return("Combined localities")
+  }
+
+  locality <- as.character(locality)
+  if (length(locality) == 0) {
+    return("Combined localities")
+  }
+
+  if (length(locality) == 1) {
+    return(locality_display_name(locality))
+  }
+
+  paste("Combined selected localities:", paste(vapply(locality, locality_display_name, character(1)), collapse = ", "))
 }
 
 locality_display_name <- function(locality) {
@@ -135,7 +152,7 @@ dashboard_animal_detections_metric <- function(locality = NULL) {
     period <- core_data$period_groups[[period_name]]
     period_deps <- filter_deps(core_data$deps, period$start_date, period$end_date)
     if (!is.null(locality)) {
-      period_deps <- period_deps %>% dplyr::filter(.data$locality == !!locality)
+      period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
     }
     sum(period_deps$animal_detections_count, na.rm = TRUE)
   }
@@ -163,7 +180,7 @@ dashboard_animal_detections_metric <- function(locality = NULL) {
     current_formatted_value = format_dash_number(current_value),
     comparisons = comparisons,
     comparison_state = get_dashboard_comparison_state(comparisons),
-    scope_label = if (is.null(locality)) "Combined localities" else locality_display_name(locality)
+    scope_label = locality_scope_label(locality)
   )
 }
 
@@ -184,19 +201,49 @@ render_dashboard_info_link <- function(detail_token) {
   )
 }
 
-render_dashboard_comparison_body <- function(metric, detail_token = NULL) {
-  state_class <- paste("dashcard-state", metric$comparison_state, sep = "-")
+dashboard_comparison_state_class <- function(state) {
+  if (is.null(state) || length(state) == 0 || is.na(state[[1]])) {
+    state <- "unavailable"
+  } else {
+    state <- as.character(state[[1]])
+  }
 
-  if (!metric$comparison_state %in% c("improved", "mixed", "worse", "unchanged", "unavailable")) {
+  state_class <- paste("dashcard-state", state, sep = "-")
+  if (!state %in% c("improved", "mixed", "worse", "unchanged", "unavailable")) {
     state_class <- "dashcard-state-unavailable"
   }
+
+  state_class
+}
+
+render_dashboard_trend_icon <- function(comparison) {
+  if (comparison$state == "unavailable") {
+    return(NULL)
+  }
+
+  icon_name <- dplyr::case_when(
+    comparison$direction == "up" ~ "arrow-up",
+    comparison$direction == "down" ~ "arrow-down",
+    TRUE ~ "minus"
+  )
+
+  tags$span(icon(icon_name), class = "dashcard-trend-icon", `aria-hidden` = "true")
+}
+
+render_dashboard_comparison_body <- function(metric, detail_token = NULL) {
+  state_class <- dashboard_comparison_state_class(metric$comparison_state)
 
   comparison_tags <- lapply(metric$comparisons, function(comparison) {
     if (comparison$state == "unavailable") {
       return(NULL)
     }
 
-    div(comparison$message, class = paste("dashcard-comparison", state_class))
+    comparison_state_class <- dashboard_comparison_state_class(comparison$state)
+    div(
+      render_dashboard_trend_icon(comparison),
+      tags$span(comparison$message),
+      class = paste("dashcard-comparison", comparison_state_class)
+    )
   })
   comparison_tags <- Filter(Negate(is.null), comparison_tags)
 
@@ -218,16 +265,37 @@ render_dashboard_comparison_body <- function(metric, detail_token = NULL) {
   )
 }
 
-render_dashboard_card_header <- function(card_icon, card_title) {
+dashboard_rat_icon <- function() {
+  HTML(
+    '<i class="fas fa-rat" style="display: inline-block; width: 1.2em; height: 1em; vertical-align: -0.125em;">
+      <svg viewBox="0 0 512 512" fill="currentColor" style="width: 1.2em; height: 1.2em;">
+      <path d="M512 352c0-26.5-21.5-48-48-48c-8.7 0-16.8 2.3-23.8 6.4L393.1 264c11.9-18.4 18.9-40.4 18.9-64c0-66.3-53.7-120-120-120H192c-15.6 0-30.5 3-44.1 8.5C125.4 51.5 86.1 24 40 24C17.9 24 0 41.9 0 64s17.9 40 40 40c1.5 0 3-.1 4.4-.3C69.3 162.1 127.3 208 195.4 208H400c8.8 0 16 7.2 16 16s-7.2 16-16 16s-16-7.2-16-16c0-4.4-3.6-8-8-8s-8 3.6-8 8c0 22.1 17.9 40 40 40s40-17.9 40-40c0-1.8-.1-3.5-.4-5.2c16.3-4.5 28.4-19.4 28.4-37.1c0-21.3-17.2-38.6-38.6-38.6c-4.1 0-8 1.1-11.8 1.8c-23.5-65.5-86.4-113.8-160.2-113.8H192c-10.7 0-21.1 1.5-31 4.3C143.5 110.1 113.1 80 80 80c-44.2 0-80 35.8-80 80s35.8 80 80 80c4.1 0 8-1.1 11.8-1.8c23.5 65.5 86.4 113.8 160.2 113.8H400c14.1 0 25.6 11.5 25.6 25.6s-11.5 25.6-25.6 25.6-25.6-11.5-25.6-25.6c0-8.8-7.2-16-16-16s-16 7.2-16 16c0 31.8 25.8 57.6 57.6 57.6s57.6-25.8 57.6-57.6z"/>
+      </svg>
+      </i>'
+  )
+}
+
+render_dashboard_card_header <- function(card_icon, card_title, custom_icon = NULL) {
+  header_icon <- if (!is.null(custom_icon)) {
+    custom_icon
+  } else {
+    icon(card_icon)
+  }
+
   div(
     class = "dashcard-header-row",
-    tags$span(tagList(icon(card_icon), card_title), class = "dashcard-header-title")
+    tags$span(tagList(header_icon, card_title), class = "dashcard-header-title")
   )
 }
 
 render_dashboard_metric_cards <- function(locality = NULL) {
-  locality_token <- if (is.null(locality)) "ALL" else locality
+  locality_token <- if (is.null(locality)) "ALL" else paste(locality, collapse = ",")
   mustelid_metric <- dashboard_rai_metric("Mustelids", lower_is_better = TRUE, locality = locality)
+  rat_metric <- if ("Rats" %in% names(config$globals$rai_groups)) {
+    dashboard_rai_metric("Rats", lower_is_better = TRUE, locality = locality)
+  } else {
+    NULL
+  }
   kiwi_metric <- dashboard_rai_metric("Kiwi", lower_is_better = FALSE, locality = locality)
   animal_metric <- dashboard_animal_detections_metric(locality = locality)
 
@@ -238,6 +306,13 @@ render_dashboard_metric_cards <- function(locality = NULL) {
       card_body(render_dashboard_comparison_body(mustelid_metric, paste("Mustelids", locality_token, sep = "|"))),
       full_screen = FALSE
     ),
+    if (!is.null(rat_metric)) {
+      card(
+        card_header(render_dashboard_card_header(NULL, "Rat RAI", custom_icon = dashboard_rat_icon())),
+        card_body(render_dashboard_comparison_body(rat_metric, paste("Rats", locality_token, sep = "|"))),
+        full_screen = FALSE
+      )
+    },
     card(
       card_header(render_dashboard_card_header("kiwi-bird", "Kiwi RAI")),
       card_body(render_dashboard_comparison_body(kiwi_metric, paste("Kiwi", locality_token, sep = "|"))),
@@ -285,10 +360,119 @@ show_rai_metric_modal <- function(metric) {
     value
   }
 
+  render_period_table <- function(rows) {
+    tags$table(
+      class = "table table-sm table-striped rai-detail-table rai-period-table",
+      tags$thead(tags$tr(
+        tags$th(""),
+        lapply(period_columns, function(column) tags$th(column$label))
+      )),
+      tags$tbody(lapply(rows, function(row) {
+        tags$tr(
+          tags$th(row$label),
+          lapply(period_columns, function(column) {
+            tags$td(format_period_value(column$metric, row$key, column$comparison))
+          })
+        )
+      }))
+    )
+  }
+
+  get_line_rai_localities <- function() {
+    localities <- unlist(lapply(period_columns, function(column) {
+      line_values <- column$metric$line_rai_values
+      if (is.null(line_values) || nrow(line_values) == 0) {
+        return(character())
+      }
+
+      as.character(line_values$locality)
+    }), use.names = FALSE)
+
+    unique(localities)
+  }
+
+  get_locality_period_rai <- function(period_metric, locality) {
+    locality_values <- period_metric$locality_rai_values
+    if (is.null(locality_values) || nrow(locality_values) == 0) {
+      return("N/A")
+    }
+
+    matching_locality <- locality_values[locality_values$locality == locality, , drop = FALSE]
+    if (nrow(matching_locality) == 0 || is.na(matching_locality$formatted_value[[1]])) {
+      return("N/A")
+    }
+
+    matching_locality$formatted_value[[1]]
+  }
+
+  render_line_rai_period_summary <- function(period_metric, locality, period_label) {
+    if (is.null(period_metric) || is.na(period_metric$period)) {
+      return(tags$div(
+        class = "rai-line-period-summary rai-line-period-summary-empty",
+        tags$div(class = "rai-line-period-label", period_label),
+        tags$div("N/A", class = "rai-line-empty")
+      ))
+    }
+
+    line_values <- period_metric$line_rai_values
+    if (is.null(line_values) || nrow(line_values) == 0) {
+      return(tags$div(
+        class = "rai-line-period-summary rai-line-period-summary-empty",
+        tags$div(class = "rai-line-period-label", period_label),
+        tags$div("N/A", class = "rai-line-empty")
+      ))
+    }
+
+    locality_lines <- line_values[line_values$locality == locality, , drop = FALSE]
+    if (nrow(locality_lines) == 0) {
+      return(tags$div(
+        class = "rai-line-period-summary rai-line-period-summary-empty",
+        tags$div(class = "rai-line-period-label", period_label),
+        tags$div("N/A", class = "rai-line-empty")
+      ))
+    }
+
+    tags$div(
+      class = "rai-line-period-summary",
+      tags$div(class = "rai-line-period-label", period_label),
+      tags$div(
+        tags$span("Combined RAI ± SE:", class = "rai-line-summary-label"),
+        tags$span(get_locality_period_rai(period_metric, locality), class = "rai-line-summary-value")
+      ),
+      tags$div(
+        tags$span("Line RAIs:", class = "rai-line-summary-label"),
+        tags$span(paste(locality_lines$formatted_value, collapse = ", "), class = "rai-line-summary-value")
+      )
+    )
+  }
+
+  render_line_rai_section <- function() {
+    localities <- get_line_rai_localities()
+    if (length(localities) == 0) {
+      return(tags$p("Line RAI values are not available.", class = "rai-line-empty"))
+    }
+
+    tags$div(
+      class = "rai-line-grid",
+      lapply(localities, function(locality) {
+        tags$div(
+          class = "rai-line-locality-summary",
+          tags$div(class = "rai-line-locality-heading", locality_display_name(locality)),
+          tags$div(
+            class = "rai-line-period-grid",
+            lapply(period_columns, function(column) {
+              render_line_rai_period_summary(column$metric, locality, column$label)
+            })
+          )
+        )
+      })
+    )
+  }
+
   constant_rows <- list(
     c("Species included", paste(config$globals$rai_groups[[metric$rai_group]], collapse = ", ")),
     c("RAI normalisation", paste(format_dash_number(metric$current_metric$rai_norm_hours), "camera hours")),
-    c("Duplicate handling", if (isTRUE(metric$current_metric$use_net)) "Net count excludes possible duplicates" else "Total individuals counted includes possible duplicates")
+    c("Duplicate handling", if (isTRUE(metric$current_metric$use_net)) "RAI uses Net count, excluding possible duplicates" else "RAI uses Total individuals counted, including possible duplicates")
   )
 
   constant_table <- tags$table(
@@ -304,42 +488,32 @@ show_rai_metric_modal <- function(metric) {
     last_year = list(label = "Last Year", metric = metric$matching_prior_season_metric, comparison = metric$comparisons$matching_prior_season)
   )
 
-  period_rows <- list(
+  period_result_rows <- list(
     list(label = "RAI", key = "rai"),
     list(label = "Change", key = "change"),
     list(label = "Period", key = "period"),
     list(label = "Start Date", key = "start_date"),
-    list(label = "End Date", key = "end_date"),
+    list(label = "End Date", key = "end_date")
+  )
+
+  period_input_rows <- list(
     list(label = "Detections", key = "detections"),
     list(label = "Individuals counted", key = "individuals"),
     list(label = "Possible duplicate individuals", key = "duplicates")
   )
 
   if (isTRUE(metric$current_metric$use_net)) {
-    period_rows <- c(period_rows, list(list(label = "Net individuals used", key = "net_individuals")))
+    period_input_rows <- c(period_input_rows, list(list(label = "Net individuals used", key = "net_individuals")))
   }
 
-  period_rows <- c(period_rows, list(
+  is_single_locality_metric <- !is.na(metric$current_metric$locality_count) &&
+    metric$current_metric$locality_count == 1
+
+  period_input_rows <- c(period_input_rows, list(
     list(label = "Camera hours", key = "camera_hours"),
     list(label = "Localities averaged", key = "localities"),
     list(label = "Locality-line records", key = "lines")
   ))
-
-  period_table <- tags$table(
-    class = "table table-sm table-striped rai-detail-table rai-period-table",
-    tags$thead(tags$tr(
-      tags$th(""),
-      lapply(period_columns, function(column) tags$th(column$label))
-    )),
-    tags$tbody(lapply(period_rows, function(row) {
-      tags$tr(
-        tags$th(row$label),
-        lapply(period_columns, function(column) {
-          tags$td(format_period_value(column$metric, row$key, column$comparison))
-        })
-      )
-    }))
-  )
 
   period_formula <- if (isTRUE(metric$current_metric$use_net)) {
     "line RAI = net individuals / camera hours x RAI normalisation"
@@ -360,7 +534,7 @@ show_rai_metric_modal <- function(metric) {
       tags$code(period_formula),
       ". Line values are then averaged to locality RAI (mRAI)."
     ),
-    if (!is.null(metric$scope_label) && metric$scope_label != "Combined localities") {
+    if (is_single_locality_metric) {
       tags$p("The displayed uncertainty is the standard error across line RAI values.")
     } else {
       tags$p(
@@ -369,9 +543,13 @@ show_rai_metric_modal <- function(metric) {
       )
     },
     tags$h5("Constant Settings"),
-    constant_table,
-    tags$h5("Period Inputs and Results"),
-    period_table,
+    tags$div(class = "rai-table-scroll", constant_table),
+    tags$h5("Period Results"),
+    tags$div(class = "rai-table-scroll", render_period_table(period_result_rows)),
+    tags$h5("Period Inputs"),
+    tags$div(class = "rai-table-scroll", render_period_table(period_input_rows)),
+    tags$h5("Line RAIs"),
+    render_line_rai_section(),
     easyClose = TRUE,
     footer = modalButton("Close"),
     size = "l"

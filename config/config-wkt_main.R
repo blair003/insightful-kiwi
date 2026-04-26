@@ -165,16 +165,27 @@ config$globals <- list(
     )
   ),
 
+  # Species excluded from background image caching. Useful for high-volume,
+  # low-interest species that would otherwise fill the local cache.
+  image_cache_excluded_species = c(
+    "Rattus",
+    "Mus musculus",
+    "Gallirallus australis"
+  ),
+
   # Species groups for combined RAI calculations.
   # These are analytical groupings, separate from spp_classes used for presentation/classification.
   rai_groups = list(
-    "Kiwi" = c(
-      "Apteryx mantelli"
-    ),
     "Mustelids" = c(
       "Mustela erminea",
       "Mustela nivalis",
       "Mustela putorius furo"
+    ),
+    "Rats" = c(
+      "Rattus"
+    ),
+    "Kiwi" = c(
+      "Apteryx mantelli"
     )
   ),
   

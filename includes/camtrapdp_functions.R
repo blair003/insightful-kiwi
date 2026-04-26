@@ -98,7 +98,7 @@ create_period_groups <- function(deps,
       stop(paste("Error creating period groups with method:", period_grouping_type))
     }
 
-    logger::log_info("Period groups created successfully with method:",
+    logger::log_info("Period groups created successfully with method %s:",
                      period_grouping_type)
     return(period_groups)
 
