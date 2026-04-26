@@ -90,7 +90,7 @@ species_dashboard_module_ui <- function(id) {
   )
 }
 
-species_dashboard_module_server <- function(id, species_name, vernacular_name, obs, deps, rai_norm_hours = 2000, core_data) {
+species_dashboard_module_server <- function(id, species_name, vernacular_name, obs, deps, core_data, rai_norm_hours = 2000) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -121,8 +121,8 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       review_link <- if (total_count > 0) {
         # Note: We simulate the payload format expected by review sequences
         # Ideally, we trigger an event caught in global scope or handle it here
-        onclick_js <- sprintf("Shiny.setInputValue(\'review_sequences_click\', {period_name: \'%s\', rai_group: \'%s\', locality: \'ALL\'}, {priority: \'event\'}); return false;", period_name_label, species_name)
-        HTML(sprintf(\'<br/><small><a href="#" onclick="%s">Review Sequences</a></small>\', onclick_js))
+        onclick_js <- sprintf("Shiny.setInputValue('review_sequences_click', {period_name: '%s', rai_group: '%s', locality: 'ALL'}, {priority: 'event'}); return false;", period_name_label, species_name)
+        HTML(sprintf('<br/><small><a href="#" onclick="%s">Review Sequences</a></small>', onclick_js))
       } else {
         HTML("")
       }
