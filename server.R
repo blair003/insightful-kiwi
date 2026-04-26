@@ -29,6 +29,7 @@ source("includes/other_functions.R")
 
 
 server <- function(input, output, session) {
+
   logger::log_debug("server.R, starting server() function")
 
   primary_period <- period_selection_module_server(
@@ -824,5 +825,166 @@ server <- function(input, output, session) {
   
 
   
+
+  # Observe review sequences click from dashboard
+  observeEvent(input$review_sequences_click, {
+    action_data <- input$review_sequences_click
+
+    # Extract details
+    period_name <- action_data$period_name
+    rai_group <- action_data$rai_group
+    locality_filter <- action_data$locality
+
+    # Get period details
+    if (period_name %in% names(core_data$period_groups)) {
+      period <- core_data$period_groups[[period_name]]
+
+      # Filter obs
+      filtered_obs <- filter_obs(core_data$obs, period$start_date, period$end_date)
+
+      # Apply locality filter
+      if (!is.null(locality_filter) && locality_filter != "ALL") {
+        localities <- strsplit(locality_filter, ",")[[1]]
+        filtered_obs <- filtered_obs %>% filter(locality %in% localities)
+      }
+
+      # Apply species filter based on rai_group
+      species_list <- config$globals$rai_groups[[rai_group]]
+      if (!is.null(species_list)) {
+        filtered_obs <- filtered_obs %>% filter(tolower(scientificName) %in% tolower(species_list))
+      }
+
+      # Extract observation IDs
+      observation_ids <- filtered_obs$observationID
+
+      if (length(observation_ids) > 0) {
+        show_review_sequences_modal(observation_ids, 1)
+      } else {
+        showModal(modalDialog(
+          title = "No Sequences Found",
+          "There are no sequences to review for this selection.",
+          easyClose = TRUE,
+          footer = modalButton("Close")
+        ))
+      }
+    }
+  })
+
+  # Function to handle pagination in review sequences modal
+  show_review_sequences_modal <- function(observation_ids, current_index) {
+    total_sequences <- length(observation_ids)
+
+    if (current_index < 1 || current_index > total_sequences) {
+      return()
+    }
+
+    observation_id <- observation_ids[current_index]
+
+    # Get image UI
+    observation_details <- create_observation_viewer_output(observation_id, "view_sequence|modal")
+
+    if (!is.null(observation_details)) {
+      image_output <- create_observation_images_ui(observation_details$sequence_media_info,
+                                                   observation_id,
+                                                   context = "modal")
+
+      # Build navigation footer
+      nav_footer <- tagList(
+        if (current_index > 1) {
+          actionButton("review_prev", "Previous", icon = icon("arrow-left"),
+                       onclick = sprintf("Shiny.setInputValue('review_nav_click', %d, {priority: 'event'});", current_index - 1))
+        } else {
+          disabled(actionButton("review_prev_disabled", "Previous", icon = icon("arrow-left")))
+        },
+        tags$span(sprintf(" Sequence %d of %d ", current_index, total_sequences), style = "margin: 0 15px;"),
+        if (current_index < total_sequences) {
+          actionButton("review_next", "Next", icon = icon("arrow-right"),
+                       onclick = sprintf("Shiny.setInputValue('review_nav_click', %d, {priority: 'event'});", current_index + 1))
+        } else {
+          disabled(actionButton("review_next_disabled", "Next", icon = icon("arrow-right")))
+        },
+        modalButton("Close")
+      )
+
+      # Show the modal
+      showModal(modalDialog(
+        title = sprintf("Review Sequences (%d of %d) - Obs ID: %s", current_index, total_sequences, observation_id),
+        image_output$ui_elements,
+        uiOutput("observation_record_table_modal"),
+        size = "l",
+        easyClose = TRUE,
+        footer = nav_footer
+      ))
+
+      # Refresh carousel
+      session$sendCustomMessage(type = "refreshCarousel", message = list(carouselId = image_output$carousel_id))
+
+      # Update cache if needed
+      if (!image_output$cache_hit) {
+        update_image_cache(observation_details$sequence_media_info)
+      }
+
+      # Store current state for navigation
+      session$userData$review_sequences_state <- list(
+        observation_ids = observation_ids,
+        current_index = current_index
+      )
+    }
+  }
+
+  observeEvent(input$review_nav_click, {
+    new_index <- input$review_nav_click
+    state <- session$userData$review_sequences_state
+
+    if (!is.null(state)) {
+      show_review_sequences_modal(state$observation_ids, new_index)
+    }
+  })
+
+
+  # Observe review sequences click from density map
+  observeEvent(input$density_map_review_sequences_click, {
+    action_data <- input$density_map_review_sequences_click
+
+    location_name <- action_data$location_name
+    locality <- action_data$locality
+
+    # We need to know which period we are in. Check if we are on primary or comparative tab.
+    active_tab <- input$density_map_tabs
+
+    if (is.null(active_tab) || active_tab == "primary") {
+      period_obs <- filtered_obs_primary()
+      selected_species <- density_map_primary$selected_species()
+    } else {
+      period_obs <- filtered_obs_comparative()
+      selected_species <- density_map_comparative$selected_species()
+    }
+
+    if (!is.null(period_obs) && !is.null(selected_species)) {
+      # Filter to the specific location, locality and selected species
+      species_to_map <- tolower(unname(selected_species))
+
+      location_obs <- period_obs %>%
+        filter(
+          locationName == location_name,
+          locality == locality,
+          tolower(scientificName) %in% species_to_map
+        )
+
+      observation_ids <- location_obs$observationID
+
+      if (length(observation_ids) > 0) {
+        show_review_sequences_modal(observation_ids, 1)
+      } else {
+        showModal(modalDialog(
+          title = "No Sequences Found",
+          "There are no sequences to review for this selection.",
+          easyClose = TRUE,
+          footer = modalButton("Close")
+        ))
+      }
+    }
+  })
+
 } # server
 

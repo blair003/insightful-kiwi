@@ -598,7 +598,17 @@ update_density_map <- function(map_id = NULL,
       fillColor = ~pal(count),
       fillOpacity = 0.8,
       stroke = FALSE,
-      popup = ~paste(locationName, "<br>Count:", count)
+      popup = ~{
+        popup_content <- paste(locationName, "<br>Count:", count)
+        action_data <- list(
+          location_name = locationName,
+          locality = locality
+        )
+        json_data <- jsonlite::toJSON(action_data, auto_unbox = TRUE)
+        onclick_js <- sprintf("Shiny.setInputValue('density_map_review_sequences_click', %s, {priority: 'event'}); return false;", json_data)
+        review_link <- sprintf("<br><a href='#' onclick=\"%s\" title='Review Sequences'>Review Sequences</a>", onclick_js)
+        paste0(popup_content, review_link)
+      }
     )
   
   # Add markers for zero observations if show_zero is TRUE
