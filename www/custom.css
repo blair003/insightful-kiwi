@@ -544,3 +544,16 @@
 .slick-slider {
   margin: 0 30px;
 }
+
+.review-sequences-title {
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.review-sequences-obs-id {
+  font-size: 0.75em;
+  font-weight: 400;
+  line-height: 1.2;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}

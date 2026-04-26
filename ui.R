@@ -7,6 +7,7 @@ ui <- tagList(
   tags$script(HTML("
     var defaultSidebarState = {
       'dashboard': true,
+      'plots': true,
       'reporting': true,
       'density_map': true,
       'observation_map': true,
@@ -90,29 +91,44 @@ ui <- tagList(
       
       conditionalPanel(
         condition = "input.nav === 'dashboard'",
-        # Species selection input
-        
         plotting_module_ui(
-          id = "spp_obs_plot_dashboard",
-          view = "select_species",
-          choices = core_data$spp_classes,
-          selected = c(
-            core_data$spp_classes[[1]][1],  # First species from the first list
-            core_data$spp_classes[[1]][2],  # Second species from the first list
-            core_data$spp_classes[[1]][3]  # Third species from the first list
-            
-            #core_data$spp_classes[[2]][1],  # First species from the second list
-            #core_data$spp_classes[[2]][2]   # Second species from the second list
-          )
+          id = "dashboard_rai_plot",
+          view = "select_rai_group",
+          choices = names(config$globals$rai_groups),
+          selected = names(config$globals$rai_groups)[1]
         ),
         plotting_module_ui(
-          id = "spp_obs_plot_dashboard",
+          id = "dashboard_rai_plot",
           view = "select_localities",
           choices = unique(core_data$deps$locality),  # Set choices to unique localities
           selected = unique(core_data$deps$locality)  # Default selection is all localities
         ),
         plotting_module_ui(
-          id = "spp_obs_plot_dashboard",
+          id = "dashboard_rai_plot",
+          view = "select_rai_plot_options"
+        )
+      ),
+
+      conditionalPanel(
+        condition = "input.nav === 'plots'",
+        plotting_module_ui(
+          id = "spp_obs_plot_visualisations",
+          view = "select_species",
+          choices = core_data$spp_classes,
+          selected = c(
+            core_data$spp_classes[[1]][1],
+            core_data$spp_classes[[1]][2],
+            core_data$spp_classes[[1]][3]
+          )
+        ),
+        plotting_module_ui(
+          id = "spp_obs_plot_visualisations",
+          view = "select_localities",
+          choices = unique(core_data$deps$locality),
+          selected = unique(core_data$deps$locality)
+        ),
+        plotting_module_ui(
+          id = "spp_obs_plot_visualisations",
           view = "select_plot_options"
         )
       ),
@@ -226,32 +242,34 @@ ui <- tagList(
       
       nav_spacer(),
 
-      nav_menu(
-        title = "Dashboards",
+      nav_panel(
+        "Dashboard",
+        value = "dashboard",
         icon = icon("dashboard"),
-        nav_panel(
-          "Overview",
-          value = "dashboard",
-
         div(
           class = "dashboard-page",
           card(
             class = "dashboard-plot-card",
               card_header(
-                tagList(icon("eye"), "Species Observation, grouped by time period")  
+                tagList(icon("chart-line"), "RAI by species group")
               ),
-              plotting_module_ui(id = "spp_obs_plot_dashboard", view = "plot"),
+              plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot"),
           #  full_screen = TRUE
             full_screen = FALSE
         ),
+
         div(
           class = "dashboard-section-heading dashboard-current-period-heading",
           paste(core_data$period_defaults$primary_period, " - Key metrics")
         ),
+
         uiOutput("dashboard_current_period_cards"),
+
         div(class = "dashboard-section-heading", "Whole Project"),
+
         layout_column_wrap(
           width = "180px",
+
           card(
             card_header(
               tagList(icon("camera"), "Camera Hours")
@@ -262,6 +280,7 @@ ui <- tagList(
             ),
             full_screen = FALSE
           ),
+
           card(
             card_header(
               tagList(icon("rotate"), "Data Package")
@@ -274,21 +293,9 @@ ui <- tagList(
           )
         )
         )
-        ),
-        # Loop over species groups to dynamically create Sub-Dashboards
-        # Unlist to ensure we get a flat list of nav_panels for nav_menu
-        !!!unlist(lapply(names(core_data$spp_classes), function(group_name) {
-          species_in_group <- core_data$spp_classes[[group_name]]
-          if (length(species_in_group) == 0) return(NULL)
-          lapply(names(species_in_group), function(species_name) {
-            sci_name <- species_in_group[[species_name]]
-            nav_panel(
-              title = species_name,
-              value = paste0("dashboard_", make.names(sci_name)),
-              species_dashboard_module_ui(id = paste0("species_dashboard_", make.names(sci_name)))
-            )
-          })
-        }), recursive = FALSE)),
+
+
+      ),
       
       nav_panel(
         "Report",
@@ -384,6 +391,21 @@ ui <- tagList(
           value = "observation_map",
           # Call the module UI for the main layout
           mapping_module_ui(id = "observation_map", view = "observation_map_layout")
+        ),
+
+        ######### PLOTS OUTPUT #########
+        nav_panel(
+          title = "Plots",
+          icon = icon("chart-line"),
+          value = "plots",
+          card(
+            class = "dashboard-plot-card",
+            card_header(
+              tagList(icon("eye"), "Species observations, grouped by time period")
+            ),
+            plotting_module_ui(id = "spp_obs_plot_visualisations", view = "plot"),
+            full_screen = FALSE
+          )
         )
       ),
         

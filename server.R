@@ -74,12 +74,12 @@ server <- function(input, output, session) {
     dplyr::filter(as.character(period) %in% dashboard_plot_periods)
 
   output$dashboard_current_period_cards <- renderUI({
-    combine_localities <- input[["spp_obs_plot_dashboard-combine_localities"]]
+    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
     if (is.null(combine_localities)) {
       combine_localities <- TRUE
     }
 
-    selected_localities <- input[["spp_obs_plot_dashboard-selected_localities"]]
+    selected_localities <- input[["dashboard_rai_plot-selected_localities"]]
     if (is.null(selected_localities) || length(selected_localities) == 0) {
       selected_localities <- unique(core_data$deps$locality)
     }
@@ -128,7 +128,18 @@ server <- function(input, output, session) {
   })
 
   plotting_module_server(
-    id = "spp_obs_plot_dashboard",
+    id = "dashboard_rai_plot",
+    type = NULL,
+    obs = core_data$obs,
+    deps = dashboard_plot_deps,
+    species_override = NULL,
+    rai_groups = config$globals$rai_groups,
+    rai_norm_hours = config$globals$rai_norm_hours,
+    use_net = config$globals$rai_net_count
+  )
+
+  plotting_module_server(
+    id = "spp_obs_plot_visualisations",
     type = NULL,
     obs = core_data$obs,
     deps = dashboard_plot_deps,
@@ -142,8 +153,10 @@ server <- function(input, output, session) {
       species_dashboard_module_server(
         id = paste0("species_dashboard_", make.names(sci_name)),
         species_name = sci_name,
+        vernacular_name = species_name,
         obs = filtered_obs_primary,
-        deps = filtered_deps_primary
+        deps = filtered_deps_primary,
+        core_data = core_data
       )
     })
   })
@@ -884,7 +897,7 @@ server <- function(input, output, session) {
   })
 
   # Function to handle pagination in review sequences modal
-  show_review_sequences_modal <- function(observation_ids, current_index) {
+  show_review_sequences_modal <- function(observation_ids, current_index, initial_slide = 0) {
     total_sequences <- length(observation_ids)
 
     if (current_index < 1 || current_index > total_sequences) {
@@ -899,7 +912,11 @@ server <- function(input, output, session) {
     if (!is.null(observation_details)) {
       image_output <- create_observation_images_ui(observation_details$sequence_media_info,
                                                    observation_id,
-                                                   context = "modal", review_nav = list(current_index = current_index, total_sequences = total_sequences))
+                                                   context = "modal", review_nav = list(
+                                                     current_index = current_index,
+                                                     total_sequences = total_sequences,
+                                                     initial_slide = initial_slide
+                                                   ))
 
       # Build navigation footer
       nav_footer <- tagList(
@@ -921,7 +938,16 @@ server <- function(input, output, session) {
 
       # Show the modal
       showModal(modalDialog(
-        title = sprintf("Review Sequences (%d of %d) - Obs ID: %s", current_index, total_sequences, observation_id),
+        title = tagList(
+          tags$div(
+            class = "review-sequences-title",
+            sprintf("Review Sequences (%d of %d)", current_index, total_sequences)
+          ),
+          tags$div(
+            class = "review-sequences-obs-id",
+            sprintf("Obs ID: %s", observation_id)
+          )
+        ),
         image_output$ui_elements,
         uiOutput("observation_record_table_modal"),
         size = "l",
@@ -946,11 +972,18 @@ server <- function(input, output, session) {
   }
 
   observeEvent(input$review_nav_click, {
-    new_index <- input$review_nav_click
+    nav_click <- input$review_nav_click
+    if (is.list(nav_click)) {
+      new_index <- nav_click$index
+      initial_slide <- if (!is.null(nav_click$initial_slide)) nav_click$initial_slide else 0
+    } else {
+      new_index <- nav_click
+      initial_slide <- 0
+    }
     state <- session$userData$review_sequences_state
 
     if (!is.null(state)) {
-      show_review_sequences_modal(state$observation_ids, new_index)
+      show_review_sequences_modal(state$observation_ids, new_index, initial_slide)
     }
   })
 

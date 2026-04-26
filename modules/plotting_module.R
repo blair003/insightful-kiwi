@@ -22,6 +22,19 @@ plotting_module_ui <- function(id,
         )
       )
     )
+  } else if (view == "select_rai_group") {
+    return(
+      tagList(
+        selectInput(
+          inputId = ns("selected_rai_group"),
+          label = tagList(icon("paw"), "Species group selection:"),
+          choices = choices,
+          selected = selected,
+          multiple = FALSE,
+          selectize = TRUE
+        )
+      )
+    )
   } else if (view == "select_localities") {
     return(
       tagList(
@@ -50,14 +63,33 @@ plotting_module_ui <- function(id,
           checkboxInput(ns("stacked"), "Stacked", value = TRUE),
           checkboxInput(ns("data_labels"), "Data labels", value = TRUE)
         )
-        
-        
+
+
+      )
+    )
+  } else if (view == "select_rai_plot_options") {
+    return(
+      tagList(
+        div(
+          class = "form-group",
+          tags$label(
+            class = "control-label plot-options-label",
+            tagList(icon("sliders-h"), "Toggle options:")
+          ),
+          checkboxInput(ns("data_labels"), "Data labels", value = TRUE)
+        )
       )
     )
   } else if (view == "plot") {
     return(
       tagList(
         plotOutput(ns("obs_plot"), height = "360px")
+      )
+    )
+  } else if (view == "rai_plot") {
+    return(
+      tagList(
+        plotOutput(ns("rai_plot"), height = "360px")
       )
     )
   } else if (view == "summary") {
@@ -76,13 +108,20 @@ plotting_module_server <- function(id,
                                    type = "density",
                                    obs,
                                    deps,
-                                   species_override = NULL) {
+                                   species_override = NULL,
+                                   rai_groups = NULL,
+                                   rai_norm_hours = NULL,
+                                   use_net = TRUE) {
 
   moduleServer(id, function(input, output, session) {
     logger::log_debug(sprintf("plotting_module_server, %s moduleServer() running", id))
 
     get_plot_width <- function() {
       plot_width <- session$clientData[[paste0("output_", session$ns("obs_plot"), "_width")]]
+
+      if (is.null(plot_width)) {
+        plot_width <- session$clientData[[paste0("output_", session$ns("rai_plot"), "_width")]]
+      }
 
       if (is.null(plot_width)) {
         plot_width <- session$clientData[["output_obs_plot_width"]]
@@ -129,6 +168,10 @@ plotting_module_server <- function(id,
     selected_localities <- reactive({
      # req(input$selected_localities)  # Uncomment to ensure localities are selected
       as.character(input$selected_localities)
+    })
+
+    selected_rai_group <- reactive({
+      as.character(input$selected_rai_group)
     })
     
     plotting_data <- reactive({
@@ -300,10 +343,144 @@ plotting_module_server <- function(id,
       
       print(p)
     })
-    
-    
-    
-    
+
+    rai_plotting_data <- reactive({
+      req(obs, deps)
+
+      rai_group <- selected_rai_group()
+      localities <- selected_localities()
+
+      if (is.null(rai_groups) || length(rai_groups) == 0 ||
+          is.null(rai_group) || length(rai_group) == 0 ||
+          is.null(localities) || length(localities) == 0) {
+        return(tibble::tibble())
+      }
+
+      period_names <- names(core_data$period_groups)
+      period_names <- period_names[period_names != "ALL"]
+      period_names <- period_names[period_names %in% unique(as.character(deps$period))]
+
+      if (length(period_names) == 0) {
+        return(tibble::tibble())
+      }
+
+      build_metric_row <- function(period_name, locality_filter = NULL) {
+        period <- core_data$period_groups[[period_name]]
+        period_obs <- filter_obs(obs, period$start_date, period$end_date)
+        period_deps <- filter_deps(deps, period$start_date, period$end_date)
+
+        if (!is.null(locality_filter)) {
+          period_obs <- period_obs %>% dplyr::filter(.data$locality %in% !!locality_filter)
+          period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality_filter)
+        }
+
+        metric <- generate_rai_group_network_metric(
+          period_obs,
+          period_deps,
+          rai_groups,
+          rai_group,
+          rai_norm_hours,
+          use_net
+        )
+
+        tibble::tibble(
+          period = period_name,
+          locality = if (is.null(locality_filter)) {
+            "Combined selected localities"
+          } else {
+            locality_scope_label(locality_filter)
+          },
+          rai_group = rai_group,
+          value = metric$value,
+          se = metric$se,
+          ymin = pmax(metric$value - metric$se, 0),
+          ymax = metric$value + metric$se,
+          label = ifelse(is.na(metric$value), "", sprintf("%0.1f", metric$value))
+        )
+      }
+
+      if (isTRUE(input$combine_localities)) {
+        plot_data <- dplyr::bind_rows(lapply(period_names, function(period_name) {
+          build_metric_row(period_name, localities)
+        }))
+      } else {
+        plot_data <- dplyr::bind_rows(lapply(localities, function(locality) {
+          dplyr::bind_rows(lapply(period_names, function(period_name) {
+            build_metric_row(period_name, locality)
+          }))
+        }))
+      }
+
+      plot_data$period <- factor(plot_data$period, levels = rev(period_names))
+      plot_data
+    })
+
+    output$rai_plot <- renderPlot({
+      data <- rai_plotting_data()
+      plot_width <- get_plot_width()
+      facet_count <- if (isTRUE(input$combine_localities)) {
+        1
+      } else {
+        length(unique(data$locality))
+      }
+      axis_text_x <- x_axis_text_theme(data$period, plot_width, facet_count)
+
+      if (nrow(data) == 0 || all(is.na(data$value))) {
+        plot(1, type = "n", xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+        title("No RAI data available")
+        return(NULL)
+      }
+
+      title <- if (isTRUE(input$combine_localities)) {
+        sprintf(
+          "Combined: %s",
+          paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", ")
+        )
+      } else {
+        NULL
+      }
+
+      p <- ggplot(data, aes(x = period, y = value)) +
+        geom_line(aes(group = locality), linewidth = 0.6, linetype = "dashed", colour = "#5f6f7a", alpha = 0.65, na.rm = TRUE) +
+        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.16, linewidth = 0.7, colour = "#6f7780", alpha = 0.75, na.rm = TRUE) +
+        geom_point(size = 3.2, na.rm = TRUE, colour = "#0f766e") +
+        labs(title = title, x = "Period", y = "RAI", subtitle = selected_rai_group()) +
+        scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.18))) +
+        theme_minimal(base_size = 14) +
+        theme(
+          plot.title = element_text(size = rel(1.05), face = "bold"),
+          plot.subtitle = element_text(size = rel(1), face = "bold", colour = "#0f766e"),
+          axis.text = element_text(size = rel(1)),
+          axis.text.x = axis_text_x,
+          panel.grid.minor = element_blank()
+        )
+
+      if (!isTRUE(input$combine_localities)) {
+        p <- p +
+          facet_wrap(~ locality) +
+          theme(strip.text = element_text(size = rel(1.2), face = "bold"))
+      }
+
+      if (isTRUE(input$data_labels)) {
+        p <- p + geom_label(
+          aes(y = ymax, label = label),
+          vjust = -0.35,
+          size = 3.8,
+          fontface = "bold",
+          colour = "#0f766e",
+          fill = "white",
+          label.size = 0,
+          label.padding = unit(0.12, "lines"),
+          na.rm = TRUE
+        )
+      }
+
+      print(p)
+    })
+
+
+
+
     
   })
 }

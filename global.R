@@ -124,7 +124,6 @@ source("modules/period_selection_module.R")
 source("modules/plotting_module.R")
 source("modules/mapping_module.R")
 source("includes/other_functions.R")
-source("modules/species_dashboard_module.R")
 
 # For future call
 plan(multisession)
