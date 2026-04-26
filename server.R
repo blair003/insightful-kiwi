@@ -84,7 +84,7 @@ server <- function(input, output, session) {
     }
 
     if (isTRUE(combine_localities)) {
-      return(render_dashboard_metric_cards())
+      return(render_dashboard_metric_cards(selected_localities))
     }
 
     tagList(lapply(selected_localities, function(locality) {
@@ -99,12 +99,12 @@ server <- function(input, output, session) {
     detail_parts <- strsplit(input$dashboard_rai_details_clicked, "\\|", fixed = FALSE)[[1]]
     rai_group <- detail_parts[[1]]
     locality <- if (length(detail_parts) > 1 && detail_parts[[2]] != "ALL") {
-      detail_parts[[2]]
+      strsplit(detail_parts[[2]], ",", fixed = TRUE)[[1]]
     } else {
       NULL
     }
 
-    lower_is_better <- identical(rai_group, "Mustelids")
+    lower_is_better <- rai_group %in% c("Mustelids", "Rats")
     show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality))
   })
   

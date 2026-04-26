@@ -128,12 +128,22 @@
       }
 
       .dashcard-comparison {
-        display: block;
-        text-align: center;
+        align-items: center;
+        display: flex;
+        gap: 0.25rem;
+        justify-content: center;
         font-size: 0.8rem;
         line-height: 1.2;
         margin-top: 0.2rem;
+        text-align: center;
         width: 100%;
+      }
+
+      .dashcard-trend-icon {
+        display: inline-flex;
+        flex: 0 0 auto;
+        font-size: 0.72rem;
+        line-height: 1;
       }
 
       .dashcard-comparison-good {
@@ -209,6 +219,75 @@
         width: 42%;
       }
 
+      .rai-table-scroll {
+        overflow-x: auto;
+        width: 100%;
+      }
+
+      .rai-line-grid {
+        display: grid;
+        gap: 0.75rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .rai-line-locality-summary {
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .rai-line-locality-heading {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        font-weight: 600;
+        padding: 0.45rem 0.6rem;
+      }
+
+      .rai-line-period-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .rai-line-period-summary {
+        border-left: 1px solid #dee2e6;
+        font-size: 0.86rem;
+        line-height: 1.35;
+        min-width: 0;
+        padding: 0.5rem 0.6rem;
+      }
+
+      .rai-line-period-summary:first-child {
+        border-left: 0;
+      }
+
+      .rai-line-period-label {
+        color: #6c757d;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+      }
+
+      .rai-line-summary-label {
+        color: #495057;
+        display: inline;
+        font-weight: 600;
+        margin-right: 0.25rem;
+      }
+
+      .rai-line-summary-value {
+        overflow-wrap: anywhere;
+      }
+
+      .rai-line-empty {
+        color: #6c757d;
+        font-size: 0.86rem;
+      }
+
+      .rai-period-table {
+        min-width: 34rem;
+      }
+
       .rai-period-table th,
       .rai-period-table td {
         vertical-align: top;
@@ -217,6 +296,22 @@
       .rai-period-table thead th,
       .rai-period-table tbody td {
         text-align: center;
+      }
+
+      @media (max-width: 640px) {
+        .rai-line-period-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .rai-line-period-summary,
+        .rai-line-period-summary:first-child {
+          border-left: 0;
+          border-top: 1px solid #dee2e6;
+        }
+
+        .rai-line-period-summary:first-child {
+          border-top: 0;
+        }
       }
 
 

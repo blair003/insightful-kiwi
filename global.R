@@ -123,12 +123,13 @@ core_data$period_defaults <- get_default_complete_period_selection(
 source("modules/period_selection_module.R")
 source("modules/plotting_module.R")
 source("modules/mapping_module.R")
+source("includes/other_functions.R")
 
 # For future call
 plan(multisession)
 
 
-# --- Background Caching of favourite and target species images on Startup ---
+# --- Background Caching of favourite and selected species images on Startup ---
 logger::log_info("Attempting to launch background caching process...")
 
 future::future({
@@ -143,6 +144,6 @@ future::future({
 }, seed = TRUE) %...>% {
   logger::log_info("Background caching complete.")
 } %...!% (function(error) {
-  logger::log_error("Failed to launch background caching process: %s", conditionMessage(error))
+  logger::log_error("Background caching process failed: %s", conditionMessage(error))
 })
 # --- End Background Caching ---
