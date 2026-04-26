@@ -1,6 +1,6 @@
-/*    custom.css 
+/*    custom.css
 
-      id selector uses # character	
+      id selector uses # character
       class selector uses “.” character.
 */
 
@@ -334,14 +334,14 @@
         margin: 0;  /* Remove any margin */
         padding: 0; /* Remove any padding */
       }
-      
+
       /* Dynamically size the select input based on its content */
       .no-label-select-container select {
         width: auto;          /* Use auto width */
         max-width: max-content; /* Maximum width based on the widest content */
         min-width: min-content; /* Minimum width based on the narrowest content */
       }
-      
+
       /* For the sidebar fieldset */
       .plot-options-label {
         display: block;
@@ -352,8 +352,8 @@
 
 
       /* Table captions default to bottom with bslib */
-      caption { caption-side:top !important; } 
-      
+      caption { caption-side:top !important; }
+
       /* Reduce space between elements above and below an hr. Default is like 2em with bslib */
       #global_sidebar hr {
           margin-top: 0.2em;
@@ -361,8 +361,8 @@
       }
 
 
-        
-        /* Styling for download format and actionButton */      
+
+        /* Styling for download format and actionButton */
         .form-inline > .shiny-input-container {
           display: inline-block !important;
           vertical-align: middle;
@@ -372,9 +372,9 @@
 
 
         .content-wrapper { background-color: #fff; }
-        
 
-                
+
+
         /* Add an underline to the table header cells */
         table.dataTable thead th {
           border-bottom: 1px solid rgba(0, 0, 0, 0.15);
@@ -386,40 +386,40 @@
           font-size: 0.875rem; /* Set font size for all table data cells */
         }
 
-        
+
         /* Styling for 'Totals' row of datatables that have them */
         table.dataTable tr.aggregate-row td {
           font-weight: bold !important;
           border-top: 1px solid black
         }
-        
-        
+
+
             .wrap {
               white-space: normal;  /* Allow text to wrap within cells */
             }
             .nowrap {
               white-space: nowrap;  /* Prevent text from wrapping */
             }
-        
-        
-        /* Styling for download format and actionButton */      
+
+
+        /* Styling for download format and actionButton */
         .inline-elements > .form-group {
           display: inline-block !important;
           margin-right: 0px;
           vertical-align: middle;
         }
-        
+
         .inline-elements > .shiny-download-link {
           display: inline-block !important;
           margin-right: 0px;
           vertical-align: middle; /* Keep middle alignment for the button */
         }
-        
+
         /* So inline elements don't wrap */
         .inline-elements {
           white-space: nowrap;
         }
-        
+
         /* Additional styling for the select element or its container to adjust alignment */
         .inline-elements > .shiny-input-container {
           display: inline-block;
@@ -439,14 +439,14 @@
         border: 1px solid #ddd; /* Slight border */
         z-index: 100; /* Ensure it sits above other content */
       }
-      
-        /* https://stackoverflow.com/questions/36469631/how-to-get-leaflet-for-r-use-100-of-shiny-dashboard-height 
+
+        /* https://stackoverflow.com/questions/36469631/how-to-get-leaflet-for-r-use-100-of-shiny-dashboard-height
           Needed otherwise map will show 400px height being the leaflet default
-          
-          Applying it to all leaflets as that makes sense for now, could apply based on class 
+
+          Applying it to all leaflets as that makes sense for now, could apply based on class
           But then it won't work if the class changes for different use cases
         */
-        
+
 
         /*.leaflet { height: calc(100vh - 150px) !important; } */
         /*
@@ -465,7 +465,7 @@
           border-radius: 5px;
           text-align: right;
         }
-        
+
         .map-overlay-warning {
           position: absolute;
           bottom: 1%;
@@ -482,29 +482,29 @@
         }
 
       .observation_image_viewer_carousel {
-        width:100%; 
-        max-height: 500px; 
-        object-fit: contain; 
-        display: block; 
-        margin-left: auto; 
+        width:100%;
+        max-height: 500px;
+        object-fit: contain;
+        display: block;
+        margin-left: auto;
         margin-right: auto;
       }
 
         /* For the popup modal where you click observation and it brings up images */
-        
+
         .image-container {
-          text-align: center; 
+          text-align: center;
           /* Additional styles to ensure the container is full width or centered as needed */
         }
         /* Each image within container  */
         .image-container img {
           max-width: 100%; /* Adjust the width as needed */
-        
+
           margin: 0.1%; /* Adds a little space between images */
           /*  display: inline-block; */  /* Display images side by side */
           vertical-align: middle; /* Align images if they have different heights */
         }
-    
+
 
         /* To do with slider image layout */
         #slickSlider img {
@@ -512,15 +512,15 @@
           height: auto;  /* Maintain aspect ratio */
           margin: auto;  /* Center the image horizontally */
         }
-        
+
         .slick-slide {
           display: flex;
           justify-content: center;
           align-items: center; /* Center the image vertically */
         }
-        
-        
-        
+
+
+
        /* Adjusted leaflet height for printing */
         @media print {
           .leaflet {
@@ -528,3 +528,19 @@
           }
         }
 
+
+/* Move slick arrows slightly outside the image */
+.slick-prev {
+  left: -25px !important;
+}
+.slick-next {
+  right: -25px !important;
+}
+.slick-prev:before, .slick-next:before {
+  color: #333 !important;
+  font-size: 24px !important;
+}
+
+.slick-slider {
+  margin: 0 30px;
+}

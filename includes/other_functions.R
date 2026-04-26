@@ -243,7 +243,7 @@ show_image_modal <- function(observation_id, ui_elements) {
 
 
 
-create_observation_images_ui <- function(sequence_media_info, observation_id, context = "pageview") {
+create_observation_images_ui <- function(sequence_media_info, observation_id, context = "pageview", review_nav = NULL) {
 
   local_cache_dir <- "www/cache/images"  # Directory for cached images
   carousel_id <- paste0("carousel_", observation_id) # Unique ID for the carousel container
@@ -342,6 +342,49 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
                 speed: 0
             });
 
+            // Setup infinite navigation if in review mode
+            if (%s && %s !== 'null') {
+                var reviewNav = %s;
+
+                // Track mouse/touch/keyboard direction attempts
+                var attemptedNext = false;
+                var attemptedPrev = false;
+
+                carousel.on('edge', function(event, slick, direction) {
+                    if (direction === 'left' && reviewNav.current_index < reviewNav.total_sequences) {
+                        Shiny.setInputValue('review_nav_click', reviewNav.current_index + 1, {priority: 'event'});
+                    } else if (direction === 'right' && reviewNav.current_index > 1) {
+                        Shiny.setInputValue('review_nav_click', reviewNav.current_index - 1, {priority: 'event'});
+                    }
+                });
+
+                // Overriding the next/prev clicks to detect edges that don't trigger 'edge' properly sometimes
+                carousel.find('.slick-next').on('click', function() {
+                    var currentSlide = carousel.slick('slickCurrentSlide');
+                    if (currentSlide === totalImages - 1 && reviewNav.current_index < reviewNav.total_sequences) {
+                        Shiny.setInputValue('review_nav_click', reviewNav.current_index + 1, {priority: 'event'});
+                    }
+                });
+
+                carousel.find('.slick-prev').on('click', function() {
+                    var currentSlide = carousel.slick('slickCurrentSlide');
+                    if (currentSlide === 0 && reviewNav.current_index > 1) {
+                        Shiny.setInputValue('review_nav_click', reviewNav.current_index - 1, {priority: 'event'});
+                    }
+                });
+
+                // Arrow keys for edge detection
+                $(document).on('keydown', function(e) {
+                    var currentSlide = carousel.slick('slickCurrentSlide');
+                    if (e.key === 'ArrowRight' && currentSlide === totalImages - 1 && reviewNav.current_index < reviewNav.total_sequences) {
+                        Shiny.setInputValue('review_nav_click', reviewNav.current_index + 1, {priority: 'event'});
+                    } else if (e.key === 'ArrowLeft' && currentSlide === 0 && reviewNav.current_index > 1) {
+                        Shiny.setInputValue('review_nav_click', reviewNav.current_index - 1, {priority: 'event'});
+                    }
+                });
+            }
+
+
             // Optional: Setup keyboard navigation for the slider
             setupKeyboardNavigation(carousel);
         }
@@ -363,7 +406,10 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
     });",
     image_sources_js_array,
     image_css,
-    carousel_id
+    carousel_id,
+    ifelse(is.null(review_nav), "false", "true"),
+    review_nav_json,
+    review_nav_json
   )
   
 

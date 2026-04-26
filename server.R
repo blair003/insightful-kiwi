@@ -506,7 +506,7 @@ server <- function(input, output, session) {
           if (action_type == "modal") {
             image_output <- create_observation_images_ui(observation_details$sequence_media_info, 
                                                          observation_id,
-                                                         context = "modal")
+                                                         context = "modal", review_nav = list(current_index = current_index, total_sequences = total_sequences))
             
             show_image_modal(observation_id, image_output$ui_elements)
             session$sendCustomMessage(type = "refreshCarousel", message = list(carouselId = image_output$carousel_id))
@@ -886,7 +886,7 @@ server <- function(input, output, session) {
     if (!is.null(observation_details)) {
       image_output <- create_observation_images_ui(observation_details$sequence_media_info,
                                                    observation_id,
-                                                   context = "modal")
+                                                   context = "modal", review_nav = list(current_index = current_index, total_sequences = total_sequences))
 
       # Build navigation footer
       nav_footer <- tagList(
