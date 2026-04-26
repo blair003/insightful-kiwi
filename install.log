@@ -1,0 +1,281 @@
+also installing the dependencies ‘highr’, ‘tinytex’, ‘knitr’, ‘rmarkdown’, ‘e1071’, ‘httpuv’, ‘sass’, ‘generics’, ‘pillar’, ‘tibble’, ‘tidyselect’, ‘vctrs’, ‘crosstalk’, ‘htmlwidgets’, ‘purrr’, ‘stringr’, ‘cpp11’, ‘classInt’, ‘DBI’, ‘s2’, ‘units’, ‘gtable’, ‘isoband’, ‘S7’, ‘farver’, ‘labeling’, ‘RColorBrewer’, ‘viridisLite’
+
+trying URL 'http://cran.us.r-project.org/src/contrib/highr_0.12.tar.gz'
+Content type 'application/x-gzip' length 13622 bytes (13 KB)
+==================================================
+downloaded 13 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tinytex_0.59.tar.gz'
+Content type 'application/x-gzip' length 37498 bytes (36 KB)
+==================================================
+downloaded 36 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/knitr_1.51.tar.gz'
+Content type 'application/x-gzip' length 483744 bytes (472 KB)
+==================================================
+downloaded 472 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/rmarkdown_2.31.tar.gz'
+Content type 'application/x-gzip' length 2199845 bytes (2.1 MB)
+==================================================
+downloaded 2.1 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/e1071_1.7-17.tar.gz'
+Content type 'application/x-gzip' length 318056 bytes (310 KB)
+==================================================
+downloaded 310 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/httpuv_1.6.17.tar.gz'
+Content type 'application/x-gzip' length 1892489 bytes (1.8 MB)
+==================================================
+downloaded 1.8 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/sass_0.4.10.tar.gz'
+Content type 'application/x-gzip' length 3025163 bytes (2.9 MB)
+==================================================
+downloaded 2.9 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/generics_0.1.4.tar.gz'
+Content type 'application/x-gzip' length 47224 bytes (46 KB)
+==================================================
+downloaded 46 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/pillar_1.11.1.tar.gz'
+Content type 'application/x-gzip' length 409508 bytes (399 KB)
+==================================================
+downloaded 399 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tibble_3.3.1.tar.gz'
+Content type 'application/x-gzip' length 557135 bytes (544 KB)
+==================================================
+downloaded 544 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tidyselect_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 103591 bytes (101 KB)
+==================================================
+downloaded 101 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/vctrs_0.7.3.tar.gz'
+Content type 'application/x-gzip' length 1083213 bytes (1.0 MB)
+==================================================
+downloaded 1.0 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/crosstalk_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 297847 bytes (290 KB)
+==================================================
+downloaded 290 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/htmlwidgets_1.6.4.tar.gz'
+Content type 'application/x-gzip' length 868895 bytes (848 KB)
+==================================================
+downloaded 848 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/purrr_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 278508 bytes (271 KB)
+==================================================
+downloaded 271 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/stringr_1.6.0.tar.gz'
+Content type 'application/x-gzip' length 195833 bytes (191 KB)
+==================================================
+downloaded 191 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/cpp11_0.5.4.tar.gz'
+Content type 'application/x-gzip' length 303477 bytes (296 KB)
+==================================================
+downloaded 296 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/classInt_0.4-11.tar.gz'
+Content type 'application/x-gzip' length 440406 bytes (430 KB)
+==================================================
+downloaded 430 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/DBI_1.3.0.tar.gz'
+Content type 'application/x-gzip' length 744704 bytes (727 KB)
+==================================================
+downloaded 727 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/s2_1.1.9.tar.gz'
+Content type 'application/x-gzip' length 2967364 bytes (2.8 MB)
+==================================================
+downloaded 2.8 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/units_1.0-1.tar.gz'
+Content type 'application/x-gzip' length 369348 bytes (360 KB)
+==================================================
+downloaded 360 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/gtable_0.3.6.tar.gz'
+Content type 'application/x-gzip' length 148148 bytes (144 KB)
+==================================================
+downloaded 144 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/isoband_0.3.0.tar.gz'
+Content type 'application/x-gzip' length 1593511 bytes (1.5 MB)
+==================================================
+downloaded 1.5 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/S7_0.2.2.tar.gz'
+Content type 'application/x-gzip' length 184632 bytes (180 KB)
+==================================================
+downloaded 180 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/farver_2.1.2.tar.gz'
+Content type 'application/x-gzip' length 1275981 bytes (1.2 MB)
+==================================================
+downloaded 1.2 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/labeling_0.4.3.tar.gz'
+Content type 'application/x-gzip' length 10167 bytes
+==================================================
+downloaded 10167 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/RColorBrewer_1.1-3.tar.gz'
+Content type 'application/x-gzip' length 11638 bytes (11 KB)
+==================================================
+downloaded 11 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/viridisLite_0.4.3.tar.gz'
+Content type 'application/x-gzip' length 1269031 bytes (1.2 MB)
+==================================================
+downloaded 1.2 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/shiny_1.13.0.tar.gz'
+Content type 'application/x-gzip' length 2712329 bytes (2.6 MB)
+==================================================
+downloaded 2.6 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/bslib_0.10.0.tar.gz'
+Content type 'application/x-gzip' length 5769350 bytes (5.5 MB)
+==================================================
+downloaded 5.5 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/shinyjs_2.1.1.tar.gz'
+Content type 'application/x-gzip' length 992492 bytes (969 KB)
+==================================================
+downloaded 969 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/dplyr_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 923509 bytes (901 KB)
+==================================================
+downloaded 901 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/logger_0.4.1.tar.gz'
+Content type 'application/x-gzip' length 685880 bytes (669 KB)
+==================================================
+downloaded 669 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/DT_0.34.0.tar.gz'
+Content type 'application/x-gzip' length 1664306 bytes (1.6 MB)
+==================================================
+downloaded 1.6 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tidyr_1.3.2.tar.gz'
+Content type 'application/x-gzip' length 809031 bytes (790 KB)
+==================================================
+downloaded 790 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/sf_1.1-0.tar.gz'
+Content type 'application/x-gzip' length 9876822 bytes (9.4 MB)
+==================================================
+downloaded 9.4 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/ggplot2_4.0.3.tar.gz'
+Content type 'application/x-gzip' length 6327703 bytes (6.0 MB)
+==================================================
+downloaded 6.0 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/scales_1.4.0.tar.gz'
+Content type 'application/x-gzip' length 328671 bytes (320 KB)
+==================================================
+downloaded 320 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/geosphere_1.6-8.tar.gz'
+Content type 'application/x-gzip' length 879922 bytes (859 KB)
+==================================================
+downloaded 859 KB
+
+* installing *source* package ‘highr’ ...
+** package ‘highr’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (highr)
+* installing *source* package ‘tinytex’ ...
+** package ‘tinytex’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tinytex)
+* installing *source* package ‘e1071’ ...
+** package ‘e1071’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c Rsvm.c -o Rsvm.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cmeans.c -o cmeans.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cshell.c -o cshell.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c floyd.c -o floyd.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c svm.cpp -o svm.o
+g++ -std=gnu++17 -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o e1071.so Rsvm.o cmeans.o cshell.o floyd.o init.o svm.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-e1071/00new/e1071/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (e1071)
+* installing *source* package ‘httpuv’ ...
+** package ‘httpuv’ successfully unpacked and MD5 sums checked
+** using staged installation
+** Using libuv found by pkg-config in /usr
+** PKG_CFLAGS=
+** PKG_LIBS=-luv -lpthread -ldl -lrt
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c RcppExports.cpp -o RcppExports.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c callback.cpp -o callback.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c callbackqueue.cpp -o callbackqueue.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c filedatasource-unix.cpp -o filedatasource-unix.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c filedatasource-win.cpp -o filedatasource-win.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c fs.cpp -o fs.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c gzipdatasource.cpp -o gzipdatasource.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c http.cpp -o http.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c httprequest.cpp -o httprequest.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c httpresponse.cpp -o httpresponse.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c httpuv.cpp -o httpuv.o
+gcc -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c md5.c -o md5.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c mime.cpp -o mime.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c socket.cpp -o socket.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c staticpath.cpp -o staticpath.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c thread.cpp -o thread.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c timegm.cpp -o timegm.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c utils.cpp -o utils.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -pthread -I'/usr/local/lib/R/site-library/later/include' -I'/usr/local/lib/R/site-library/Rcpp/include'    -fvisibility=hidden -DSTRICT_R_HEADERS -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c uvutil.cpp -o uvutil.o
+make: *** wait: No child processes.  Stop.
+make: *** Waiting for unfinished jobs....
+make: *** wait: No child processes.  Stop.
