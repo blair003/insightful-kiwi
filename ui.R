@@ -226,10 +226,13 @@ ui <- tagList(
       
       nav_spacer(),
 
-      nav_panel(
-        "Dashboard",
-        value = "dashboard",
+      nav_menu(
+        title = "Dashboards",
         icon = icon("dashboard"),
+        nav_panel(
+          "Overview",
+          value = "dashboard",
+
         div(
           class = "dashboard-page",
           card(
@@ -241,19 +244,14 @@ ui <- tagList(
           #  full_screen = TRUE
             full_screen = FALSE
         ),
-          
         div(
           class = "dashboard-section-heading dashboard-current-period-heading",
           paste(core_data$period_defaults$primary_period, " - Key metrics")
         ),
-
         uiOutput("dashboard_current_period_cards"),
-
         div(class = "dashboard-section-heading", "Whole Project"),
-
         layout_column_wrap(
           width = "180px",
-
           card(
             card_header(
               tagList(icon("camera"), "Camera Hours")
@@ -264,7 +262,6 @@ ui <- tagList(
             ),
             full_screen = FALSE
           ),
-          
           card(
             card_header(
               tagList(icon("rotate"), "Data Package")
@@ -277,9 +274,21 @@ ui <- tagList(
           )
         )
         )
-        
-        
-      ),
+        ),
+        # Loop over species groups to dynamically create Sub-Dashboards
+        # Unlist to ensure we get a flat list of nav_panels for nav_menu
+        !!!unlist(lapply(names(core_data$spp_classes), function(group_name) {
+          species_in_group <- core_data$spp_classes[[group_name]]
+          if (length(species_in_group) == 0) return(NULL)
+          lapply(names(species_in_group), function(species_name) {
+            sci_name <- species_in_group[[species_name]]
+            nav_panel(
+              title = species_name,
+              value = paste0("dashboard_", make.names(sci_name)),
+              species_dashboard_module_ui(id = paste0("species_dashboard_", make.names(sci_name)))
+            )
+          })
+        }), recursive = FALSE)),
       
       nav_panel(
         "Report",

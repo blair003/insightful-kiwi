@@ -134,6 +134,19 @@ server <- function(input, output, session) {
     deps = dashboard_plot_deps,
     species_override = NULL
   )
+  # Initialize species dashboards dynamically
+  lapply(names(core_data$spp_classes), function(group_name) {
+    species_in_group <- core_data$spp_classes[[group_name]]
+    lapply(names(species_in_group), function(species_name) {
+      sci_name <- species_in_group[[species_name]]
+      species_dashboard_module_server(
+        id = paste0("species_dashboard_", make.names(sci_name)),
+        species_name = sci_name,
+        obs = filtered_obs_primary,
+        deps = filtered_deps_primary
+      )
+    })
+  })
   
   
   
