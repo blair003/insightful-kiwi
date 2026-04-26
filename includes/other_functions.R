@@ -297,6 +297,8 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
   image_sources_js_array <- jsonlite::toJSON(image_sources, auto_unbox = TRUE)
   
   
+  review_nav_json <- if (!is.null(review_nav)) jsonlite::toJSON(review_nav, auto_unbox = TRUE) else "null"
+
   carousel_js <- sprintf(
     "$(document).ready(function(){
         var imageSources = %s;
