@@ -600,12 +600,9 @@ update_density_map <- function(map_id = NULL,
       stroke = FALSE,
       popup = ~{
         popup_content <- paste(locationName, "<br>Count:", count)
-        action_data <- list(
-          location_name = locationName,
-          locality = locality
-        )
-        json_data <- jsonlite::toJSON(action_data, auto_unbox = TRUE)
-        onclick_js <- sprintf("Shiny.setInputValue('density_map_review_sequences_click', %s, {priority: 'event'}); return false;", json_data)
+        # Avoid jsonlite here because it evaluates on vectors and doesn't map 1:1, plus quotes issues.
+        # Manually format JS string avoiding double quotes so it fits in the HTML attribute.
+        onclick_js <- sprintf("Shiny.setInputValue('density_map_review_sequences_click', {location_name: '%s', locality: '%s'}, {priority: 'event'}); return false;", locationName, locality)
         review_link <- sprintf("<br><a href='#' onclick=\"%s\" title='Review Sequences'>Review Sequences</a>", onclick_js)
         paste0(popup_content, review_link)
       }

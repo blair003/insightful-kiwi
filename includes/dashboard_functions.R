@@ -352,14 +352,11 @@ show_rai_metric_modal <- function(metric) {
       individuals = {
         val <- format_dash_number(period_metric$individuals_count)
         if (!is.na(period_metric$individuals_count) && period_metric$individuals_count > 0) {
-          action_data <- list(
-            period_name = period_metric$period,
-            rai_group = metric$rai_group,
-            locality = metric$locality_filter
-          )
-          json_data <- jsonlite::toJSON(action_data, auto_unbox = TRUE)
-          onclick_js <- sprintf("Shiny.setInputValue('review_sequences_click', %s, {priority: 'event'}); return false;", json_data)
-          HTML(sprintf('<a href="#" onclick="%s" title="Review Sequences">%s</a>', onclick_js, val))
+                  # Manually construct JS object to avoid double quotes in the HTML attribute
+                  onclick_js <- sprintf("Shiny.setInputValue('review_sequences_click', {period_name: '%s', rai_group: '%s', locality: '%s'}, {priority: 'event'}); return false;",
+                    period_metric$period, metric$rai_group, metric$locality_filter)
+                  HTML(sprintf('<a href="#" onclick="%s" title="Review Sequences">%s</a>',
+                    onclick_js, val))
         } else {
           val
         }
