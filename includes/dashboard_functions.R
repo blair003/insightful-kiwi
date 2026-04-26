@@ -22,6 +22,7 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL) {
   )
 
   metric$scope_label <- locality_scope_label(locality)
+  metric$locality_filter <- if (is.null(locality)) "ALL" else paste(locality, collapse = ",")
   metric
 }
 
@@ -348,7 +349,18 @@ show_rai_metric_modal <- function(metric) {
       start_date = format_period_date(period_metric, "start_date"),
       end_date = format_period_date(period_metric, "end_date"),
       detections = format_dash_number(period_metric$animal_detections),
-      individuals = format_dash_number(period_metric$individuals_count),
+      individuals = {
+        val <- format_dash_number(period_metric$individuals_count)
+        if (!is.na(period_metric$individuals_count) && period_metric$individuals_count > 0) {
+                  # Manually construct JS object to avoid double quotes in the HTML attribute
+                  onclick_js <- sprintf("Shiny.setInputValue('review_sequences_click', {period_name: '%s', rai_group: '%s', locality: '%s'}, {priority: 'event'}); return false;",
+                    period_metric$period, metric$rai_group, metric$locality_filter)
+                  HTML(sprintf('<a href="#" onclick="%s" title="Review Sequences">%s</a>',
+                    onclick_js, val))
+        } else {
+          val
+        }
+      },
       duplicates = format_dash_number(period_metric$possible_duplicates_count),
       net_individuals = format_dash_number(period_metric$net_individuals_count),
       camera_hours = format_dash_number(period_metric$camera_hours, 1),
