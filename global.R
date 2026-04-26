@@ -123,6 +123,7 @@ core_data$period_defaults <- get_default_complete_period_selection(
 source("modules/period_selection_module.R")
 source("modules/plotting_module.R")
 source("modules/mapping_module.R")
+source("modules/species_dashboard_module.R")
 source("includes/other_functions.R")
 
 # For future call

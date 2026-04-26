@@ -859,14 +859,21 @@ server <- function(input, output, session) {
     # Extract details
     period_name <- action_data$period_name
     rai_group <- action_data$rai_group
+    species_name <- action_data$species_name
     locality_filter <- action_data$locality
 
-    # Get period details
-    if (period_name %in% names(core_data$period_groups)) {
+    if (!is.null(period_name) && period_name == "ALL") {
+      filtered_obs <- core_data$obs
+    } else if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
       period <- core_data$period_groups[[period_name]]
 
       # Filter obs
       filtered_obs <- filter_obs(core_data$obs, period$start_date, period$end_date)
+    } else {
+      filtered_obs <- NULL
+    }
+
+    if (!is.null(filtered_obs)) {
 
       # Apply locality filter
       if (!is.null(locality_filter) && locality_filter != "ALL") {
@@ -874,10 +881,14 @@ server <- function(input, output, session) {
         filtered_obs <- filtered_obs %>% filter(locality %in% localities)
       }
 
-      # Apply species filter based on rai_group
-      species_list <- config$globals$rai_groups[[rai_group]]
-      if (!is.null(species_list)) {
-        filtered_obs <- filtered_obs %>% filter(tolower(scientificName) %in% tolower(species_list))
+      # Apply species filter based on either a species dashboard click or an RAI group click.
+      if (!is.null(species_name) && nzchar(species_name)) {
+        filtered_obs <- filtered_obs %>% filter(tolower(scientificName) == tolower(species_name))
+      } else {
+        species_list <- config$globals$rai_groups[[rai_group]]
+        if (!is.null(species_list)) {
+          filtered_obs <- filtered_obs %>% filter(tolower(scientificName) %in% tolower(species_list))
+        }
       }
 
       # Extract observation IDs

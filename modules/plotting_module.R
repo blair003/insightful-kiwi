@@ -161,19 +161,33 @@ plotting_module_server <- function(id,
     selected_species <- reactive({
      # req(input$selected_species)  # Ensure species is selected
       logger::log_debug(sprintf("plotting_module_server, %s input$selected_species changed", id))
+      if (!is.null(species_override)) {
+        return(as.character(species_override))
+      }
       # Ensure selected species is always treated as a vector
       as.character(input$selected_species)
     })
-    
+
     selected_localities <- reactive({
      # req(input$selected_localities)  # Uncomment to ensure localities are selected
+      if (is.null(input$selected_localities) || length(input$selected_localities) == 0) {
+        return(unique(as.character(deps$locality)))
+      }
       as.character(input$selected_localities)
     })
 
     selected_rai_group <- reactive({
+      if ((is.null(input$selected_rai_group) || length(input$selected_rai_group) == 0) &&
+          !is.null(rai_groups) && length(rai_groups) > 0) {
+        return(names(rai_groups)[[1]])
+      }
       as.character(input$selected_rai_group)
     })
-    
+
+    combine_localities_selected <- function() {
+      is.null(input$combine_localities) || isTRUE(input$combine_localities)
+    }
+
     plotting_data <- reactive({
       #browser()
       req(obs, deps)
@@ -242,7 +256,7 @@ plotting_module_server <- function(id,
         summarize(count = sum(count), .groups = 'drop')
       
       # Check if 'Combine into single graph' is selected
-      if (isTRUE(input$combine_localities)) {
+      if (combine_localities_selected()) {
         # Combine data for all localities into a single line
         aggregated_data <- aggregated_data %>%
           group_by(species_name, period) %>%
@@ -265,7 +279,7 @@ plotting_module_server <- function(id,
       req(plotting_data())
       data <- plotting_data()
       plot_width <- get_plot_width()
-      facet_count <- if (isTRUE(input$combine_localities)) {
+      facet_count <- if (combine_localities_selected()) {
         1
       } else {
         length(unique(data$aggregated_data$locality))
@@ -289,7 +303,7 @@ plotting_module_server <- function(id,
       bar_position <- if (input$stacked) "stack" else position_dodge(width = 0.9)
       
       # Create the base plot depending on whether localities are combined or not
-      if (!isTRUE(input$combine_localities)) {
+      if (!combine_localities_selected()) {
         p <- ggplot(data$aggregated_data, aes(x = period, y = count, fill = species_name)) +
           geom_bar(stat = "identity", position = bar_position) +
           labs(x = "Period", y = "Individuals Count", fill = "Species") +
@@ -399,7 +413,7 @@ plotting_module_server <- function(id,
         )
       }
 
-      if (isTRUE(input$combine_localities)) {
+      if (combine_localities_selected()) {
         plot_data <- dplyr::bind_rows(lapply(period_names, function(period_name) {
           build_metric_row(period_name, localities)
         }))
@@ -418,7 +432,7 @@ plotting_module_server <- function(id,
     output$rai_plot <- renderPlot({
       data <- rai_plotting_data()
       plot_width <- get_plot_width()
-      facet_count <- if (isTRUE(input$combine_localities)) {
+      facet_count <- if (combine_localities_selected()) {
         1
       } else {
         length(unique(data$locality))
@@ -431,7 +445,7 @@ plotting_module_server <- function(id,
         return(NULL)
       }
 
-      title <- if (isTRUE(input$combine_localities)) {
+      title <- if (combine_localities_selected()) {
         sprintf(
           "Combined: %s",
           paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", ")
@@ -455,7 +469,7 @@ plotting_module_server <- function(id,
           panel.grid.minor = element_blank()
         )
 
-      if (!isTRUE(input$combine_localities)) {
+      if (!combine_localities_selected()) {
         p <- p +
           facet_wrap(~ locality) +
           theme(strip.text = element_text(size = rel(1.2), face = "bold"))
