@@ -85,16 +85,16 @@ if (file.exists(cache_file)) {
             package_id)
   )
   source("includes/camtrapdp_functions.R")
-  
+
   core_data <- process_camtrapdp_package()
-  
+
   # Trim the dataset -- a hack for Ohiwa as we want to ignore intial deployments
   if (!is.null(config$globals$custom_start_date)) {
     core_data$deps <- core_data$deps %>%
       dplyr::filter(start >= as.Date(config$globals$custom_start_date))
   }
 
-  
+
   # Ordering is important; each step builds on the last
   core_data$period_groups <- create_period_groups(
     core_data$deps, config$globals$period_grouping, config$globals$hemisphere

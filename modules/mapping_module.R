@@ -446,7 +446,7 @@ mapping_module_server <- function(id,
       
       # Observer to update the content of the observation map on the unified map display
       observe({
-        logger::log_error(sprintf("VERY_BASIC_OBSERVER_ENTRY (ID: %s): This observer has been entered.", id)) # Original log
+        # logger::log_error(sprintf("VERY_BASIC_OBSERVER_ENTRY (ID: %s): This observer has been entered.", id)) # Original log
         
         if (!is_observation_map_with_map_tab_active()) {
           logger::log_debug(sprintf("OBSERVER_STATE (ID: %s): Not on observation_map page OR map_tab is not active. Skipping map update.", id))
