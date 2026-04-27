@@ -267,6 +267,13 @@ ui <- tagList(
 
         uiOutput("dashboard_current_period_cards"),
 
+        div(
+          class = "dashboard-section-heading dashboard-current-period-heading",
+          paste(core_data$period_defaults$primary_period, " - Weather")
+        ),
+
+        uiOutput("dashboard_weather_cards"),
+
         div(class = "dashboard-section-heading", "Whole Project"),
 
         layout_column_wrap(

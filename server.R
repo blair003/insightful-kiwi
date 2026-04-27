@@ -101,6 +101,38 @@ server <- function(input, output, session) {
     }))
   })
 
+  output$dashboard_weather_cards <- renderUI({
+    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
+    if (is.null(combine_localities)) {
+      combine_localities <- TRUE
+    }
+
+    selected_localities <- input[["dashboard_rai_plot-selected_localities"]]
+    if (is.null(selected_localities) || length(selected_localities) == 0) {
+      selected_localities <- unique(core_data$deps$locality)
+    }
+
+    # Fetch period dates
+    primary_period <- core_data$period_defaults$primary_period
+    period_info <- core_data$period_groups[[primary_period]]
+    if (is.null(period_info)) {
+      return(NULL)
+    }
+    start_date <- period_info$start_date
+    end_date <- period_info$end_date
+
+    if (isTRUE(combine_localities)) {
+      return(render_weather_cards(selected_localities, start_date, end_date))
+    }
+
+    tagList(lapply(selected_localities, function(locality) {
+      tagList(
+        div(class = "dashboard-locality-heading", locality_display_name(locality)),
+        render_weather_cards(locality, start_date, end_date)
+      )
+    }))
+  })
+
   observeEvent(input$dashboard_rai_details_clicked, {
     detail_parts <- strsplit(input$dashboard_rai_details_clicked, "\\|", fixed = FALSE)[[1]]
     rai_group <- detail_parts[[1]]
@@ -112,6 +144,11 @@ server <- function(input, output, session) {
 
     lower_is_better <- rai_group %in% c("Mustelids", "Rats")
     show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality))
+  })
+
+  observeEvent(input$dashboard_weather_details_clicked, {
+    token <- input$dashboard_weather_details_clicked
+    show_weather_modal(token$lat, token$lng, token$start_date, token$end_date)
   })
   
   # Camera Hours Logged: Sum of camera hours
