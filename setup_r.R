@@ -1,6 +1,0 @@
-Sys.setenv(R_LIBS_USER="~/.R/library")
-.libPaths("~/.R/library")
-options(repos = c(CRAN = "https://cloud.r-project.org"))
-if (!require("shiny", quietly = TRUE)) install.packages("shiny")
-if (!require("httr", quietly = TRUE)) install.packages("httr")
-if (!require("jsonlite", quietly = TRUE)) install.packages("jsonlite")
