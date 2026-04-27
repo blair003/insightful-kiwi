@@ -861,6 +861,25 @@ server <- function(input, output, session) {
     rai_group <- action_data$rai_group
     species_name <- action_data$species_name
     locality_filter <- action_data$locality
+    supplied_observation_ids <- action_data$observation_ids
+
+    if (!is.null(supplied_observation_ids) && length(supplied_observation_ids) > 0) {
+      observation_ids <- unlist(supplied_observation_ids, use.names = FALSE)
+      observation_ids <- observation_ids[nzchar(observation_ids)]
+
+      if (length(observation_ids) > 0) {
+        show_review_sequences_modal(observation_ids, 1)
+      } else {
+        showModal(modalDialog(
+          title = "No Sequences Found",
+          "There are no sequences to review for this selection.",
+          easyClose = TRUE,
+          footer = modalButton("Close")
+        ))
+      }
+
+      return()
+    }
 
     if (!is.null(period_name) && period_name == "ALL") {
       filtered_obs <- core_data$obs

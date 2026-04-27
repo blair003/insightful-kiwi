@@ -90,7 +90,11 @@ period_selection_module_server <- function(id,
   moduleServer(id, function(input, output, session) {
 
     ns <- session$ns
-    logger::log_debug(sprintf("period_selection_module_server() moduleServer running for %s", id))
+    module_namespace <- sub("-$", "", ns(""))
+    logger::log_debug(sprintf(
+      "period_selection_module_server() moduleServer running for %s",
+      module_namespace
+    ))
     
     start_date <- reactiveVal(NULL)
     end_date <- reactiveVal(NULL)
@@ -108,7 +112,7 @@ period_selection_module_server <- function(id,
     
     observeEvent(input$period_selection, {
       logger::log_info(sprintf("period_selection_module_server() period_selection changing for %s, new period is %s", 
-                               id, input$period_selection))
+                               module_namespace, input$period_selection))
       
       if (input$period_selection %in% names(period_groups)) {
         start_date(period_groups[[input$period_selection]]$start_date)
@@ -121,7 +125,7 @@ period_selection_module_server <- function(id,
           'event_label': %s
         });", jsonlite::toJSON(id, auto_unbox = TRUE), jsonlite::toJSON(input$period_selection, auto_unbox = TRUE)))
       }
-    }, ignoreNULL = TRUE)
+    }, ignoreNULL = TRUE, ignoreInit = TRUE)
     
     summary_html_content <- reactive({
       req(!is.null(start_date()) && !is.na(start_date()),

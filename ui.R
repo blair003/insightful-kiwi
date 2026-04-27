@@ -76,13 +76,16 @@ species_dashboard_sidebar_controls <- function() {
             )
           ),
           conditionalPanel(
-            condition = sprintf("input.nav === '%s' && (!input['%s'] || input['%s'] === 'overall')", dashboard_id, dashboard_tab_input, dashboard_tab_input),
+            condition = sprintf("input.nav === '%s'", dashboard_id),
             plotting_module_ui(
               id = paste0(dashboard_id, "-overall_rai_plot"),
               view = "select_localities",
               choices = unique(core_data$deps$locality),
               selected = unique(core_data$deps$locality)
-            ),
+            )
+          ),
+          conditionalPanel(
+            condition = sprintf("input.nav === '%s' && (!input['%s'] || input['%s'] === 'overall')", dashboard_id, dashboard_tab_input, dashboard_tab_input),
             plotting_module_ui(
               id = paste0(dashboard_id, "-overall_rai_plot"),
               view = "select_rai_plot_options"

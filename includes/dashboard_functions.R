@@ -481,6 +481,19 @@ show_rai_metric_modal <- function(metric) {
     )
   }
 
+  render_calculation_trace_section <- function() {
+    traces <- vapply(period_columns, function(column) {
+      trace <- column$metric$calculation_trace
+      if (is.null(trace) || length(trace) == 0 || is.na(trace[[1]])) {
+        trace <- "Calculation trace is not available."
+      }
+
+      paste(column$label, trace[[1]], sep = ": ")
+    }, character(1))
+
+    tags$pre(class = "rai-calculation-trace", paste(traces, collapse = "\n\n"))
+  }
+
   constant_rows <- list(
     c("Species included", paste(config$globals$rai_groups[[metric$rai_group]], collapse = ", ")),
     c("RAI normalisation", paste(format_dash_number(metric$current_metric$rai_norm_hours), "camera hours")),
@@ -562,6 +575,8 @@ show_rai_metric_modal <- function(metric) {
     tags$div(class = "rai-table-scroll", render_period_table(period_input_rows)),
     tags$h5("Line RAIs"),
     render_line_rai_section(),
+    tags$h5("RAI Proof"),
+    render_calculation_trace_section(),
     easyClose = TRUE,
     footer = modalButton("Close"),
     size = "l"

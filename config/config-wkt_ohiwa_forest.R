@@ -56,6 +56,9 @@ config$globals <- list(
   
   # in minutes (decimal), used for the possible duplicate logic
   dup_detect_threshold = 30.1,
+
+  # Near-miss window for species dashboard Kiwi co-occurrence checks, in minutes
+  kiwi_near_miss_minutes = 60,
   
   # Show RAI calculations based on net individuals count (excluding duplicates)
   rai_net_count = TRUE,

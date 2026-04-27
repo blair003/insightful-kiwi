@@ -1,7 +1,433 @@
+format_rai_with_se <- function(value, se) {
+  sprintf("%0.1f ± %0.2f", value, se)
+}
+
+rai_calculation_trace <- function(scope,
+                                  taxon_set,
+                                  scientific_names,
+                                  rai_norm_hours,
+                                  use_net,
+                                  value_column,
+                                  camera_hours = NA_real_,
+                                  individuals_count = NA_real_,
+                                  net_individuals_count = NA_real_,
+                                  possible_duplicates_count = NA_real_,
+                                  line_count = NA_integer_,
+                                  locality_count = NA_integer_,
+                                  line_rai_values = NA_character_,
+                                  locality_rai_values = NA_character_,
+                                  rai_value = NA_real_,
+                                  se_value = NA_real_) {
+  format_rai_number <- function(x) {
+    if (is.na(x)) {
+      return("NA")
+    }
+
+    sprintf("%0.4f", as.numeric(x))
+  }
+
+  count_label <- if (isTRUE(use_net)) "net individuals count" else "individuals count"
+  count_value <- if (isTRUE(use_net)) net_individuals_count else individuals_count
+  count_token <- if (isTRUE(use_net)) "net_individuals_count" else "individuals_count"
+
+  rai_formula <- switch(
+    scope,
+    location = sprintf("%s / camera_hours * rai_norm_hours", count_token),
+    line = sprintf("%s / camera_hours * rai_norm_hours", count_token),
+    locality = "mean(line RAI values)",
+    network = "mean(locality RAI values)",
+    sprintf("%s / camera_hours * rai_norm_hours", count_token)
+  )
+
+  rai_calculation <- switch(
+    scope,
+    location = sprintf("(%s / %s) * %s", format_rai_number(count_value), format_rai_number(camera_hours), format_rai_number(rai_norm_hours)),
+    line = sprintf("(%s / %s) * %s", format_rai_number(count_value), format_rai_number(camera_hours), format_rai_number(rai_norm_hours)),
+    locality = sprintf("mean(c(%s))", line_rai_values),
+    network = sprintf("mean(c(%s))", locality_rai_values),
+    sprintf("(%s / %s) * %s", format_rai_number(count_value), format_rai_number(camera_hours), format_rai_number(rai_norm_hours))
+  )
+
+  se_formula <- switch(
+    scope,
+    locality = "sd(line RAI values) / sqrt(number of lines)",
+    network = "sd(locality RAI values) / sqrt(number of localities)",
+    NA_character_
+  )
+
+  se_calculation <- switch(
+    scope,
+    locality = sprintf("sd(c(%s)) / sqrt(%s)", line_rai_values, line_count),
+    network = sprintf("sd(c(%s)) / sqrt(%s)", locality_rai_values, locality_count),
+    NA_character_
+  )
+
+  values <- c(
+    scope = as.character(scope),
+    taxon_set = as.character(taxon_set),
+    scientific_names = paste(as.character(scientific_names), collapse = ", "),
+    value_column = as.character(value_column),
+    count_basis = count_label,
+    count_used = as.character(count_value),
+    individuals_count = as.character(individuals_count),
+    possible_duplicates_count = as.character(possible_duplicates_count),
+    net_individuals_count = as.character(net_individuals_count),
+    camera_hours = as.character(camera_hours),
+    line_count = as.character(line_count),
+    locality_count = as.character(locality_count),
+    rai_norm_hours = as.character(rai_norm_hours),
+    rai_formula = rai_formula,
+    rai_calculation = rai_calculation,
+    RAI = format_rai_number(rai_value),
+    se_formula = se_formula,
+    se_calculation = se_calculation,
+    SE = format_rai_number(se_value)
+  )
+
+  paste(paste(names(values), values, sep = "="), collapse = "; ")
+}
+
+calculate_rai <- function(obs,
+                          deps,
+                          taxa_groups = NULL,
+                          rai_norm_hours,
+                          use_net = TRUE) {
+  empty_result <- function() {
+    list(
+      location = tibble::tibble(),
+      line = tibble::tibble(),
+      locality = tibble::tibble(),
+      network = tibble::tibble(),
+      trace = list(
+        rai_norm_hours = rai_norm_hours,
+        use_net = use_net,
+        count_basis = if (isTRUE(use_net)) "net_individuals_count" else "individuals_count",
+        location_formula = if (isTRUE(use_net)) {
+          "RAI = net_individuals_count / camera_hours * rai_norm_hours"
+        } else {
+          "RAI = individuals_count / camera_hours * rai_norm_hours"
+        },
+        line_formula = if (isTRUE(use_net)) {
+          "line RAI = net_individuals_count / camera_hours * rai_norm_hours"
+        } else {
+          "line RAI = individuals_count / camera_hours * rai_norm_hours"
+        },
+        locality_formula = "locality RAI = mean(line RAI values); SE = sd(line RAI values) / sqrt(number of lines)",
+        network_formula = "network RAI = mean(locality RAI values); SE = sd(locality RAI values) / sqrt(number of localities)"
+      )
+    )
+  }
+
+  if (is.null(obs) || is.null(deps) || nrow(deps) == 0) {
+    return(empty_result())
+  }
+
+  if (is.null(taxa_groups)) {
+    species_lookup <- obs %>%
+      select(scientificName, `vernacularNames.eng`, species_class) %>%
+      distinct() %>%
+      dplyr::filter(!is.na(scientificName))
+
+    taxa_groups <- stats::setNames(
+      as.list(as.character(species_lookup$scientificName)),
+      as.character(species_lookup$scientificName)
+    )
+  }
+
+  if (length(taxa_groups) == 0) {
+    return(empty_result())
+  }
+
+  group_lookup <- tibble::tibble(
+    rai_group = rep(names(taxa_groups), lengths(taxa_groups)),
+    scientificName = as.character(unlist(taxa_groups, use.names = FALSE))
+  ) %>%
+    mutate(
+      scientificName_lower = tolower(scientificName)
+    )
+
+  taxon_set_lookup <- group_lookup %>%
+    group_by(rai_group) %>%
+    summarise(
+      scientific_names = paste(unique(scientificName), collapse = ", "),
+      .groups = "drop"
+    )
+
+  deployment_line <- deps %>%
+    group_by(locality, line) %>%
+    summarise(
+      camera_hours = sum(camera_hours, na.rm = TRUE),
+      .groups = "drop")
+
+  line_grid <- tidyr::expand_grid(
+    deployment_line %>% select(locality, line, camera_hours) %>% distinct(),
+    rai_group = names(taxa_groups)
+  )
+
+  group_counts <- obs %>%
+    mutate(scientificName_lower = tolower(scientificName)) %>%
+    inner_join(group_lookup, by = "scientificName_lower") %>%
+    group_by(locality, line, rai_group) %>%
+    summarise(
+      animal_detections = n(),
+      individuals_count = sum(count, na.rm = TRUE),
+      possible_duplicates_count = sum(ifelse(possible_duplicate, count, 0), na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      net_individuals_count = individuals_count - possible_duplicates_count
+    )
+
+  rai_line <- line_grid %>%
+    left_join(group_counts, by = c("locality", "line", "rai_group")) %>%
+    left_join(taxon_set_lookup, by = "rai_group") %>%
+    replace_na(list(
+      animal_detections = 0,
+      individuals_count = 0,
+      possible_duplicates_count = 0,
+      net_individuals_count = 0
+    )) %>%
+    mutate(
+      RAI = (individuals_count / camera_hours) * rai_norm_hours,
+      RAI_net = (net_individuals_count / camera_hours) * rai_norm_hours,
+      possible_duplicates_percentage = ifelse(
+        individuals_count > 0,
+        (possible_duplicates_count / individuals_count) * 100,
+        0
+      ),
+      selected_RAI = if (isTRUE(use_net)) RAI_net else RAI,
+      calculation_trace = mapply(
+        rai_calculation_trace,
+        scope = "line",
+        taxon_set = rai_group,
+        scientific_names = scientific_names,
+        MoreArgs = list(
+          rai_norm_hours = rai_norm_hours,
+          use_net = use_net,
+          value_column = if (isTRUE(use_net)) "RAI_net" else "RAI"
+        ),
+        camera_hours = camera_hours,
+        individuals_count = individuals_count,
+        net_individuals_count = net_individuals_count,
+        possible_duplicates_count = possible_duplicates_count,
+        line_count = 1L,
+        locality_count = 1L,
+        rai_value = selected_RAI,
+        se_value = NA_real_,
+        USE.NAMES = FALSE
+      )
+    )
+
+  location_available <- all(c("locationName", "locality", "line") %in% names(deps)) &&
+    "locationName" %in% names(obs)
+
+  rai_location <- tibble::tibble()
+  if (location_available) {
+    deployment_location <- deps %>%
+      group_by(locality, line, locationName) %>%
+      summarise(camera_hours = sum(camera_hours, na.rm = TRUE), .groups = "drop")
+
+    location_grid <- tidyr::expand_grid(
+      deployment_location %>% select(locality, line, locationName, camera_hours) %>% distinct(),
+      rai_group = names(taxa_groups)
+    )
+
+    location_counts <- obs %>%
+      mutate(scientificName_lower = tolower(scientificName)) %>%
+      inner_join(group_lookup, by = "scientificName_lower") %>%
+      group_by(locality, line, locationName, rai_group) %>%
+      summarise(
+        animal_detections = n(),
+        individuals_count = sum(count, na.rm = TRUE),
+        possible_duplicates_count = sum(ifelse(possible_duplicate, count, 0), na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate(net_individuals_count = individuals_count - possible_duplicates_count)
+
+    rai_location <- location_grid %>%
+      left_join(location_counts, by = c("locality", "line", "locationName", "rai_group")) %>%
+      left_join(taxon_set_lookup, by = "rai_group") %>%
+      replace_na(list(
+        animal_detections = 0,
+        individuals_count = 0,
+        possible_duplicates_count = 0,
+        net_individuals_count = 0
+      )) %>%
+      mutate(
+        RAI = (individuals_count / camera_hours) * rai_norm_hours,
+        RAI_net = (net_individuals_count / camera_hours) * rai_norm_hours,
+        possible_duplicates_percentage = ifelse(
+          individuals_count > 0,
+          (possible_duplicates_count / individuals_count) * 100,
+          0
+        ),
+        selected_RAI = if (isTRUE(use_net)) RAI_net else RAI,
+        calculation_trace = mapply(
+          rai_calculation_trace,
+          scope = "location",
+          taxon_set = rai_group,
+          scientific_names = scientific_names,
+          MoreArgs = list(
+            rai_norm_hours = rai_norm_hours,
+            use_net = use_net,
+            value_column = if (isTRUE(use_net)) "RAI_net" else "RAI"
+          ),
+          camera_hours = camera_hours,
+          individuals_count = individuals_count,
+          net_individuals_count = net_individuals_count,
+          possible_duplicates_count = possible_duplicates_count,
+          line_count = 1L,
+          locality_count = 1L,
+          rai_value = selected_RAI,
+          se_value = NA_real_,
+          USE.NAMES = FALSE
+        )
+      )
+  }
+
+  rai_locality <- rai_line %>%
+    group_by(locality, rai_group) %>%
+    summarise(
+      animal_detections = sum(animal_detections, na.rm = TRUE),
+      individuals_count = sum(individuals_count, na.rm = TRUE),
+      possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
+      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
+      camera_hours = sum(camera_hours, na.rm = TRUE),
+      mRAI = mean(RAI, na.rm = TRUE),
+      sd_RAI = sd(RAI, na.rm = TRUE),
+      mRAI_net = mean(RAI_net, na.rm = TRUE),
+      sd_RAI_net = sd(RAI_net, na.rm = TRUE),
+      rai_count = n(),
+      line_rai_values = paste(sprintf("%0.4f", if (isTRUE(use_net)) RAI_net else RAI), collapse = ", "),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      possible_duplicates_percentage = ifelse(
+        individuals_count > 0,
+        (possible_duplicates_count / individuals_count) * 100,
+        0
+      ),
+      SE = sd_RAI / sqrt(rai_count),
+      SE_filtered = sd_RAI_net / sqrt(rai_count),
+      mRAI_SE = format_rai_with_se(mRAI, SE),
+      mRAI_SE_net = format_rai_with_se(mRAI_net, SE_filtered),
+      selected_RAI = if (isTRUE(use_net)) mRAI_net else mRAI,
+      selected_SE = if (isTRUE(use_net)) SE_filtered else SE,
+      selected_RAI_SE = if (isTRUE(use_net)) mRAI_SE_net else mRAI_SE,
+      scientific_names = taxon_set_lookup$scientific_names[match(rai_group, taxon_set_lookup$rai_group)],
+      calculation_trace = mapply(
+        rai_calculation_trace,
+        scope = "locality",
+        taxon_set = rai_group,
+        scientific_names = scientific_names,
+        MoreArgs = list(
+          rai_norm_hours = rai_norm_hours,
+          use_net = use_net,
+          value_column = if (isTRUE(use_net)) "mRAI_net" else "mRAI"
+        ),
+        camera_hours = camera_hours,
+        individuals_count = individuals_count,
+        net_individuals_count = net_individuals_count,
+        possible_duplicates_count = possible_duplicates_count,
+        line_count = rai_count,
+        locality_count = 1L,
+        line_rai_values = line_rai_values,
+        rai_value = selected_RAI,
+        se_value = selected_SE,
+        USE.NAMES = FALSE
+      )
+    )
+
+  rai_network <- rai_locality %>%
+    group_by(rai_group) %>%
+    summarise(
+      animal_detections = sum(animal_detections, na.rm = TRUE),
+      individuals_count = sum(individuals_count, na.rm = TRUE),
+      possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
+      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
+      camera_hours = sum(camera_hours, na.rm = TRUE),
+      mmRAI = mean(mRAI, na.rm = TRUE),
+      sd_mRAI = sd(mRAI, na.rm = TRUE),
+      mmRAI_net = mean(mRAI_net, na.rm = TRUE),
+      sd_mRAI_net = sd(mRAI_net, na.rm = TRUE),
+      mrai_count = n(),
+      locality_rai_values = paste(sprintf("%0.4f", if (isTRUE(use_net)) mRAI_net else mRAI), collapse = ", "),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      possible_duplicates_percentage = ifelse(
+        individuals_count > 0,
+        (possible_duplicates_count / individuals_count) * 100,
+        0
+      ),
+      SE = sd_mRAI / sqrt(mrai_count),
+      SE_filtered = sd_mRAI_net / sqrt(mrai_count),
+      mmRAI_SE = format_rai_with_se(mmRAI, SE),
+      mmRAI_SE_net = format_rai_with_se(mmRAI_net, SE_filtered),
+      selected_RAI = if (isTRUE(use_net)) mmRAI_net else mmRAI,
+      selected_SE = if (isTRUE(use_net)) SE_filtered else SE,
+      selected_RAI_SE = if (isTRUE(use_net)) mmRAI_SE_net else mmRAI_SE,
+      scientific_names = taxon_set_lookup$scientific_names[match(rai_group, taxon_set_lookup$rai_group)],
+      calculation_trace = mapply(
+        rai_calculation_trace,
+        scope = "network",
+        taxon_set = rai_group,
+        scientific_names = scientific_names,
+        MoreArgs = list(
+          rai_norm_hours = rai_norm_hours,
+          use_net = use_net,
+          value_column = if (isTRUE(use_net)) "mmRAI_net" else "mmRAI"
+        ),
+        camera_hours = camera_hours,
+        individuals_count = individuals_count,
+        net_individuals_count = net_individuals_count,
+        possible_duplicates_count = possible_duplicates_count,
+        line_count = NA_integer_,
+        locality_count = mrai_count,
+        locality_rai_values = locality_rai_values,
+        rai_value = selected_RAI,
+        se_value = selected_SE,
+        USE.NAMES = FALSE
+      )
+    )
+
+  list(
+    location = rai_location,
+    line = rai_line,
+    locality = rai_locality,
+    network = rai_network,
+    trace = list(
+      rai_norm_hours = rai_norm_hours,
+      use_net = use_net,
+      count_basis = if (isTRUE(use_net)) "net_individuals_count" else "individuals_count",
+      location_formula = if (isTRUE(use_net)) {
+        "RAI = net_individuals_count / camera_hours * rai_norm_hours"
+      } else {
+        "RAI = individuals_count / camera_hours * rai_norm_hours"
+      },
+      line_formula = if (isTRUE(use_net)) {
+        "line RAI = net_individuals_count / camera_hours * rai_norm_hours"
+      } else {
+        "line RAI = individuals_count / camera_hours * rai_norm_hours"
+      },
+      locality_formula = "locality RAI = mean(line RAI values); SE = sd(line RAI values) / sqrt(number of lines)",
+      network_formula = "network RAI = mean(locality RAI values); SE = sd(locality RAI values) / sqrt(number of localities)"
+    )
+  )
+}
+
 # This function generates a tibble summarising key data for every species in obs, with a view by
 # location, line, locality, and for the entire network.
 generate_spp_summary <- function(obs, deps, rai_norm_hours) {
   #browser()
+  rai_calculations <- calculate_rai(
+    obs = obs,
+    deps = deps,
+    taxa_groups = NULL,
+    rai_norm_hours = rai_norm_hours,
+    use_net = config$globals$rai_net_count
+  )
+
   deployment_data <- deps %>%
     group_by(locality, line) %>%
     summarise(
@@ -28,56 +454,13 @@ generate_spp_summary <- function(obs, deps, rai_norm_hours) {
       net_individuals_count = individuals_count - possible_duplicates_count
     )
 
-  spp_summary_line <- obs %>%
-    group_by(locality, line, scientificName) %>%
-    summarise(
-      `vernacularNames.eng` = first(`vernacularNames.eng`),
-      species_class = first(species_class),
-      animal_detections = n(),
-      individuals_count = sum(count, na.rm = TRUE),
-      possible_duplicates_count = sum(ifelse(possible_duplicate, count, 0), na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    ungroup() %>%
-    mutate(
-      possible_duplicates_percentage = (possible_duplicates_count / individuals_count) * 100,
-      net_individuals_count = individuals_count - possible_duplicates_count
-    )
-
-  # We want to have an entry for every species for every locality-line view to get correct RAI and SE calculations
-  # I may be overlooking an easier way, but this works.
   sci_name_vernacular_class <- obs %>%
     select(scientificName, `vernacularNames.eng`, species_class) %>%
     distinct()
 
-  complete_grid <- tidyr::expand_grid(
-    deployment_data %>% select(locality, line) %>% distinct(),
-    sci_name_vernacular_class
-  )
-
-  # Ensure spp_summary_line includes all required combinations
-  spp_summary_line <- complete_grid %>%
-    left_join(spp_summary_line, by = c("locality", "line", "scientificName", "vernacularNames.eng", "species_class"))
-
- # Replace NA values with 0
-  spp_summary_line <- spp_summary_line %>%
-    replace_na(list(
-      animal_detections = 0,
-      individuals_count = 0,
-      possible_duplicates_count = 0,
-      possible_duplicates_percentage = 0,
-      net_individuals_count = 0
-    ))
-
-  # Join with deployment_data to include camera_hours and blank_detections_count for all
-  spp_summary_line <- spp_summary_line %>%
-    left_join(deployment_data, by = c("locality", "line"))
-
-  spp_summary_line <- spp_summary_line %>%
-    mutate(
-      RAI = (individuals_count / camera_hours) * rai_norm_hours ,
-      RAI_net = (net_individuals_count / camera_hours) * rai_norm_hours
-    )
+  spp_summary_line <- rai_calculations$line %>%
+    rename(scientificName = rai_group) %>%
+    left_join(sci_name_vernacular_class, by = "scientificName")
 
   rai_groups <- generate_rai_group_summary(
     obs,
@@ -86,61 +469,13 @@ generate_spp_summary <- function(obs, deps, rai_norm_hours) {
     rai_norm_hours
   )
 
-  spp_summary_locality <- spp_summary_line %>%
-    group_by(locality, scientificName) %>%
-    summarise(
-      `vernacularNames.eng` = first(`vernacularNames.eng`),
-      species_class = first(species_class),
-      animal_detections = sum(animal_detections, na.rm = TRUE),
-      individuals_count = sum(individuals_count, na.rm = TRUE),
-      possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
-      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
-      camera_hours = sum(camera_hours, na.rm = TRUE),
-      mRAI = mean(RAI, na.rm = TRUE),
-      sd_RAI = sd(RAI, na.rm = TRUE), # Calculate standard deviation for RAI within each group
-      mRAI_net = mean(RAI_net, na.rm = TRUE),
-      sd_RAI_net = sd(RAI_net, na.rm = TRUE),
-      rai_count = n(), # Same RAI counts for all species as we created 0 entries for each locality-line for each species
-      .groups = "drop"
-    ) %>%
-    ungroup() %>%
-    mutate(
-      possible_duplicates_percentage = ifelse(possible_duplicates_count > 0,
-                                              (possible_duplicates_count / individuals_count) * 100,
-                                              0),
-      SE = sd_RAI / sqrt(rai_count),
-      SE_filtered = sd_RAI_net / sqrt(rai_count),
-      mRAI_SE = sprintf("%0.1f ± %0.2f", mRAI, SE),
-      mRAI_SE_net = sprintf("%0.1f ± %0.2f", mRAI_net, SE_filtered)
-    )
+  spp_summary_locality <- rai_calculations$locality %>%
+    rename(scientificName = rai_group) %>%
+    left_join(sci_name_vernacular_class, by = "scientificName")
 
-
-  # Remember this will generate invalid SE if there is only one locality in the deployment selection!!
-  spp_summary_network <- spp_summary_locality %>%
-    group_by(scientificName) %>%
-    summarise(
-      `vernacularNames.eng` = first(`vernacularNames.eng`),
-      species_class = first(species_class),
-      animal_detections = sum(animal_detections, na.rm = TRUE),
-      individuals_count = sum(individuals_count, na.rm = TRUE),
-      possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
-      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
-      camera_hours = sum(camera_hours, na.rm = TRUE),
-      mmRAI = mean(mRAI, na.rm = TRUE),
-      sd_mRAI = sd(mRAI, na.rm = TRUE),
-      mmRAI_net = mean(mRAI_net, na.rm = TRUE),
-      sd_mRAI_net = sd(mRAI_net, na.rm = TRUE),
-      mrai_count = n(),
-    ) %>%
-    mutate(
-      possible_duplicates_percentage = ifelse(possible_duplicates_count > 0,
-                                              (possible_duplicates_count / individuals_count) * 100,
-                                              0),
-      SE = sd_mRAI / sqrt(mrai_count),
-      SE_filtered = sd_mRAI_net / sqrt(mrai_count),
-      mmRAI_SE = sprintf("%0.1f ± %0.2f", mmRAI, SE),
-      mmRAI_SE_net = sprintf("%0.1f ± %0.2f", mmRAI_net, SE_filtered)
-    )
+  spp_summary_network <- rai_calculations$network %>%
+    rename(scientificName = rai_group) %>%
+    left_join(sci_name_vernacular_class, by = "scientificName")
 
 
   # Create an aggregate row for locality
@@ -205,114 +540,19 @@ generate_spp_summary <- function(obs, deps, rai_norm_hours) {
 }
 
 generate_rai_group_summary <- function(obs, deployment_data, rai_groups, rai_norm_hours) {
-  if (is.null(rai_groups) || length(rai_groups) == 0) {
-    return(list(
-      line = tibble::tibble(),
-      locality = tibble::tibble(),
-      network = tibble::tibble()
-    ))
-  }
-
-  rai_group_lookup <- tibble::tibble(
-    rai_group = rep(names(rai_groups), lengths(rai_groups)),
-    scientificName_lower = tolower(unlist(rai_groups, use.names = FALSE))
+  rai_result <- calculate_rai(
+    obs = obs,
+    deps = deployment_data,
+    taxa_groups = rai_groups,
+    rai_norm_hours = rai_norm_hours,
+    use_net = config$globals$rai_net_count
   )
-
-  group_grid <- tidyr::expand_grid(
-    deployment_data %>% select(locality, line, camera_hours) %>% distinct(),
-    rai_group = names(rai_groups)
-  )
-
-  group_counts <- obs %>%
-    mutate(scientificName_lower = tolower(scientificName)) %>%
-    inner_join(rai_group_lookup, by = "scientificName_lower") %>%
-    group_by(locality, line, rai_group) %>%
-    summarise(
-      animal_detections = n(),
-      individuals_count = sum(count, na.rm = TRUE),
-      possible_duplicates_count = sum(ifelse(possible_duplicate, count, 0), na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      net_individuals_count = individuals_count - possible_duplicates_count
-    )
-
-  rai_group_line <- group_grid %>%
-    left_join(group_counts, by = c("locality", "line", "rai_group")) %>%
-    replace_na(list(
-      animal_detections = 0,
-      individuals_count = 0,
-      possible_duplicates_count = 0,
-      net_individuals_count = 0
-    )) %>%
-    mutate(
-      RAI = (individuals_count / camera_hours) * rai_norm_hours,
-      RAI_net = (net_individuals_count / camera_hours) * rai_norm_hours,
-      possible_duplicates_percentage = ifelse(
-        individuals_count > 0,
-        (possible_duplicates_count / individuals_count) * 100,
-        0
-      )
-    )
-
-  rai_group_locality <- rai_group_line %>%
-    group_by(locality, rai_group) %>%
-    summarise(
-      animal_detections = sum(animal_detections, na.rm = TRUE),
-      individuals_count = sum(individuals_count, na.rm = TRUE),
-      possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
-      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
-      camera_hours = sum(camera_hours, na.rm = TRUE),
-      mRAI = mean(RAI, na.rm = TRUE),
-      sd_RAI = sd(RAI, na.rm = TRUE),
-      mRAI_net = mean(RAI_net, na.rm = TRUE),
-      sd_RAI_net = sd(RAI_net, na.rm = TRUE),
-      rai_count = n(),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      possible_duplicates_percentage = ifelse(
-        individuals_count > 0,
-        (possible_duplicates_count / individuals_count) * 100,
-        0
-      ),
-      SE = sd_RAI / sqrt(rai_count),
-      SE_filtered = sd_RAI_net / sqrt(rai_count),
-      mRAI_SE = sprintf("%0.1f ± %0.2f", mRAI, SE),
-      mRAI_SE_net = sprintf("%0.1f ± %0.2f", mRAI_net, SE_filtered)
-    )
-
-  rai_group_network <- rai_group_locality %>%
-    group_by(rai_group) %>%
-    summarise(
-      animal_detections = sum(animal_detections, na.rm = TRUE),
-      individuals_count = sum(individuals_count, na.rm = TRUE),
-      possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
-      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
-      camera_hours = sum(camera_hours, na.rm = TRUE),
-      mmRAI = mean(mRAI, na.rm = TRUE),
-      sd_mRAI = sd(mRAI, na.rm = TRUE),
-      mmRAI_net = mean(mRAI_net, na.rm = TRUE),
-      sd_mRAI_net = sd(mRAI_net, na.rm = TRUE),
-      mrai_count = n(),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      possible_duplicates_percentage = ifelse(
-        individuals_count > 0,
-        (possible_duplicates_count / individuals_count) * 100,
-        0
-      ),
-      SE = sd_mRAI / sqrt(mrai_count),
-      SE_filtered = sd_mRAI_net / sqrt(mrai_count),
-      mmRAI_SE = sprintf("%0.1f ± %0.2f", mmRAI, SE),
-      mmRAI_SE_net = sprintf("%0.1f ± %0.2f", mmRAI_net, SE_filtered)
-    )
 
   list(
-    line = rai_group_line,
-    locality = rai_group_locality,
-    network = rai_group_network
+    line = rai_result$line,
+    locality = rai_result$locality,
+    network = rai_result$network,
+    trace = rai_result$trace
   )
 }
 
@@ -339,30 +579,26 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
       individuals_count = numeric(),
       possible_duplicates_count = numeric(),
       net_individuals_count = numeric(),
-      camera_hours = numeric()
+      camera_hours = numeric(),
+      calculation_trace = character()
     ),
     locality_rai_values = tibble::tibble(
       locality = character(),
       formatted_value = character()
-    )
+    ),
+    calculation_trace = NA_character_
   )
 
   if (is.null(rai_groups) || is.null(rai_groups[[rai_group]]) || nrow(deps) == 0) {
     return(empty_metric)
   }
 
-  deployment_data <- deps %>%
-    group_by(locality, line) %>%
-    summarise(
-      camera_hours = sum(camera_hours, na.rm = TRUE),
-      .groups = "drop"
-    )
-
-  rai_group_summary <- generate_rai_group_summary(
-    obs,
-    deployment_data,
-    rai_groups,
-    rai_norm_hours
+  rai_group_summary <- calculate_rai(
+    obs = obs,
+    deps = deps,
+    taxa_groups = rai_groups,
+    rai_norm_hours = rai_norm_hours,
+    use_net = use_net
   )
 
   locality_summary <- rai_group_summary$locality
@@ -418,7 +654,8 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
       individuals_count,
       possible_duplicates_count,
       net_individuals_count,
-      camera_hours
+      camera_hours,
+      calculation_trace
     )
 
   locality_value_column <- if (isTRUE(use_net)) "mRAI_SE_net" else "mRAI_SE"
@@ -441,7 +678,8 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
     rai_norm_hours = rai_norm_hours,
     use_net = use_net,
     line_rai_values = line_rai_values,
-    locality_rai_values = locality_rai_values
+    locality_rai_values = locality_rai_values,
+    calculation_trace = as.character(group_row$calculation_trace[1])
   )
 }
 
@@ -488,12 +726,14 @@ generate_rai_group_period_comparison <- function(obs,
         individuals_count = numeric(),
         possible_duplicates_count = numeric(),
         net_individuals_count = numeric(),
-        camera_hours = numeric()
+        camera_hours = numeric(),
+        calculation_trace = character()
       ),
       locality_rai_values = tibble::tibble(
         locality = character(),
         formatted_value = character()
-      )
+      ),
+      calculation_trace = NA_character_
     )
   }
 
