@@ -621,15 +621,62 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       use_net = config$globals$rai_net_count
     )
 
-    # Overall Density Map
-    mapping_module_server(
-      id = "species_density_map_overall",
-      type = "density",
-      obs = overall_obs,
-      deps = overall_deps,
-      species_override = reactive(species_name),
-      localities_override = selected_localities
-    )
+    # Track loaded map tabs for lazy loading
+    loaded_dashboard_tabs <- reactiveVal(character())
+
+    observeEvent(input$dashboard_tabs, {
+      req(input$dashboard_tabs)
+      current_tab <- input$dashboard_tabs
+
+      if (!(current_tab %in% loaded_dashboard_tabs())) {
+
+        if (current_tab == "overall") {
+          # Overall Density Map
+          mapping_module_server(
+            id = "species_density_map_overall",
+            type = "density",
+            obs = overall_obs,
+            deps = overall_deps,
+            species_override = reactive(species_name),
+            localities_override = selected_localities
+          )
+        } else if (current_tab == "current_period") {
+          # Current Period Density Map
+          mapping_module_server(
+            id = "species_density_map_current",
+            type = "density",
+            obs = current_obs,
+            deps = current_deps,
+            species_override = reactive(species_name),
+            localities_override = selected_localities
+          )
+        } else if (current_tab == "prior_period") {
+          # Prior Period Density Map
+          mapping_module_server(
+            id = "species_density_map_prior",
+            type = "density",
+            obs = prior_obs,
+            deps = prior_deps,
+            species_override = reactive(species_name),
+            localities_override = selected_localities
+          )
+        } else if (current_tab == "last_year_period") {
+          # Last Year Period Density Map
+          mapping_module_server(
+            id = "species_density_map_last_year",
+            type = "density",
+            obs = ly_obs,
+            deps = ly_deps,
+            species_override = reactive(species_name),
+            localities_override = selected_localities
+          )
+        }
+
+        # Add to loaded list
+        loaded_dashboard_tabs(c(loaded_dashboard_tabs(), current_tab))
+        logger::log_debug(sprintf("species_dashboard_module_server, lazily loaded map for tab %s", current_tab))
+      }
+    }, ignoreNULL = FALSE, ignoreInit = FALSE)
 
     # 2. CURRENT PERIOD
     current_period_data <- period_selection_module_server("current_period", period_groups = core_data$period_groups, selected = period_defaults$current_period)
@@ -653,16 +700,6 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     output$current_cooccurrence_ui <- renderUI({ generate_cooccurrence(current_sobs(), current_obs()) })
     output$current_period_name <- renderText({ current_period_data$period_name() })
 
-    # Current Period Density Map
-    mapping_module_server(
-      id = "species_density_map_current",
-      type = "density",
-      obs = current_obs,
-      deps = current_deps,
-      species_override = reactive(species_name),
-      localities_override = selected_localities
-    )
-
     # 3. PRIOR PERIOD
     prior_period_data <- period_selection_module_server("prior_period", period_groups = core_data$period_groups, selected = period_defaults$prior_period)
     prior_sobs <- reactive({
@@ -685,16 +722,6 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     output$prior_cooccurrence_ui <- renderUI({ generate_cooccurrence(prior_sobs(), prior_obs()) })
     output$prior_period_name <- renderText({ prior_period_data$period_name() })
 
-    # Prior Period Density Map
-    mapping_module_server(
-      id = "species_density_map_prior",
-      type = "density",
-      obs = prior_obs,
-      deps = prior_deps,
-      species_override = reactive(species_name),
-      localities_override = selected_localities
-    )
-
     # 4. LAST YEAR
     last_year_period_data <- period_selection_module_server("last_year_period", period_groups = core_data$period_groups, selected = period_defaults$last_year_period)
     ly_sobs <- reactive({
@@ -714,16 +741,6 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     output$last_year_activity_plot <- renderPlot({ generate_activity_plot(ly_sobs()) })
     output$last_year_cooccurrence_ui <- renderUI({ generate_cooccurrence(ly_sobs(), ly_obs()) })
     output$last_year_period_name <- renderText({ last_year_period_data$period_name() })
-
-    # Last Year Period Density Map
-    mapping_module_server(
-      id = "species_density_map_last_year",
-      type = "density",
-      obs = ly_obs,
-      deps = ly_deps,
-      species_override = reactive(species_name),
-      localities_override = selected_localities
-    )
 
   })
 }

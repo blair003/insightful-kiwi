@@ -207,20 +207,48 @@ server <- function(input, output, session) {
     deps = dashboard_plot_deps,
     species_override = NULL
   )
-  # Initialize species dashboards dynamically
-  lapply(names(core_data$spp_classes), function(group_name) {
-    species_in_group <- core_data$spp_classes[[group_name]]
-    lapply(names(species_in_group), function(species_name) {
-      sci_name <- species_in_group[[species_name]]
-      species_dashboard_module_server(
-        id = paste0("species_dashboard_", make.names(sci_name)),
-        species_name = sci_name,
-        vernacular_name = species_name,
-        obs = filtered_obs_primary,
-        deps = filtered_deps_primary,
-        core_data = core_data
-      )
-    })
+  # Initialize species dashboards dynamically (Lazy Loading)
+  loaded_species_dashboards <- reactiveVal(character())
+
+  observeEvent(input$nav, {
+    nav_item <- input$nav
+
+    if (startsWith(nav_item, "species_dashboard_")) {
+      sci_name_make_names <- sub("^species_dashboard_", "", nav_item)
+
+      # Check if already loaded
+      if (!(sci_name_make_names %in% loaded_species_dashboards())) {
+
+        # Find the full scientific and vernacular names
+        found <- FALSE
+        for (group_name in names(core_data$spp_classes)) {
+          species_in_group <- core_data$spp_classes[[group_name]]
+          for (s_name in names(species_in_group)) {
+            s_sci_name <- species_in_group[[s_name]]
+            if (make.names(s_sci_name) == sci_name_make_names) {
+
+              # Initialize module
+              species_dashboard_module_server(
+                id = paste0("species_dashboard_", make.names(s_sci_name)),
+                species_name = s_sci_name,
+                vernacular_name = s_name,
+                obs = filtered_obs_primary,
+                deps = filtered_deps_primary,
+                core_data = core_data
+              )
+
+              # Add to loaded list
+              loaded_species_dashboards(c(loaded_species_dashboards(), sci_name_make_names))
+              logger::log_debug(sprintf("server.R, lazily loaded species dashboard for %s", s_sci_name))
+
+              found <- TRUE
+              break
+            }
+          }
+          if (found) break
+        }
+      }
+    }
   })
   
   
@@ -605,30 +633,9 @@ server <- function(input, output, session) {
   
   ########### DENSITY MAP FEATURE ###########
   
-  logger::log_debug("server.R, calling mapping_module_server() for density_map_primary")
-  
   density_map_primary <- NULL
-  
-  density_map_primary <- mapping_module_server(
-    id = "density_map_primary",
-    type = "density",
-    obs = filtered_obs_primary,
-    deps = filtered_deps_primary
-  )
-  
-  logger::log_debug("server.R, calling mapping_module_server() for density_map_comparative")
-  
   density_map_comparative <- NULL
-  
-  density_map_comparative <- mapping_module_server(
-    id = "density_map_comparative",
-    type = "density",
-    obs = filtered_obs_comparative,
-    deps = filtered_deps_comparative,
-    species_override = density_map_primary$selected_species,
-    localities_override = density_map_primary$selected_localities
-    
-  )
+  loaded_density_tabs <- reactiveVal(character())
   
   # Used for the tab names
   output$primary_season_name <- renderText({
@@ -639,24 +646,70 @@ server <- function(input, output, session) {
     comparative_period$period_name()
   })
   
+  observeEvent(input$density_map_tabs, {
+    req(input$nav == "density_map")
+
+    current_tab <- input$density_map_tabs
+    if (!is.null(current_tab) && !(current_tab %in% loaded_density_tabs())) {
+
+      if (current_tab == "primary") {
+        logger::log_debug("server.R, lazily calling mapping_module_server() for density_map_primary")
+        density_map_primary <<- mapping_module_server(
+          id = "density_map_primary",
+          type = "density",
+          obs = filtered_obs_primary,
+          deps = filtered_deps_primary
+        )
+      } else if (current_tab == "comparative") {
+        logger::log_debug("server.R, lazily calling mapping_module_server() for density_map_comparative")
+        # Ensure primary is initialized first if we need its reactive properties, or fallback
+        if (is.null(density_map_primary)) {
+          density_map_primary <<- mapping_module_server(
+            id = "density_map_primary",
+            type = "density",
+            obs = filtered_obs_primary,
+            deps = filtered_deps_primary
+          )
+          loaded_density_tabs(c(loaded_density_tabs(), "primary"))
+        }
+
+        density_map_comparative <<- mapping_module_server(
+          id = "density_map_comparative",
+          type = "density",
+          obs = filtered_obs_comparative,
+          deps = filtered_deps_comparative,
+          species_override = density_map_primary$selected_species,
+          localities_override = density_map_primary$selected_localities
+        )
+      }
+
+      loaded_density_tabs(c(loaded_density_tabs(), current_tab))
+    }
+  }, ignoreNULL = FALSE, ignoreInit = FALSE)
+
   
   
   ########### OBSERVATION MAP FEATURE ###########
   
-  logger::log_debug("server.R, calling mapping_module_server() for observation_map")
-  
   observation_map <- NULL
+  observation_map_loaded <- reactiveVal(FALSE)
   
-  observation_map <- mapping_module_server(
-    id = "observation_map",
-    type = "observation",
-    obs = filtered_obs_primary,
-    deps = filtered_deps_primary,
-    period_start_date = primary_period$start_date, # Pass reactive from period_selection_module
-    period_end_date = primary_period$end_date     # Pass reactive from period_selection_module
-    # The module will use its own internal input$selected_species and input$enhance_map_details
-    # from the UI elements defined by mapping_module_ui in the sidebar.
-  )
+  observeEvent(input$nav, {
+    if (input$nav == "observation_map" && !observation_map_loaded()) {
+      logger::log_debug("server.R, lazily calling mapping_module_server() for observation_map")
+      observation_map <<- mapping_module_server(
+        id = "observation_map",
+        type = "observation",
+        obs = filtered_obs_primary,
+        deps = filtered_deps_primary,
+        period_start_date = primary_period$start_date, # Pass reactive from period_selection_module
+        period_end_date = primary_period$end_date     # Pass reactive from period_selection_module
+        # The module will use its own internal input$selected_species and input$enhance_map_details
+        # from the UI elements defined by mapping_module_ui in the sidebar.
+      )
+      observation_map_loaded(TRUE)
+    }
+  })
   
 
   ########### REPORT DOWNLOAD ###########
