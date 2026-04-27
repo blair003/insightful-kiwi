@@ -263,8 +263,12 @@ mapping_module_server <- function(id,
           )
         
         obs_summary_location_dens <- obs_filtered_dens %>%
-          dplyr::group_by(locationID, locationName, longitude, latitude) %>%
-          dplyr::summarise(count = sum(count), .groups = "drop")
+          dplyr::group_by(locationID, locationName, locality, longitude, latitude) %>%
+          dplyr::summarise(
+            count = sum(count, na.rm = TRUE),
+            observation_ids = list(unique(observationID)),
+            .groups = "drop"
+          )
         
         obs_summary_locality_dens <- active_locations_dens %>%
           dplyr::select(locality) %>%
@@ -588,24 +592,44 @@ update_density_map <- function(map_id = NULL,
   
   pal <- colorNumeric(palette = "inferno", domain = obs_summary_location$count)
 
+  non_zero_locations <- obs_summary_location %>%
+    filter(count > 0)
+  non_zero_locations$popup_content <- character(nrow(non_zero_locations))
+
+  if (nrow(non_zero_locations) > 0) {
+    non_zero_locations$popup_content <- vapply(seq_len(nrow(non_zero_locations)), function(i) {
+      observation_ids <- if ("observation_ids" %in% names(non_zero_locations)) {
+        unlist(non_zero_locations$observation_ids[[i]], use.names = FALSE)
+      } else {
+        character(0)
+      }
+
+      payload <- list(
+        location_name = non_zero_locations$locationName[[i]],
+        locality = non_zero_locations$locality[[i]],
+        observation_ids = observation_ids
+      )
+      payload_json <- jsonlite::toJSON(payload, auto_unbox = TRUE)
+      encoded_payload <- utils::URLencode(payload_json, reserved = TRUE)
+      onclick_js <- sprintf(
+        "Shiny.setInputValue('density_map_review_sequences_click', JSON.parse(decodeURIComponent('%s')), {priority: 'event'}); return false;",
+        encoded_payload
+      )
+      review_link <- sprintf("<br><a href='#' onclick=\"%s\" title='Review Sequences'>Review Sequences</a>", onclick_js)
+      paste0(non_zero_locations$locationName[[i]], "<br>Count: ", non_zero_locations$count[[i]], review_link)
+    }, character(1))
+  }
   
   # Add markers for non-zero observations
   proxy %>% 
     addCircleMarkers(
-      data = obs_summary_location %>% filter(count > 0),
+      data = non_zero_locations,
       lng = ~longitude, lat = ~latitude,
       radius = ~radius * max_scale,
       fillColor = ~pal(count),
       fillOpacity = 0.8,
       stroke = FALSE,
-      popup = ~{
-        popup_content <- paste(locationName, "<br>Count:", count)
-        # Avoid jsonlite here because it evaluates on vectors and doesn't map 1:1, plus quotes issues.
-        # Manually format JS string avoiding double quotes so it fits in the HTML attribute.
-        onclick_js <- sprintf("Shiny.setInputValue('density_map_review_sequences_click', {location_name: '%s', locality: '%s'}, {priority: 'event'}); return false;", locationName, locality)
-        review_link <- sprintf("<br><a href='#' onclick=\"%s\" title='Review Sequences'>Review Sequences</a>", onclick_js)
-        paste0(popup_content, review_link)
-      }
+      popup = ~popup_content
     )
   
   # Add markers for zero observations if show_zero is TRUE
