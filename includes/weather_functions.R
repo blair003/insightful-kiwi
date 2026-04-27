@@ -81,17 +81,10 @@ summarise_weather <- function(daily_data) {
 
   total_rain <- sum(daily_data$precipitation_sum, na.rm = TRUE)
 
-  # Determine dominant condition based on rainfall contribution
-  # If there is meaningful rain, pick the weather code that contributed the most rainfall
-  if (total_rain > 5) {
-    df <- data.frame(code = daily_data$weathercode, rain = daily_data$precipitation_sum)
-    # Aggregate rain by weather code
-    rain_by_code <- aggregate(rain ~ code, data = df, sum, na.rm = TRUE)
-    # Get the code with the highest total rain
-    dominant_code <- rain_by_code$code[which.max(rain_by_code$rain)]
-  } else {
-    dominant_code <- get_mode(daily_data$weathercode)
-  }
+  # Count heavy rain days (>= 10mm)
+  heavy_rain_days <- sum(daily_data$precipitation_sum >= 10.0, na.rm = TRUE)
+
+  dominant_code <- get_mode(daily_data$weathercode)
   avg_max_temp <- mean(daily_data$temperature_2m_max, na.rm = TRUE)
   avg_min_temp <- mean(daily_data$temperature_2m_min, na.rm = TRUE)
 
@@ -114,6 +107,7 @@ summarise_weather <- function(daily_data) {
     condition_code = dominant_code,
     condition = get_weather_description(dominant_code),
     total_rain = total_rain,
+    heavy_rain_days = heavy_rain_days,
     avg_max_temp = avg_max_temp,
     avg_min_temp = avg_min_temp,
     avg_sunrise = avg_sunrise,
@@ -162,17 +156,23 @@ render_weather_cards <- function(locality, start_date, end_date) {
 
   info_link_html <- render_weather_info_link(lat, lng, start_date, end_date)
 
+  rain_text <- if (summary$heavy_rain_days > 0) {
+    sprintf("Rain: %.1f mm (%d heavy days)", summary$total_rain, summary$heavy_rain_days)
+  } else {
+    sprintf("Rain: %.1f mm", summary$total_rain)
+  }
+
   layout_column_wrap(
     width = "180px",
 
     card(
-      card_header(render_dashboard_card_header(summary$condition$icon, "Weather")),
+      card_header(render_dashboard_card_header(summary$condition$icon, "Predominant Weather")),
       card_body(
         div(
           class = "dashcard-metric-state",
           div(class = "dashcard-card-action", info_link_html),
           div(summary$condition$label, class = "dashcard-output"),
-          div(sprintf("Rain: %.1f mm", summary$total_rain), class = "dashcard-period")
+          div(rain_text, class = "dashcard-period")
         )
       ),
       full_screen = FALSE

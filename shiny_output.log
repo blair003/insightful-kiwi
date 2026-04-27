@@ -3792,3 +3792,711 @@ g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rc
 g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c DAuxLatitude.cpp -o DAuxLatitude.o
 g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c DST.cpp -o DST.o
 g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2-constructors-formatters.cpp -o s2-constructors-formatters.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c EllipticFunction.cpp -o EllipticFunction.o
+In file included from /home/jules/.R/library/Rcpp/include/RcppCommon.h:29,
+                 from /home/jules/.R/library/Rcpp/include/Rcpp.h:27,
+                 from geography.h:5,
+                 from s2-constructors-formatters.cpp:9:
+/home/jules/.R/library/Rcpp/include/Rcpp/r/check_r_headers.h:27:21: note: ‘#pragma message: R.h has been included before any Rcpp headers. This can lead to hard-to-debug errors, and is not necessary. See https://github.com/RcppCore/Rcpp/issues/1410’
+   27 |     #pragma message "R.h has been included before any Rcpp headers. This can lead to hard-to-debug errors, and is not necessary. See https://github.com/RcppCore/Rcpp/issues/1410"
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/jules/.R/library/Rcpp/include/Rcpp/r/check_r_headers.h:35:21: note: ‘#pragma message: Rinternals.h has been included before any Rcpp headers. This can lead to hard-to-debug errors, and is not necessary. See https://github.com/RcppCore/Rcpp/issues/1410’
+   35 |     #pragma message "Rinternals.h has been included before any Rcpp headers. This can lead to hard-to-debug errors, and is not necessary. See https://github.com/RcppCore/Rcpp/issues/1410"
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c Geodesic.cpp -o Geodesic.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c GeodesicExact.cpp -o GeodesicExact.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c GeodesicLine.cpp -o GeodesicLine.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c GeodesicLineExact.cpp -o GeodesicLineExact.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c Intersect.cpp -o Intersect.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2-predicates.cpp -o s2-predicates.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c Math.cpp -o Math.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c OSGB.cpp -o OSGB.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c PolygonArea.cpp -o PolygonArea.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c RcppExports.cpp -o RcppExports.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c Rhumb.cpp -o Rhumb.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2-transformers.cpp -o s2-transformers.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c TransverseMercator.cpp -o TransverseMercator.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c TransverseMercatorExact.cpp -o TransverseMercatorExact.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c Utility.cpp -o Utility.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c a_dist.c -o a_dist.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c a_geodesic.cpp -o a_geodesic.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c a_geolib.cpp -o a_geolib.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/Rcpp/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c a_util.c -o a_util.o
+g++ -std=gnu++17 -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o geosphere.so Accumulator.o AuxAngle.o AuxLatitude.o DAuxLatitude.o DST.o EllipticFunction.o Geodesic.o GeodesicExact.o GeodesicLine.o GeodesicLineExact.o Intersect.o Math.o OSGB.o PolygonArea.o RcppExports.o Rhumb.o TransverseMercator.o TransverseMercatorExact.o Utility.o a_dist.o a_geodesic.o a_geolib.o a_util.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-geosphere/00new/geosphere/libs
+** R
+** data
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.cpp -o init.o
+in method for ‘areaPolygon’ with signature ‘x="SpatVector"’: no definition for class “SpatVector”
+in method for ‘areaPolygon’ with signature ‘x="sf"’: no definition for class “sf”
+in method for ‘areaPolygon’ with signature ‘x="SpatialPolygons"’: no definition for class “SpatialPolygons”
+in method for ‘centroid’ with signature ‘x="SpatialPolygons"’: no definition for class “SpatialPolygons”
+in method for ‘perimeter’ with signature ‘x="SpatialPolygons"’: no definition for class “SpatialPolygons”
+in method for ‘perimeter’ with signature ‘x="SpatialLines"’: no definition for class “SpatialLines”
+in method for ‘span’ with signature ‘x="SpatialPolygons"’: no definition for class “SpatialPolygons”
+in method for ‘span’ with signature ‘x="sf"’: no definition for class “sf”
+in method for ‘span’ with signature ‘x="SpatVector"’: no definition for class “SpatVector”
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c RcppExports.cpp -o RcppExports.o
+** testing if installed package keeps a record of temporary installation path
+* DONE (geosphere)
+* installing *source* package ‘dotenv’ ...
+** package ‘dotenv’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (dotenv)
+* installing *source* package ‘sfheaders’ ...
+** package ‘sfheaders’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c RcppExports.cpp -o RcppExports.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c bbox.cpp -o bbox.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2-geography.cpp -o s2-geography.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cast.cpp -o cast.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2-lnglat.cpp -o s2-lnglat.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2-matrix.cpp -o s2-matrix.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c lists.cpp -o lists.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c sfg_dimension.cpp -o sfg_dimension.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'     -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c wk-impl.c -o wk-impl.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/accessors-geog.cc -o s2geography/accessors-geog.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c shapes.cpp -o shapes.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/accessors.cc -o s2geography/accessors.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c to_df.cpp -o to_df.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/build.cc -o s2geography/build.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c to_sf.cpp -o to_sf.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/coverings.cc -o s2geography/coverings.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/distance.cc -o s2geography/distance.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/geography.cc -o s2geography/geography.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c to_sfc.cpp -o to_sfc.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/linear-referencing.cc -o s2geography/linear-referencing.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2geography/predicates.cc -o s2geography/predicates.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/encoded_s2cell_id_vector.cc -o s2/encoded_s2cell_id_vector.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/encoded_s2point_vector.cc -o s2/encoded_s2point_vector.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c to_sfg.cpp -o to_sfg.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/encoded_s2shape_index.cc -o s2/encoded_s2shape_index.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/encoded_string_vector.cc -o s2/encoded_string_vector.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/id_set_lexicon.cc -o s2/id_set_lexicon.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/mutable_s2shape_index.cc -o s2/mutable_s2shape_index.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c utils.cpp -o utils.o
+g++ -std=gnu++17 -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o sfheaders.so RcppExports.o bbox.o cast.o lists.o sfg_dimension.o shapes.o to_df.o to_sf.o to_sfc.o to_sfg.o utils.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-sfheaders/00new/sfheaders/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (sfheaders)
+* installing *source* package ‘gert’ ...
+** package ‘gert’ successfully unpacked and MD5 sums checked
+** using staged installation
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/r2rect.cc -o s2/r2rect.o
+Found OpenSSL3
+Using static libgit2 for Linux x86_64
+Using PKG_CFLAGS=-I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2
+Using PKG_LIBS=-L/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/lib -lstatgit2 -lrt -lpthread -lstatssh2 -lstatssl -lstatcrypto -ldl
+Configuration OK!
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c branch.c -o branch.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s1angle.cc -o s2/s1angle.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c clone.c -o clone.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c commit.c -o commit.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c config.c -o config.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c conflicts.c -o conflicts.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c files.c -o files.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c ignore.c -o ignore.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c merge.c -o merge.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c rebase.c -o rebase.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c stash.c -o stash.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c submodules.c -o submodules.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c tag.c -o tag.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s1chord_angle.cc -o s2/s1chord_angle.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c utils.c -o utils.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c version.c -o version.o
+gcc -I"/usr/share/R/include" -DNDEBUG -I/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/include -DSTATIC_LIBGIT2 -DR_NO_REMAP -DSTRICT_R_HEADERS     -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c worktree.c -o worktree.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o gert.so branch.o clone.o commit.o config.o conflicts.o files.o ignore.o init.o merge.o rebase.o stash.o submodules.o tag.o utils.o version.o worktree.o -L/tmp/Rtmp1Jy1vF/R.INSTALL30d3bf41ff7a/gert/.deps/lib -lstatgit2 -lrt -lpthread -lstatssh2 -lstatssl -lstatcrypto -ldl -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-gert/00new/gert/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s1interval.cc -o s2/s1interval.o
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (gert)
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2boolean_operation.cc -o s2/s2boolean_operation.o
+* installing *source* package ‘downlit’ ...
+** package ‘downlit’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (downlit)
+* installing *source* package ‘httr2’ ...
+** package ‘httr2’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2buffer_operation.cc -o s2/s2buffer_operation.o
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (httr2)
+* installing *source* package ‘xopen’ ...
+** package ‘xopen’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (xopen)
+* installing *source* package ‘waldo’ ...
+** package ‘waldo’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builder_graph.cc -o s2/s2builder_graph.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (waldo)
+* installing *source* package ‘textshaping’ ...
+** package ‘textshaping’ successfully unpacked and MD5 sums checked
+** using staged installation
+Package harfbuzz was not found in the pkg-config search path.
+Perhaps you should add the directory containing `harfbuzz.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'harfbuzz', required by 'virtual:world', not found
+Package 'fribidi', required by 'virtual:world', not found
+Using PKG_CFLAGS=-I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/glib-2.0 -I/usr/include/fribidi
+Using PKG_LIBS=-lfreetype -lharfbuzz -lfribidi -lpng
+--------------------------- [ANTICONF] --------------------------------
+Configuration failed to find the harfbuzz freetype2 fribidi library. Try installing:
+ * deb: libharfbuzz-dev libfribidi-dev (Debian, Ubuntu, etc)
+ * rpm: harfbuzz-devel fribidi-devel (Fedora, EPEL)
+ * apk: harfbuzz-dev fribidi-dev (Alpine)
+ * brew: harfbuzz fribidi (OSX)
+If harfbuzz freetype2 fribidi is already installed, check that 'pkg-config' is in your
+PATH and PKG_CONFIG_PATH contains a harfbuzz freetype2 fribidi.pc file. If pkg-config
+is unavailable you can set INCLUDE_DIR and LIB_DIR manually via:
+R CMD INSTALL --configure-vars='INCLUDE_DIR=... LIB_DIR=...'
+-------------------------- [ERROR MESSAGE] ---------------------------
+<stdin>:1:10: fatal error: hb-ft.h: No such file or directory
+compilation terminated.
+--------------------------------------------------------------------
+ERROR: configuration failed for package ‘textshaping’
+* removing ‘/home/jules/.R/library/textshaping’
+Warning in install.packages(missing_packages) :
+  installation of package ‘textshaping’ had non-zero exit status
+* installing *source* package ‘pillar’ ...
+** package ‘pillar’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builder.cc -o s2/s2builder.o
+** testing if installed package keeps a record of temporary installation path
+* DONE (pillar)
+* installing *source* package ‘tidyselect’ ...
+** package ‘tidyselect’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tidyselect)
+* installing *source* package ‘purrr’ ...
+** package ‘purrr’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c backports.c -o backports.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c cleancall.c -o cleancall.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c coerce.c -o coerce.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c conditions.c -o conditions.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c every-some-none.c -o every-some-none.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c flatten.c -o flatten.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c map.c -o map.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c pluck.c -o pluck.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c transpose.c -o transpose.o
+gcc -I"/usr/share/R/include" -DNDEBUG  -I'/home/jules/.R/library/cli/include'    -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c utils.c -o utils.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o purrr.so backports.o cleancall.o coerce.o conditions.o every-some-none.o flatten.o init.o map.o pluck.o transpose.o utils.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-purrr/00new/purrr/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (purrr)
+ERROR: dependency ‘xml2’ is not available for package ‘urlchecker’
+* removing ‘/home/jules/.R/library/urlchecker’
+Warning in install.packages(missing_packages) :
+  installation of package ‘urlchecker’ had non-zero exit status
+* installing *source* package ‘crosstalk’ ...
+** package ‘crosstalk’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (crosstalk)
+* installing *source* package ‘knitr’ ...
+** package ‘knitr’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_closed_set_normalizer.cc -o s2/s2builderutil_closed_set_normalizer.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_find_polygon_degeneracies.cc -o s2/s2builderutil_find_polygon_degeneracies.o
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (knitr)
+ERROR: dependency ‘terra’ is not available for package ‘raster’
+* removing ‘/home/jules/.R/library/raster’
+Warning in install.packages(missing_packages) :
+  installation of package ‘raster’ had non-zero exit status
+* installing *source* package ‘classInt’ ...
+** package ‘classInt’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+using Fortran compiler: ‘GNU Fortran (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gfortran  -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2  -c fish1.f -o fish1.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o classInt.so fish1.o init.o -lgfortran -lm -lquadmath -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-classInt/00new/classInt/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_get_snapped_winding_delta.cc -o s2/s2builderutil_get_snapped_winding_delta.o
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (classInt)
+* installing *source* package ‘callr’ ...
+** package ‘callr’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_lax_polygon_layer.cc -o s2/s2builderutil_lax_polygon_layer.o
+R6Class r_process: finalize() method is public, but it should be private as of R6 2.4.0. This code will continue to work, but in a future version of R6, finalize() will be required to be private.
+R6Class r_session: finalize() method is public, but it should be private as of R6 2.4.0. This code will continue to work, but in a future version of R6, finalize() will be required to be private.
+R6Class rcmd_process: finalize() method is public, but it should be private as of R6 2.4.0. This code will continue to work, but in a future version of R6, finalize() will be required to be private.
+R6Class rscript_process: finalize() method is public, but it should be private as of R6 2.4.0. This code will continue to work, but in a future version of R6, finalize() will be required to be private.
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (callr)
+* installing *source* package ‘lubridate’ ...
+** package ‘lubridate’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c datetime.c -o datetime.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c period.c -o period.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c tparse.c -o tparse.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c utils.c -o utils.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o lubridate.so datetime.o init.o period.o tparse.o utils.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-lubridate/00new/lubridate/libs
+** R
+** data
+*** moving datasets to lazyload DB
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_lax_polyline_layer.cc -o s2/s2builderutil_lax_polyline_layer.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_s2point_vector_layer.cc -o s2/s2builderutil_s2point_vector_layer.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_s2polygon_layer.cc -o s2/s2builderutil_s2polygon_layer.o
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (lubridate)
+* installing *source* package ‘stringr’ ...
+** package ‘stringr’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** data
+*** moving datasets to lazyload DB
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (stringr)
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_s2polyline_layer.cc -o s2/s2builderutil_s2polyline_layer.o
+ERROR: dependency ‘farver’ is not available for package ‘scales’
+* removing ‘/home/jules/.R/library/scales’
+Warning in install.packages(missing_packages) :
+  installation of package ‘scales’ had non-zero exit status
+* installing *source* package ‘future’ ...
+** package ‘future’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** demo
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_s2polyline_vector_layer.cc -o s2/s2builderutil_s2polyline_vector_layer.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2builderutil_snap_functions.cc -o s2/s2builderutil_snap_functions.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (future)
+* installing *source* package ‘chromote’ ...
+** package ‘chromote’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2cap.cc -o s2/s2cap.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2cell_id.cc -o s2/s2cell_id.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2cell_index.cc -o s2/s2cell_index.o
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (chromote)
+* installing *source* package ‘gh’ ...
+** package ‘gh’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2cell_union.cc -o s2/s2cell_union.o
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (gh)
+ERROR: dependency ‘textshaping’ is not available for package ‘ragg’
+* removing ‘/home/jules/.R/library/ragg’
+Warning in install.packages(missing_packages) :
+  installation of package ‘ragg’ had non-zero exit status
+* installing *source* package ‘geojsonsf’ ...
+** package ‘geojsonsf’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/jsonify/include' -I'/home/jules/.R/library/rapidjsonr/include' -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c RcppExports.cpp -o RcppExports.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2cell.cc -o s2/s2cell.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/jsonify/include' -I'/home/jules/.R/library/rapidjsonr/include' -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c df_geojson.cpp -o df_geojson.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2centroids.cc -o s2/s2centroids.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2closest_cell_query.cc -o s2/s2closest_cell_query.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2closest_edge_query.cc -o s2/s2closest_edge_query.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/jsonify/include' -I'/home/jules/.R/library/rapidjsonr/include' -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c geojson_to_sf.cpp -o geojson_to_sf.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2closest_point_query.cc -o s2/s2closest_point_query.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2contains_vertex_query.cc -o s2/s2contains_vertex_query.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2convex_hull_query.cc -o s2/s2convex_hull_query.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/jsonify/include' -I'/home/jules/.R/library/rapidjsonr/include' -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c geojson_to_wkt.cpp -o geojson_to_wkt.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2coords.cc -o s2/s2coords.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2crossing_edge_query.cc -o s2/s2crossing_edge_query.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/jsonify/include' -I'/home/jules/.R/library/rapidjsonr/include' -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c geojson_wkt.cpp -o geojson_wkt.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2debug.cc -o s2/s2debug.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2earth.cc -o s2/s2earth.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/jsonify/include' -I'/home/jules/.R/library/rapidjsonr/include' -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c read_geojson.cpp -o read_geojson.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2edge_clipping.cc -o s2/s2edge_clipping.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2edge_crosser.cc -o s2/s2edge_crosser.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2edge_crossings.cc -o s2/s2edge_crossings.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/geometries/include' -I'/home/jules/.R/library/jsonify/include' -I'/home/jules/.R/library/rapidjsonr/include' -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/sfheaders/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c sf_geojson.cpp -o sf_geojson.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2edge_distances.cc -o s2/s2edge_distances.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2edge_tessellator.cc -o s2/s2edge_tessellator.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2error.cc -o s2/s2error.o
+g++ -std=gnu++17 -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o geojsonsf.so RcppExports.o df_geojson.o geojson_to_sf.o geojson_to_wkt.o geojson_wkt.o read_geojson.o sf_geojson.o -L/usr/lib/R/lib -lR
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2furthest_edge_query.cc -o s2/s2furthest_edge_query.o
+installing to /home/jules/.R/library/00LOCK-geojsonsf/00new/geojsonsf/libs
+** R
+** data
+*** moving datasets to lazyload DB
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (geojsonsf)
+* installing *source* package ‘tibble’ ...
+** package ‘tibble’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c attributes.c -o attributes.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c coerce.c -o coerce.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c matrixToDataFrame.c -o matrixToDataFrame.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o tibble.so attributes.o coerce.o init.o matrixToDataFrame.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-tibble/00new/tibble/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2hausdorff_distance_query.cc -o s2/s2hausdorff_distance_query.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tibble)
+* installing *source* package ‘pkgbuild’ ...
+** package ‘pkgbuild’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2latlng_rect_bounder.cc -o s2/s2latlng_rect_bounder.o
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (pkgbuild)
+* installing *source* package ‘rmarkdown’ ...
+** package ‘rmarkdown’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2latlng_rect.cc -o s2/s2latlng_rect.o
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2latlng.cc -o s2/s2latlng.o
+** help
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2lax_loop_shape.cc -o s2/s2lax_loop_shape.o
+*** installing help indices
+*** copying figures
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (rmarkdown)
+ERROR: dependency ‘textshaping’ is not available for package ‘svglite’
+* removing ‘/home/jules/.R/library/svglite’
+Warning in install.packages(missing_packages) :
+  installation of package ‘svglite’ had non-zero exit status
+ERROR: dependencies ‘raster’, ‘terra’ are not available for package ‘satellite’
+* removing ‘/home/jules/.R/library/satellite’
+Warning in install.packages(missing_packages) :
+  installation of package ‘satellite’ had non-zero exit status
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2lax_polygon_shape.cc -o s2/s2lax_polygon_shape.o
+ERROR: dependency ‘scales’ is not available for package ‘ggplot2’
+* removing ‘/home/jules/.R/library/ggplot2’
+Warning in install.packages(missing_packages) :
+  installation of package ‘ggplot2’ had non-zero exit status
+ERROR: dependencies ‘s2’, ‘units’ are not available for package ‘sf’
+* removing ‘/home/jules/.R/library/sf’
+Warning in install.packages(missing_packages) :
+  installation of package ‘sf’ had non-zero exit status
+* installing *source* package ‘webshot2’ ...
+** package ‘webshot2’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2lax_polyline_shape.cc -o s2/s2lax_polyline_shape.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (webshot2)
+* installing *source* package ‘usethis’ ...
+** package ‘usethis’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2loop_measures.cc -o s2/s2loop_measures.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2loop.cc -o s2/s2loop.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (usethis)
+ERROR: dependencies ‘ragg’, ‘xml2’ are not available for package ‘pkgdown’
+* removing ‘/home/jules/.R/library/pkgdown’
+Warning in install.packages(missing_packages) :
+  installation of package ‘pkgdown’ had non-zero exit status
+* installing *source* package ‘pkgload’ ...
+** package ‘pkgload’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2max_distance_targets.cc -o s2/s2max_distance_targets.o
+** testing if installed package keeps a record of temporary installation path
+* DONE (pkgload)
+* installing *source* package ‘rcmdcheck’ ...
+** package ‘rcmdcheck’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (rcmdcheck)
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2measures.cc -o s2/s2measures.o
+* installing *source* package ‘dplyr’ ...
+** package ‘dplyr’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c chop.cpp -o chop.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c filter.cpp -o filter.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c funs.cpp -o funs.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c group_by.cpp -o group_by.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2memory_tracker.cc -o s2/s2memory_tracker.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c group_data.cpp -o group_data.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c imports.cpp -o imports.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.cpp -o init.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c mask.cpp -o mask.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2metrics.cc -o s2/s2metrics.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c mutate.cpp -o mutate.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c reconstruct.cpp -o reconstruct.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c slice.cpp -o slice.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c summarise.cpp -o summarise.o
+g++ -std=gnu++17 -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o dplyr.so chop.o filter.o funs.o group_by.o group_data.o imports.o init.o mask.o mutate.o reconstruct.o slice.o summarise.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-dplyr/00new/dplyr/libs
+** R
+** data
+*** moving datasets to lazyload DB
+** inst
+** byte-compile and prepare package for lazy loading
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2min_distance_targets.cc -o s2/s2min_distance_targets.o
+** help
+*** installing help indices
+*** copying figures
+** building package indices
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -I../src -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include' -I'/home/jules/.R/library/wk/include'    -I/tmp/RtmpnPGdGT/R.INSTALL27c524d13b0f5/s2/tools/dist/include  -pthread -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c s2/s2padded_cell.cc -o s2/s2padded_cell.o
+** installing vignettes
+** testing if installed package can be loaded from temporary location
