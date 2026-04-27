@@ -1,8 +1,10 @@
 .Rproj.user
 .Rhistory
 .RData
+.Rprofile
 .Renviron
 .Ruserdata
+*.Rproj
 .DS_Store
 Dockerfile
 config/*
@@ -19,3 +21,5 @@ config/.env
 www/cache
 temp
 .positai
+.git
+.vscode/
