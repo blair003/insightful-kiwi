@@ -1,0 +1,5 @@
+Sys.setenv(R_LIBS_USER="~/.R/library")
+.libPaths("~/.R/library")
+source("global.R")
+head(core_data$deps)
+str(core_data$period_defaults)
