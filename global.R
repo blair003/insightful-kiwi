@@ -124,7 +124,11 @@ source("modules/period_selection_module.R")
 source("modules/plotting_module.R")
 source("modules/mapping_module.R")
 source("modules/species_dashboard_module.R")
-source("includes/other_functions.R")
+source("includes/media_functions.R")
+source("includes/spatial_functions.R")
+source("includes/visualisation_functions.R")
+source("includes/utility_functions.R")
+source("includes/ui_components.R")
 
 # For future call
 plan(multisession)
