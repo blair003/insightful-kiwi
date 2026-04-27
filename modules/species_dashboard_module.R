@@ -38,7 +38,8 @@ species_dashboard_module_ui <- function(id) {
           width = "250px",
           uiOutput(ns("overall_total_detections_card")),
           uiOutput(ns("overall_unique_locations_card")),
-          uiOutput(ns("overall_rai_card"))
+          uiOutput(ns("overall_rai_card")),
+          uiOutput(ns("overall_other_metrics_card"))
         ),
         br(),
         # Add RAI plot specific to this species
@@ -62,6 +63,13 @@ species_dashboard_module_ui <- function(id) {
             card_header("Co-occurrence with Kiwi"),
             uiOutput(ns("overall_cooccurrence_ui"))
           )
+        ),
+        br(),
+        card(
+          class = "dashboard-plot-card",
+          card_header(tagList(icon("map"), "Species Density Map")),
+          mapping_module_ui(id = ns("species_density_map_overall"), view = "map"),
+          full_screen = FALSE
         )
       ),
 
@@ -74,7 +82,8 @@ species_dashboard_module_ui <- function(id) {
           width = "250px",
           uiOutput(ns("current_total_detections_card")),
           uiOutput(ns("current_unique_locations_card")),
-          uiOutput(ns("current_rai_card"))
+          uiOutput(ns("current_rai_card")),
+          uiOutput(ns("current_other_metrics_card"))
         ),
         br(),
         layout_column_wrap(
@@ -87,6 +96,13 @@ species_dashboard_module_ui <- function(id) {
             card_header("Co-occurrence with Kiwi"),
             uiOutput(ns("current_cooccurrence_ui"))
           )
+        ),
+        br(),
+        card(
+          class = "dashboard-plot-card",
+          card_header(tagList(icon("map"), "Species Density Map")),
+          mapping_module_ui(id = ns("species_density_map_current"), view = "map"),
+          full_screen = FALSE
         )
       ),
 
@@ -99,7 +115,8 @@ species_dashboard_module_ui <- function(id) {
           width = "250px",
           uiOutput(ns("prior_total_detections_card")),
           uiOutput(ns("prior_unique_locations_card")),
-          uiOutput(ns("prior_rai_card"))
+          uiOutput(ns("prior_rai_card")),
+          uiOutput(ns("prior_other_metrics_card"))
         ),
         br(),
         layout_column_wrap(
@@ -112,6 +129,13 @@ species_dashboard_module_ui <- function(id) {
             card_header("Co-occurrence with Kiwi"),
             uiOutput(ns("prior_cooccurrence_ui"))
           )
+        ),
+        br(),
+        card(
+          class = "dashboard-plot-card",
+          card_header(tagList(icon("map"), "Species Density Map")),
+          mapping_module_ui(id = ns("species_density_map_prior"), view = "map"),
+          full_screen = FALSE
         )
       ),
 
@@ -124,7 +148,8 @@ species_dashboard_module_ui <- function(id) {
           width = "250px",
           uiOutput(ns("last_year_total_detections_card")),
           uiOutput(ns("last_year_unique_locations_card")),
-          uiOutput(ns("last_year_rai_card"))
+          uiOutput(ns("last_year_rai_card")),
+          uiOutput(ns("last_year_other_metrics_card"))
         ),
         br(),
         layout_column_wrap(
@@ -137,6 +162,13 @@ species_dashboard_module_ui <- function(id) {
             card_header("Co-occurrence with Kiwi"),
             uiOutput(ns("last_year_cooccurrence_ui"))
           )
+        ),
+        br(),
+        card(
+          class = "dashboard-plot-card",
+          card_header(tagList(icon("map"), "Species Density Map")),
+          mapping_module_ui(id = ns("species_density_map_last_year"), view = "map"),
+          full_screen = FALSE
         )
       )
     )
@@ -368,6 +400,10 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     generate_cards <- function(species_obs, deps_data, period_name_label) {
       total_count <- sum(species_obs$count, na.rm = TRUE)
       unique_locs <- length(unique(species_obs$locationName))
+      total_deployments <- length(unique(deps_data$locationName))
+      pct_locations <- if (total_deployments > 0) (unique_locs / total_deployments) * 100 else 0
+      avg_count <- if (unique_locs > 0) total_count / unique_locs else 0
+
 
       metric <- generate_rai_group_network_metric(
         species_obs,
@@ -412,6 +448,13 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
         rai = card(
           card_header(tagList("RAI", rai_calculation_basis_link(period_name_label))),
           card_body(h2(ifelse(is.na(rai), "N/A", sprintf("%.2f", rai))))
+        ),
+        other_metrics = card(
+          card_header("Other Metrics"),
+          card_body(
+            p(sprintf("Seen at: %.1f%% of locations", pct_locations)),
+            p(sprintf("Avg count per location: %.1f", avg_count))
+          )
         )
       )
     }
@@ -551,6 +594,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     output$overall_total_detections_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$total })
     output$overall_unique_locations_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$unique })
     output$overall_rai_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$rai })
+    output$overall_other_metrics_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$other_metrics })
     output$overall_activity_plot <- renderPlot({ generate_activity_plot(overall_sobs()) })
     output$overall_cooccurrence_ui <- renderUI({ generate_cooccurrence(overall_sobs(), overall_obs()) })
 
@@ -566,6 +610,16 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       rai_groups = rai_groups_for_species,
       rai_norm_hours = config$globals$rai_norm_hours,
       use_net = config$globals$rai_net_count
+    )
+
+    # Overall Density Map
+    mapping_module_server(
+      id = "species_density_map_overall",
+      type = "density",
+      obs = overall_obs,
+      deps = overall_deps,
+      species_override = reactive(species_name),
+      localities_override = selected_localities
     )
 
     # 2. CURRENT PERIOD
@@ -585,9 +639,20 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     output$current_total_detections_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$total })
     output$current_unique_locations_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$unique })
     output$current_rai_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$rai })
+    output$current_other_metrics_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$other_metrics })
     output$current_activity_plot <- renderPlot({ generate_activity_plot(current_sobs()) })
     output$current_cooccurrence_ui <- renderUI({ generate_cooccurrence(current_sobs(), current_obs()) })
     output$current_period_name <- renderText({ current_period_data$period_name() })
+
+    # Current Period Density Map
+    mapping_module_server(
+      id = "species_density_map_current",
+      type = "density",
+      obs = current_obs,
+      deps = current_deps,
+      species_override = reactive(species_name),
+      localities_override = selected_localities
+    )
 
     # 3. PRIOR PERIOD
     prior_period_data <- period_selection_module_server("prior_period", period_groups = core_data$period_groups, selected = period_defaults$prior_period)
@@ -606,9 +671,20 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     output$prior_total_detections_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$total })
     output$prior_unique_locations_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$unique })
     output$prior_rai_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$rai })
+    output$prior_other_metrics_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$other_metrics })
     output$prior_activity_plot <- renderPlot({ generate_activity_plot(prior_sobs()) })
     output$prior_cooccurrence_ui <- renderUI({ generate_cooccurrence(prior_sobs(), prior_obs()) })
     output$prior_period_name <- renderText({ prior_period_data$period_name() })
+
+    # Prior Period Density Map
+    mapping_module_server(
+      id = "species_density_map_prior",
+      type = "density",
+      obs = prior_obs,
+      deps = prior_deps,
+      species_override = reactive(species_name),
+      localities_override = selected_localities
+    )
 
     # 4. LAST YEAR
     last_year_period_data <- period_selection_module_server("last_year_period", period_groups = core_data$period_groups, selected = period_defaults$last_year_period)
@@ -625,9 +701,20 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     output$last_year_total_detections_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$total })
     output$last_year_unique_locations_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$unique })
     output$last_year_rai_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$rai })
+    output$last_year_other_metrics_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$other_metrics })
     output$last_year_activity_plot <- renderPlot({ generate_activity_plot(ly_sobs()) })
     output$last_year_cooccurrence_ui <- renderUI({ generate_cooccurrence(ly_sobs(), ly_obs()) })
     output$last_year_period_name <- renderText({ last_year_period_data$period_name() })
+
+    # Last Year Period Density Map
+    mapping_module_server(
+      id = "species_density_map_last_year",
+      type = "density",
+      obs = ly_obs,
+      deps = ly_deps,
+      species_override = reactive(species_name),
+      localities_override = selected_localities
+    )
 
   })
 }
