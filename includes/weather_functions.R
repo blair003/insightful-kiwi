@@ -79,9 +79,19 @@ summarise_weather <- function(daily_data) {
     return(NULL)
   }
 
-  mode_code <- get_mode(daily_data$weathercode)
-
   total_rain <- sum(daily_data$precipitation_sum, na.rm = TRUE)
+
+  # Determine dominant condition based on rainfall contribution
+  # If there is meaningful rain, pick the weather code that contributed the most rainfall
+  if (total_rain > 5) {
+    df <- data.frame(code = daily_data$weathercode, rain = daily_data$precipitation_sum)
+    # Aggregate rain by weather code
+    rain_by_code <- aggregate(rain ~ code, data = df, sum, na.rm = TRUE)
+    # Get the code with the highest total rain
+    dominant_code <- rain_by_code$code[which.max(rain_by_code$rain)]
+  } else {
+    dominant_code <- get_mode(daily_data$weathercode)
+  }
   avg_max_temp <- mean(daily_data$temperature_2m_max, na.rm = TRUE)
   avg_min_temp <- mean(daily_data$temperature_2m_min, na.rm = TRUE)
 
@@ -101,8 +111,8 @@ summarise_weather <- function(daily_data) {
   avg_sunset <- get_avg_time(daily_data$sunset)
 
   list(
-    condition_code = mode_code,
-    condition = get_weather_description(mode_code),
+    condition_code = dominant_code,
+    condition = get_weather_description(dominant_code),
     total_rain = total_rain,
     avg_max_temp = avg_max_temp,
     avg_min_temp = avg_min_temp,
