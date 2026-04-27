@@ -442,19 +442,28 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
         NULL
       }
 
+      formatted_rai <- ifelse(is.na(rai), "N/A", metric$formatted_value)
+      total_detections_count <- nrow(species_obs)
+
       list(
-        total = card(card_header("Total Detections"), card_body(h2(total_count), review_action)),
-        unique = card(card_header("Unique Locations"), card_body(h2(unique_locs))),
-        rai = card(
-          card_header(tagList("RAI", rai_calculation_basis_link(period_name_label))),
-          card_body(h2(ifelse(is.na(rai), "N/A", sprintf("%.2f", rai))))
-        ),
-        other_metrics = card(
-          card_header("Other Metrics"),
+        total = card(
+          card_header("Total Detections"),
           card_body(
-            p(sprintf("Seen at: %.1f%% of locations", pct_locations)),
-            p(sprintf("Avg count per location: %.1f", avg_count))
+            h2(total_detections_count),
+            tags$small(class = "text-muted", sprintf("for %d Individuals", total_count)),
+            review_action
           )
+        ),
+        unique = card(
+          card_header("Unique Locations"),
+          card_body(
+            h2(unique_locs),
+            tags$small(class = "text-muted", sprintf("%.1f%% of locations", pct_locations))
+          )
+        ),
+        rai = card(
+          card_header(tagList("RAI ± SE", rai_calculation_basis_link(period_name_label))),
+          card_body(h2(formatted_rai))
         )
       )
     }
