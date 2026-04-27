@@ -90,18 +90,51 @@ ui <- tagList(
       ),
       
       conditionalPanel(
+        condition = "input.nav === 'dashboard' && input.main_dashboard_tabs === 'current_period'",
+        period_selection_module_ui(
+          id = "main_dashboard_current_period",
+          view = "select",
+          choices = names(core_data$period_groups),
+          selected = core_data$period_defaults$primary_period,
+          label = "Current complete season:"
+        )
+      ),
+      conditionalPanel(
+        condition = "input.nav === 'dashboard' && input.main_dashboard_tabs === 'prior_period'",
+        period_selection_module_ui(
+          id = "main_dashboard_prior_period",
+          view = "select",
+          choices = names(core_data$period_groups),
+          selected = species_dashboard_period_defaults(core_data)$prior_period,
+          label = "Prior season:"
+        )
+      ),
+      conditionalPanel(
+        condition = "input.nav === 'dashboard' && input.main_dashboard_tabs === 'last_year_period'",
+        period_selection_module_ui(
+          id = "main_dashboard_last_year_period",
+          view = "select",
+          choices = names(core_data$period_groups),
+          selected = species_dashboard_period_defaults(core_data)$last_year_period,
+          label = "Same season last year:"
+        )
+      ),
+      conditionalPanel(
         condition = "input.nav === 'dashboard'",
-        plotting_module_ui(
-          id = "dashboard_rai_plot",
-          view = "select_rai_group",
-          choices = names(config$globals$rai_groups),
-          selected = names(config$globals$rai_groups)[1]
-        ),
         plotting_module_ui(
           id = "dashboard_rai_plot",
           view = "select_localities",
           choices = unique(core_data$deps$locality),  # Set choices to unique localities
           selected = unique(core_data$deps$locality)  # Default selection is all localities
+        )
+      ),
+      conditionalPanel(
+        condition = "input.nav === 'dashboard' && (!input.main_dashboard_tabs || input.main_dashboard_tabs === 'overall')",
+        plotting_module_ui(
+          id = "dashboard_rai_plot",
+          view = "select_rai_group",
+          choices = names(config$globals$rai_groups),
+          selected = names(config$globals$rai_groups)[1]
         ),
         plotting_module_ui(
           id = "dashboard_rai_plot",
@@ -248,62 +281,85 @@ ui <- tagList(
         "Dashboard",
         value = "dashboard",
         icon = icon("dashboard"),
-        div(
-          class = "dashboard-page",
-          card(
-            class = "dashboard-plot-card",
-              card_header(
-                tagList(icon("chart-line"), "RAI by species group")
+        navset_tab(
+          id = "main_dashboard_tabs",
+          selected = "current_period",
+
+          nav_panel("Overall",
+            value = "overall",
+            div(
+              class = "dashboard-page",
+              card(
+                class = "dashboard-plot-card",
+                card_header(
+                  tagList(icon("chart-line"), "RAI by species group")
+                ),
+                plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot"),
+                full_screen = FALSE
               ),
-              plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot"),
-          #  full_screen = TRUE
-            full_screen = FALSE
-        ),
-
-        div(
-          class = "dashboard-section-heading dashboard-current-period-heading",
-          paste(core_data$period_defaults$primary_period, " - Key metrics")
-        ),
-
-        uiOutput("dashboard_current_period_cards"),
-
-        div(
-          class = "dashboard-section-heading dashboard-current-period-heading",
-          paste(core_data$period_defaults$primary_period, " - Weather")
-        ),
-
-        uiOutput("dashboard_weather_cards"),
-
-        div(class = "dashboard-section-heading", "Whole Project"),
-
-        layout_column_wrap(
-          width = "180px",
-
-          card(
-            card_header(
-              tagList(icon("camera"), "Camera Hours")
-            ),
-            card_body(
-              div(textOutput("dashcard_camera_hours"), class = "dashcard-output"),
-              div(textOutput("dashcard_camera_days"), class = "dashcard-period")
-            ),
-            full_screen = FALSE
+              div(class = "dashboard-section-heading", "WHOLE PROJECT"),
+              layout_column_wrap(
+                width = "180px",
+                card(
+                  card_header(
+                    tagList(icon("camera"), "Camera Hours")
+                  ),
+                  card_body(
+                    div(textOutput("dashcard_camera_hours"), class = "dashcard-output"),
+                    div(textOutput("dashcard_camera_days"), class = "dashcard-period")
+                  ),
+                  full_screen = FALSE
+                ),
+                card(
+                  card_header(
+                    tagList(icon("rotate"), "Data Package")
+                  ),
+                  card_body(
+                    div(textOutput("dashcard_data_updated"), class = "dashcard-output"),
+                    div(textOutput("dashcard_data_package_name"), class = "dashcard-period")
+                  ),
+                  full_screen = FALSE
+                )
+              )
+            )
           ),
 
-          card(
-            card_header(
-              tagList(icon("rotate"), "Data Package")
-            ),
-            card_body(
-              div(textOutput("dashcard_data_updated"), class = "dashcard-output"),
-              div(textOutput("dashcard_data_package_name"), class = "dashcard-period")
-            ),
-            full_screen = FALSE
+          nav_panel(
+            title = textOutput("main_dashboard_current_period_name", inline = TRUE),
+            value = "current_period",
+            div(
+              class = "dashboard-page",
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "SNAPSHOT"),
+              uiOutput("main_dashboard_current_period_cards"),
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
+              uiOutput("main_dashboard_current_period_weather_cards")
+            )
+          ),
+
+          nav_panel(
+            title = textOutput("main_dashboard_prior_period_name", inline = TRUE),
+            value = "prior_period",
+            div(
+              class = "dashboard-page",
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "SNAPSHOT"),
+              uiOutput("main_dashboard_prior_period_cards"),
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
+              uiOutput("main_dashboard_prior_period_weather_cards")
+            )
+          ),
+
+          nav_panel(
+            title = textOutput("main_dashboard_last_year_period_name", inline = TRUE),
+            value = "last_year_period",
+            div(
+              class = "dashboard-page",
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "SNAPSHOT"),
+              uiOutput("main_dashboard_last_year_period_cards"),
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
+              uiOutput("main_dashboard_last_year_period_weather_cards")
+            )
           )
         )
-        )
-
-
       ),
 
       species_dashboard_nav_menu(),

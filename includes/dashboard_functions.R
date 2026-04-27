@@ -1,12 +1,22 @@
 # Helpers for calculating and rendering dashboard summary cards.
 
-dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL) {
+dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL, period_name = NULL) {
   metric_obs <- core_data$obs
   metric_deps <- core_data$deps
 
   if (!is.null(locality)) {
     metric_obs <- metric_obs %>% dplyr::filter(.data$locality %in% !!locality)
     metric_deps <- metric_deps %>% dplyr::filter(.data$locality %in% !!locality)
+  }
+
+  current_period_index <- core_data$period_defaults$primary_period_index
+  if (!is.null(period_name)) {
+    period_names <- names(core_data$period_groups)
+    period_names <- period_names[period_names != "ALL"]
+    idx <- match(period_name, period_names)
+    if (!is.na(idx)) {
+      current_period_index <- idx
+    }
   }
 
   metric <- generate_rai_group_period_comparison(
@@ -17,7 +27,7 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL) {
     rai_group = rai_group,
     rai_norm_hours = config$globals$rai_norm_hours,
     use_net = config$globals$rai_net_count,
-    current_period_index = core_data$period_defaults$primary_period_index,
+    current_period_index = current_period_index,
     lower_is_better = lower_is_better
   )
 
@@ -130,11 +140,18 @@ get_dashboard_comparison_state <- function(comparisons) {
   "mixed"
 }
 
-dashboard_animal_detections_metric <- function(locality = NULL) {
+dashboard_animal_detections_metric <- function(locality = NULL, period_name = NULL) {
   period_names <- period_names_without_all(core_data$period_groups)
-  current_period <- core_data$period_defaults$primary_period
-  current_period_index <- core_data$period_defaults$primary_period_index
-  prior_period <- if (current_period_index < length(period_names)) {
+
+  if (!is.null(period_name) && period_name %in% period_names) {
+    current_period <- period_name
+    current_period_index <- match(period_name, period_names)
+  } else {
+    current_period <- core_data$period_defaults$primary_period
+    current_period_index <- core_data$period_defaults$primary_period_index
+  }
+
+  prior_period <- if (!is.na(current_period_index) && current_period_index < length(period_names)) {
     period_names[[current_period_index + 1]]
   } else {
     NA_character_
@@ -289,39 +306,61 @@ render_dashboard_card_header <- function(card_icon, card_title, custom_icon = NU
   )
 }
 
-render_dashboard_metric_cards <- function(locality = NULL) {
+render_dashboard_metric_cards <- function(locality = NULL, period_name = NULL) {
   locality_token <- if (is.null(locality)) "ALL" else paste(locality, collapse = ",")
-  mustelid_metric <- dashboard_rai_metric("Mustelids", lower_is_better = TRUE, locality = locality)
+  period_token <- if (is.null(period_name)) "ALL" else period_name
+  detail_token <- function(group) paste(group, locality_token, period_token, sep = "|")
+
+  mustelid_metric <- dashboard_rai_metric("Mustelids", lower_is_better = TRUE, locality = locality, period_name = period_name)
   rat_metric <- if ("Rats" %in% names(config$globals$rai_groups)) {
-    dashboard_rai_metric("Rats", lower_is_better = TRUE, locality = locality)
+    dashboard_rai_metric("Rats", lower_is_better = TRUE, locality = locality, period_name = period_name)
   } else {
     NULL
   }
-  kiwi_metric <- dashboard_rai_metric("Kiwi", lower_is_better = FALSE, locality = locality)
-  animal_metric <- dashboard_animal_detections_metric(locality = locality)
+  kiwi_metric <- dashboard_rai_metric("Kiwi", lower_is_better = FALSE, locality = locality, period_name = period_name)
+  animal_metric <- dashboard_animal_detections_metric(locality = locality, period_name = period_name)
+
+  period_deps <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
+    period <- core_data$period_groups[[period_name]]
+    filter_deps(core_data$deps, period$start_date, period$end_date)
+  } else {
+    core_data$deps
+  }
+  if (!is.null(locality)) {
+    period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
+  }
+  camera_hours_total <- sum(period_deps$camera_hours, na.rm = TRUE)
 
   layout_column_wrap(
     width = "180px",
     card(
       card_header(render_dashboard_card_header("otter", "Mustelid RAI")),
-      card_body(render_dashboard_comparison_body(mustelid_metric, paste("Mustelids", locality_token, sep = "|"))),
+      card_body(render_dashboard_comparison_body(mustelid_metric, detail_token("Mustelids"))),
       full_screen = FALSE
     ),
     if (!is.null(rat_metric)) {
       card(
         card_header(render_dashboard_card_header(NULL, "Rat RAI", custom_icon = dashboard_rat_icon())),
-        card_body(render_dashboard_comparison_body(rat_metric, paste("Rats", locality_token, sep = "|"))),
+        card_body(render_dashboard_comparison_body(rat_metric, detail_token("Rats"))),
         full_screen = FALSE
       )
     },
     card(
       card_header(render_dashboard_card_header("kiwi-bird", "Kiwi RAI")),
-      card_body(render_dashboard_comparison_body(kiwi_metric, paste("Kiwi", locality_token, sep = "|"))),
+      card_body(render_dashboard_comparison_body(kiwi_metric, detail_token("Kiwi"))),
       full_screen = FALSE
     ),
     card(
       card_header(render_dashboard_card_header("paw", "Animal Detections")),
       card_body(render_dashboard_comparison_body(animal_metric)),
+      full_screen = FALSE
+    ),
+    card(
+      card_header(render_dashboard_card_header("camera", "Camera Hours")),
+      card_body(
+        div(format(round(camera_hours_total), big.mark = ","), class = "dashcard-output"),
+        div(paste(format_dash_number(camera_hours_total / 24), "camera days"), class = "dashcard-period")
+      ),
       full_screen = FALSE
     )
   )

@@ -78,7 +78,16 @@ server <- function(input, output, session) {
   dashboard_plot_deps <- core_data$deps %>%
     dplyr::filter(as.character(period) %in% dashboard_plot_periods)
 
-  output$dashboard_current_period_cards <- renderUI({
+  # Initialize the period selection servers for dashboard
+  main_dashboard_current_period <- period_selection_module_server("main_dashboard_current_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$current_period)
+  main_dashboard_prior_period <- period_selection_module_server("main_dashboard_prior_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$prior_period)
+  main_dashboard_last_year_period <- period_selection_module_server("main_dashboard_last_year_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$last_year_period)
+
+  output$main_dashboard_current_period_name <- renderText({ main_dashboard_current_period$period_name() })
+  output$main_dashboard_prior_period_name <- renderText({ main_dashboard_prior_period$period_name() })
+  output$main_dashboard_last_year_period_name <- renderText({ main_dashboard_last_year_period$period_name() })
+
+  render_tab_cards <- function(period_name) {
     combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
     if (is.null(combine_localities)) {
       combine_localities <- TRUE
@@ -90,18 +99,18 @@ server <- function(input, output, session) {
     }
 
     if (isTRUE(combine_localities)) {
-      return(render_dashboard_metric_cards(selected_localities))
+      return(render_dashboard_metric_cards(selected_localities, period_name))
     }
 
     tagList(lapply(selected_localities, function(locality) {
       tagList(
         div(class = "dashboard-locality-heading", locality_display_name(locality)),
-        render_dashboard_metric_cards(locality)
+        render_dashboard_metric_cards(locality, period_name)
       )
     }))
-  })
+  }
 
-  output$dashboard_weather_cards <- renderUI({
+  render_tab_weather <- function(period_name) {
     combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
     if (is.null(combine_localities)) {
       combine_localities <- TRUE
@@ -112,9 +121,7 @@ server <- function(input, output, session) {
       selected_localities <- unique(core_data$deps$locality)
     }
 
-    # Fetch period dates
-    primary_period <- core_data$period_defaults$primary_period
-    period_info <- core_data$period_groups[[primary_period]]
+    period_info <- core_data$period_groups[[period_name]]
     if (is.null(period_info)) {
       return(NULL)
     }
@@ -131,7 +138,15 @@ server <- function(input, output, session) {
         render_weather_cards(locality, start_date, end_date)
       )
     }))
-  })
+  }
+
+  output$main_dashboard_current_period_cards <- renderUI({ render_tab_cards(main_dashboard_current_period$period_name()) })
+  output$main_dashboard_prior_period_cards <- renderUI({ render_tab_cards(main_dashboard_prior_period$period_name()) })
+  output$main_dashboard_last_year_period_cards <- renderUI({ render_tab_cards(main_dashboard_last_year_period$period_name()) })
+
+  output$main_dashboard_current_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_current_period$period_name()) })
+  output$main_dashboard_prior_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_prior_period$period_name()) })
+  output$main_dashboard_last_year_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_last_year_period$period_name()) })
 
   observeEvent(input$dashboard_rai_details_clicked, {
     detail_parts <- strsplit(input$dashboard_rai_details_clicked, "\\|", fixed = FALSE)[[1]]
@@ -141,9 +156,14 @@ server <- function(input, output, session) {
     } else {
       NULL
     }
+    period_name <- if (length(detail_parts) > 2 && detail_parts[[3]] != "ALL") {
+      detail_parts[[3]]
+    } else {
+      NULL
+    }
 
     lower_is_better <- rai_group %in% c("Mustelids", "Rats")
-    show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality))
+    show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality, period_name))
   })
 
   observeEvent(input$dashboard_weather_details_clicked, {
