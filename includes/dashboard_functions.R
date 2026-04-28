@@ -615,6 +615,7 @@ show_rai_metric_modal <- function(metric) {
     tags$h5("Line RAIs"),
     render_line_rai_section(),
     tags$h5("RAI Proof"),
+    tags$small("Hint: Copy the text in the box below and ask your favourite chatbot to verify the calculations"),
     render_calculation_trace_section(),
     easyClose = TRUE,
     footer = modalButton("Close"),

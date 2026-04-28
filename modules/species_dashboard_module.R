@@ -363,6 +363,8 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
         tags$h5("Line RAIs"),
         tags$div(class = "rai-table-scroll", line_table),
         tags$h5("RAI Proof"),
+        tags$small("Hint: Copy the text in the box below and ask your favourite chatbot to verify the calculations"),
+
         tags$pre(
           class = "rai-calculation-trace",
           if (!is.null(metric$calculation_trace) && !is.na(metric$calculation_trace)) {
