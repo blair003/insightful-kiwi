@@ -29,6 +29,66 @@ source("includes/spatial_functions.R")
 source("includes/visualisation_functions.R")
 source("includes/utility_functions.R")
 
+generate_multi_species_activity_plot <- function(sobs_data) {
+  if(nrow(sobs_data) == 0) return(plot(1, type="n", axes=F, xlab="", ylab="", main="No Data"))
+  sobs_data$hour <- as.numeric(format(sobs_data$timestamp, "%H"))
+
+  # We want a full grid of hour (0-23) and species
+  all_hours <- 0:23
+  species_list <- unique(sobs_data$scientificName)
+  if(length(species_list) == 0) return(plot(1, type="n", axes=F, xlab="", ylab="", main="No Data"))
+
+  # Count occurrences, assuming each row in sobs_data is an observation
+  # or if count is a column use it, but typically it is count column. Let's use count if it exists, otherwise n()
+  if ("count" %in% names(sobs_data)) {
+    hourly_counts <- sobs_data %>%
+      dplyr::group_by(scientificName, hour) %>%
+      dplyr::summarise(count = sum(count, na.rm = TRUE), .groups="drop")
+  } else {
+    hourly_counts <- sobs_data %>%
+      dplyr::group_by(scientificName, hour) %>%
+      dplyr::summarise(count = dplyr::n(), .groups="drop")
+  }
+
+  all_combinations <- expand.grid(hour = all_hours, scientificName = species_list, stringsAsFactors = FALSE)
+  plot_data <- merge(all_combinations, hourly_counts, by=c("hour", "scientificName"), all.x=TRUE)
+  plot_data$count[is.na(plot_data$count)] <- 0
+  plot_data$hour_midpoint <- plot_data$hour + 0.5
+
+  # Use config$globals$species_name_type if we want nice names
+  name_type <- config$globals$species_name_type
+
+  if (name_type == "vernacularNames.eng" || name_type == "vernacularNames.mri") {
+    # find nice names
+    nice_names <- sobs_data %>% dplyr::distinct(scientificName, !!rlang::sym(name_type))
+    plot_data <- plot_data %>% dplyr::left_join(nice_names, by = "scientificName")
+    plot_data$display_name <- plot_data[[name_type]]
+    plot_data$display_name[is.na(plot_data$display_name)] <- plot_data$scientificName[is.na(plot_data$display_name)]
+  } else {
+    plot_data$display_name <- plot_data$scientificName
+  }
+
+  # Capitalize first letter
+  plot_data$display_name <- stringr::str_to_title(plot_data$display_name)
+
+  library(ggplot2)
+  ggplot(plot_data, aes(x = hour_midpoint, y = count, fill = display_name)) +
+    geom_bar(stat = "identity", position = "identity", alpha = 0.5, color = "black", linewidth = 0.3) +
+    coord_polar(start = 0) +
+    scale_x_continuous(breaks = 0:23 + 0.5, limits = c(0, 24), labels = paste0(0:23, ":00")) +
+    theme_minimal() +
+    theme(
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title = element_blank(),
+      panel.grid.major.x = element_line(color = "grey80"),
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "bottom",
+      legend.title = element_blank()
+    ) +
+    labs(title = "Activity Patterns by Species")
+}
+
 
 server <- function(input, output, session) {
 
@@ -689,6 +749,71 @@ server <- function(input, output, session) {
 
   
   
+  ########### ACTIVITY PATTERNS FEATURE ###########
+  activity_patterns_map <- NULL
+  activity_patterns_loaded <- reactiveVal(FALSE)
+
+  observeEvent(input$nav, {
+    if (input$nav == "activity_patterns" && !activity_patterns_loaded()) {
+      logger::log_debug("server.R, lazily calling mapping_module_server() for activity_patterns_map")
+      activity_patterns_map <<- mapping_module_server(
+        id = "activity_patterns_map",
+        type = "observation", # Just to get selected species and localities
+        obs = reactive({core_data$obs}),
+        deps = reactive({core_data$deps})
+      )
+      activity_patterns_loaded(TRUE)
+    }
+  })
+
+  # Reactive to filter obs for activity pattern plots
+  activity_patterns_obs <- reactive({
+    req(activity_patterns_loaded(), activity_patterns_map$selected_species(), activity_patterns_map$selected_localities())
+    species <- tolower(activity_patterns_map$selected_species())
+    localities <- activity_patterns_map$selected_localities()
+
+    filtered_obs <- core_data$obs %>%
+      dplyr::filter(tolower(scientificName) %in% species, locality %in% localities)
+
+    return(filtered_obs)
+  })
+
+  # Overall Activity Pattern
+  output$activity_patterns_overall <- renderPlot({
+    req(activity_patterns_obs())
+    generate_multi_species_activity_plot(activity_patterns_obs())
+  })
+
+  # Current Period Activity Pattern
+  output$activity_patterns_current <- renderPlot({
+    req(activity_patterns_obs(), main_dashboard_current_period$start_date(), main_dashboard_current_period$end_date())
+    period_obs <- filter_obs(activity_patterns_obs(), main_dashboard_current_period$start_date(), main_dashboard_current_period$end_date())
+    generate_multi_species_activity_plot(period_obs)
+  })
+  output$activity_patterns_current_period_name <- renderText({
+    main_dashboard_current_period$period_name()
+  })
+
+  # Prior Period Activity Pattern
+  output$activity_patterns_prior <- renderPlot({
+    req(activity_patterns_obs(), main_dashboard_prior_period$start_date(), main_dashboard_prior_period$end_date())
+    period_obs <- filter_obs(activity_patterns_obs(), main_dashboard_prior_period$start_date(), main_dashboard_prior_period$end_date())
+    generate_multi_species_activity_plot(period_obs)
+  })
+  output$activity_patterns_prior_period_name <- renderText({
+    main_dashboard_prior_period$period_name()
+  })
+
+  # Last Year Period Activity Pattern
+  output$activity_patterns_last_year <- renderPlot({
+    req(activity_patterns_obs(), main_dashboard_last_year_period$start_date(), main_dashboard_last_year_period$end_date())
+    period_obs <- filter_obs(activity_patterns_obs(), main_dashboard_last_year_period$start_date(), main_dashboard_last_year_period$end_date())
+    generate_multi_species_activity_plot(period_obs)
+  })
+  output$activity_patterns_last_year_period_name <- renderText({
+    main_dashboard_last_year_period$period_name()
+  })
+
   ########### OBSERVATION MAP FEATURE ###########
   
   observation_map <- NULL
