@@ -1,0 +1,57 @@
+<<<<<<< SEARCH
+  generate_dashboard_weather_cards <- function(weather_data) {
+=======
+  generate_multi_species_activity_plot <- function(sobs_data) {
+    if(nrow(sobs_data) == 0) return(plot(1, type="n", axes=F, xlab="", ylab="", main="No Data"))
+    sobs_data$hour <- as.numeric(format(sobs_data$timestamp, "%H"))
+
+    # We want a full grid of hour (0-23) and species
+    all_hours <- 0:23
+    species_list <- unique(sobs_data$scientificName)
+    if(length(species_list) == 0) return(plot(1, type="n", axes=F, xlab="", ylab="", main="No Data"))
+
+    hourly_counts <- sobs_data %>%
+      dplyr::group_by(scientificName, hour) %>%
+      dplyr::summarise(count = sum(count, na.rm = TRUE), .groups="drop")
+
+    all_combinations <- expand.grid(hour = all_hours, scientificName = species_list, stringsAsFactors = FALSE)
+    plot_data <- merge(all_combinations, hourly_counts, by=c("hour", "scientificName"), all.x=TRUE)
+    plot_data$count[is.na(plot_data$count)] <- 0
+    plot_data$hour_midpoint <- plot_data$hour + 0.5
+
+    # Use config$globals$species_name_type if we want nice names
+    name_type <- config$globals$species_name_type
+
+    if (name_type == "vernacularNames.eng" || name_type == "vernacularNames.mri") {
+      # find nice names
+      nice_names <- sobs_data %>% dplyr::distinct(scientificName, !!sym(name_type))
+      plot_data <- plot_data %>% dplyr::left_join(nice_names, by = "scientificName")
+      plot_data$display_name <- plot_data[[name_type]]
+      plot_data$display_name[is.na(plot_data$display_name)] <- plot_data$scientificName[is.na(plot_data$display_name)]
+    } else {
+      plot_data$display_name <- plot_data$scientificName
+    }
+
+    # Capitalize first letter
+    plot_data$display_name <- stringr::str_to_title(plot_data$display_name)
+
+    library(ggplot2)
+    ggplot(plot_data, aes(x = hour_midpoint, y = count, fill = display_name, color = display_name)) +
+      geom_polygon(alpha = 0.4, linewidth = 1) +
+      coord_polar(start = 0) +
+      scale_x_continuous(breaks = 0:23 + 0.5, limits = c(0, 24), labels = paste0(0:23, ":00")) +
+      theme_minimal() +
+      theme(
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title = element_blank(),
+        panel.grid.major.x = element_line(color = "grey80"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.position = "bottom",
+        legend.title = element_blank()
+      ) +
+      labs(title = "Activity Patterns by Species")
+  }
+
+  generate_dashboard_weather_cards <- function(weather_data) {
+>>>>>>> REPLACE

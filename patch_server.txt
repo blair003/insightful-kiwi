@@ -1,0 +1,43 @@
+<<<<<<< SEARCH
+  hourly_counts <- sobs_data %>%
+    dplyr::group_by(scientificName, hour) %>%
+    dplyr::summarise(count = sum(count, na.rm = TRUE), .groups="drop")
+
+  all_combinations <- expand.grid(hour = all_hours, scientificName = species_list, stringsAsFactors = FALSE)
+  plot_data <- merge(all_combinations, hourly_counts, by=c("hour", "scientificName"), all.x=TRUE)
+  plot_data$count[is.na(plot_data$count)] <- 0
+  plot_data$hour_midpoint <- plot_data$hour + 0.5
+
+  # Use config$globals$species_name_type if we want nice names
+  name_type <- config$globals$species_name_type
+
+  if (name_type == "vernacularNames.eng" || name_type == "vernacularNames.mri") {
+    # find nice names
+    nice_names <- sobs_data %>% dplyr::distinct(scientificName, !!sym(name_type))
+    plot_data <- plot_data %>% dplyr::left_join(nice_names, by = "scientificName")
+=======
+  # Count occurrences, assuming each row in sobs_data is an observation
+  # or if count is a column use it, but typically it is count column. Let's use count if it exists, otherwise n()
+  if ("count" %in% names(sobs_data)) {
+    hourly_counts <- sobs_data %>%
+      dplyr::group_by(scientificName, hour) %>%
+      dplyr::summarise(count = sum(count, na.rm = TRUE), .groups="drop")
+  } else {
+    hourly_counts <- sobs_data %>%
+      dplyr::group_by(scientificName, hour) %>%
+      dplyr::summarise(count = dplyr::n(), .groups="drop")
+  }
+
+  all_combinations <- expand.grid(hour = all_hours, scientificName = species_list, stringsAsFactors = FALSE)
+  plot_data <- merge(all_combinations, hourly_counts, by=c("hour", "scientificName"), all.x=TRUE)
+  plot_data$count[is.na(plot_data$count)] <- 0
+  plot_data$hour_midpoint <- plot_data$hour + 0.5
+
+  # Use config$globals$species_name_type if we want nice names
+  name_type <- config$globals$species_name_type
+
+  if (name_type == "vernacularNames.eng" || name_type == "vernacularNames.mri") {
+    # find nice names
+    nice_names <- sobs_data %>% dplyr::distinct(scientificName, !!rlang::sym(name_type))
+    plot_data <- plot_data %>% dplyr::left_join(nice_names, by = "scientificName")
+>>>>>>> REPLACE
