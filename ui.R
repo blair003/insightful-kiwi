@@ -372,6 +372,7 @@ ui <- function(request) {
         
         # Main content area for Reporting
         navset_card_tab(
+          id = "reporting_tabs",
           selected = "exec_summary",
           # Default selected panel
           nav_panel(
