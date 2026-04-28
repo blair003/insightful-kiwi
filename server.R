@@ -97,6 +97,29 @@ server <- function(input, output, session) {
 
   logger::log_debug("server.R, starting server() function")
 
+  observeEvent(input$global_share_btn, {
+    session$doBookmark()
+  })
+
+  onBookmarked(function(url) {
+    showModal(modalDialog(
+      title = "Share this view",
+      tags$p("Copy the link below to share the exact state of this page:"),
+      tags$div(
+        class = "input-group",
+        tags$input(type = "text", class = "form-control", value = url, id = "share_url_input", readonly = "readonly"),
+        tags$button(
+          class = "btn btn-outline-secondary",
+          type = "button",
+          onclick = "copyToClipboard(document.getElementById('share_url_input').value, this)",
+          icon("clipboard")
+        )
+      ),
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  })
+
   primary_period <- period_selection_module_server(
     id = "primary_period",
     period_groups = core_data$period_groups,
