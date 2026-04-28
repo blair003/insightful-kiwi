@@ -240,13 +240,15 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       end_date <- NA
 
       if (!is.null(period_name_label) &&
-          period_name_label != "ALL" &&
           period_name_label %in% names(core_data$period_groups)) {
         period <- core_data$period_groups[[period_name_label]]
         start_date <- period$start_date
         end_date <- period$end_date
-        period_obs <- filter_obs(period_obs, start_date, end_date)
-        period_deps <- filter_deps(period_deps, start_date, end_date)
+
+        if (period_name_label != "ALL") {
+          period_obs <- filter_obs(period_obs, start_date, end_date)
+          period_deps <- filter_deps(period_deps, start_date, end_date)
+        }
       }
 
       if (!is.null(locality_filter) && length(locality_filter) > 0) {
