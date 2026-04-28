@@ -72,8 +72,8 @@ generate_multi_species_activity_plot <- function(sobs_data) {
   plot_data$display_name <- stringr::str_to_title(plot_data$display_name)
 
   library(ggplot2)
-  ggplot(plot_data, aes(x = hour_midpoint, y = count, fill = display_name, color = display_name)) +
-    geom_polygon(alpha = 0.4, linewidth = 1) +
+  ggplot(plot_data, aes(x = hour_midpoint, y = count, fill = display_name)) +
+    geom_bar(stat = "identity", position = "identity", alpha = 0.5, color = "black", linewidth = 0.3) +
     coord_polar(start = 0) +
     scale_x_continuous(breaks = 0:23 + 0.5, limits = c(0, 24), labels = paste0(0:23, ":00")) +
     theme_minimal() +
