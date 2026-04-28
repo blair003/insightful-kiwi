@@ -1,8 +1,8 @@
 {
   "profile": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/camtrap-dp-profile.json",
-  "name": "whakatane-kiwi-trust-20260425220811",
-  "id": "a26976f6-fe1a-47af-8783-c579ad22741a",
-  "created": "2026-04-25T22:08:11Z",
+  "name": "whakatane-kiwi-trust-20260427203507",
+  "id": "be1c22f8-495a-4c63-87f5-923d98a4e5ac",
+  "created": "2026-04-27T20:35:07Z",
   "contributors": [
     {
       "title": "Agouti Admins",
@@ -197,6 +197,17 @@
       "vernacularNames": {
         "eng": "European greenfinch",
         "nld": "Groenling"
+      }
+    },
+    {
+      "scientificName": "Circus cyaneus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/VG7Z",
+      "taxonRank": "species",
+      "order": "Accipitriformes",
+      "family": "Accipitridae",
+      "vernacularNames": {
+        "eng": "Hen harrier",
+        "nld": "Blauwe kiekendief"
       }
     },
     {

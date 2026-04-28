@@ -15,11 +15,12 @@ config/*
 #extdata/deployments.csv
 #extdata/media.csv
 #extdata/observations.csv
-cache
-tangential
+cache/
+tangential/
 config/.env
-www/cache
-temp
+www/cache/
+temp/
 .positai
 .git
 .vscode/
+.lintr

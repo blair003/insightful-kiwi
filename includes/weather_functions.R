@@ -226,6 +226,7 @@ show_weather_modal <- function(lat, lng, start_date, end_date) {
     size = "l",
     easyClose = TRUE,
     footer = modalButton("Close"),
+    tags$small("Weather data from open-meteo.com may lack accuracy. Use as a general guide only."),
     div(
       DT::renderDataTable({
         DT::datatable(df, options = list(pageLength = 10, dom = 'tip'), rownames = FALSE)
