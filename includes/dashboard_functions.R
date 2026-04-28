@@ -306,7 +306,7 @@ render_dashboard_card_header <- function(card_icon, card_title, custom_icon = NU
   )
 }
 
-render_dashboard_metric_cards <- function(locality = NULL, period_name = NULL) {
+render_dashboard_rai_cards <- function(locality = NULL, period_name = NULL) {
   locality_token <- if (is.null(locality)) "ALL" else paste(locality, collapse = ",")
   period_token <- if (is.null(period_name)) "ALL" else period_name
   detail_token <- function(group) paste(group, locality_token, period_token, sep = "|")
@@ -318,18 +318,6 @@ render_dashboard_metric_cards <- function(locality = NULL, period_name = NULL) {
     NULL
   }
   kiwi_metric <- dashboard_rai_metric("Kiwi", lower_is_better = FALSE, locality = locality, period_name = period_name)
-  animal_metric <- dashboard_animal_detections_metric(locality = locality, period_name = period_name)
-
-  period_deps <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
-    period <- core_data$period_groups[[period_name]]
-    filter_deps(core_data$deps, period$start_date, period$end_date)
-  } else {
-    core_data$deps
-  }
-  if (!is.null(locality)) {
-    period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
-  }
-  camera_hours_total <- sum(period_deps$camera_hours, na.rm = TRUE)
 
   layout_column_wrap(
     width = "180px",
@@ -349,18 +337,53 @@ render_dashboard_metric_cards <- function(locality = NULL, period_name = NULL) {
       card_header(render_dashboard_card_header("kiwi-bird", "Kiwi RAI")),
       card_body(render_dashboard_comparison_body(kiwi_metric, detail_token("Kiwi"))),
       full_screen = FALSE
-    ),
-    card(
-      card_header(render_dashboard_card_header("paw", "Animal Detections")),
-      card_body(render_dashboard_comparison_body(animal_metric)),
-      full_screen = FALSE
-    ),
+    )
+  )
+}
+
+render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
+  animal_metric <- dashboard_animal_detections_metric(locality = locality, period_name = period_name)
+
+  period_deps <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
+    period <- core_data$period_groups[[period_name]]
+    filter_deps(core_data$deps, period$start_date, period$end_date)
+  } else {
+    core_data$deps
+  }
+  if (!is.null(locality)) {
+    period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
+  }
+
+  camera_hours_total <- sum(period_deps$camera_hours, na.rm = TRUE)
+  deployments_count <- nrow(period_deps)
+
+  obs_main_figure <- sum(period_deps$animal_detections_count, na.rm = TRUE)
+  blanks_count <- sum(period_deps$blank_detections_count, na.rm = TRUE)
+  unclassified_unknown_count <- sum(period_deps$unknown_detections_count, na.rm = TRUE) + sum(period_deps$unclassified_detections_count, na.rm = TRUE)
+
+  layout_column_wrap(
+    width = "180px",
     card(
       card_header(render_dashboard_card_header("camera", "Camera Hours")),
       card_body(
         div(format(round(camera_hours_total), big.mark = ","), class = "dashcard-output"),
-        div(paste(format_dash_number(camera_hours_total / 24), "camera days"), class = "dashcard-period")
+        div(paste(format_dash_number(camera_hours_total / 24), "camera days"), class = "dashcard-period"),
+        div(paste(deployments_count, "cameras deployed"), class = "dashcard-period")
       ),
+      full_screen = FALSE
+    ),
+    card(
+      card_header(render_dashboard_card_header("paw", "Observations")),
+      card_body(
+        div(format(obs_main_figure, big.mark = ","), class = "dashcard-output dashcard-output-rai"),
+        div(paste(format(blanks_count, big.mark = ","), "blanks"), style = "font-size: 0.8em; margin-top: 5px;"),
+        div(paste(format(unclassified_unknown_count, big.mark = ","), "Unclassified or unknown"), style = "font-size: 0.8em;")
+      ),
+      full_screen = FALSE
+    ),
+    card(
+      card_header(render_dashboard_card_header("paw", "Animal Detections")),
+      card_body(render_dashboard_comparison_body(animal_metric)),
       full_screen = FALSE
     )
   )
