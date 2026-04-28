@@ -340,7 +340,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
           }
 
           tbody_rows <- append(tbody_rows, list(tags$tr(
-            class = "table-info fw-bold",
+            class = "fw-bold", style = "border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6;",
             tags$td(locality_display_name(locality)),
             tags$td("Locality RAI"),
             tags$td(locality_rai),

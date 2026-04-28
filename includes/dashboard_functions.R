@@ -546,15 +546,15 @@ show_rai_metric_modal <- function(metric) {
         subtotal_cells <- append(subtotal_cells, list(tags$td(val)))
       }
 
-      tbody_rows <- append(tbody_rows, list(tags$tr(class = "table-info fw-bold", subtotal_cells)))
+      tbody_rows <- append(tbody_rows, list(tags$tr(class = "fw-bold", style = "border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6;", subtotal_cells)))
     }
 
     tags$table(
       class = "table table-sm table-striped rai-detail-table",
       tags$thead(tags$tr(
-        tags$th("Locality"),
-        tags$th("Line"),
-        lapply(period_columns, function(column) tags$th(column$label))
+        tags$th("Locality", style = "width: 25%;"),
+        tags$th("Line", style = "width: 15%;"),
+        lapply(period_columns, function(column) tags$th(column$label, style = "width: 20%;"))
       )),
       tags$tbody(tbody_rows)
     )
