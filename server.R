@@ -99,13 +99,36 @@ server <- function(input, output, session) {
     }
 
     if (isTRUE(combine_localities)) {
-      return(render_dashboard_metric_cards(selected_localities, period_name))
+      return(render_dashboard_rai_cards(selected_localities, period_name))
     }
 
     tagList(lapply(selected_localities, function(locality) {
       tagList(
         div(class = "dashboard-locality-heading", locality_display_name(locality)),
-        render_dashboard_metric_cards(locality, period_name)
+        render_dashboard_rai_cards(locality, period_name)
+      )
+    }))
+  }
+
+  render_tab_effort_cards <- function(period_name) {
+    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
+    if (is.null(combine_localities)) {
+      combine_localities <- TRUE
+    }
+
+    selected_localities <- input[["dashboard_rai_plot-selected_localities"]]
+    if (is.null(selected_localities) || length(selected_localities) == 0) {
+      selected_localities <- unique(core_data$deps$locality)
+    }
+
+    if (isTRUE(combine_localities)) {
+      return(render_dashboard_effort_cards(selected_localities, period_name))
+    }
+
+    tagList(lapply(selected_localities, function(locality) {
+      tagList(
+        div(class = "dashboard-locality-heading", locality_display_name(locality)),
+        render_dashboard_effort_cards(locality, period_name)
       )
     }))
   }
@@ -143,6 +166,10 @@ server <- function(input, output, session) {
   output$main_dashboard_current_period_cards <- renderUI({ render_tab_cards(main_dashboard_current_period$period_name()) })
   output$main_dashboard_prior_period_cards <- renderUI({ render_tab_cards(main_dashboard_prior_period$period_name()) })
   output$main_dashboard_last_year_period_cards <- renderUI({ render_tab_cards(main_dashboard_last_year_period$period_name()) })
+
+  output$main_dashboard_current_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_current_period$period_name()) })
+  output$main_dashboard_prior_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_prior_period$period_name()) })
+  output$main_dashboard_last_year_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_last_year_period$period_name()) })
 
   output$main_dashboard_current_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_current_period$period_name()) })
   output$main_dashboard_prior_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_prior_period$period_name()) })
