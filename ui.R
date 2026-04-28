@@ -504,10 +504,10 @@ ui <- tagList(
           navset_tab(
             id = "activity_patterns_tabs",
             selected = "overall",
-            nav_panel("Overall", value = "overall", plotOutput("activity_patterns_overall", height = "400px")),
-            nav_panel(title = textOutput("activity_patterns_current_period_name", inline = TRUE), value = "current_period", plotOutput("activity_patterns_current", height = "400px")),
-            nav_panel(title = textOutput("activity_patterns_prior_period_name", inline = TRUE), value = "prior_period", plotOutput("activity_patterns_prior", height = "400px")),
-            nav_panel(title = textOutput("activity_patterns_last_year_period_name", inline = TRUE), value = "last_year_period", plotOutput("activity_patterns_last_year", height = "400px"))
+            nav_panel("Overall", value = "overall", plotOutput("activity_patterns_overall", height = "560px")),
+            nav_panel(title = textOutput("activity_patterns_current_period_name", inline = TRUE), value = "current_period", plotOutput("activity_patterns_current", height = "560px")),
+            nav_panel(title = textOutput("activity_patterns_prior_period_name", inline = TRUE), value = "prior_period", plotOutput("activity_patterns_prior", height = "560px")),
+            nav_panel(title = textOutput("activity_patterns_last_year_period_name", inline = TRUE), value = "last_year_period", plotOutput("activity_patterns_last_year", height = "560px"))
           )
         )
       ),
