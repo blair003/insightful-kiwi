@@ -161,7 +161,7 @@ get_table_specification <- function(table_id = NULL) {
          "observation_viewer" = {
            output_data$title <- "Observations browse"
            output_data$caption <- NULL
-           output_data$fields <- c("locality", "line", "locationName", "timestamp", 
+           output_data$fields <- c("locality", "locationName", "timestamp", 
                                    "count", config$globals$species_name_type, "comments")
            
          },

@@ -160,19 +160,16 @@
       showModal(modalDialog(
         title = tagList(
           tags$div(
-            style = "display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 20px;",
+            class = "review-sequence-modal-title",
             tags$div(
-              class = "review-sequences-title",
-              sprintf("Review Sequences (%d of %d)", current_index, total_sequences)
-            ),
-            tags$div(
-              style = "display: flex; align-items: center;",
+              class = "review-sequence-heading-block",
+              tags$div(class = "review-sequences-title", "Review Sequence"),
               tags$div(
                 class = "review-sequences-obs-id",
                 sprintf("Obs ID: %s", observation_id)
-              ),
-              HTML(share_btn_html)
-            )
+              )
+            ),
+            HTML(share_btn_html)
           )
         ),
         image_output$ui_elements,

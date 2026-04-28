@@ -130,20 +130,6 @@ ui <- function(request) {
         )
       ),
       conditionalPanel(
-        condition = "input.nav === 'dashboard' && (!input.main_dashboard_tabs || input.main_dashboard_tabs === 'overall')",
-        plotting_module_ui(
-          id = "dashboard_rai_plot",
-          view = "select_rai_group",
-          choices = names(config$globals$rai_groups),
-          selected = names(config$globals$rai_groups)[1]
-        ),
-        plotting_module_ui(
-          id = "dashboard_rai_plot",
-          view = "select_rai_plot_options"
-        )
-      ),
-
-      conditionalPanel(
         condition = "input.nav === 'plots'",
         plotting_module_ui(
           id = "spp_obs_plot_visualisations",
@@ -303,6 +289,8 @@ ui <- function(request) {
         "Dashboard",
         value = "dashboard",
         icon = icon("dashboard"),
+        h2("Results Dashboard"),
+        uiOutput("main_dashboard_locality_heading"),
         navset_tab(
           id = "main_dashboard_tabs",
           selected = "current_period",
@@ -314,7 +302,25 @@ ui <- function(request) {
               card(
                 class = "dashboard-plot-card",
                 card_header(
-                  tagList(icon("chart-line"), "RAI by species group")
+                  div(
+                    class = "dashboard-card-header-with-controls",
+                    div(
+                      class = "dashboard-card-header-title",
+                      icon("chart-line"),
+                      "RAI history",
+                      uiOutput("dashboard_rai_plot_basis_link", inline = TRUE)
+                    ),
+                    div(
+                      class = "dashboard-card-header-controls",
+                      plotting_module_ui(
+                        id = "dashboard_rai_plot",
+                        view = "select_rai_group_inline",
+                        choices = names(config$globals$rai_groups),
+                        selected = names(config$globals$rai_groups)[1]
+                      ),
+                      plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot_inline_options")
+                    )
+                  )
                 ),
                 plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot"),
                 full_screen = FALSE

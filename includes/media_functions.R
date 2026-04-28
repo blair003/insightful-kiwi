@@ -168,8 +168,15 @@ show_image_modal <- function(observation_id, ui_elements) {
   showModal(modalDialog(
     title = tagList(
       tags$div(
-        style = "display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 20px;",
-        tags$span(sprintf("Obs ID: %s", observation_id)),
+        class = "review-sequence-modal-title",
+        tags$div(
+          class = "review-sequence-heading-block",
+          tags$div(class = "review-sequences-title", "Review Sequence"),
+          tags$div(
+            class = "review-sequences-obs-id",
+            sprintf("Obs ID: %s", observation_id)
+          )
+        ),
         HTML(share_btn_html)
       )
     ),

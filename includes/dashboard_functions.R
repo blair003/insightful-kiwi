@@ -50,7 +50,7 @@ locality_scope_label <- function(locality = NULL) {
     return(locality_display_name(locality))
   }
 
-  paste("Combined selected localities:", paste(vapply(locality, locality_display_name, character(1)), collapse = ", "))
+  paste("Combined:", paste(vapply(locality, locality_display_name, character(1)), collapse = ", "))
 }
 
 locality_display_name <- function(locality) {
@@ -248,7 +248,7 @@ render_dashboard_trend_icon <- function(comparison) {
   tags$span(icon(icon_name), class = "dashcard-trend-icon", `aria-hidden` = "true")
 }
 
-render_dashboard_comparison_body <- function(metric, detail_token = NULL) {
+render_dashboard_comparison_body <- function(metric, detail_token = NULL, use_state_background = TRUE) {
   state_class <- dashboard_comparison_state_class(metric$comparison_state)
 
   comparison_tags <- lapply(metric$comparisons, function(comparison) {
@@ -275,12 +275,35 @@ render_dashboard_comparison_body <- function(metric, detail_token = NULL) {
   }
 
   div(
-    class = paste("dashcard-metric-state", state_class),
+    class = paste(c("dashcard-metric-state", if (isTRUE(use_state_background)) state_class else NULL), collapse = " "),
     details_action,
     div(metric$current_formatted_value, class = "dashcard-output dashcard-output-rai"),
     div(metric$current_period, class = "dashcard-period"),
     tagList(comparison_tags)
   )
+}
+
+render_dashcard_metric_body <- function(value, ...) {
+  div(
+    class = "dashcard-metric-state dashcard-metric-state-plain",
+    div(value, class = "dashcard-output"),
+    ...
+  )
+}
+
+format_dashboard_date_range <- function(start_date, end_date) {
+  start_date <- as.Date(start_date)
+  end_date <- as.Date(end_date)
+
+  if (is.na(start_date) || is.na(end_date)) {
+    return("Dates unavailable")
+  }
+
+  if (format(start_date, "%Y") == format(end_date, "%Y")) {
+    return(paste(format(start_date, "%d %b"), "-", format(end_date, "%d %b %Y")))
+  }
+
+  paste(format(start_date, "%d %b %Y"), "-", format(end_date, "%d %b %Y"))
 }
 
 dashboard_rat_icon <- function() {
@@ -360,30 +383,57 @@ render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
   obs_main_figure <- sum(period_deps$animal_detections_count, na.rm = TRUE)
   blanks_count <- sum(period_deps$blank_detections_count, na.rm = TRUE)
   unclassified_unknown_count <- sum(period_deps$unknown_detections_count, na.rm = TRUE) + sum(period_deps$unclassified_detections_count, na.rm = TRUE)
+  period_start_date <- if (nrow(period_deps) > 0) {
+    min(as.Date(period_deps$start), na.rm = TRUE)
+  } else {
+    NA
+  }
+  period_end_date <- if (nrow(period_deps) > 0) {
+    max(as.Date(period_deps$end), na.rm = TRUE)
+  } else {
+    NA
+  }
+  period_date_text <- format_dashboard_date_range(period_start_date, period_end_date)
+  period_label <- if (is.null(period_name)) "All Data" else period_name
 
   layout_column_wrap(
     width = "180px",
     card(
+      card_header(render_dashboard_card_header("calendar-days", "Season Dates")),
+      card_body(
+        render_dashcard_metric_body(
+          period_date_text,
+          div(period_label, class = "dashcard-period"),
+          div("actual deployment span", class = "dashcard-period")
+        )
+      ),
+      full_screen = FALSE
+    ),
+    card(
       card_header(render_dashboard_card_header("camera", "Camera Hours")),
       card_body(
-        div(format(round(camera_hours_total), big.mark = ","), class = "dashcard-output"),
-        div(paste(format_dash_number(camera_hours_total / 24), "camera days"), class = "dashcard-period"),
-        div(paste(deployments_count, "cameras deployed"), class = "dashcard-period")
+        render_dashcard_metric_body(
+          format(round(camera_hours_total), big.mark = ","),
+          div(paste(format_dash_number(camera_hours_total / 24), "camera days"), class = "dashcard-period"),
+          div(paste(deployments_count, "cameras deployed"), class = "dashcard-period")
+        )
       ),
       full_screen = FALSE
     ),
     card(
       card_header(render_dashboard_card_header("paw", "Observations")),
       card_body(
-        div(format(obs_main_figure, big.mark = ","), class = "dashcard-output dashcard-output-rai"),
-        div(paste(format(blanks_count, big.mark = ","), "blanks"), style = "font-size: 0.8em; margin-top: 5px;"),
-        div(paste(format(unclassified_unknown_count, big.mark = ","), "Unclassified or unknown"), style = "font-size: 0.8em;")
+        render_dashcard_metric_body(
+          format(obs_main_figure, big.mark = ","),
+          div(paste(format(blanks_count, big.mark = ","), "blanks"), class = "dashcard-period"),
+          div(paste(format(unclassified_unknown_count, big.mark = ","), "unclassified or unknown"), class = "dashcard-period")
+        )
       ),
       full_screen = FALSE
     ),
     card(
       card_header(render_dashboard_card_header("paw", "Animal Detections")),
-      card_body(render_dashboard_comparison_body(animal_metric)),
+      card_body(render_dashboard_comparison_body(animal_metric, use_state_background = FALSE)),
       full_screen = FALSE
     )
   )

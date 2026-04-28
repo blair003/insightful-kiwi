@@ -59,6 +59,10 @@ config$globals <- list(
 
   # Near-miss window for species dashboard Kiwi co-occurrence checks, in minutes
   kiwi_near_miss_minutes = 60,
+
+  # TRUE shows dashboard weather separately for each locality when localities are
+  # not combined. FALSE shows one weather summary for the selected network.
+  dashboard_weather_by_locality = FALSE,
   
   # Show RAI calculations based on net individuals count (excluding duplicates)
   rai_net_count = TRUE,

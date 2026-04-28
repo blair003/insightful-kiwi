@@ -324,16 +324,50 @@ server <- function(input, output, session) {
   output$main_dashboard_prior_period_name <- renderText({ main_dashboard_prior_period$period_name() })
   output$main_dashboard_last_year_period_name <- renderText({ main_dashboard_last_year_period$period_name() })
 
-  render_tab_cards <- function(period_name) {
-    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
-    if (is.null(combine_localities)) {
-      combine_localities <- TRUE
-    }
-
+  dashboard_selected_localities <- reactive({
     selected_localities <- input[["dashboard_rai_plot-selected_localities"]]
     if (is.null(selected_localities) || length(selected_localities) == 0) {
       selected_localities <- unique(core_data$deps$locality)
     }
+
+    as.character(selected_localities)
+  })
+
+  dashboard_combine_localities <- reactive({
+    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
+    if (is.null(combine_localities)) {
+      return(TRUE)
+    }
+
+    isTRUE(combine_localities)
+  })
+
+  dashboard_locality_heading <- reactive({
+    selected_localities <- dashboard_selected_localities()
+    if (dashboard_combine_localities()) {
+      locality_scope_label(selected_localities)
+    } else {
+      paste("Locality selection:", paste(vapply(selected_localities, locality_display_name, character(1)), collapse = ", "))
+    }
+  })
+
+  output$main_dashboard_locality_heading <- renderUI({
+    div(class = "dashboard-locality-heading", dashboard_locality_heading())
+  })
+
+  output$dashboard_rai_plot_basis_link <- renderUI({
+    rai_group <- input[["dashboard_rai_plot-selected_rai_group"]]
+    if (is.null(rai_group) || length(rai_group) == 0) {
+      rai_group <- names(config$globals$rai_groups)[[1]]
+    }
+
+    locality_token <- paste(dashboard_selected_localities(), collapse = ",")
+    render_dashboard_info_link(paste(rai_group[[1]], locality_token, "ALL", sep = "|"))
+  })
+
+  render_tab_cards <- function(period_name) {
+    combine_localities <- dashboard_combine_localities()
+    selected_localities <- dashboard_selected_localities()
 
     if (isTRUE(combine_localities)) {
       return(render_dashboard_rai_cards(selected_localities, period_name))
@@ -348,15 +382,8 @@ server <- function(input, output, session) {
   }
 
   render_tab_effort_cards <- function(period_name) {
-    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
-    if (is.null(combine_localities)) {
-      combine_localities <- TRUE
-    }
-
-    selected_localities <- input[["dashboard_rai_plot-selected_localities"]]
-    if (is.null(selected_localities) || length(selected_localities) == 0) {
-      selected_localities <- unique(core_data$deps$locality)
-    }
+    combine_localities <- dashboard_combine_localities()
+    selected_localities <- dashboard_selected_localities()
 
     if (isTRUE(combine_localities)) {
       return(render_dashboard_effort_cards(selected_localities, period_name))
@@ -371,15 +398,8 @@ server <- function(input, output, session) {
   }
 
   render_tab_weather <- function(period_name) {
-    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
-    if (is.null(combine_localities)) {
-      combine_localities <- TRUE
-    }
-
-    selected_localities <- input[["dashboard_rai_plot-selected_localities"]]
-    if (is.null(selected_localities) || length(selected_localities) == 0) {
-      selected_localities <- unique(core_data$deps$locality)
-    }
+    combine_localities <- dashboard_combine_localities()
+    selected_localities <- dashboard_selected_localities()
 
     period_info <- core_data$period_groups[[period_name]]
     if (is.null(period_info)) {
@@ -388,7 +408,9 @@ server <- function(input, output, session) {
     start_date <- period_info$start_date
     end_date <- period_info$end_date
 
-    if (isTRUE(combine_localities)) {
+    weather_by_locality <- isTRUE(config$globals$dashboard_weather_by_locality)
+
+    if (isTRUE(combine_localities) || !isTRUE(weather_by_locality)) {
       return(render_weather_cards(selected_localities, start_date, end_date))
     }
 

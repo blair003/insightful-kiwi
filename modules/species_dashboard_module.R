@@ -34,21 +34,25 @@ species_dashboard_module_ui <- function(id) {
       nav_panel("Overall",
         value = "overall",
         br(),
-        layout_column_wrap(
-          width = "250px",
-          uiOutput(ns("overall_total_detections_card")),
-          uiOutput(ns("overall_unique_locations_card")),
-          uiOutput(ns("overall_rai_card")),
-          uiOutput(ns("overall_other_metrics_card"))
-        ),
+        uiOutput(ns("overall_metric_cards")),
         br(),
         # Add RAI plot specific to this species
         card(
           class = "dashboard-plot-card",
           card_header(tagList(
-            icon("chart-line"),
-            "RAI for selected species",
-            uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE)
+            div(
+              class = "dashboard-card-header-with-controls",
+              div(
+                class = "dashboard-card-header-title",
+                icon("chart-line"),
+                "RAI history",
+                uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE)
+              ),
+              div(
+                class = "dashboard-card-header-controls",
+                plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot_inline_options")
+              )
+            )
           )),
           plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot"),
           full_screen = FALSE
@@ -78,13 +82,7 @@ species_dashboard_module_ui <- function(id) {
         title = textOutput(ns("current_period_name"), inline = TRUE),
         value = "current_period",
         br(),
-        layout_column_wrap(
-          width = "250px",
-          uiOutput(ns("current_total_detections_card")),
-          uiOutput(ns("current_unique_locations_card")),
-          uiOutput(ns("current_rai_card")),
-          uiOutput(ns("current_other_metrics_card"))
-        ),
+        uiOutput(ns("current_metric_cards")),
         br(),
         layout_column_wrap(
           width = 1/2,
@@ -111,13 +109,7 @@ species_dashboard_module_ui <- function(id) {
         title = textOutput(ns("prior_period_name"), inline = TRUE),
         value = "prior_period",
         br(),
-        layout_column_wrap(
-          width = "250px",
-          uiOutput(ns("prior_total_detections_card")),
-          uiOutput(ns("prior_unique_locations_card")),
-          uiOutput(ns("prior_rai_card")),
-          uiOutput(ns("prior_other_metrics_card"))
-        ),
+        uiOutput(ns("prior_metric_cards")),
         br(),
         layout_column_wrap(
           width = 1/2,
@@ -144,13 +136,7 @@ species_dashboard_module_ui <- function(id) {
         title = textOutput(ns("last_year_period_name"), inline = TRUE),
         value = "last_year_period",
         br(),
-        layout_column_wrap(
-          width = "250px",
-          uiOutput(ns("last_year_total_detections_card")),
-          uiOutput(ns("last_year_unique_locations_card")),
-          uiOutput(ns("last_year_rai_card")),
-          uiOutput(ns("last_year_other_metrics_card"))
-        ),
+        uiOutput(ns("last_year_metric_cards")),
         br(),
         layout_column_wrap(
           width = 1/2,
@@ -203,14 +189,19 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
     rai_groups_for_species <- stats::setNames(list(species_name), vernacular_name)
 
     selected_locality_label <- function() {
-      locality_scope_label(selected_localities())
+      paste("Locality selection:", paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", "))
     }
 
-    rai_calculation_basis_link <- function(period_name_label) {
+    combine_localities_selected <- reactive({
+      combine_localities <- input[["overall_rai_plot-combine_localities"]]
+      is.null(combine_localities) || isTRUE(combine_localities)
+    })
+
+    rai_calculation_basis_link <- function(period_name_label, locality_token = locality_filter_token()) {
       onclick_payload <- jsonlite::toJSON(
         list(
           period_name = period_name_label,
-          locality = locality_filter_token()
+          locality = locality_token
         ),
         auto_unbox = TRUE
       )
@@ -434,15 +425,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       )
     })
 
-    # Helper to generate the cards
-    generate_cards <- function(species_obs, deps_data, period_name_label) {
-      total_count <- sum(species_obs$count, na.rm = TRUE)
-      unique_locs <- length(unique(species_obs$locationName))
-      total_deployments <- length(unique(deps_data$locationName))
-      pct_locations <- if (total_deployments > 0) (unique_locs / total_deployments) * 100 else 0
-      avg_count <- if (unique_locs > 0) total_count / unique_locs else 0
-
-
+    generate_rai_card <- function(species_obs, deps_data, period_name_label, title, subtitle, locality_token = locality_filter_token()) {
       metric <- generate_rai_group_network_metric(
         species_obs,
         deps_data,
@@ -451,7 +434,50 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
         rai_norm_hours,
         config$globals$rai_net_count
       )
-      rai <- metric$value
+      formatted_rai <- ifelse(is.na(metric$value), "N/A", metric$formatted_value)
+
+      card(
+        card_header(tagList(title, rai_calculation_basis_link(period_name_label, locality_token))),
+        card_body(
+          render_dashcard_metric_body(
+            formatted_rai,
+            div(subtitle, class = "dashcard-period")
+          )
+        )
+      )
+    }
+
+    generate_rai_cards <- function(species_obs, deps_data, period_name_label) {
+      if (combine_localities_selected()) {
+        return(list(generate_rai_card(
+          species_obs,
+          deps_data,
+          period_name_label,
+          "RAI ± SE",
+          "combined selected localities"
+        )))
+      }
+
+      lapply(selected_localities(), function(locality) {
+        locality_obs <- species_obs %>% dplyr::filter(.data$locality == !!locality)
+        locality_deps <- deps_data %>% dplyr::filter(.data$locality == !!locality)
+        generate_rai_card(
+          locality_obs,
+          locality_deps,
+          period_name_label,
+          paste("RAI ± SE", locality_display_name(locality)),
+          "locality only",
+          locality
+        )
+      })
+    }
+
+    # Helper to generate the cards
+    render_metric_cards <- function(species_obs, deps_data, period_name_label) {
+      total_count <- sum(species_obs$count, na.rm = TRUE)
+      unique_locs <- length(unique(species_obs$locationName))
+      total_deployments <- length(unique(deps_data$locationName))
+      pct_locations <- if (total_deployments > 0) (unique_locs / total_deployments) * 100 else 0
 
       review_action <- if (total_count > 0) {
         onclick_payload <- jsonlite::toJSON(
@@ -480,28 +506,33 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
         NULL
       }
 
-      formatted_rai <- ifelse(is.na(rai), "N/A", metric$formatted_value)
       total_detections_count <- nrow(species_obs)
 
-      list(
-        total = card(
+      total_card <- card(
           card_header("Total Detections"),
           card_body(
-            h2(total_detections_count),
-            tags$small(class = "text-muted", sprintf("for %d Individuals", total_count)),
-            review_action
+            render_dashcard_metric_body(
+              total_detections_count,
+              div(sprintf("for %d individuals", total_count), class = "dashcard-period"),
+              review_action
+            )
           )
-        ),
-        unique = card(
+        )
+      unique_card <- card(
           card_header("Unique Locations"),
           card_body(
-            h2(unique_locs),
-            tags$small(class = "text-muted", sprintf("%.1f%% of locations", pct_locations))
+            render_dashcard_metric_body(
+              unique_locs,
+              div(sprintf("%.1f%% of locations", pct_locations), class = "dashcard-period")
+            )
           )
-        ),
-        rai = card(
-          card_header(tagList("RAI ± SE", rai_calculation_basis_link(period_name_label))),
-          card_body(h2(formatted_rai))
+      )
+
+      do.call(
+        layout_column_wrap,
+        c(
+          list(width = "250px", total_card, unique_card),
+          generate_rai_cards(species_obs, deps_data, period_name_label)
         )
       )
     }
@@ -638,10 +669,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       overall_obs() %>% dplyr::filter(tolower(scientificName) == tolower(species_name))
     })
 
-    output$overall_total_detections_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$total })
-    output$overall_unique_locations_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$unique })
-    output$overall_rai_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$rai })
-    output$overall_other_metrics_card <- renderUI({ generate_cards(overall_sobs(), overall_deps(), "ALL")$other_metrics })
+    output$overall_metric_cards <- renderUI({ render_metric_cards(overall_sobs(), overall_deps(), "ALL") })
     output$overall_activity_plot <- renderPlot({ generate_activity_plot(overall_sobs()) })
     output$overall_cooccurrence_ui <- renderUI({ generate_cooccurrence(overall_sobs(), overall_obs()) })
 
@@ -730,10 +758,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       filter_obs(overall_obs(), current_period_data$start_date(), current_period_data$end_date())
     })
 
-    output$current_total_detections_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$total })
-    output$current_unique_locations_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$unique })
-    output$current_rai_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$rai })
-    output$current_other_metrics_card <- renderUI({ generate_cards(current_sobs(), current_deps(), current_period_data$period_name())$other_metrics })
+    output$current_metric_cards <- renderUI({ render_metric_cards(current_sobs(), current_deps(), current_period_data$period_name()) })
     output$current_activity_plot <- renderPlot({ generate_activity_plot(current_sobs()) })
     output$current_cooccurrence_ui <- renderUI({ generate_cooccurrence(current_sobs(), current_obs()) })
     output$current_period_name <- renderText({ current_period_data$period_name() })
@@ -752,10 +777,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       filter_obs(overall_obs(), prior_period_data$start_date(), prior_period_data$end_date())
     })
 
-    output$prior_total_detections_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$total })
-    output$prior_unique_locations_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$unique })
-    output$prior_rai_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$rai })
-    output$prior_other_metrics_card <- renderUI({ generate_cards(prior_sobs(), prior_deps(), prior_period_data$period_name())$other_metrics })
+    output$prior_metric_cards <- renderUI({ render_metric_cards(prior_sobs(), prior_deps(), prior_period_data$period_name()) })
     output$prior_activity_plot <- renderPlot({ generate_activity_plot(prior_sobs()) })
     output$prior_cooccurrence_ui <- renderUI({ generate_cooccurrence(prior_sobs(), prior_obs()) })
     output$prior_period_name <- renderText({ prior_period_data$period_name() })
@@ -772,10 +794,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       filter_obs(overall_obs(), last_year_period_data$start_date(), last_year_period_data$end_date())
     })
 
-    output$last_year_total_detections_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$total })
-    output$last_year_unique_locations_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$unique })
-    output$last_year_rai_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$rai })
-    output$last_year_other_metrics_card <- renderUI({ generate_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name())$other_metrics })
+    output$last_year_metric_cards <- renderUI({ render_metric_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name()) })
     output$last_year_activity_plot <- renderPlot({ generate_activity_plot(ly_sobs()) })
     output$last_year_cooccurrence_ui <- renderUI({ generate_cooccurrence(ly_sobs(), ly_obs()) })
     output$last_year_period_name <- renderText({ last_year_period_data$period_name() })

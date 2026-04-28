@@ -3,7 +3,8 @@ plotting_module_ui <- function(id,
                                choices, 
                                selected = NULL,
                                multiple = TRUE,
-                               label = "Species selection:") {
+                               label = "Species selection:",
+                               include_combine_localities = TRUE) {
   ns <- NS(id)
   
   if (view == "select_species") {
@@ -35,6 +36,21 @@ plotting_module_ui <- function(id,
         )
       )
     )
+  } else if (view == "select_rai_group_inline") {
+    return(
+      div(
+        class = "rai-plot-inline-select",
+        selectInput(
+          inputId = ns("selected_rai_group"),
+          label = NULL,
+          choices = choices,
+          selected = selected,
+          multiple = FALSE,
+          selectize = TRUE,
+          width = "150px"
+        )
+      )
+    )
   } else if (view == "select_localities") {
     return(
       tagList(
@@ -46,10 +62,16 @@ plotting_module_ui <- function(id,
           multiple = multiple,
           selectize = TRUE 
         ),
-        checkboxInput(ns("combine_localities"), "Combine selected localities", value = TRUE)
+        if (isTRUE(include_combine_localities)) {
+          checkboxInput(ns("combine_localities"), "Combine selected localities", value = TRUE)
+        }
 
         
       )
+    )
+  } else if (view == "select_combine_localities") {
+    return(
+      checkboxInput(ns("combine_localities"), "Combine selected localities", value = TRUE)
     )
   } else if (view == "select_plot_options") {
     return(
@@ -78,6 +100,13 @@ plotting_module_ui <- function(id,
           ),
           checkboxInput(ns("data_labels"), "Data labels", value = TRUE)
         )
+      )
+    )
+  } else if (view == "rai_plot_inline_options") {
+    return(
+      div(
+        class = "rai-plot-inline-options",
+        checkboxInput(ns("data_labels"), "Data labels", value = TRUE)
       )
     )
   } else if (view == "plot") {
@@ -447,7 +476,7 @@ plotting_module_server <- function(id,
 
       title <- if (combine_localities_selected()) {
         sprintf(
-          "Combined: %s",
+          "Locality selection: %s",
           paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", ")
         )
       } else {
