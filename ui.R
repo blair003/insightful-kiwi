@@ -1,6 +1,7 @@
 # ui.R
 
-ui <- tagList(
+ui <- function(request) {
+  tagList(
   useShinyjs(), 
   
   # true = show sidebar open by default on this page
@@ -499,6 +500,8 @@ ui <- tagList(
     
       nav_spacer(),
       
+      nav_item(actionLink("global_share_btn", label = NULL, icon = icon("share-nodes"), title = "Share this view")),
+
       nav_item(
         tags$a(
           href = "#",
@@ -522,4 +525,5 @@ ui <- tagList(
         )
       )
   )
-)
+  )
+}

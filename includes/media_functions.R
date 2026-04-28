@@ -160,8 +160,19 @@ add_logo <- function(image_file) {
 # and 
 show_image_modal <- function(observation_id, ui_elements) {
   
+  share_btn_html <- sprintf(
+    "<button class='btn btn-sm btn-outline-secondary' onclick='copyObservationUrl(\"%s\", this)' title='Share this observation'><i class='fa fa-share-nodes'></i> Share</button>",
+    observation_id
+  )
+
   showModal(modalDialog(
-    title = sprintf("Obs ID: %s", observation_id),
+    title = tagList(
+      tags$div(
+        style = "display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 20px;",
+        tags$span(sprintf("Obs ID: %s", observation_id)),
+        HTML(share_btn_html)
+      )
+    ),
     ui_elements,
     uiOutput("observation_record_table_modal"),
     size = "l",  # Large modal
