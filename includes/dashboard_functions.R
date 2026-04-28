@@ -624,14 +624,27 @@ show_rai_metric_modal <- function(metric) {
     "line RAI = individuals counted / camera hours x RAI normalisation"
   }
 
-  modal_title <- if (!is.null(metric$scope_label) && metric$scope_label != "Combined localities") {
-    paste(metric$rai_group, "RAI calculation basis -", metric$scope_label)
+  modal_subtitle <- if (!is.null(metric$scope_label) && metric$scope_label != "Combined localities") {
+    metric$scope_label
   } else {
-    paste(metric$rai_group, "RAI calculation basis")
+    NULL
   }
 
+  share_btn_html <- "<button class='btn btn-sm btn-outline-secondary' onclick='copyCurrentViewUrl(this)' title='Share this view'><i class='fa fa-share-nodes'></i> Share</button>"
+
   showModal(modalDialog(
-    title = modal_title,
+    title = tagList(
+      tags$div(
+        style = "display: flex; justify-content: space-between; align-items: flex-start; width: 100%; padding-right: 20px; gap: 12px;",
+        tags$div(
+          tags$div(paste(metric$rai_group, "RAI calculation basis")),
+          if (!is.null(modal_subtitle)) {
+            tags$div(modal_subtitle, style = "font-size: 0.9rem; font-weight: 400; margin-top: 2px;")
+          }
+        ),
+        HTML(share_btn_html)
+      )
+    ),
     tags$p(
       "Each locality-line first gets a line RAI: ",
       tags$code(period_formula),

@@ -83,6 +83,283 @@
           }, 500); // Delay in milliseconds, adjust as needed
         });
       });
+
+      $(document).on('shiny:connected', function(event) {
+        function shinyInputValues() {
+          return (window.Shiny && Shiny.shinyapp && Shiny.shinyapp.$inputValues) || {};
+        }
+
+        function inputValue(id) {
+          return shinyInputValues()[id];
+        }
+
+        function dataTableForOutput(tableId) {
+          var table = $('#' + tableId);
+          var dataTable = table;
+
+          if (dataTable.length && !dataTable.is('table')) {
+            dataTable = table.find('table.dataTable');
+          }
+
+          if (!dataTable.length || !$.fn.DataTable || !$.fn.DataTable.isDataTable(dataTable)) {
+            return null;
+          }
+
+          return dataTable.DataTable();
+        }
+
+        function getDataTableSearch(tableId) {
+          var dataTable = dataTableForOutput(tableId);
+          return dataTable ? (dataTable.search() || "") : "";
+        }
+
+        function getDataTableShareState(tableId) {
+          var dataTable = dataTableForOutput(tableId);
+          if (!dataTable) {
+            return null;
+          }
+
+          return {
+            search: dataTable.search() || "",
+            length: dataTable.page.len(),
+            page: dataTable.page(),
+            order: dataTable.order()
+          };
+        }
+
+        function applyDataTableSearch(tableId, searchTerm, attemptsLeft) {
+          if (!searchTerm) {
+            return;
+          }
+
+          var dataTable = dataTableForOutput(tableId);
+          if (dataTable) {
+            dataTable.search(searchTerm).draw();
+            return;
+          }
+
+          if (attemptsLeft > 0) {
+            setTimeout(function() {
+              applyDataTableSearch(tableId, searchTerm, attemptsLeft - 1);
+            }, 250);
+          }
+        }
+
+        function applyDataTableShareState(tableId, tableState, attemptsLeft) {
+          if (!tableState) {
+            return;
+          }
+
+          var dataTable = dataTableForOutput(tableId);
+          if (dataTable) {
+            if (isMeaningfulValue(tableState.length)) {
+              dataTable.page.len(tableState.length);
+            }
+            if (Array.isArray(tableState.order)) {
+              dataTable.order(tableState.order);
+            }
+            if (isMeaningfulValue(tableState.search)) {
+              dataTable.search(tableState.search);
+            }
+            dataTable.draw(false);
+            if (isMeaningfulValue(tableState.page)) {
+              dataTable.page(tableState.page).draw(false);
+            }
+            return;
+          }
+
+          if (attemptsLeft > 0) {
+            setTimeout(function() {
+              applyDataTableShareState(tableId, tableState, attemptsLeft - 1);
+            }, 250);
+          }
+        }
+
+        function isMeaningfulValue(value) {
+          if (value === null || value === undefined || value === "") {
+            return false;
+          }
+          return !(Array.isArray(value) && value.length === 0);
+        }
+
+        function setPageStateValue(id, value, attemptsLeft) {
+          var escapedId = $.escapeSelector ? $.escapeSelector(id) : id.replace(/(:|\.|\[|\]|,|=|@)/g, "\\$1");
+          var element = $('#' + escapedId);
+
+          if (element.length) {
+            if (element.is(':checkbox')) {
+              element.prop('checked', value === true || value === 'true').trigger('change');
+              return;
+            }
+
+            if (element[0].selectize) {
+              element[0].selectize.setValue(value, false);
+              return;
+            }
+
+            element.val(value).trigger('change');
+            return;
+          }
+
+          if (attemptsLeft > 0) {
+            setTimeout(function() {
+              setPageStateValue(id, value, attemptsLeft - 1);
+            }, 250);
+          }
+        }
+
+        function currentTabForNav(nav) {
+          if (nav && nav.indexOf('species_dashboard_') === 0) {
+            return inputValue(nav + '-dashboard_tabs');
+          }
+
+          var tabInputs = {
+            dashboard: 'main_dashboard_tabs',
+            reporting: 'reporting_tabs',
+            density_map: 'density_map_tabs',
+            observation_map: 'observation_map-observation_map_tabs',
+            activity_patterns: 'activity_patterns_tabs',
+            raw_data: 'raw_data_tabs'
+          };
+
+          return inputValue(tabInputs[nav]);
+        }
+
+        function shouldShareInput(id, nav) {
+          if (!id || id === 'nav' || id === 'share_view_state') {
+            return false;
+          }
+
+          if (nav === 'dashboard') {
+            return /^main_dashboard_(current|prior|last_year)_period-period_selection$/.test(id) ||
+              /^dashboard_rai_plot-/.test(id);
+          }
+
+          if (nav === 'reporting') {
+            return id === 'primary_period-period_selection' ||
+              id === 'report_format' ||
+              /^current_tables-reporting_(results_summary|spp_sum)_tabsetpanel$/.test(id);
+          }
+
+          if (nav === 'plots') {
+            return /^spp_obs_plot_visualisations-/.test(id);
+          }
+
+          if (nav === 'density_map') {
+            return /^density_map_primary-(selected_species|selected_localities)$/.test(id) ||
+              /^(primary_period|comparative_period)-period_selection$/.test(id);
+          }
+
+          if (nav === 'observation_map') {
+            return /^observation_map-(selected_species|selected_localities|enhance_map_details)$/.test(id) ||
+              id === 'primary_period-period_selection';
+          }
+
+          if (nav === 'activity_patterns') {
+            return /^activity_patterns_map-(selected_species|selected_localities)$/.test(id) ||
+              /^main_dashboard_(current|prior|last_year)_period-period_selection$/.test(id);
+          }
+
+          if (nav && nav.indexOf('species_dashboard_') === 0) {
+            return id.indexOf(nav + '-') === 0 &&
+              id !== nav + '-dashboard_tabs' &&
+              !/_rows_|_cell_|_state$|_columns_|_cells_/.test(id);
+          }
+
+          return false;
+        }
+
+        function collectCurrentPageState(nav) {
+          var values = shinyInputValues();
+          var state = {};
+
+          Object.keys(values).forEach(function(id) {
+            if (shouldShareInput(id, nav) && isMeaningfulValue(values[id])) {
+              state[id] = values[id];
+            }
+          });
+
+          if (nav === 'raw_data') {
+            state.rawdata_observations_browse_dt = getDataTableShareState('rawdata_observations_browse');
+            state.rawdata_deployments_browse_dt = getDataTableShareState('rawdata_deployments_browse');
+          }
+
+          return state;
+        }
+
+        window.buildSharedViewUrl = function(extraParams) {
+          var nav = inputValue('nav');
+          var tab = currentTabForNav(nav);
+          var pageState = collectCurrentPageState(nav);
+          var baseUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+          var params = new URLSearchParams();
+
+          if (isMeaningfulValue(nav)) {
+            params.set('nav', nav);
+          }
+          if (isMeaningfulValue(tab)) {
+            params.set('tab', tab);
+          }
+          if (Object.keys(pageState).length > 0) {
+            params.set('state', JSON.stringify(pageState));
+          }
+
+          Object.keys(extraParams || {}).forEach(function(key) {
+            if (isMeaningfulValue(extraParams[key])) {
+              params.set(key, extraParams[key]);
+            }
+          });
+
+          var query = params.toString();
+          return query ? baseUrl + '?' + query : baseUrl;
+        };
+
+        Shiny.addCustomMessageHandler('collectShareViewState', function(message) {
+          Shiny.setInputValue('share_view_state', {
+            base_url: window.location.protocol + "//" + window.location.host + window.location.pathname,
+            page_state: collectCurrentPageState(inputValue('nav')),
+            rawdata_observations_search: getDataTableSearch('rawdata_observations_browse'),
+            rawdata_deployments_search: getDataTableSearch('rawdata_deployments_browse'),
+            nonce: new Date().getTime()
+          }, { priority: 'event' });
+        });
+
+        Shiny.addCustomMessageHandler('restoreRawdataSearch', function(message) {
+          applyDataTableSearch('rawdata_observations_browse', message.rawdata_observations_search, 20);
+          applyDataTableSearch('rawdata_deployments_browse', message.rawdata_deployments_search, 20);
+        });
+
+        Shiny.addCustomMessageHandler('restorePageState', function(message) {
+          if (!message || !message.state) {
+            return;
+          }
+
+          var state = {};
+          try {
+            state = JSON.parse(message.state);
+          } catch (e) {
+            console.error('Could not parse shared page state:', e);
+            return;
+          }
+
+          Object.keys(state).forEach(function(id) {
+            if (id === 'rawdata_observations_browse_dt') {
+              applyDataTableShareState('rawdata_observations_browse', state[id], 24);
+            } else if (id === 'rawdata_deployments_browse_dt') {
+              applyDataTableShareState('rawdata_deployments_browse', state[id], 24);
+            } else {
+              setPageStateValue(id, state[id], 24);
+            }
+          });
+        });
+
+        Shiny.addCustomMessageHandler('closeNavbarMenus', function(message) {
+          setTimeout(function() {
+            $('.navbar .dropdown-menu.show, .navbar .dropdown.show').removeClass('show');
+            $('.navbar [aria-expanded="true"]').attr('aria-expanded', 'false');
+          }, 100);
+        });
+      });
       
       
     // Detection of window dimensions, used for map zoom level calculation
@@ -105,6 +382,14 @@
 
 function toggleSidebar(navValue, defaultSidebarState) {
   if (window.innerWidth > 768) {
+    if (navValue && navValue.indexOf('species_dashboard_') === 0) {
+      if ($('.collapse-toggle').attr('aria-expanded') === 'true') {
+        console.log('Collapsing the sidebar for species dashboard.');
+        $('.collapse-toggle').click();
+      }
+      return;
+    }
+
     if (defaultSidebarState[navValue] !== undefined) {
       console.log('Default sidebar state for ' + navValue + ' is: ' + defaultSidebarState[navValue]);
       if (defaultSidebarState[navValue]) {
@@ -169,9 +454,15 @@ function copyToClipboard(text, btn) {
 }
 
 function copyObservationUrl(observationId, btn) {
-  // Get the current URL without any search parameters or hash
-  var url = window.location.protocol + "//" + window.location.host + window.location.pathname;
-  // Construct the new URL
-  var shareUrl = url + "?observation_id=" + observationId;
+  var shareUrl = window.buildSharedViewUrl ?
+    window.buildSharedViewUrl({ observation_id: observationId, view_mode: 'modal' }) :
+    window.location.protocol + "//" + window.location.host + window.location.pathname + "?observation_id=" + encodeURIComponent(observationId) + "&view_mode=modal";
+  copyToClipboard(shareUrl, btn);
+}
+
+function copyCurrentViewUrl(btn) {
+  var shareUrl = window.buildSharedViewUrl ?
+    window.buildSharedViewUrl({}) :
+    window.location.protocol + "//" + window.location.host + window.location.pathname;
   copyToClipboard(shareUrl, btn);
 }

@@ -155,14 +155,110 @@ server <- function(input, output, session) {
 
   logger::log_debug("server.R, starting server() function")
 
+  setBookmarkExclude(c(
+    "global_share_btn",
+    "share_view_state",
+    "observation_click",
+    "observationID_click",
+    "review_nav_click",
+    "review_sequences_click",
+    "density_map_review_sequences_click",
+    "reset_button",
+    "info_field_clicked",
+    "is_fullscreen",
+    "window_width",
+    "window_height",
+    "rawdata_observations_browse_rows_current",
+    "rawdata_observations_browse_rows_all",
+    "rawdata_observations_browse_rows_selected",
+    "rawdata_observations_browse_search",
+    "rawdata_observations_browse_cell_clicked",
+    "rawdata_deployments_browse_rows_current",
+    "rawdata_deployments_browse_rows_all",
+    "rawdata_deployments_browse_rows_selected",
+    "rawdata_deployments_browse_search",
+    "rawdata_deployments_browse_cell_clicked"
+  ))
+
+  append_query_params <- function(url, params) {
+    params <- params[!vapply(params, is.null, logical(1))]
+    params <- params[nzchar(unlist(params, use.names = FALSE))]
+
+    if (length(params) == 0) {
+      return(url)
+    }
+
+    query_string <- paste(
+      sprintf(
+        "%s=%s",
+        utils::URLencode(names(params), reserved = TRUE),
+        utils::URLencode(unlist(params, use.names = FALSE), reserved = TRUE)
+      ),
+      collapse = "&"
+    )
+    separator <- if (grepl("\\?", url)) "&" else "?"
+    paste0(url, separator, query_string)
+  }
+
   observeEvent(input$global_share_btn, {
-    session$doBookmark()
+    session$sendCustomMessage(type = "collectShareViewState", message = list())
   })
 
-  onBookmarked(function(url) {
+  observeEvent(input$share_view_state, {
+    share_state <- input$share_view_state
+    url <- if (is.list(share_state) && !is.null(share_state$base_url) && nzchar(share_state$base_url)) {
+      share_state$base_url
+    } else {
+      paste0(session$clientData$url_protocol, "//", session$clientData$url_hostname, session$clientData$url_pathname)
+    }
+
+    rawdata_obs_search <- input$rawdata_observations_browse_search
+    rawdata_deps_search <- input$rawdata_deployments_browse_search
+    nav <- input$nav
+    tab <- NULL
+
+    if (!is.null(nav) && nzchar(nav)) {
+      tab <- switch(nav,
+        dashboard = input$main_dashboard_tabs,
+        reporting = input$reporting_tabs,
+        density_map = input$density_map_tabs,
+        observation_map = input[["observation_map-observation_map_tabs"]],
+        activity_patterns = input$activity_patterns_tabs,
+        raw_data = input$raw_data_tabs,
+        NULL
+      )
+
+      if (startsWith(nav, "species_dashboard_")) {
+        tab <- input[[paste0(nav, "-dashboard_tabs")]]
+      }
+    }
+
+    if (is.list(share_state)) {
+      if (is.null(rawdata_obs_search) || !nzchar(rawdata_obs_search)) {
+        rawdata_obs_search <- share_state$rawdata_observations_search
+      }
+      if (is.null(rawdata_deps_search) || !nzchar(rawdata_deps_search)) {
+        rawdata_deps_search <- share_state$rawdata_deployments_search
+      }
+    }
+
+    page_state <- if (is.list(share_state) && !is.null(share_state$page_state)) {
+      jsonlite::toJSON(share_state$page_state, auto_unbox = TRUE, null = "null")
+    } else {
+      NULL
+    }
+
+    url <- append_query_params(url, list(
+      nav = nav,
+      tab = tab,
+      state = page_state,
+      rawdata_obs_search = rawdata_obs_search,
+      rawdata_deps_search = rawdata_deps_search
+    ))
+
     showModal(modalDialog(
       title = "Share this view",
-      tags$p("Copy the link below to share the exact state of this page:"),
+      tags$p("Copy the link below to share this page view:"),
       tags$div(
         class = "input-group",
         tags$input(type = "text", class = "form-control", value = url, id = "share_url_input", readonly = "readonly"),
@@ -176,7 +272,7 @@ server <- function(input, output, session) {
       easyClose = TRUE,
       footer = modalButton("Close")
     ))
-  })
+  }, ignoreInit = TRUE)
 
   primary_period <- period_selection_module_server(
     id = "primary_period",
@@ -406,6 +502,18 @@ server <- function(input, output, session) {
                      data = core_data$obs,
                      table_type = "paged",
                      table_order = list(list(4, 'asc'))) 
+
+  restore_rawdata_search <- function(query) {
+    session$onFlushed(function() {
+      session$sendCustomMessage(
+        type = "restoreRawdataSearch",
+        message = list(
+          rawdata_observations_search = if (!is.null(query$rawdata_obs_search)) query$rawdata_obs_search else "",
+          rawdata_deployments_search = if (!is.null(query$rawdata_deps_search)) query$rawdata_deps_search else ""
+        )
+      )
+    }, once = TRUE)
+  }
   
   
     
@@ -668,18 +776,64 @@ server <- function(input, output, session) {
   
   
   
-  observe({
+  observeEvent(session$clientData$url_search, {
     # Use URL parameters on initial load
 
     query <- parseQueryString(session$clientData$url_search)
     print(sprintf("Query string is %s", query))
+
+    if (!is.null(query$nav) && nzchar(query$nav)) {
+      updateNavbarPage(session, "nav", selected = query$nav)
+    }
+
+    query_tab <- if (!is.null(query$tab) && nzchar(query$tab)) {
+      query$tab
+    } else if (!is.null(query$raw_data_tabs) && nzchar(query$raw_data_tabs)) {
+      query$raw_data_tabs
+    } else {
+      NULL
+    }
+
+    if (!is.null(query_tab) && !is.null(query$nav) && nzchar(query$nav)) {
+      tabset_id <- switch(query$nav,
+        dashboard = "main_dashboard_tabs",
+        reporting = "reporting_tabs",
+        density_map = "density_map_tabs",
+        observation_map = "observation_map-observation_map_tabs",
+        activity_patterns = "activity_patterns_tabs",
+        raw_data = "raw_data_tabs",
+        NULL
+      )
+
+      if (startsWith(query$nav, "species_dashboard_")) {
+        tabset_id <- paste0(query$nav, "-dashboard_tabs")
+      }
+
+      if (!is.null(tabset_id)) {
+        updateTabsetPanel(session, tabset_id, selected = query_tab)
+      }
+    }
+
+    restore_rawdata_search(query)
+
+    if (!is.null(query$state) && nzchar(query$state)) {
+      session$onFlushed(function() {
+        session$sendCustomMessage(type = "restorePageState", message = list(state = query$state))
+      }, once = TRUE)
+    }
+
+    session$onFlushed(function() {
+      session$sendCustomMessage(type = "closeNavbarMenus", message = list())
+    }, once = TRUE)
+
     if (!is.null(query$observation_id)) {
       # Extracted observation ID from URL
       observation_id <- query$observation_id
+      view_mode <- if (!is.null(query$view_mode) && query$view_mode == "modal") "modal" else "pageview"
       
       if (nchar(observation_id) > 0) {
         if (is_valid_UUID(observation_id)) {
-          observation_details <- create_observation_viewer_output(observation_id, "pageview")
+          observation_details <- create_observation_viewer_output(observation_id, paste0("view_sequence|", view_mode))
           
           if (!is.null(observation_details)) {
             # Set the value in the text input (optional)
@@ -687,16 +841,20 @@ server <- function(input, output, session) {
             
             image_output <- create_observation_images_ui(observation_details$sequence_media_info, 
                                                          observation_id,
-                                                         context = "pageview")
+                                                         context = view_mode)
             
-            
-            output$observation_images_pageview <- renderUI({
-              image_output$ui_elements
-            })
-            
-            updateNavbarPage(session, "main_menu", selected = "observations")
-            # Navigate to the Viewer tab if not already there
-            updateTabsetPanel(session, "observations_tabsetpanel", selected = "Viewer")
+            if (view_mode == "modal") {
+              show_image_modal(observation_id, image_output$ui_elements)
+              session$sendCustomMessage(type = "refreshCarousel", message = list(carouselId = image_output$carousel_id))
+            } else {
+              output$observation_images_pageview <- renderUI({
+                image_output$ui_elements
+              })
+
+              updateNavbarPage(session, "main_menu", selected = "observations")
+              # Navigate to the Viewer tab if not already there
+              updateTabsetPanel(session, "observations_tabsetpanel", selected = "Viewer")
+            }
             
             # Check and download for next time
             if (!image_output$cache_hit) {
@@ -708,7 +866,7 @@ server <- function(input, output, session) {
         }
       }
     }
-  })
+  }, ignoreInit = FALSE, once = TRUE)
   
   
   # This listens to the actionButton on the Observation viewer page

@@ -7,7 +7,7 @@ ui <- function(request) {
   # true = show sidebar open by default on this page
   tags$script(HTML("
     var defaultSidebarState = {
-      'dashboard': true,
+      'dashboard': false,
       'plots': true,
       'reporting': true,
       'density_map': true,
