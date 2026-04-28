@@ -646,7 +646,7 @@ server <- function(input, output, session) {
     comparative_period$period_name()
   })
   
-  observeEvent(input$density_map_tabs, {
+  observeEvent(list(input$nav, input$density_map_tabs), {
     req(input$nav == "density_map")
 
     current_tab <- input$density_map_tabs
