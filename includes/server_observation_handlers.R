@@ -151,16 +151,28 @@
         modalButton("Close")
       )
 
+      share_btn_html <- sprintf(
+        "<button class='btn btn-sm btn-outline-secondary' style='margin-left: 10px;' onclick='copyObservationUrl(\"%s\", this)' title='Share this observation'><i class='fa fa-share-nodes'></i> Share</button>",
+        observation_id
+      )
+
       # Show the modal
       showModal(modalDialog(
         title = tagList(
           tags$div(
-            class = "review-sequences-title",
-            sprintf("Review Sequences (%d of %d)", current_index, total_sequences)
-          ),
-          tags$div(
-            class = "review-sequences-obs-id",
-            sprintf("Obs ID: %s", observation_id)
+            style = "display: flex; justify-content: space-between; align-items: center; width: 100%; padding-right: 20px;",
+            tags$div(
+              class = "review-sequences-title",
+              sprintf("Review Sequences (%d of %d)", current_index, total_sequences)
+            ),
+            tags$div(
+              style = "display: flex; align-items: center;",
+              tags$div(
+                class = "review-sequences-obs-id",
+                sprintf("Obs ID: %s", observation_id)
+              ),
+              HTML(share_btn_html)
+            )
           )
         ),
         image_output$ui_elements,

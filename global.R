@@ -153,3 +153,5 @@ future::future({
   logger::log_error("Background caching process failed: %s", conditionMessage(error))
 })
 # --- End Background Caching ---
+
+enableBookmarking(store = "url")

@@ -1,6 +1,7 @@
 # ui.R
 
-ui <- tagList(
+ui <- function(request) {
+  tagList(
   useShinyjs(), 
   
   # true = show sidebar open by default on this page
@@ -392,6 +393,7 @@ ui <- tagList(
         
         # Main content area for Reporting
         navset_card_tab(
+          id = "reporting_tabs",
           selected = "exec_summary",
           # Default selected panel
           nav_panel(
@@ -535,6 +537,8 @@ ui <- tagList(
     
       nav_spacer(),
       
+      nav_item(actionLink("global_share_btn", label = NULL, icon = icon("share-nodes"), title = "Share this view")),
+
       nav_item(
         tags$a(
           href = "#",
@@ -558,4 +562,5 @@ ui <- tagList(
         )
       )
   )
-)
+  )
+}

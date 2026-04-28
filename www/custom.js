@@ -155,3 +155,23 @@ function initImageSlider(sliderId) {
     });
   });
 }
+
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(function() {
+    var originalHTML = btn.innerHTML;
+    btn.innerHTML = "<i class='fa fa-check'></i> Copied!";
+    setTimeout(function() {
+      btn.innerHTML = originalHTML;
+    }, 2000);
+  }).catch(function(err) {
+    console.error('Could not copy text: ', err);
+  });
+}
+
+function copyObservationUrl(observationId, btn) {
+  // Get the current URL without any search parameters or hash
+  var url = window.location.protocol + "//" + window.location.host + window.location.pathname;
+  // Construct the new URL
+  var shareUrl = url + "?observation_id=" + observationId;
+  copyToClipboard(shareUrl, btn);
+}

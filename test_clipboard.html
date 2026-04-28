@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+<button onclick="copyToClipboard('hello', this)">Copy</button>
+<script>
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(function() {
+    var originalHTML = btn.innerHTML;
+    btn.innerHTML = "<i class='fa fa-check'></i> Copied!";
+    setTimeout(function() {
+      btn.innerHTML = originalHTML;
+    }, 2000);
+  }).catch(function(err) {
+    console.error('Could not copy text: ', err);
+  });
+}
+</script>
+</body>
+</html>
