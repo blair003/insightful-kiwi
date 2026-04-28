@@ -503,23 +503,62 @@ show_rai_metric_modal <- function(metric) {
       return(tags$p("Line RAI values are not available.", class = "rai-line-empty"))
     }
 
-    tags$div(
-      class = "rai-line-grid",
-      lapply(localities, function(locality) {
-        tags$div(
-          class = "rai-line-locality-summary",
-          tags$div(class = "rai-line-locality-heading", locality_display_name(locality)),
-          tags$div(
-            class = "rai-line-period-grid",
-            lapply(period_columns, function(column) {
-              render_line_rai_period_summary(column$metric, locality, column$label)
-            })
-          )
+    tbody_rows <- list()
+
+    for (locality in localities) {
+      # Get unique lines for this locality across all periods
+      locality_lines <- unique(unlist(lapply(period_columns, function(column) {
+        line_values <- column$metric$line_rai_values
+        if (is.null(line_values) || nrow(line_values) == 0) return(character())
+        as.character(line_values$line[line_values$locality == locality])
+      })))
+
+      # Add line rows
+      for (line in sort(locality_lines)) {
+        row_cells <- list(
+          tags$td(locality_display_name(locality)),
+          tags$td(line)
         )
-      })
+
+        for (column in period_columns) {
+          line_values <- column$metric$line_rai_values
+          val <- "N/A"
+          if (!is.null(line_values) && nrow(line_values) > 0) {
+            matching_line <- line_values[line_values$locality == locality & line_values$line == line, , drop = FALSE]
+            if (nrow(matching_line) > 0) {
+              val <- matching_line$formatted_value[[1]]
+            }
+          }
+          row_cells <- append(row_cells, list(tags$td(val)))
+        }
+
+        tbody_rows <- append(tbody_rows, list(tags$tr(row_cells)))
+      }
+
+      # Add locality subtotal row
+      subtotal_cells <- list(
+        tags$td(locality_display_name(locality)),
+        tags$td("Locality RAI")
+      )
+
+      for (column in period_columns) {
+        val <- get_locality_period_rai(column$metric, locality)
+        subtotal_cells <- append(subtotal_cells, list(tags$td(val)))
+      }
+
+      tbody_rows <- append(tbody_rows, list(tags$tr(class = "table-info fw-bold", subtotal_cells)))
+    }
+
+    tags$table(
+      class = "table table-sm table-striped rai-detail-table",
+      tags$thead(tags$tr(
+        tags$th("Locality"),
+        tags$th("Line"),
+        lapply(period_columns, function(column) tags$th(column$label))
+      )),
+      tags$tbody(tbody_rows)
     )
   }
-
   render_calculation_trace_section <- function() {
     traces <- vapply(period_columns, function(column) {
       trace <- column$metric$calculation_trace

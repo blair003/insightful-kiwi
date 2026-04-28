@@ -304,21 +304,18 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       )
 
       line_values <- metric$line_rai_values
+      locality_values <- metric$locality_rai_values
       line_table <- if (!is.null(line_values) && nrow(line_values) > 0) {
-        tags$table(
-          class = "table table-sm table-striped rai-detail-table",
-          tags$thead(tags$tr(
-            tags$th("Locality"),
-            tags$th("Line"),
-            tags$th("Line RAI"),
-            tags$th("Individuals"),
-            tags$th("Duplicates"),
-            tags$th("Net individuals"),
-            tags$th("Camera hours")
-          )),
-          tags$tbody(lapply(seq_len(nrow(line_values)), function(i) {
-            row <- line_values[i, ]
-            tags$tr(
+        tbody_rows <- list()
+
+        localities <- unique(line_values$locality)
+        for (locality in localities) {
+          locality_lines <- line_values[line_values$locality == locality, , drop = FALSE]
+
+          # Add line rows
+          for (i in seq_len(nrow(locality_lines))) {
+            row <- locality_lines[i, ]
+            tbody_rows <- append(tbody_rows, list(tags$tr(
               tags$td(locality_display_name(row$locality)),
               tags$td(row$line),
               tags$td(row$formatted_value),
@@ -326,13 +323,50 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
               tags$td(format_dash_number(row$possible_duplicates_count)),
               tags$td(format_dash_number(row$net_individuals_count)),
               tags$td(format_dash_number(row$camera_hours, 1))
-            )
-          }))
+            )))
+          }
+
+          # Add locality subtotal row
+          locality_row <- if (!is.null(locality_values) && nrow(locality_values) > 0) {
+            locality_values[locality_values$locality == locality, , drop = FALSE]
+          } else {
+            data.frame()
+          }
+
+          locality_rai <- if (nrow(locality_row) > 0 && !is.na(locality_row$formatted_value[[1]])) {
+            locality_row$formatted_value[[1]]
+          } else {
+            "N/A"
+          }
+
+          tbody_rows <- append(tbody_rows, list(tags$tr(
+            class = "table-info fw-bold",
+            tags$td(locality_display_name(locality)),
+            tags$td("Locality RAI"),
+            tags$td(locality_rai),
+            tags$td(""),
+            tags$td(""),
+            tags$td(""),
+            tags$td("")
+          )))
+        }
+
+        tags$table(
+          class = "table table-sm table-striped rai-detail-table",
+          tags$thead(tags$tr(
+            tags$th("Locality"),
+            tags$th("Line"),
+            tags$th("Line/Locality RAI"),
+            tags$th("Individuals"),
+            tags$th("Duplicates"),
+            tags$th("Net individuals"),
+            tags$th("Camera hours")
+          )),
+          tags$tbody(tbody_rows)
         )
       } else {
         tags$p("Line RAI values are not available.", class = "rai-line-empty")
       }
-
       render_key_value_table <- function(rows) {
         tags$table(
           class = "table table-sm table-striped rai-detail-table",
