@@ -45,8 +45,7 @@ species_dashboard_module_ui <- function(id) {
               div(
                 class = "dashboard-card-header-title",
                 icon("chart-line"),
-                "RAI history",
-                uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE)
+                "RAI history"
               ),
               div(
                 class = "dashboard-card-header-controls",
@@ -54,7 +53,11 @@ species_dashboard_module_ui <- function(id) {
               )
             )
           )),
-          plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot"),
+          div(
+            class = "rai-plot-area-with-info",
+            uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE),
+            plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot")
+          ),
           full_screen = FALSE
         ),
         layout_column_wrap(
@@ -368,6 +371,31 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
           }))
         )
       }
+      render_rai_proof_actions <- function() {
+        tags$div(
+          class = "rai-proof-actions",
+          tags$span("Hint: copy or send the proof text below to verify the calculations.", class = "rai-proof-hint"),
+          tags$div(
+            class = "rai-proof-action-buttons",
+            tags$button(
+              type = "button",
+              class = "btn btn-sm btn-outline-secondary",
+              onclick = "copyRaiProof(this)",
+              title = "Copy RAI proof text",
+              tags$i(class = "fa fa-copy"),
+              " Copy proof"
+            ),
+            tags$button(
+              type = "button",
+              class = "btn btn-sm btn-outline-secondary",
+              onclick = "verifyRaiProof('chatgpt', this)",
+              title = "Open ChatGPT with this proof text",
+              tags$i(class = "fa fa-arrow-up-right-from-square"),
+              " Verify with ChatGPT"
+            )
+          )
+        )
+      }
 
       modal_title <- paste(str_to_title(vernacular_name), "RAI calculation basis")
       if (!is.null(locality_filter) && length(locality_filter) > 0) {
@@ -385,10 +413,14 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
         tags$div(class = "rai-table-scroll", render_key_value_table(constant_rows)),
         tags$h5("Results and Inputs"),
         tags$div(class = "rai-table-scroll", render_key_value_table(result_rows)),
-        tags$h5("Line RAIs"),
-        tags$div(class = "rai-table-scroll", line_table),
+        tags$details(
+          class = "rai-detail-section",
+          open = "open",
+          tags$summary("Line and Locality RAIs"),
+          tags$div(class = "rai-table-scroll", line_table)
+        ),
         tags$h5("RAI Proof"),
-        tags$small("Hint: Copy the text in the box below and ask your favourite chatbot to verify the calculations"),
+        render_rai_proof_actions(),
 
         tags$pre(
           class = "rai-calculation-trace",
@@ -437,10 +469,12 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       formatted_rai <- ifelse(is.na(metric$value), "N/A", metric$formatted_value)
 
       card(
-        card_header(tagList(title, rai_calculation_basis_link(period_name_label, locality_token))),
+        card_header(title),
         card_body(
-          render_dashcard_metric_body(
-            formatted_rai,
+          div(
+            class = "dashcard-metric-state dashcard-metric-state-plain",
+            div(class = "dashcard-card-action", rai_calculation_basis_link(period_name_label, locality_token)),
+            div(formatted_rai, class = "dashcard-output"),
             div(subtitle, class = "dashcard-period")
           )
         )

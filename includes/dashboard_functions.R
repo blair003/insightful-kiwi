@@ -644,6 +644,31 @@ show_rai_metric_modal <- function(metric) {
 
     tags$pre(class = "rai-calculation-trace", paste(traces, collapse = "\n\n"))
   }
+  render_rai_proof_actions <- function() {
+    tags$div(
+      class = "rai-proof-actions",
+      tags$span("Hint: copy or send the proof text below to verify the calculations.", class = "rai-proof-hint"),
+      tags$div(
+        class = "rai-proof-action-buttons",
+        tags$button(
+          type = "button",
+          class = "btn btn-sm btn-outline-secondary",
+          onclick = "copyRaiProof(this)",
+          title = "Copy RAI proof text",
+          tags$i(class = "fa fa-copy"),
+          " Copy proof"
+        ),
+        tags$button(
+          type = "button",
+          class = "btn btn-sm btn-outline-secondary",
+          onclick = "verifyRaiProof('chatgpt', this)",
+          title = "Open ChatGPT with this proof text",
+          tags$i(class = "fa fa-arrow-up-right-from-square"),
+          " Verify with ChatGPT"
+        )
+      )
+    )
+  }
 
   constant_rows <- list(
     c("Species included", paste(config$globals$rai_groups[[metric$rai_group]], collapse = ", ")),
@@ -735,12 +760,19 @@ show_rai_metric_modal <- function(metric) {
     tags$div(class = "rai-table-scroll", constant_table),
     tags$h5("Period Results"),
     tags$div(class = "rai-table-scroll", render_period_table(period_result_rows)),
-    tags$h5("Period Inputs"),
-    tags$div(class = "rai-table-scroll", render_period_table(period_input_rows)),
-    tags$h5("Line RAIs"),
-    render_line_rai_section(),
+    tags$details(
+      class = "rai-detail-section",
+      tags$summary("Period Inputs"),
+      tags$div(class = "rai-table-scroll", render_period_table(period_input_rows))
+    ),
+    tags$details(
+      class = "rai-detail-section",
+      open = "open",
+      tags$summary("Line and Locality RAIs"),
+      render_line_rai_section()
+    ),
     tags$h5("RAI Proof"),
-    tags$small("Hint: Copy the text in the box below and ask your favourite chatbot to verify the calculations"),
+    render_rai_proof_actions(),
     render_calculation_trace_section(),
     easyClose = TRUE,
     footer = modalButton("Close"),

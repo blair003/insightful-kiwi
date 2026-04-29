@@ -84,7 +84,7 @@
         display: flex;
         gap: 0.75rem;
         justify-content: space-between;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         width: 100%;
       }
 
@@ -92,22 +92,42 @@
       .dashboard-card-header-with-controls > :first-child {
         align-items: center;
         display: inline-flex;
+        flex: 0 1 auto;
         gap: 0.35rem;
         min-width: 0;
+        white-space: nowrap;
       }
 
       .dashboard-card-header-controls {
         align-items: center;
         display: inline-flex;
-        flex: 0 1 auto;
-        flex-wrap: wrap;
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
         gap: 0.75rem;
         justify-content: flex-end;
         margin-left: auto;
+        text-align: right;
+      }
+
+      .dashboard-card-header-controls .shiny-html-output {
+        display: inline-flex;
+        flex: 0 0 auto;
+      }
+
+      .rai-plot-area-with-info {
+        position: relative;
+      }
+
+      .rai-plot-area-with-info .dashcard-info-link {
+        position: absolute;
+        right: 0.35rem;
+        top: 0.75rem;
+        z-index: 2;
       }
 
       .rai-plot-inline-select .shiny-input-container {
         margin: 0;
+        width: auto !important;
       }
 
       .rai-plot-inline-select label {
@@ -117,12 +137,24 @@
       .rai-plot-inline-select .selectize-control {
         margin-bottom: 0;
         min-width: 8.5rem;
-        width: 100% !important;
+        width: auto !important;
+      }
+
+      .rai-plot-inline-select .selectize-input,
+      .rai-plot-inline-select .selectize-dropdown {
+        text-align: left;
       }
 
       .rai-plot-inline-options .form-check,
       .rai-plot-inline-options .shiny-input-container {
         margin: 0;
+        width: auto !important;
+      }
+
+      .rai-plot-inline-options .form-check {
+        align-items: center;
+        display: inline-flex;
+        justify-content: flex-end;
       }
 
       .rai-plot-inline-options .form-check-label {
@@ -279,6 +311,44 @@
       .rai-table-scroll {
         overflow-x: auto;
         width: 100%;
+      }
+
+      .rai-detail-section {
+        border-top: 1px solid #e9ecef;
+        margin-top: 0.85rem;
+        padding-top: 0.65rem;
+      }
+
+      .rai-detail-section summary {
+        color: #212529;
+        cursor: pointer;
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      .rai-detail-section[open] summary {
+        margin-bottom: 0.65rem;
+      }
+
+      .rai-proof-actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.75rem;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+      }
+
+      .rai-proof-hint {
+        color: #495057;
+        font-size: 0.86rem;
+      }
+
+      .rai-proof-action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
       }
 
       .rai-line-grid {
@@ -632,14 +702,25 @@
   .dashboard-card-header-with-controls {
     align-items: flex-start;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .dashboard-card-header-controls {
     gap: 0.5rem;
+    justify-content: flex-end;
+    margin-left: 0;
+    width: 100%;
   }
 
   .rai-plot-inline-select .shiny-input-container {
     width: 150px !important;
+  }
+
+  .rai-plot-area-with-info .dashcard-info-link {
+    display: block;
+    padding-right: 0.35rem;
+    position: static;
+    text-align: right;
   }
 
   .review-sequence-modal-title {

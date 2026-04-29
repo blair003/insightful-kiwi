@@ -12,6 +12,7 @@ ui <- function(request) {
       'reporting': true,
       'density_map': true,
       'observation_map': true,
+      'activity_patterns': true,
       'raw_data': false
     };
     
@@ -307,8 +308,7 @@ ui <- function(request) {
                     div(
                       class = "dashboard-card-header-title",
                       icon("chart-line"),
-                      "RAI history",
-                      uiOutput("dashboard_rai_plot_basis_link", inline = TRUE)
+                      "RAI history"
                     ),
                     div(
                       class = "dashboard-card-header-controls",
@@ -322,7 +322,11 @@ ui <- function(request) {
                     )
                   )
                 ),
-                plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot"),
+                div(
+                  class = "rai-plot-area-with-info",
+                  uiOutput("dashboard_rai_plot_basis_link", inline = TRUE),
+                  plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot")
+                ),
                 full_screen = FALSE
               ),
               div(class = "dashboard-section-heading", "WHOLE PROJECT"),

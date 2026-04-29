@@ -474,14 +474,7 @@ plotting_module_server <- function(id,
         return(NULL)
       }
 
-      title <- if (combine_localities_selected()) {
-        sprintf(
-          "Locality selection: %s",
-          paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", ")
-        )
-      } else {
-        NULL
-      }
+      title <- paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", ")
 
       p <- ggplot(data, aes(x = period, y = value)) +
         geom_line(aes(group = locality), linewidth = 0.6, linetype = "dashed", colour = "#5f6f7a", alpha = 0.65, na.rm = TRUE) +

@@ -80,12 +80,7 @@ generate_multi_species_activity_plot <- function(sobs_data) {
   plot_data <- plot_data %>%
     dplyr::group_by(.data$scientificName) %>%
     dplyr::mutate(
-      species_total = sum(.data$count, na.rm = TRUE),
-      activity_percent = dplyr::if_else(
-        .data$species_total > 0,
-        (.data$count / .data$species_total) * 100,
-        0
-      )
+      species_total = sum(.data$count, na.rm = TRUE)
     ) %>%
     dplyr::ungroup() %>%
     dplyr::mutate(
@@ -116,12 +111,12 @@ generate_multi_species_activity_plot <- function(sobs_data) {
     plot_data,
     aes(
       x = hour_midpoint,
-      y = activity_percent,
+      y = count,
       fill = legend_label
     )
   ) +
     geom_col(width = 0.92, colour = "black", linewidth = 0.25, alpha = 0.82) +
-    facet_wrap(~ legend_label) +
+    facet_wrap(~ legend_label, scales = "free_y") +
     coord_polar(start = 0) +
     scale_x_continuous(breaks = 0:23 + 0.5, limits = c(0, 24), labels = paste0(0:23, ":00")) +
     scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.06))) +
@@ -138,7 +133,7 @@ generate_multi_species_activity_plot <- function(sobs_data) {
       strip.text = element_text(face = "bold")
     ) +
     labs(
-      title = "Share of Detections by Hour of Day",
+      title = "Detections by Hour of Day",
       caption = if (has_low_sample_species) {
         "Species with fewer than 10 detections are shown for completeness, but their activity pattern is uncertain."
       } else {
@@ -563,6 +558,30 @@ server <- function(input, output, session) {
       )
     }, once = TRUE)
   }
+
+  clean_share_query_params <- function(query) {
+    share_query_params <- c(
+      "nav",
+      "tab",
+      "state",
+      "rawdata_obs_search",
+      "rawdata_deps_search",
+      "raw_data_tabs",
+      "observation_id",
+      "view_mode"
+    )
+
+    if (length(intersect(names(query), share_query_params)) == 0) {
+      return()
+    }
+
+    session$onFlushed(function() {
+      session$sendCustomMessage(
+        type = "cleanShareQueryParams",
+        message = list(params = share_query_params)
+      )
+    }, once = TRUE)
+  }
   
   
     
@@ -874,6 +893,8 @@ server <- function(input, output, session) {
     session$onFlushed(function() {
       session$sendCustomMessage(type = "closeNavbarMenus", message = list())
     }, once = TRUE)
+
+    clean_share_query_params(query)
 
     if (!is.null(query$observation_id)) {
       # Extracted observation ID from URL

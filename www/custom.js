@@ -359,6 +359,38 @@
             $('.navbar [aria-expanded="true"]').attr('aria-expanded', 'false');
           }, 100);
         });
+
+        Shiny.addCustomMessageHandler('cleanShareQueryParams', function(message) {
+          if (!window.history || !window.history.replaceState || !window.URLSearchParams) {
+            return;
+          }
+
+          var paramsToRemove = (message && message.params) || [];
+          if (!paramsToRemove.length || !window.location.search) {
+            return;
+          }
+
+          var queryParams = new URLSearchParams(window.location.search);
+          var changed = false;
+
+          paramsToRemove.forEach(function(param) {
+            if (queryParams.has(param)) {
+              queryParams.delete(param);
+              changed = true;
+            }
+          });
+
+          if (!changed) {
+            return;
+          }
+
+          var query = queryParams.toString();
+          var cleanUrl = window.location.pathname +
+            (query ? '?' + query : '') +
+            window.location.hash;
+
+          window.history.replaceState(window.history.state, document.title, cleanUrl);
+        });
       });
       
       
@@ -465,4 +497,64 @@ function copyCurrentViewUrl(btn) {
     window.buildSharedViewUrl({}) :
     window.location.protocol + "//" + window.location.host + window.location.pathname;
   copyToClipboard(shareUrl, btn);
+}
+
+function getRaiProofText(btn) {
+  var container = btn.closest('.modal-content') || document;
+  var proof = container.querySelector('.rai-calculation-trace');
+  return proof ? proof.textContent.trim() : '';
+}
+
+function buildRaiVerificationPrompt(proofText) {
+  return [
+    'Please independently verify these RAI calculations.',
+    'Check the arithmetic, the duplicate-count handling, line RAI values, locality RAI values, network RAI values, and standard errors.',
+    'Report any discrepancy with the exact line or subtotal that appears wrong.',
+    '',
+    proofText
+  ].join('\n');
+}
+
+function copyRaiProof(btn) {
+  var proofText = getRaiProofText(btn);
+  if (!proofText) {
+    return;
+  }
+
+  copyToClipboard(buildRaiVerificationPrompt(proofText), btn);
+}
+
+function chatbotVerificationUrl(provider, promptText) {
+  var encodedPrompt = encodeURIComponent(promptText);
+  var maxQueryLength = 6500;
+
+  if (provider === 'chatgpt') {
+    return encodedPrompt.length <= maxQueryLength ?
+      'https://chatgpt.com/?q=' + encodedPrompt :
+      'https://chatgpt.com/';
+  }
+
+  return '#';
+}
+
+function verifyRaiProof(provider, btn) {
+  var proofText = getRaiProofText(btn);
+  if (!proofText) {
+    return;
+  }
+
+  var promptText = buildRaiVerificationPrompt(proofText);
+  var url = chatbotVerificationUrl(provider, promptText);
+  var originalHTML = btn.innerHTML;
+
+  window.open(url, '_blank', 'noopener');
+
+  navigator.clipboard.writeText(promptText).then(function() {
+    btn.innerHTML = "<i class='fa fa-check'></i> Opened + copied";
+    setTimeout(function() {
+      btn.innerHTML = originalHTML;
+    }, 2500);
+  }).catch(function(err) {
+    console.error('Could not copy RAI proof text: ', err);
+  });
 }
