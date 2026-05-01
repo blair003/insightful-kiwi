@@ -201,7 +201,6 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
   #carousel_id <- "observation_image_viewer_carousel"
   
   loading_placeholder <- paste0("carousel_loading_placeholder_", config$globals$image_resize_width_pixels, ".png") # Path to a loading image, www is assumed
-  cache_hits <- vector("logical", length = length(sequence_media_info)) # Prepare cache_hits vector
   
   # Start building the carousel HTML with a placeholder for each image
   carousel_html <- sprintf('<div id="%s" class="slick-carousel">', carousel_id)
@@ -229,25 +228,36 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
   complete_html <- paste(carousel_html, instructions_html, sep = "")
   # Preparing the array of actual image sources (src)
   
-  image_sources <- lapply(sequence_media_info, function(image_info, i) {
+  image_paths_meta <- lapply(sequence_media_info, function(image_info) {
     path_components <- unlist(strsplit(image_info$filePath, "/"))
     hash_dir_name <- path_components[length(path_components) - 1]
-    local_file_system_path <- file.path(local_cache_dir, hash_dir_name, image_info$fileName)
     resized_filename <- sub("\\.JPG$", "_resized.JPG", image_info$fileName, ignore.case = TRUE)
-    resized_file_system_path <- file.path(local_cache_dir, hash_dir_name, resized_filename)
     local_web_dir <- paste0(gsub("^www/", "", local_cache_dir), "/", hash_dir_name, "/")
-    
-    cache_hit <- file.exists(resized_file_system_path)
-    cache_hits[i] <<- cache_hit
-    
-    if (cache_hit) {
-      return(paste0(local_web_dir, resized_filename))
-    } else if (file.exists(local_file_system_path)) {
-      return(paste0(local_web_dir, image_info$fileName))
+
+    list(
+      local_fs = file.path(local_cache_dir, hash_dir_name, image_info$fileName),
+      resized_fs = file.path(local_cache_dir, hash_dir_name, resized_filename),
+      local_url = paste0(local_web_dir, image_info$fileName),
+      resized_url = paste0(local_web_dir, resized_filename),
+      original_url = image_info$filePath
+    )
+  })
+
+  resized_fs_paths <- vapply(image_paths_meta, `[[`, character(1), "resized_fs")
+  local_fs_paths <- vapply(image_paths_meta, `[[`, character(1), "local_fs")
+
+  cache_hits <- file.exists(resized_fs_paths)
+  local_exists <- file.exists(local_fs_paths)
+
+  image_sources <- lapply(seq_along(image_paths_meta), function(i) {
+    if (cache_hits[i]) {
+      return(image_paths_meta[[i]]$resized_url)
+    } else if (local_exists[i]) {
+      return(image_paths_meta[[i]]$local_url)
     } else {
-      return(image_info$filePath)
+      return(image_paths_meta[[i]]$original_url)
     }
-  }, seq_along(sequence_media_info))
+  })
   
   image_sources_js_array <- jsonlite::toJSON(image_sources, auto_unbox = TRUE)
   

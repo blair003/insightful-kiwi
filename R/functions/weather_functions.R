@@ -115,7 +115,7 @@ summarise_weather <- function(daily_data) {
   )
 }
 
-render_weather_info_link <- function(lat, lng, start_date, end_date) {
+render_weather_info_link <- function(lat, lng, start_date, end_date, input_id = "dashboard_weather_details_clicked") {
   token <- list(
     lat = lat,
     lng = lng,
@@ -128,14 +128,15 @@ render_weather_info_link <- function(lat, lng, start_date, end_date) {
     class = "dashcard-info-link",
     title = "Show daily weather",
     onclick = sprintf(
-      "Shiny.setInputValue('dashboard_weather_details_clicked', %s, {priority: 'event'}); return false;",
+      "Shiny.setInputValue('%s', %s, {priority: 'event'}); return false;",
+      input_id,
       jsonlite::toJSON(token, auto_unbox = TRUE)
     ),
     icon("circle-info")
   )
 }
 
-render_weather_cards <- function(locality, start_date, end_date) {
+render_weather_cards <- function(locality, start_date, end_date, info_input_id = "dashboard_weather_details_clicked") {
   # Compute average lat/lng for the deployments
   # core_data$deps is available globally in the environment
   if (!is.null(locality) && length(locality) > 0 && !all(locality == "ALL")) {
@@ -154,7 +155,7 @@ render_weather_cards <- function(locality, start_date, end_date) {
     return(div(class = "text-muted", "Weather data unavailable for this period."))
   }
 
-  info_link_html <- render_weather_info_link(lat, lng, start_date, end_date)
+  info_link_html <- render_weather_info_link(lat, lng, start_date, end_date, info_input_id)
 
   rain_text <- if (summary$heavy_rain_days > 0) {
     sprintf("Rain: %.1f mm (%d heavy days)", summary$total_rain, summary$heavy_rain_days)

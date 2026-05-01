@@ -102,11 +102,11 @@ server <- function(input, output, session) {
 
     if (!is.null(nav) && nzchar(nav)) {
       tab <- switch(nav,
-        dashboard = input$main_dashboard_tabs,
+        dashboard = input[["dashboard-main_dashboard_tabs"]],
         reporting = input$reporting_tabs,
         density_map = input$density_map_tabs,
         observation_map = input[["observation_map-observation_map_tabs"]],
-        activity_patterns = input$activity_patterns_tabs,
+        activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
         raw_data = input$raw_data_tabs,
         NULL
       )
@@ -189,234 +189,14 @@ server <- function(input, output, session) {
     filter_obs(core_data$obs, comparative_period$start_date(), comparative_period$end_date())
   })
   
-  
-  # Dashboard widgets
+  dashboard_state <- dashboard_module_server("dashboard", core_data = core_data, config = config)
+
   dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
   dashboard_plot_periods <- dashboard_plot_periods[
     seq(core_data$period_defaults$primary_period_index, length(dashboard_plot_periods))
   ]
   dashboard_plot_deps <- core_data$deps %>%
     dplyr::filter(as.character(period) %in% dashboard_plot_periods)
-
-  # Initialize the period selection servers for dashboard
-  main_dashboard_current_period <- period_selection_module_server("main_dashboard_current_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$current_period)
-  main_dashboard_prior_period <- period_selection_module_server("main_dashboard_prior_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$prior_period)
-  main_dashboard_last_year_period <- period_selection_module_server("main_dashboard_last_year_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$last_year_period)
-
-  output$main_dashboard_current_period_name <- renderText({ main_dashboard_current_period$period_name() })
-  output$main_dashboard_prior_period_name <- renderText({ main_dashboard_prior_period$period_name() })
-  output$main_dashboard_last_year_period_name <- renderText({ main_dashboard_last_year_period$period_name() })
-
-  dashboard_selected_localities <- reactive({
-    selected_localities <- input[["dashboard_rai_plot-selected_localities"]]
-    if (is.null(selected_localities) || length(selected_localities) == 0) {
-      selected_localities <- unique(core_data$deps$locality)
-    }
-
-    as.character(selected_localities)
-  })
-
-  dashboard_combine_localities <- reactive({
-    combine_localities <- input[["dashboard_rai_plot-combine_localities"]]
-    if (is.null(combine_localities)) {
-      return(TRUE)
-    }
-
-    isTRUE(combine_localities)
-  })
-
-  dashboard_locality_heading <- reactive({
-    selected_localities <- dashboard_selected_localities()
-    if (dashboard_combine_localities()) {
-      locality_scope_label(selected_localities)
-    } else {
-      paste("Locality selection:", paste(vapply(selected_localities, locality_display_name, character(1)), collapse = ", "))
-    }
-  })
-
-  output$main_dashboard_locality_heading <- renderUI({
-    div(class = "dashboard-locality-heading", dashboard_locality_heading())
-  })
-
-  output$dashboard_rai_plot_basis_link <- renderUI({
-    rai_groups <- input[["dashboard_rai_plot-selected_rai_group"]]
-    if (is.null(rai_groups) || length(rai_groups) == 0) {
-      rai_groups <- intersect(
-        config$globals$dashboard_rai_history_default_groups,
-        names(config$globals$rai_groups)
-      )
-      if (length(rai_groups) == 0) {
-        rai_groups <- names(config$globals$rai_groups)
-      }
-    }
-    rai_groups <- rai_groups[rai_groups %in% names(config$globals$rai_groups)]
-
-    locality_token <- paste(dashboard_selected_localities(), collapse = ",")
-    tagList(lapply(rai_groups, function(rai_group) {
-      tags$span(
-        class = "dashboard-rai-basis-link",
-        title = paste(rai_group, "RAI calculation basis"),
-        render_dashboard_info_link(paste(rai_group, locality_token, "ALL", sep = "|"))
-      )
-    }))
-  })
-
-  output$dashboard_favourites_hero <- renderUI({
-    render_dashboard_favourites_hero()
-  })
-
-  render_tab_cards <- function(period_name) {
-    combine_localities <- dashboard_combine_localities()
-    selected_localities <- dashboard_selected_localities()
-
-    if (isTRUE(combine_localities)) {
-      return(render_dashboard_rai_cards(selected_localities, period_name))
-    }
-
-    tagList(lapply(selected_localities, function(locality) {
-      tagList(
-        div(class = "dashboard-locality-heading", locality_display_name(locality)),
-        render_dashboard_rai_cards(locality, period_name)
-      )
-    }))
-  }
-
-  render_tab_favourite_images <- function(period_name, slider_id) {
-    hero <- render_dashboard_favourites_hero(
-      period_name = period_name,
-      slider_id = slider_id
-    )
-
-    if (is.null(hero)) {
-      return(NULL)
-    }
-
-    tagList(
-      div(class = "dashboard-section-heading dashboard-current-period-heading", "FAVOURITE IMAGES"),
-      hero
-    )
-  }
-
-  render_tab_effort_cards <- function(period_name) {
-    combine_localities <- dashboard_combine_localities()
-    selected_localities <- dashboard_selected_localities()
-
-    if (isTRUE(combine_localities)) {
-      return(render_dashboard_effort_cards(selected_localities, period_name))
-    }
-
-    tagList(lapply(selected_localities, function(locality) {
-      tagList(
-        div(class = "dashboard-locality-heading", locality_display_name(locality)),
-        render_dashboard_effort_cards(locality, period_name)
-      )
-    }))
-  }
-
-  render_tab_weather <- function(period_name) {
-    combine_localities <- dashboard_combine_localities()
-    selected_localities <- dashboard_selected_localities()
-
-    period_info <- core_data$period_groups[[period_name]]
-    if (is.null(period_info)) {
-      return(NULL)
-    }
-    start_date <- period_info$start_date
-    end_date <- period_info$end_date
-
-    weather_by_locality <- isTRUE(config$globals$dashboard_weather_by_locality)
-
-    if (isTRUE(combine_localities) || !isTRUE(weather_by_locality)) {
-      return(render_weather_cards(selected_localities, start_date, end_date))
-    }
-
-    tagList(lapply(selected_localities, function(locality) {
-      tagList(
-        div(class = "dashboard-locality-heading", locality_display_name(locality)),
-        render_weather_cards(locality, start_date, end_date)
-      )
-    }))
-  }
-
-  output$main_dashboard_current_period_cards <- renderUI({ render_tab_cards(main_dashboard_current_period$period_name()) })
-  output$main_dashboard_prior_period_cards <- renderUI({ render_tab_cards(main_dashboard_prior_period$period_name()) })
-  output$main_dashboard_last_year_period_cards <- renderUI({ render_tab_cards(main_dashboard_last_year_period$period_name()) })
-
-  output$main_dashboard_current_period_favourite_images <- renderUI({
-    render_tab_favourite_images(main_dashboard_current_period$period_name(), "main_dashboard_current_period_favourites_slider")
-  })
-  output$main_dashboard_prior_period_favourite_images <- renderUI({
-    render_tab_favourite_images(main_dashboard_prior_period$period_name(), "main_dashboard_prior_period_favourites_slider")
-  })
-  output$main_dashboard_last_year_period_favourite_images <- renderUI({
-    render_tab_favourite_images(main_dashboard_last_year_period$period_name(), "main_dashboard_last_year_period_favourites_slider")
-  })
-
-  output$main_dashboard_current_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_current_period$period_name()) })
-  output$main_dashboard_prior_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_prior_period$period_name()) })
-  output$main_dashboard_last_year_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_last_year_period$period_name()) })
-
-  output$main_dashboard_current_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_current_period$period_name()) })
-  output$main_dashboard_prior_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_prior_period$period_name()) })
-  output$main_dashboard_last_year_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_last_year_period$period_name()) })
-
-  show_dashboard_rai_detail_modal <- function(detail_token) {
-    detail_parts <- strsplit(detail_token, "\\|", fixed = FALSE)[[1]]
-    rai_group <- detail_parts[[1]]
-    locality <- if (length(detail_parts) > 1 && detail_parts[[2]] != "ALL") {
-      strsplit(detail_parts[[2]], ",", fixed = TRUE)[[1]]
-    } else {
-      NULL
-    }
-    period_name <- if (length(detail_parts) > 2 && detail_parts[[3]] != "ALL") {
-      detail_parts[[3]]
-    } else {
-      NULL
-    }
-
-    lower_is_better <- rai_group %in% c(
-      "Mustelids", "Cats", "Rats", "Pigs", "Dogs", "Possums", "Hedgehogs", "Mice"
-    )
-    show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality, period_name))
-  }
-
-  observeEvent(input$dashboard_rai_details_clicked, {
-    show_dashboard_rai_detail_modal(input$dashboard_rai_details_clicked)
-  })
-
-  observeEvent(input$dashboard_weather_details_clicked, {
-    token <- input$dashboard_weather_details_clicked
-    show_weather_modal(token$lat, token$lng, token$start_date, token$end_date)
-  })
-  
-  # Camera Hours Logged: Sum of camera hours
-  output$dashcard_camera_hours <- renderText({
-    format(round(sum(core_data$deps$camera_hours, na.rm = TRUE)), big.mark = ",")
-  })
-
-  output$dashcard_camera_days <- renderText({
-    paste(format_dash_number(sum(core_data$deps$camera_hours, na.rm = TRUE) / 24), "camera days")
-  })
-  
-  output$dashcard_data_updated <- renderText({
-    format(as.POSIXct(core_data$created, format="%Y-%m-%dT%H:%M:%SZ", tz="UTC"), 
-           "%d/%m/%Y")
-  })
-
-  output$dashcard_data_package_name<- renderText({
-    core_data$name
-  })
-
-  plotting_module_server(
-    id = "dashboard_rai_plot",
-    type = NULL,
-    obs = core_data$obs,
-    deps = dashboard_plot_deps,
-    species_override = NULL,
-    rai_groups = config$globals$rai_groups,
-    rai_norm_hours = config$globals$rai_norm_hours,
-    use_net = config$globals$rai_net_count
-  )
 
   plotting_module_server(
     id = "spp_obs_plot_visualisations",
@@ -810,11 +590,11 @@ server <- function(input, output, session) {
 
     if (!is.null(query_tab) && !is.null(query$nav) && nzchar(query$nav)) {
       tabset_id <- switch(query$nav,
-        dashboard = "main_dashboard_tabs",
+        dashboard = "dashboard-main_dashboard_tabs",
         reporting = "reporting_tabs",
         density_map = "density_map_tabs",
         observation_map = "observation_map-observation_map_tabs",
-        activity_patterns = "activity_patterns_tabs",
+        activity_patterns = "activity_patterns-activity_patterns_tabs",
         raw_data = "raw_data_tabs",
         NULL
       )
@@ -843,7 +623,7 @@ server <- function(input, output, session) {
     clean_share_query_params(query)
 
     if (!is.null(query$rai_detail) && nzchar(query$rai_detail)) {
-      show_dashboard_rai_detail_modal(query$rai_detail)
+      dashboard_state$show_rai_detail_modal(query$rai_detail)
     }
 
     if (!is.null(query$observation_id)) {
@@ -1012,9 +792,9 @@ server <- function(input, output, session) {
     id = "activity_patterns",
     core_data = core_data,
     nav = reactive(input$nav),
-    current_period = main_dashboard_current_period,
-    prior_period = main_dashboard_prior_period,
-    last_year_period = main_dashboard_last_year_period
+    current_period = dashboard_state$current_period,
+    prior_period = dashboard_state$prior_period,
+    last_year_period = dashboard_state$last_year_period
   )
 
   ########### OBSERVATION MAP FEATURE ###########

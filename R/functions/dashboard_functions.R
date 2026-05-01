@@ -203,7 +203,7 @@ dashboard_animal_detections_metric <- function(locality = NULL, period_name = NU
   )
 }
 
-render_dashboard_info_link <- function(detail_token) {
+render_dashboard_info_link <- function(detail_token, input_id = "dashboard_rai_details_clicked") {
   if (is.null(detail_token)) {
     return(NULL)
   }
@@ -213,7 +213,8 @@ render_dashboard_info_link <- function(detail_token) {
     class = "dashcard-info-link",
     title = "Show RAI calculation basis",
     onclick = sprintf(
-      "Shiny.setInputValue('dashboard_rai_details_clicked', %s, {priority: 'event'}); return false;",
+      "Shiny.setInputValue('%s', %s, {priority: 'event'}); return false;",
+      input_id,
       jsonlite::toJSON(detail_token, auto_unbox = TRUE)
     ),
     icon("circle-info")
@@ -249,7 +250,10 @@ render_dashboard_trend_icon <- function(comparison) {
   tags$span(icon(icon_name), class = "dashcard-trend-icon", `aria-hidden` = "true")
 }
 
-render_dashboard_comparison_body <- function(metric, detail_token = NULL, use_state_background = TRUE) {
+render_dashboard_comparison_body <- function(metric,
+                                             detail_token = NULL,
+                                             use_state_background = TRUE,
+                                             detail_input_id = "dashboard_rai_details_clicked") {
   state_class <- dashboard_comparison_state_class(metric$comparison_state)
 
   comparison_tags <- lapply(metric$comparisons, function(comparison) {
@@ -270,7 +274,7 @@ render_dashboard_comparison_body <- function(metric, detail_token = NULL, use_st
     comparison_tags <- list(div("No comparison period", class = paste("dashcard-comparison", state_class)))
   }
   details_action <- if (!is.null(detail_token)) {
-    div(class = "dashcard-card-action", render_dashboard_info_link(detail_token))
+    div(class = "dashcard-card-action", render_dashboard_info_link(detail_token, detail_input_id))
   } else {
     NULL
   }
@@ -330,7 +334,9 @@ render_dashboard_card_header <- function(card_icon, card_title, custom_icon = NU
   )
 }
 
-render_dashboard_rai_cards <- function(locality = NULL, period_name = NULL) {
+render_dashboard_rai_cards <- function(locality = NULL,
+                                       period_name = NULL,
+                                       detail_input_id = "dashboard_rai_details_clicked") {
   locality_token <- if (is.null(locality)) "ALL" else paste(locality, collapse = ",")
   period_token <- if (is.null(period_name)) "ALL" else period_name
   detail_token <- function(group) paste(group, locality_token, period_token, sep = "|")
@@ -347,19 +353,19 @@ render_dashboard_rai_cards <- function(locality = NULL, period_name = NULL) {
     width = "180px",
     card(
       card_header(render_dashboard_card_header("otter", "Mustelid RAI")),
-      card_body(render_dashboard_comparison_body(mustelid_metric, detail_token("Mustelids"))),
+      card_body(render_dashboard_comparison_body(mustelid_metric, detail_token("Mustelids"), detail_input_id = detail_input_id)),
       full_screen = FALSE
     ),
     if (!is.null(rat_metric)) {
       card(
         card_header(render_dashboard_card_header(NULL, "Rat RAI", custom_icon = dashboard_rat_icon())),
-        card_body(render_dashboard_comparison_body(rat_metric, detail_token("Rats"))),
+        card_body(render_dashboard_comparison_body(rat_metric, detail_token("Rats"), detail_input_id = detail_input_id)),
         full_screen = FALSE
       )
     },
     card(
       card_header(render_dashboard_card_header("kiwi-bird", "Kiwi RAI")),
-      card_body(render_dashboard_comparison_body(kiwi_metric, detail_token("Kiwi"))),
+      card_body(render_dashboard_comparison_body(kiwi_metric, detail_token("Kiwi"), detail_input_id = detail_input_id)),
       full_screen = FALSE
     )
   )
