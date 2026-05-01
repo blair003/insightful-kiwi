@@ -55,9 +55,16 @@ process_camtrapdp_package <- function() {
     logger::log_info("Starting Step 4: Processing media data")
     core_data$media <- package$data$media %>%
       dplyr::select(
-        mediaID, deploymentID, sequenceID, timestamp, filePath, fileName,
-        fileMediatype, favourite
+        dplyr::any_of(c(
+          "mediaID", "deploymentID", "sequenceID", "timestamp", "filePath",
+          "fileName", "fileMediatype", "filePublic", "isPublic", "favourite",
+          "favorite"
+        ))
       )
+
+    if (!"favourite" %in% names(core_data$media) && "favorite" %in% names(core_data$media)) {
+      core_data$media$favourite <- core_data$media$favorite
+    }
 
     # Perform any additional transformations or enhancements as needed
     logger::log_info("Success in Step 4: Data processing complete")
@@ -67,7 +74,7 @@ process_camtrapdp_package <- function() {
 
   }, error = function(e) {
     # Log the error
-    logger::log_error("An error occurred while preparing the data:", e$message)
+    logger::log_error("An error occurred while preparing the data: %s", e$message)
     stop(paste("An error occurred while preparing the data:", e$message))
   })
 }

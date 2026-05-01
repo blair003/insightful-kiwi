@@ -17,6 +17,7 @@ config/*
 #extdata/media.csv
 #extdata/observations.csv
 cache/
+logs/
 tangential/
 config/.env
 www/cache/

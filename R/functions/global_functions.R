@@ -57,6 +57,85 @@ create_directories_if_missing <- function(dirs) {
 }
 
 
+configure_image_cache_logger <- function(config, log_file = NULL) {
+  if (is.null(log_file)) {
+    log_file <- file.path(
+      config$env$dirs$logs,
+      sprintf("image-cache-%s.log", format(Sys.Date(), "%Y-%m-%d"))
+    )
+  }
+
+  log_dir <- dirname(log_file)
+  if (!dir.exists(log_dir)) {
+    dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+
+  logger::log_appender(logger::appender_file(log_file, append = TRUE))
+  logger::log_formatter(logger::formatter_sprintf)
+  if (!is.null(config$globals$log_threshold)) {
+    logger::log_threshold(config$globals$log_threshold)
+  }
+
+  log_file
+}
+
+
+cache_media_is_public <- function(value) {
+  if (is.null(value) || length(value) == 0 || is.na(value[[1]])) {
+    return(TRUE)
+  }
+
+  value <- value[[1]]
+  if (is.logical(value)) {
+    return(isTRUE(value))
+  }
+
+  !tolower(trimws(as.character(value))) %in% c("false", "f", "no", "n", "0")
+}
+
+
+get_media_public_flags <- function(media_df, config = NULL) {
+  public_column <- intersect(c("filePublic", "isPublic"), names(media_df))
+  if (length(public_column) > 0) {
+    public_column <- public_column[[1]]
+    return(list(
+      flags = vapply(media_df[[public_column]], cache_media_is_public, logical(1)),
+      column = public_column
+    ))
+  }
+
+  if (!is.null(config) && "mediaID" %in% names(media_df)) {
+    raw_media_path <- file.path(config$env$dirs$camtrap_package, "media.csv")
+    if (file.exists(raw_media_path)) {
+      raw_media <- tryCatch(
+        utils::read.csv(raw_media_path, stringsAsFactors = FALSE),
+        error = function(e) {
+          logger::log_warn(
+            "Could not read raw media.csv for filePublic lookup: %s",
+            conditionMessage(e)
+          )
+          NULL
+        }
+      )
+
+      if (!is.null(raw_media) && all(c("mediaID", "filePublic") %in% names(raw_media))) {
+        raw_public_lookup <- stats::setNames(raw_media$filePublic, raw_media$mediaID)
+        matched_public <- raw_public_lookup[as.character(media_df$mediaID)]
+        return(list(
+          flags = vapply(matched_public, cache_media_is_public, logical(1)),
+          column = "media.csv:filePublic"
+        ))
+      }
+    }
+  }
+
+  list(
+    flags = rep(TRUE, nrow(media_df)),
+    column = NA_character_
+  )
+}
+
+
 
 #' Caches favourite and selected species images.
 #'
@@ -125,6 +204,16 @@ cache_selected_images <- function(media_df, obs_df, config) {
   }
 
   manifest_rows <- list()
+  cache_stats <- new.env(parent = emptyenv())
+  cache_stats$downloaded <- 0L
+  cache_stats$already_cached <- 0L
+  cache_stats$resized_created <- 0L
+  cache_stats$skipped_missing_path <- 0L
+  cache_stats$skipped_invalid_path <- 0L
+  cache_stats$skipped_not_public <- 0L
+  cache_stats$failed <- 0L
+  cache_stats$favourite_period_copies <- 0L
+  cache_stats$favourite_species_copies <- 0L
 
   add_manifest_row <- function(cached_file_path,
                                context,
@@ -238,8 +327,13 @@ cache_selected_images <- function(media_df, obs_df, config) {
     favourite_flags <- vapply(media_df$favourite, is_true_value, logical(1))
   }
 
+  public_lookup <- get_media_public_flags(media_df, config)
+  public_flags <- public_lookup$flags
+
   selected_flags <- as.character(media_df$sequenceID) %in% selected_sequence_ids
-  media_to_cache <- media_df[selected_flags | favourite_flags, , drop = FALSE]
+  cache_candidate_flags <- selected_flags | favourite_flags
+  cache_stats$skipped_not_public <- sum(cache_candidate_flags & !public_flags)
+  media_to_cache <- media_df[cache_candidate_flags & public_flags, , drop = FALSE]
 
   if (nrow(media_to_cache) > 0) {
     media_to_cache <- media_to_cache[!duplicated(paste(media_to_cache$sequenceID, media_to_cache$fileName, sep = "|")), , drop = FALSE]
@@ -251,6 +345,10 @@ cache_selected_images <- function(media_df, obs_df, config) {
 
   if (total_images == 0) {
     logger::log_info("No favourite or selected species images found to cache.")
+    logger::log_info(
+      "Image cache summary: total=0, downloaded=0, already_cached=0, resized_created=0, skipped_missing_path=0, skipped_invalid_path=0, skipped_not_public=%d, failed=0, favourite_period_copies=0, favourite_species_copies=0, manifest_rows=0",
+      cache_stats$skipped_not_public
+    )
     return(invisible(NULL))
   }
 
@@ -258,6 +356,14 @@ cache_selected_images <- function(media_df, obs_df, config) {
     "Found %d source images to cache (favourites & selected species). Excluded species: %s",
     total_images,
     paste(excluded_species, collapse = ", ")
+  )
+  logger::log_info(
+    "Image cache selection summary: selected_species=%d, selected_sequences=%d, favourite_media=%d, public_column=%s, skipped_not_public=%d",
+    length(selected_species),
+    length(selected_sequence_ids),
+    sum(favourite_flags),
+    ifelse(is.na(public_lookup$column), "<none>", public_lookup$column),
+    cache_stats$skipped_not_public
   )
 
   for (i in seq_len(total_images)) {
@@ -271,6 +377,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
     }
 
     if (is.na(file_path) || is.na(file_name)) {
+      cache_stats$skipped_missing_path <- cache_stats$skipped_missing_path + 1L
       logger::log_warn(
         "[%d/%d] Skipping image with missing file path or name.",
         i,
@@ -281,6 +388,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
 
     path_components <- unlist(strsplit(file_path, "/"))
     if (length(path_components) < 2) {
+      cache_stats$skipped_invalid_path <- cache_stats$skipped_invalid_path + 1L
       logger::log_warn("[%d/%d] Skipping image with invalid file path: %s", i, total_images, file_path)
       next
     }
@@ -292,17 +400,20 @@ cache_selected_images <- function(media_df, obs_df, config) {
 
     tryCatch({
       if (!file.exists(local_file_path)) {
-        logger::log_info("[%d/%d] Downloading: %s", i, total_images, file_name)
+        logger::log_info("[%d/%d] Downloading sequence %s image: %s", i, total_images, sequence_id, file_name)
 
         if (!dir.exists(image_dir_path)) dir.create(image_dir_path, recursive = TRUE)
 
         download_image(file_path, local_file_path)
+        cache_stats$downloaded <- cache_stats$downloaded + 1L
       } else {
         logger::log_info("[%d/%d] Image already cached: %s", i, total_images, local_file_path)
+        cache_stats$already_cached <- cache_stats$already_cached + 1L
       }
 
       if (!file.exists(resized_file_path)) {
         resized_file_path <- create_resized_image(local_file_path, config$globals$image_resize_width_pixels)
+        cache_stats$resized_created <- cache_stats$resized_created + 1L
       }
 
       if (is_favourite) {
@@ -313,16 +424,23 @@ cache_selected_images <- function(media_df, obs_df, config) {
 
         if (is.na(period_folder)) {
           logger::log_warn(
-            "[%d/%d] Favourite image has no period group, skipping favourite copy: %s",
+            paste(
+              "[%d/%d] Favourite image has no period group, skipping favourite copy:",
+              "sequenceID=%s, observationID=%s, fileName=%s, filePath=%s"
+            ),
             i,
             total_images,
-            file_name
+            sequence_id,
+            observation_id,
+            file_name,
+            file_path
           )
         } else {
           period_dest_dir <- file.path(favourites_base_dir, period_folder)
           if (!dir.exists(period_dest_dir)) dir.create(period_dest_dir, recursive = TRUE)
           period_dest_file_path <- file.path(period_dest_dir, basename(resized_file_path))
           file.copy(resized_file_path, period_dest_file_path, overwrite = TRUE)
+          cache_stats$favourite_period_copies <- cache_stats$favourite_period_copies + 1L
           add_manifest_row(
             cached_file_path = period_dest_file_path,
             context = "period",
@@ -343,6 +461,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
             if (!dir.exists(species_dest_dir)) dir.create(species_dest_dir, recursive = TRUE)
             species_dest_file_path <- file.path(species_dest_dir, basename(resized_file_path))
             file.copy(resized_file_path, species_dest_file_path, overwrite = TRUE)
+            cache_stats$favourite_species_copies <- cache_stats$favourite_species_copies + 1L
             add_manifest_row(
               cached_file_path = species_dest_file_path,
               context = "species",
@@ -357,6 +476,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
         }
       }
     }, error = function(e) {
+      cache_stats$failed <- cache_stats$failed + 1L
       logger::log_error(
         "Failed to process %s. Error: %s",
         file_path,
@@ -374,6 +494,26 @@ cache_selected_images <- function(media_df, obs_df, config) {
     utils::write.csv(manifest, favourites_manifest_path, row.names = FALSE)
     logger::log_info("Wrote favourites image manifest: %s", favourites_manifest_path)
   }
+
+  logger::log_info(
+    paste(
+      "Image cache summary:",
+      "total=%d, downloaded=%d, already_cached=%d, resized_created=%d,",
+      "skipped_missing_path=%d, skipped_invalid_path=%d, skipped_not_public=%d, failed=%d,",
+      "favourite_period_copies=%d, favourite_species_copies=%d, manifest_rows=%d"
+    ),
+    total_images,
+    cache_stats$downloaded,
+    cache_stats$already_cached,
+    cache_stats$resized_created,
+    cache_stats$skipped_missing_path,
+    cache_stats$skipped_invalid_path,
+    cache_stats$skipped_not_public,
+    cache_stats$failed,
+    cache_stats$favourite_period_copies,
+    cache_stats$favourite_species_copies,
+    length(manifest_rows)
+  )
   
   invisible(NULL)
 }

@@ -4,6 +4,7 @@ config$env <- list(
   dirs = list(
     camtrap_package = normalizePath("extdata", mustWork = FALSE),
     cache = normalizePath("cache", mustWork = FALSE),
+    logs = normalizePath("logs", mustWork = FALSE),
     temp = normalizePath("temp", mustWork = FALSE)
   ),
   

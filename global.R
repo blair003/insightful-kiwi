@@ -140,9 +140,19 @@ plan(multisession)
 # --- Background Caching of favourite and selected species images on Startup ---
 logger::log_info("Attempting to launch background caching process...")
 
+image_cache_log_file <- file.path(
+  config$env$dirs$logs,
+  sprintf("image-cache-%s.log", format(Sys.Date(), "%Y-%m-%d"))
+)
+
 future::future({
+  configure_image_cache_logger(config, image_cache_log_file)
+
+  logger::log_info("----- Background image caching started: %s -----", Sys.time())
+
   tryCatch({
     cache_selected_images(core_data$media, core_data$obs, config)
+    logger::log_info("----- Background image caching finished: %s -----", Sys.time())
     TRUE
   }, error = function(e) {
     msg <- conditionMessage(e)
@@ -150,7 +160,7 @@ future::future({
     stop(msg)
   })
 }, seed = TRUE) %...>% {
-  logger::log_info("Background caching complete.")
+  logger::log_info("Background caching complete. Details written to %s", image_cache_log_file)
 } %...!% (function(error) {
   logger::log_error("Background caching process failed: %s", conditionMessage(error))
 })

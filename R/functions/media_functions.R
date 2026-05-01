@@ -10,14 +10,17 @@ get_sequence_media_urls <- function(media) {
   n_items <- min(nrow(media), 3)
   
   if (n_items > 0) {
+    public_lookup <- get_media_public_flags(media, config)
     
     # Loop through each entry
     for (i in 1:n_items) {
       # Append filePath (URL) and fileName to the list as a named list
       sequence_media_info[[i]] <- list(
+        mediaID = if ("mediaID" %in% names(media)) media$mediaID[i] else NA_character_,
         filePath = media$filePath[i],
         fileName = media$fileName[i],
-        favourite = media$favourite[i]
+        favourite = media$favourite[i],
+        filePublic = public_lookup$flags[i]
       )
     }
   }
@@ -39,6 +42,17 @@ update_image_cache <- function(sequence_media_info) {
   for (image_info in sequence_media_info) {
     local({
       image_info_local <- image_info
+
+      if (!cache_media_is_public(image_info_local$filePublic)) {
+        future({
+          configure_image_cache_logger(config)
+          logger::log_info(
+            "Skipping non-public image for on-demand cache: %s",
+            image_info_local$fileName
+          )
+        }, seed = TRUE)
+        return(invisible(NULL))
+      }
       
       path_components <- unlist(strsplit(image_info_local$filePath, "/"))
       hash_dir_name <- path_components[length(path_components) - 1]
@@ -52,6 +66,7 @@ update_image_cache <- function(sequence_media_info) {
       
       if (!file.exists(local_file_path)) {
         future({
+          configure_image_cache_logger(config)
           tryCatch({
             logger::log_info("Downloading image %s to %s", source_file_path, local_file_path)
             
@@ -76,6 +91,7 @@ update_image_cache <- function(sequence_media_info) {
         resized_file_path <- sub("\\.JPG$", "_resized.JPG", local_file_path, ignore.case = TRUE)
         if (!file.exists(resized_file_path)) {
           future({
+            configure_image_cache_logger(config)
             tryCatch({
               logger::log_info("Creating missing resized image for: %s", local_file_path)
               create_resized_image(local_file_path, config$globals$image_resize_width_pixels)
