@@ -1,8 +1,8 @@
 {
   "profile": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/camtrap-dp-profile.json",
-  "name": "whakatane-kiwi-trust-20260427203507",
-  "id": "be1c22f8-495a-4c63-87f5-923d98a4e5ac",
-  "created": "2026-04-27T20:35:07Z",
+  "name": "whakatane-kiwi-trust-20260501050000",
+  "id": "053ade8a-2e83-4544-9887-9c4b1d8b13ff",
+  "created": "2026-05-01T05:00:00Z",
   "contributors": [
     {
       "title": "Agouti Admins",
@@ -389,6 +389,17 @@
       "vernacularNames": {
         "eng": "Least weasel",
         "nld": "Wezel"
+      }
+    },
+    {
+      "scientificName": "Ninox novaeseelandiae",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/73ZSC",
+      "taxonRank": "species",
+      "order": "Strigiformes",
+      "family": "Strigidae",
+      "vernacularNames": {
+        "eng": "Morepork",
+        "nld": "Nieuw-zeelandse boeboekuil"
       }
     },
     {
