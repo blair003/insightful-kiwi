@@ -351,13 +351,26 @@ server <- function(input, output, session) {
   })
 
   output$dashboard_rai_plot_basis_link <- renderUI({
-    rai_group <- input[["dashboard_rai_plot-selected_rai_group"]]
-    if (is.null(rai_group) || length(rai_group) == 0) {
-      rai_group <- names(config$globals$rai_groups)[[1]]
+    rai_groups <- input[["dashboard_rai_plot-selected_rai_group"]]
+    if (is.null(rai_groups) || length(rai_groups) == 0) {
+      rai_groups <- intersect(
+        config$globals$dashboard_rai_history_default_groups,
+        names(config$globals$rai_groups)
+      )
+      if (length(rai_groups) == 0) {
+        rai_groups <- names(config$globals$rai_groups)
+      }
     }
+    rai_groups <- rai_groups[rai_groups %in% names(config$globals$rai_groups)]
 
     locality_token <- paste(dashboard_selected_localities(), collapse = ",")
-    render_dashboard_info_link(paste(rai_group[[1]], locality_token, "ALL", sep = "|"))
+    tagList(lapply(rai_groups, function(rai_group) {
+      tags$span(
+        class = "dashboard-rai-basis-link",
+        title = paste(rai_group, "RAI calculation basis"),
+        render_dashboard_info_link(paste(rai_group, locality_token, "ALL", sep = "|"))
+      )
+    }))
   })
 
   render_tab_cards <- function(period_name) {
@@ -443,7 +456,9 @@ server <- function(input, output, session) {
       NULL
     }
 
-    lower_is_better <- rai_group %in% c("Mustelids", "Rats")
+    lower_is_better <- rai_group %in% c(
+      "Mustelids", "Cats", "Rats", "Pigs", "Dogs", "Possums", "Hedgehogs", "Mice"
+    )
     show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality, period_name))
   }
 

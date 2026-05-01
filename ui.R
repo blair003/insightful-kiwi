@@ -316,7 +316,10 @@ ui <- function(request) {
                         id = "dashboard_rai_plot",
                         view = "select_rai_group_inline",
                         choices = names(config$globals$rai_groups),
-                        selected = names(config$globals$rai_groups)[1]
+                        selected = intersect(
+                          config$globals$dashboard_rai_history_default_groups,
+                          names(config$globals$rai_groups)
+                        )
                       ),
                       plotting_module_ui(id = "dashboard_rai_plot", view = "rai_plot_inline_options")
                     )

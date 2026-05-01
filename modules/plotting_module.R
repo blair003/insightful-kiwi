@@ -45,9 +45,9 @@ plotting_module_ui <- function(id,
           label = NULL,
           choices = choices,
           selected = selected,
-          multiple = FALSE,
+          multiple = TRUE,
           selectize = TRUE,
-          width = "150px"
+          width = "240px"
         )
       )
     )
@@ -208,7 +208,12 @@ plotting_module_server <- function(id,
     selected_rai_group <- reactive({
       if ((is.null(input$selected_rai_group) || length(input$selected_rai_group) == 0) &&
           !is.null(rai_groups) && length(rai_groups) > 0) {
-        return(names(rai_groups)[[1]])
+        default_groups <- config$globals$dashboard_rai_history_default_groups
+        default_groups <- intersect(default_groups, names(rai_groups))
+        if (length(default_groups) > 0) {
+          return(default_groups)
+        }
+        return(names(rai_groups))
       }
       as.character(input$selected_rai_group)
     })
@@ -407,7 +412,12 @@ plotting_module_server <- function(id,
         return(tibble::tibble())
       }
 
-      build_metric_row <- function(period_name, locality_filter = NULL) {
+      rai_group <- rai_group[rai_group %in% names(rai_groups)]
+      if (length(rai_group) == 0) {
+        return(tibble::tibble())
+      }
+
+      build_metric_row <- function(period_name, rai_group_name, locality_filter = NULL) {
         period <- core_data$period_groups[[period_name]]
         period_obs <- filter_obs(obs, period$start_date, period$end_date)
         period_deps <- filter_deps(deps, period$start_date, period$end_date)
@@ -421,7 +431,7 @@ plotting_module_server <- function(id,
           period_obs,
           period_deps,
           rai_groups,
-          rai_group,
+          rai_group_name,
           rai_norm_hours,
           use_net
         )
@@ -433,7 +443,7 @@ plotting_module_server <- function(id,
           } else {
             locality_scope_label(locality_filter)
           },
-          rai_group = rai_group,
+          rai_group = rai_group_name,
           value = metric$value,
           se = metric$se,
           ymin = pmax(metric$value - metric$se, 0),
@@ -444,17 +454,22 @@ plotting_module_server <- function(id,
 
       if (combine_localities_selected()) {
         plot_data <- dplyr::bind_rows(lapply(period_names, function(period_name) {
-          build_metric_row(period_name, localities)
+          dplyr::bind_rows(lapply(rai_group, function(rai_group_name) {
+            build_metric_row(period_name, rai_group_name, localities)
+          }))
         }))
       } else {
         plot_data <- dplyr::bind_rows(lapply(localities, function(locality) {
           dplyr::bind_rows(lapply(period_names, function(period_name) {
-            build_metric_row(period_name, locality)
+            dplyr::bind_rows(lapply(rai_group, function(rai_group_name) {
+              build_metric_row(period_name, rai_group_name, locality)
+            }))
           }))
         }))
       }
 
       plot_data$period <- factor(plot_data$period, levels = rev(period_names))
+      plot_data$rai_group <- factor(plot_data$rai_group, levels = rai_group)
       plot_data
     })
 
@@ -475,20 +490,48 @@ plotting_module_server <- function(id,
       }
 
       title <- paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", ")
+      rai_dodge <- position_dodge(width = 0.48)
 
-      p <- ggplot(data, aes(x = period, y = value)) +
-        geom_line(aes(group = locality), linewidth = 0.6, linetype = "dashed", colour = "#5f6f7a", alpha = 0.65, na.rm = TRUE) +
-        geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.16, linewidth = 0.7, colour = "#6f7780", alpha = 0.75, na.rm = TRUE) +
-        geom_point(size = 3.2, na.rm = TRUE, colour = "#0f766e") +
-        labs(title = title, x = "Period", y = "RAI", subtitle = selected_rai_group()) +
+      p <- ggplot(data, aes(x = period, y = value, colour = rai_group)) +
+        geom_line(
+          aes(group = interaction(locality, rai_group)),
+          position = rai_dodge,
+          linewidth = 0.75,
+          alpha = 0.78,
+          na.rm = TRUE
+        ) +
+        geom_errorbar(
+          aes(ymin = ymin, ymax = ymax),
+          position = rai_dodge,
+          width = 0.12,
+          linewidth = 0.65,
+          alpha = 0.72,
+          na.rm = TRUE
+        ) +
+        geom_point(position = rai_dodge, size = 3.1, na.rm = TRUE) +
+        labs(
+          title = title,
+          x = "Period",
+          y = "RAI",
+          colour = "Species group",
+          caption = "Individual species graphs are available under 'Species Dashboards'. 
+                    This graph plots multiple species groups of your choosing."
+        ) +
         scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.18))) +
+        scale_colour_brewer(palette = "Dark2") +
         theme_minimal(base_size = 14) +
         theme(
           plot.title = element_text(size = rel(1.05), face = "bold"),
-          plot.subtitle = element_text(size = rel(1), face = "bold", colour = "#0f766e"),
           axis.text = element_text(size = rel(1)),
           axis.text.x = axis_text_x,
-          panel.grid.minor = element_blank()
+          panel.grid.minor = element_blank(),
+          legend.position = "bottom",
+          plot.caption = element_text(
+            hjust = 0.5,
+            face = "italic",
+            colour = "#6c757d",
+            size = rel(0.82)
+          )
         )
 
       if (!combine_localities_selected()) {
@@ -500,10 +543,10 @@ plotting_module_server <- function(id,
       if (isTRUE(input$data_labels)) {
         p <- p + geom_label(
           aes(y = ymax, label = label),
+          position = rai_dodge,
           vjust = -0.35,
-          size = 3.8,
+          size = 3.4,
           fontface = "bold",
-          colour = "#0f766e",
           fill = "white",
           label.size = 0,
           label.padding = unit(0.12, "lines"),

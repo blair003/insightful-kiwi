@@ -127,7 +127,7 @@
 
       .rai-plot-inline-select .shiny-input-container {
         margin: 0;
-        width: auto !important;
+        width: 15rem !important;
       }
 
       .rai-plot-inline-select label {
@@ -137,7 +137,7 @@
       .rai-plot-inline-select .selectize-control {
         margin-bottom: 0;
         min-width: 8.5rem;
-        width: auto !important;
+        width: 100% !important;
       }
 
       .rai-plot-inline-select .selectize-input,
@@ -706,14 +706,24 @@
   }
 
   .dashboard-card-header-controls {
+    flex-wrap: wrap;
     gap: 0.5rem;
-    justify-content: flex-end;
+    justify-content: flex-start;
     margin-left: 0;
     width: 100%;
   }
 
   .rai-plot-inline-select .shiny-input-container {
-    width: 150px !important;
+    width: min(100%, 18rem) !important;
+  }
+
+  .rai-plot-inline-select .selectize-control {
+    min-width: 0;
+    width: 100% !important;
+  }
+
+  .rai-plot-inline-options {
+    flex: 0 0 auto;
   }
 
   .rai-plot-area-with-info .dashcard-info-link {

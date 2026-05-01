@@ -183,18 +183,42 @@ config$globals <- list(
   # Species groups for combined RAI calculations.
   # These are analytical groupings, separate from spp_classes used for presentation/classification.
   rai_groups = list(
+    "Kiwi" = c(
+      "Apteryx mantelli"
+    ),
     "Mustelids" = c(
       "Mustela erminea",
       "Mustela nivalis",
       "Mustela putorius furo"
     ),
+    "Cats" = c(
+      "Felis catus"
+    ),
     "Rats" = c(
       "Rattus"
     ),
-    "Kiwi" = c(
-      "Apteryx mantelli"
+    "Pigs" = c(
+      "Sus scrofa"
+    ),
+    "Dogs" = c(
+      "Canis lupus familiaris"
+    ),
+    "Possums" = c(
+      "Trichosurus vulpecula"
+    ),
+    "Hedgehogs" = c(
+      "Erinaceus europaeus"
+    ),
+    "Mice" = c(
+      "Mus musculus"
+    ),
+    "Weka" = c(
+      "Gallirallus australis"
     )
   ),
+
+  # Initial species groups shown in the dashboard RAI history graph.
+  dashboard_rai_history_default_groups = c("Kiwi", "Mustelids"),
   
   # Any species not in a class will be put into a class with this name
   spp_class_unclassified = "other",

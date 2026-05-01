@@ -188,8 +188,35 @@ config$globals <- list(
       "Mustela erminea",
       "Mustela nivalis",
       "Mustela putorius furo"
+    ),
+    "Cats" = c(
+      "Felis catus"
+    ),
+    "Rats" = c(
+      "Rattus"
+    ),
+    "Pigs" = c(
+      "Sus scrofa"
+    ),
+    "Dogs" = c(
+      "Canis lupus familiaris"
+    ),
+    "Possums" = c(
+      "Trichosurus vulpecula"
+    ),
+    "Hedgehogs" = c(
+      "Erinaceus europaeus"
+    ),
+    "Mice" = c(
+      "Mus musculus"
+    ),
+    "Weka" = c(
+      "Gallirallus australis"
     )
   ),
+
+  # Initial species groups shown in the dashboard RAI history graph.
+  dashboard_rai_history_default_groups = c("Kiwi", "Mustelids"),
 
   # Any species not in a class will be put into a class with this name
   spp_class_unclassified = "other",
