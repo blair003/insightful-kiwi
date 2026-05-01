@@ -80,6 +80,29 @@ configure_image_cache_logger <- function(config, log_file = NULL) {
 }
 
 
+append_image_cache_log <- function(log_file, level, message, ...) {
+  tryCatch({
+    log_dir <- dirname(log_file)
+    if (!dir.exists(log_dir)) {
+      dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+
+    line <- sprintf(
+      "%s [%s] %s",
+      toupper(level),
+      format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+      sprintf(message, ...)
+    )
+
+    cat(line, "\n", file = log_file, append = TRUE)
+  }, error = function(e) {
+    invisible(NULL)
+  })
+
+  invisible(NULL)
+}
+
+
 cache_media_is_public <- function(value) {
   if (is.null(value) || length(value) == 0 || is.na(value[[1]])) {
     return(TRUE)

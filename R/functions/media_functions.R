@@ -37,74 +37,163 @@ get_sequence_media_urls <- function(media) {
 
 
 update_image_cache <- function(sequence_media_info) {
-  local_cache_dir <- "www/cache/images"
-  
-  for (image_info in sequence_media_info) {
-    local({
-      image_info_local <- image_info
+  tryCatch({
+    local_cache_dir <- "www/cache/images"
+    on_demand_log_file <- file.path(
+      config$env$dirs$logs,
+      sprintf("image-cache-on-demand-%s.log", format(Sys.Date(), "%Y-%m-%d"))
+    )
 
-      if (!cache_media_is_public(image_info_local$filePublic)) {
-        future({
-          configure_image_cache_logger(config)
-          logger::log_info(
-            "Skipping non-public image for on-demand cache: %s",
-            image_info_local$fileName
+    append_image_cache_log(
+      on_demand_log_file,
+      "INFO",
+      "On-demand image cache check started for %d image(s).",
+      length(sequence_media_info)
+    )
+    
+    for (image_info in sequence_media_info) {
+      local({
+        image_info_local <- image_info
+
+        if (!cache_media_is_public(image_info_local$filePublic)) {
+          append_image_cache_log(
+            on_demand_log_file,
+            "INFO",
+            "Skipping non-public image for on-demand cache: mediaID=%s, fileName=%s, filePath=%s",
+            image_info_local$mediaID,
+            image_info_local$fileName,
+            image_info_local$filePath
           )
-        }, seed = TRUE)
-        return(invisible(NULL))
-      }
-      
-      path_components <- unlist(strsplit(image_info_local$filePath, "/"))
-      hash_dir_name <- path_components[length(path_components) - 1]
-      
-      image_dir_path <- file.path(local_cache_dir, hash_dir_name)
-      dir.create(image_dir_path, recursive = TRUE, showWarnings = FALSE)
-      
-      local_file_path <- file.path(image_dir_path, image_info_local$fileName)
-      source_file_path <- image_info_local$filePath
-      file_name <- image_info_local$fileName
-      
-      if (!file.exists(local_file_path)) {
-        future({
-          configure_image_cache_logger(config)
-          tryCatch({
-            logger::log_info("Downloading image %s to %s", source_file_path, local_file_path)
-            
-            download_image(source_file_path, local_file_path)
-            
-            resized_file_path <- create_resized_image(
-              local_file_path,
-              config$globals$image_resize_width_pixels
-            )
-            
-            if (!is.character(resized_file_path)) {
-              stop("Resized file path is not a character vector.")
-            }
-          }, error = function(e) {
-            logger::log_error("Error in future block for %s: %s", local_file_path, e$message)
-          })
-        }, seed = TRUE) %...>% {
-          logger::log_info("Download and processing completed for: %s", local_file_path)
+          return(invisible(NULL))
         }
-      } else {
-        logger::log_info("Image exists: %s", local_file_path)
-        resized_file_path <- sub("\\.JPG$", "_resized.JPG", local_file_path, ignore.case = TRUE)
-        if (!file.exists(resized_file_path)) {
+        
+        path_components <- unlist(strsplit(image_info_local$filePath, "/"))
+        hash_dir_name <- path_components[length(path_components) - 1]
+        
+        image_dir_path <- file.path(local_cache_dir, hash_dir_name)
+        dir.create(image_dir_path, recursive = TRUE, showWarnings = FALSE)
+        
+        local_file_path <- file.path(image_dir_path, image_info_local$fileName)
+        source_file_path <- image_info_local$filePath
+        file_name <- image_info_local$fileName
+        
+        if (!file.exists(local_file_path)) {
+          append_image_cache_log(
+            on_demand_log_file,
+            "INFO",
+            "On-demand image cache miss, scheduling download: mediaID=%s, fileName=%s, filePath=%s, localPath=%s",
+            image_info_local$mediaID,
+            file_name,
+            source_file_path,
+            local_file_path
+          )
+
           future({
-            configure_image_cache_logger(config)
             tryCatch({
-              logger::log_info("Creating missing resized image for: %s", local_file_path)
-              create_resized_image(local_file_path, config$globals$image_resize_width_pixels)
+              append_image_cache_log(
+                on_demand_log_file,
+                "INFO",
+                "On-demand image download started: mediaID=%s, fileName=%s, filePath=%s, localPath=%s",
+                image_info_local$mediaID,
+                file_name,
+                source_file_path,
+                local_file_path
+              )
+              
+              download_image(source_file_path, local_file_path)
+              
+              resized_file_path <- create_resized_image(
+                local_file_path,
+                config$globals$image_resize_width_pixels
+              )
+              
+              if (!is.character(resized_file_path)) {
+                stop("Resized file path is not a character vector.")
+              }
+
+              append_image_cache_log(
+                on_demand_log_file,
+                "INFO",
+                "On-demand image download and processing completed: mediaID=%s, fileName=%s, localPath=%s",
+                image_info_local$mediaID,
+                file_name,
+                local_file_path
+              )
             }, error = function(e) {
-              logger::log_error("Error creating resized image for %s: %s", local_file_path, e$message)
+              append_image_cache_log(
+                on_demand_log_file,
+                "ERROR",
+                "On-demand image download failed: mediaID=%s, fileName=%s, localPath=%s, error=%s",
+                image_info_local$mediaID,
+                file_name,
+                local_file_path,
+                e$message
+              )
             })
-          }, seed = TRUE) %...>% {
-            logger::log_info("Resized image processing completed for: %s", local_file_path)
+          }, seed = TRUE)
+        } else {
+          append_image_cache_log(
+            on_demand_log_file,
+            "INFO",
+            "On-demand image already cached: mediaID=%s, fileName=%s, localPath=%s",
+            image_info_local$mediaID,
+            file_name,
+            local_file_path
+          )
+
+          resized_file_path <- sub("\\.JPG$", "_resized.JPG", local_file_path, ignore.case = TRUE)
+          if (!file.exists(resized_file_path)) {
+            append_image_cache_log(
+              on_demand_log_file,
+              "INFO",
+              "On-demand resized image missing, scheduling resize: mediaID=%s, fileName=%s, localPath=%s",
+              image_info_local$mediaID,
+              file_name,
+              local_file_path
+            )
+
+            future({
+              tryCatch({
+                append_image_cache_log(
+                  on_demand_log_file,
+                  "INFO",
+                  "On-demand resized image creation started: mediaID=%s, fileName=%s, localPath=%s",
+                  image_info_local$mediaID,
+                  file_name,
+                  local_file_path
+                )
+
+                create_resized_image(local_file_path, config$globals$image_resize_width_pixels)
+
+                append_image_cache_log(
+                  on_demand_log_file,
+                  "INFO",
+                  "On-demand resized image processing completed: mediaID=%s, fileName=%s, localPath=%s",
+                  image_info_local$mediaID,
+                  file_name,
+                  local_file_path
+                )
+              }, error = function(e) {
+                append_image_cache_log(
+                  on_demand_log_file,
+                  "ERROR",
+                  "On-demand resized image creation failed: mediaID=%s, fileName=%s, localPath=%s, error=%s",
+                  image_info_local$mediaID,
+                  file_name,
+                  local_file_path,
+                  e$message
+                )
+              })
+            }, seed = TRUE)
           }
         }
-      }
-    })
-  }
+      })
+    }
+  }, error = function(e) {
+    logger::log_error("On-demand image cache scheduling failed: %s", conditionMessage(e))
+  })
+
+  invisible(NULL)
 }
 
 
