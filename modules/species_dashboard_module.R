@@ -164,7 +164,14 @@ species_dashboard_module_ui <- function(id) {
   )
 }
 
-species_dashboard_module_server <- function(id, species_name, vernacular_name, obs, deps, core_data, rai_norm_hours = 2000) {
+species_dashboard_module_server <- function(id,
+                                            species_name,
+                                            vernacular_name,
+                                            obs,
+                                            deps,
+                                            core_data,
+                                            rai_norm_hours = 2000,
+                                            initial_rai_detail = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -397,13 +404,29 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
         )
       }
 
-      modal_title <- paste(str_to_title(vernacular_name), "RAI calculation basis")
+      detail_token <- paste(period_name_label, paste(locality_filter, collapse = ","), sep = "|")
+      share_btn <- tags$button(
+        type = "button",
+        class = "btn btn-sm btn-outline-secondary",
+        onclick = sprintf("copySpeciesRaiBasisUrl(%s, this)", jsonlite::toJSON(detail_token, auto_unbox = TRUE)),
+        title = "Share this view",
+        icon("share-nodes"),
+        " Share"
+      )
+
+      modal_title_text <- paste(str_to_title(vernacular_name), "RAI calculation basis")
       if (!is.null(locality_filter) && length(locality_filter) > 0) {
-        modal_title <- paste(modal_title, "-", locality_scope_label(locality_filter))
+        modal_title_text <- paste(modal_title_text, "-", locality_scope_label(locality_filter))
       }
 
       showModal(modalDialog(
-        title = modal_title,
+        title = tagList(
+          tags$div(
+            style = "display: flex; justify-content: space-between; align-items: flex-start; width: 100%; padding-right: 20px; gap: 12px;",
+            tags$div(modal_title_text),
+            share_btn
+          )
+        ),
         tags$p(
           "Each locality-line first gets a line RAI: ",
           tags$code(formula),
@@ -436,6 +459,27 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
       ))
     }
 
+    show_species_rai_detail_token <- function(detail_token) {
+      detail_parts <- strsplit(detail_token, "\\|", fixed = FALSE)[[1]]
+      period_name_label <- if (length(detail_parts) > 0 && nzchar(detail_parts[[1]])) {
+        detail_parts[[1]]
+      } else {
+        "ALL"
+      }
+      locality_token <- if (length(detail_parts) > 1) {
+        detail_parts[[2]]
+      } else {
+        ""
+      }
+      localities <- if (nzchar(locality_token)) {
+        strsplit(locality_token, ",", fixed = TRUE)[[1]]
+      } else {
+        selected_localities()
+      }
+
+      show_species_rai_metric_modal(period_name_label, localities)
+    }
+
     observeEvent(input$species_rai_details_clicked, {
       action_data <- input$species_rai_details_clicked
       locality_filter <- action_data$locality
@@ -447,6 +491,12 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
 
       show_species_rai_metric_modal(action_data$period_name, localities)
     })
+
+    if (!is.null(initial_rai_detail) && nzchar(initial_rai_detail)) {
+      session$onFlushed(function() {
+        show_species_rai_detail_token(initial_rai_detail)
+      }, once = TRUE)
+    }
 
     # Dashboard Header
     output$dashboard_header <- renderUI({
@@ -488,7 +538,7 @@ species_dashboard_module_server <- function(id, species_name, vernacular_name, o
           deps_data,
           period_name_label,
           "RAI ± SE",
-          "combined selected localities"
+          "combined for selected localities"
         )))
       }
 

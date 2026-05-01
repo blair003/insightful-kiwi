@@ -130,7 +130,7 @@ generate_multi_species_activity_plot <- function(sobs_data) {
       plot.title = element_text(hjust = 0.5, face = "bold"),
       plot.caption = element_text(hjust = 0.5),
       legend.position = "none",
-      strip.text = element_text(face = "bold")
+      strip.text = element_text(face = "bold", size = 14)
     ) +
     labs(
       title = "Detections by Hour of Day",
@@ -429,8 +429,8 @@ server <- function(input, output, session) {
   output$main_dashboard_prior_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_prior_period$period_name()) })
   output$main_dashboard_last_year_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_last_year_period$period_name()) })
 
-  observeEvent(input$dashboard_rai_details_clicked, {
-    detail_parts <- strsplit(input$dashboard_rai_details_clicked, "\\|", fixed = FALSE)[[1]]
+  show_dashboard_rai_detail_modal <- function(detail_token) {
+    detail_parts <- strsplit(detail_token, "\\|", fixed = FALSE)[[1]]
     rai_group <- detail_parts[[1]]
     locality <- if (length(detail_parts) > 1 && detail_parts[[2]] != "ALL") {
       strsplit(detail_parts[[2]], ",", fixed = TRUE)[[1]]
@@ -445,6 +445,10 @@ server <- function(input, output, session) {
 
     lower_is_better <- rai_group %in% c("Mustelids", "Rats")
     show_rai_metric_modal(dashboard_rai_metric(rai_group, lower_is_better, locality, period_name))
+  }
+
+  observeEvent(input$dashboard_rai_details_clicked, {
+    show_dashboard_rai_detail_modal(input$dashboard_rai_details_clicked)
   })
 
   observeEvent(input$dashboard_weather_details_clicked, {
@@ -490,6 +494,7 @@ server <- function(input, output, session) {
   )
   # Initialize species dashboards dynamically (Lazy Loading)
   loaded_species_dashboards <- reactiveVal(character())
+  pending_species_rai_detail <- reactiveVal(NULL)
 
   observeEvent(input$nav, {
     nav_item <- input$nav
@@ -515,8 +520,10 @@ server <- function(input, output, session) {
                 vernacular_name = s_name,
                 obs = filtered_obs_primary,
                 deps = filtered_deps_primary,
-                core_data = core_data
+                core_data = core_data,
+                initial_rai_detail = pending_species_rai_detail()
               )
+              pending_species_rai_detail(NULL)
 
               # Add to loaded list
               loaded_species_dashboards(c(loaded_species_dashboards(), sci_name_make_names))
@@ -568,7 +575,9 @@ server <- function(input, output, session) {
       "rawdata_deps_search",
       "raw_data_tabs",
       "observation_id",
-      "view_mode"
+      "view_mode",
+      "rai_detail",
+      "species_rai_detail"
     )
 
     if (length(intersect(names(query), share_query_params)) == 0) {
@@ -850,6 +859,10 @@ server <- function(input, output, session) {
     query <- parseQueryString(session$clientData$url_search)
     print(sprintf("Query string is %s", query))
 
+    if (!is.null(query$species_rai_detail) && nzchar(query$species_rai_detail)) {
+      pending_species_rai_detail(query$species_rai_detail)
+    }
+
     if (!is.null(query$nav) && nzchar(query$nav)) {
       updateNavbarPage(session, "nav", selected = query$nav)
     }
@@ -895,6 +908,10 @@ server <- function(input, output, session) {
     }, once = TRUE)
 
     clean_share_query_params(query)
+
+    if (!is.null(query$rai_detail) && nzchar(query$rai_detail)) {
+      show_dashboard_rai_detail_modal(query$rai_detail)
+    }
 
     if (!is.null(query$observation_id)) {
       # Extracted observation ID from URL

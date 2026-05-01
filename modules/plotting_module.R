@@ -429,7 +429,7 @@ plotting_module_server <- function(id,
         tibble::tibble(
           period = period_name,
           locality = if (is.null(locality_filter)) {
-            "Combined selected localities"
+            "Combined for selected localities"
           } else {
             locality_scope_label(locality_filter)
           },

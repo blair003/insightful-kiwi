@@ -33,6 +33,7 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL, pe
 
   metric$scope_label <- locality_scope_label(locality)
   metric$locality_filter <- if (is.null(locality)) "ALL" else paste(locality, collapse = ",")
+  metric$period_filter <- if (is.null(period_name)) "ALL" else period_name
   metric
 }
 
@@ -728,7 +729,15 @@ show_rai_metric_modal <- function(metric) {
     NULL
   }
 
-  share_btn_html <- "<button class='btn btn-sm btn-outline-secondary' onclick='copyCurrentViewUrl(this)' title='Share this view'><i class='fa fa-share-nodes'></i> Share</button>"
+  detail_token <- paste(metric$rai_group, metric$locality_filter, metric$period_filter, sep = "|")
+  share_btn <- tags$button(
+    type = "button",
+    class = "btn btn-sm btn-outline-secondary",
+    onclick = sprintf("copyRaiBasisUrl(%s, this)", jsonlite::toJSON(detail_token, auto_unbox = TRUE)),
+    title = "Share this view",
+    icon("share-nodes"),
+    " Share"
+  )
 
   showModal(modalDialog(
     title = tagList(
@@ -740,7 +749,7 @@ show_rai_metric_modal <- function(metric) {
             tags$div(modal_subtitle, style = "font-size: 0.9rem; font-weight: 400; margin-top: 2px;")
           }
         ),
-        HTML(share_btn_html)
+        share_btn
       )
     ),
     tags$p(

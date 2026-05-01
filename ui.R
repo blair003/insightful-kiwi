@@ -98,7 +98,7 @@ ui <- function(request) {
           view = "select",
           choices = names(core_data$period_groups),
           selected = core_data$period_defaults$primary_period,
-          label = "Current complete season:"
+          label = "Current season:"
         )
       ),
       conditionalPanel(

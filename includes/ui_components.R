@@ -50,7 +50,7 @@ species_dashboard_sidebar_controls <- function() {
               view = "select",
               choices = names(core_data$period_groups),
               selected = period_defaults$current_period,
-              label = "Current complete season:"
+              label = "Current season:"
             )
           ),
           conditionalPanel(

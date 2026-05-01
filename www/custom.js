@@ -499,6 +499,20 @@ function copyCurrentViewUrl(btn) {
   copyToClipboard(shareUrl, btn);
 }
 
+function copyRaiBasisUrl(detailToken, btn) {
+  var shareUrl = window.buildSharedViewUrl ?
+    window.buildSharedViewUrl({ rai_detail: detailToken }) :
+    window.location.protocol + "//" + window.location.host + window.location.pathname + "?rai_detail=" + encodeURIComponent(detailToken);
+  copyToClipboard(shareUrl, btn);
+}
+
+function copySpeciesRaiBasisUrl(detailToken, btn) {
+  var shareUrl = window.buildSharedViewUrl ?
+    window.buildSharedViewUrl({ species_rai_detail: detailToken }) :
+    window.location.protocol + "//" + window.location.host + window.location.pathname + "?species_rai_detail=" + encodeURIComponent(detailToken);
+  copyToClipboard(shareUrl, btn);
+}
+
 function getRaiProofText(btn) {
   var container = btn.closest('.modal-content') || document;
   var proof = container.querySelector('.rai-calculation-trace');
@@ -508,8 +522,8 @@ function getRaiProofText(btn) {
 function buildRaiVerificationPrompt(proofText) {
   return [
     'Please independently verify these RAI calculations.',
-    'Check the arithmetic, the duplicate-count handling, line RAI values, locality RAI values, network RAI values, and standard errors.',
     'Report any discrepancy with the exact line or subtotal that appears wrong.',
+    'Show your workings, then produce a table with the results',
     '',
     proofText
   ].join('\n');
