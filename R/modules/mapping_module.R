@@ -1,4 +1,4 @@
-# modules/mapping_module.R
+# R/modules/mapping_module.R
 
 mapping_module_ui <- function(id,
                               view = "map",

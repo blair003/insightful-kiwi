@@ -137,3 +137,111 @@ theme_insightful_report <- function(base_size = 12) {
       plot.margin = margin(t = 20, r = 10, b = 20, l = 10)  # Adjust as needed for more space
     )
 }
+generate_multi_species_activity_plot <- function(sobs_data) {
+  if (nrow(sobs_data) == 0) {
+    return(plot(1, type = "n", axes = FALSE, xlab = "", ylab = "", main = "No Data"))
+  }
+
+  sobs_data$scientificName <- as.character(sobs_data$scientificName)
+  sobs_data$hour <- as.numeric(format(sobs_data$timestamp, "%H"))
+
+  all_hours <- 0:23
+  species_list <- sort(unique(as.character(sobs_data$scientificName)))
+  if (length(species_list) == 0) {
+    return(plot(1, type = "n", axes = FALSE, xlab = "", ylab = "", main = "No Data"))
+  }
+
+  if ("count" %in% names(sobs_data)) {
+    hourly_counts <- sobs_data %>%
+      dplyr::group_by(scientificName, hour) %>%
+      dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop")
+  } else {
+    hourly_counts <- sobs_data %>%
+      dplyr::group_by(scientificName, hour) %>%
+      dplyr::summarise(count = dplyr::n(), .groups = "drop")
+  }
+
+  all_combinations <- expand.grid(hour = all_hours, scientificName = species_list, stringsAsFactors = FALSE)
+  plot_data <- dplyr::left_join(all_combinations, hourly_counts, by = c("hour", "scientificName")) %>%
+    dplyr::mutate(
+      count = dplyr::coalesce(.data$count, 0),
+      hour_midpoint = .data$hour + 0.5
+    )
+
+  name_type <- config$globals$species_name_type
+
+  if (name_type %in% names(sobs_data)) {
+    nice_names <- sobs_data %>%
+      dplyr::mutate(display_name = as.character(.data[[name_type]])) %>%
+      dplyr::arrange(is.na(.data$display_name) | .data$display_name == "") %>%
+      dplyr::group_by(.data$scientificName) %>%
+      dplyr::summarise(display_name = dplyr::first(.data$display_name), .groups = "drop")
+
+    plot_data <- plot_data %>% dplyr::left_join(nice_names, by = "scientificName")
+    plot_data$display_name[is.na(plot_data$display_name)] <- plot_data$scientificName[is.na(plot_data$display_name)]
+  } else {
+    plot_data$display_name <- plot_data$scientificName
+  }
+
+  plot_data$display_name <- stringr::str_to_title(plot_data$display_name)
+  plot_data <- plot_data %>%
+    dplyr::group_by(.data$scientificName) %>%
+    dplyr::mutate(species_total = sum(.data$count, na.rm = TRUE)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
+      legend_label = sprintf(
+        "%s (n=%s)",
+        .data$display_name,
+        format(.data$species_total, big.mark = ",", scientific = FALSE, trim = TRUE)
+      )
+    )
+
+  display_levels <- plot_data %>%
+    dplyr::distinct(.data$scientificName, .data$display_name, .data$legend_label) %>%
+    dplyr::arrange(.data$display_name) %>%
+    dplyr::pull(legend_label) %>%
+    unique()
+  plot_data$legend_label <- factor(plot_data$legend_label, levels = display_levels)
+
+  activity_palette <- c(
+    "#0072B2", "#D55E00", "#009E73", "#CC79A7",
+    "#E69F00", "#56B4E9", "#000000", "#8B5CF6",
+    "#6B7280", "#A6761D"
+  )
+  species_count <- length(display_levels)
+  has_low_sample_species <- any(plot_data$species_total > 0 & plot_data$species_total < 10)
+
+  ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(
+      x = hour_midpoint,
+      y = count,
+      fill = legend_label
+    )
+  ) +
+    ggplot2::geom_col(width = 0.92, colour = "black", linewidth = 0.25, alpha = 0.82) +
+    ggplot2::facet_wrap(~ legend_label, scales = "free_y") +
+    ggplot2::coord_polar(start = 0) +
+    ggplot2::scale_x_continuous(breaks = 0:23 + 0.5, limits = c(0, 24), labels = paste0(0:23, ":00")) +
+    ggplot2::scale_y_continuous(limits = c(0, NA), expand = ggplot2::expansion(mult = c(0, 0.06))) +
+    ggplot2::scale_fill_manual(values = rep(activity_palette, length.out = species_count)) +
+    ggplot2::theme_minimal(base_size = 13) +
+    ggplot2::theme(
+      axis.text.y = ggplot2::element_blank(),
+      axis.ticks.y = ggplot2::element_blank(),
+      axis.title = ggplot2::element_blank(),
+      panel.grid.major.x = ggplot2::element_line(color = "grey80"),
+      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+      plot.caption = ggplot2::element_text(hjust = 0.5),
+      legend.position = "none",
+      strip.text = ggplot2::element_text(face = "bold", size = 14)
+    ) +
+    ggplot2::labs(
+      title = "Detections by Hour of Day",
+      caption = if (has_low_sample_species) {
+        "Species with fewer than 10 detections are shown for completeness, but their activity pattern is uncertain."
+      } else {
+        NULL
+      }
+    )
+}

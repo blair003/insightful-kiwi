@@ -2,7 +2,7 @@
 # At R console, run: install.packages("shiny") before running this code
 
 # This ensures install_if_missing is defined
-source("includes/global_functions.R")
+source("R/functions/global_functions.R")
 
 # These are needed before their first use or before config/environment.R is sourced.
 # Need shiny installed independently of this just to run this code
@@ -84,7 +84,7 @@ if (file.exists(cache_file)) {
     sprintf("global.R, cache miss for data package id %s, processing data...", 
             package_id)
   )
-  source("includes/camtrapdp_functions.R")
+  source("R/functions/camtrapdp_functions.R")
 
   core_data <- process_camtrapdp_package()
 
@@ -114,22 +114,22 @@ if (file.exists(cache_file)) {
 }
 
 # These modules are required for UI and server. Dependent on core_data$period_groups
-source("includes/period_group_functions.R")
+source("R/functions/period_group_functions.R")
 core_data$period_defaults <- get_default_complete_period_selection(
   core_data$deps,
   core_data$period_groups
 )
 
-source("modules/period_selection_module.R")
-source("modules/plotting_module.R")
-source("modules/mapping_module.R")
-source("modules/species_dashboard_module.R")
-source("includes/media_functions.R")
-source("includes/spatial_functions.R")
-source("includes/weather_functions.R")
-source("includes/visualisation_functions.R")
-source("includes/utility_functions.R")
-source("includes/ui_components.R")
+source("R/modules/period_selection_module.R")
+source("R/modules/plotting_module.R")
+source("R/modules/mapping_module.R")
+source("R/modules/species_dashboard_module.R")
+source("R/functions/media_functions.R")
+source("R/functions/spatial_functions.R")
+source("R/functions/weather_functions.R")
+source("R/functions/visualisation_functions.R")
+source("R/functions/utility_functions.R")
+source("R/ui/ui_components.R")
 
 # For future call
 plan(multisession)

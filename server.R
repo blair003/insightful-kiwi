@@ -16,136 +16,22 @@
 
 # We later convert the locality_code to Location e.g. KP to Kohi Point
 
-source("includes/metrics_functions.R")
-source("includes/dashboard_functions.R")
-source("modules/reporting_data_module.R")
-source("modules/reporting_visualisations_module.R")
-source("modules/reporting_rendering_module.R")
+source("R/functions/metrics_functions.R")
+source("R/functions/dashboard_functions.R")
+source("R/modules/reporting_data_module.R")
+source("R/modules/reporting_visualisations_module.R")
+source("R/modules/reporting_rendering_module.R")
 
-source("includes/data_preparation_functions.R")
-source("includes/data_presentation_functions.R")
-source("includes/media_functions.R")
-source("includes/spatial_functions.R")
-source("includes/visualisation_functions.R")
-source("includes/utility_functions.R")
-
-generate_multi_species_activity_plot <- function(sobs_data) {
-  if(nrow(sobs_data) == 0) return(plot(1, type="n", axes=F, xlab="", ylab="", main="No Data"))
-  sobs_data$scientificName <- as.character(sobs_data$scientificName)
-  sobs_data$hour <- as.numeric(format(sobs_data$timestamp, "%H"))
-
-  # We want a full grid of hour (0-23) and species
-  all_hours <- 0:23
-  species_list <- sort(unique(as.character(sobs_data$scientificName)))
-  if(length(species_list) == 0) return(plot(1, type="n", axes=F, xlab="", ylab="", main="No Data"))
-
-  # Count occurrences, assuming each row in sobs_data is an observation
-  # or if count is a column use it, but typically it is count column. Let's use count if it exists, otherwise n()
-  if ("count" %in% names(sobs_data)) {
-    hourly_counts <- sobs_data %>%
-      dplyr::group_by(scientificName, hour) %>%
-      dplyr::summarise(count = sum(count, na.rm = TRUE), .groups="drop")
-  } else {
-    hourly_counts <- sobs_data %>%
-      dplyr::group_by(scientificName, hour) %>%
-      dplyr::summarise(count = dplyr::n(), .groups="drop")
-  }
-
-  all_combinations <- expand.grid(hour = all_hours, scientificName = species_list, stringsAsFactors = FALSE)
-  plot_data <- dplyr::left_join(all_combinations, hourly_counts, by = c("hour", "scientificName")) %>%
-    dplyr::mutate(
-      count = dplyr::coalesce(.data$count, 0),
-      hour_midpoint = .data$hour + 0.5
-    )
-
-  # Use config$globals$species_name_type if we want nice names
-  name_type <- config$globals$species_name_type
-
-  if (name_type %in% names(sobs_data)) {
-    # Find one stable display name per species.
-    nice_names <- sobs_data %>%
-      dplyr::mutate(display_name = as.character(.data[[name_type]])) %>%
-      dplyr::arrange(is.na(.data$display_name) | .data$display_name == "") %>%
-      dplyr::group_by(.data$scientificName) %>%
-      dplyr::summarise(display_name = dplyr::first(.data$display_name), .groups = "drop")
-
-    plot_data <- plot_data %>% dplyr::left_join(nice_names, by = "scientificName")
-    plot_data$display_name[is.na(plot_data$display_name)] <- plot_data$scientificName[is.na(plot_data$display_name)]
-  } else {
-    plot_data$display_name <- plot_data$scientificName
-  }
-
-  # Capitalize first letter
-  plot_data$display_name <- stringr::str_to_title(plot_data$display_name)
-  plot_data <- plot_data %>%
-    dplyr::group_by(.data$scientificName) %>%
-    dplyr::mutate(
-      species_total = sum(.data$count, na.rm = TRUE)
-    ) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate(
-      legend_label = sprintf(
-        "%s (n=%s)",
-        .data$display_name,
-        format(.data$species_total, big.mark = ",", scientific = FALSE, trim = TRUE)
-      )
-    )
-
-  display_levels <- plot_data %>%
-    dplyr::distinct(.data$scientificName, .data$display_name, .data$legend_label) %>%
-    dplyr::arrange(.data$display_name) %>%
-    dplyr::pull(legend_label) %>%
-    unique()
-  plot_data$legend_label <- factor(plot_data$legend_label, levels = display_levels)
-
-  activity_palette <- c(
-    "#0072B2", "#D55E00", "#009E73", "#CC79A7",
-    "#E69F00", "#56B4E9", "#000000", "#8B5CF6",
-    "#6B7280", "#A6761D"
-  )
-  species_count <- length(display_levels)
-  has_low_sample_species <- any(plot_data$species_total > 0 & plot_data$species_total < 10)
-
-  library(ggplot2)
-  ggplot(
-    plot_data,
-    aes(
-      x = hour_midpoint,
-      y = count,
-      fill = legend_label
-    )
-  ) +
-    geom_col(width = 0.92, colour = "black", linewidth = 0.25, alpha = 0.82) +
-    facet_wrap(~ legend_label, scales = "free_y") +
-    coord_polar(start = 0) +
-    scale_x_continuous(breaks = 0:23 + 0.5, limits = c(0, 24), labels = paste0(0:23, ":00")) +
-    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.06))) +
-    scale_fill_manual(values = rep(activity_palette, length.out = species_count)) +
-    theme_minimal(base_size = 13) +
-    theme(
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      axis.title = element_blank(),
-      panel.grid.major.x = element_line(color = "grey80"),
-      plot.title = element_text(hjust = 0.5, face = "bold"),
-      plot.caption = element_text(hjust = 0.5),
-      legend.position = "none",
-      strip.text = element_text(face = "bold", size = 14)
-    ) +
-    labs(
-      title = "Detections by Hour of Day",
-      caption = if (has_low_sample_species) {
-        "Species with fewer than 10 detections are shown for completeness, but their activity pattern is uncertain."
-      } else {
-        NULL
-      }
-    )
-}
-
+source("R/functions/data_preparation_functions.R")
+source("R/functions/data_presentation_functions.R")
+source("R/functions/media_functions.R")
+source("R/functions/spatial_functions.R")
+source("R/functions/visualisation_functions.R")
+source("R/functions/utility_functions.R")
 
 server <- function(input, output, session) {
 
-  source("includes/server_observation_handlers.R", local = TRUE)
+  source("R/server/server_observation_handlers.R", local = TRUE)
 
 
   logger::log_debug("server.R, starting server() function")
