@@ -345,9 +345,12 @@ dashboard_module_server <- function(id, core_data, config) {
       }))
     }
 
-    output$main_dashboard_current_period_cards <- renderUI({ render_tab_cards(main_dashboard_current_period$period_name()) })
-    output$main_dashboard_prior_period_cards <- renderUI({ render_tab_cards(main_dashboard_prior_period$period_name()) })
-    output$main_dashboard_last_year_period_cards <- renderUI({ render_tab_cards(main_dashboard_last_year_period$period_name()) })
+    output$main_dashboard_current_period_cards <- renderUI({ render_tab_cards(main_dashboard_current_period$period_name()) }) %>%
+      bindCache(paste(dashboard_selected_localities(), collapse = "|"), dashboard_combine_localities(), main_dashboard_current_period$period_name(), config$globals$rai_norm_hours, config$globals$rai_net_count)
+    output$main_dashboard_prior_period_cards <- renderUI({ render_tab_cards(main_dashboard_prior_period$period_name()) }) %>%
+      bindCache(paste(dashboard_selected_localities(), collapse = "|"), dashboard_combine_localities(), main_dashboard_prior_period$period_name(), config$globals$rai_norm_hours, config$globals$rai_net_count)
+    output$main_dashboard_last_year_period_cards <- renderUI({ render_tab_cards(main_dashboard_last_year_period$period_name()) }) %>%
+      bindCache(paste(dashboard_selected_localities(), collapse = "|"), dashboard_combine_localities(), main_dashboard_last_year_period$period_name(), config$globals$rai_norm_hours, config$globals$rai_net_count)
 
     output$main_dashboard_current_period_favourite_images <- renderUI({
       render_tab_favourite_images(main_dashboard_current_period$period_name(), "main_dashboard_current_period_favourites_slider")

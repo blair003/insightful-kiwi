@@ -275,13 +275,14 @@ species_dashboard_module_server <- function(id,
         period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality_filter)
       }
 
-      metric <- generate_rai_group_network_metric(
+      metric <- generate_rai_group_network_metric_cached(
         period_obs,
         period_deps,
         rai_groups_for_species,
         vernacular_name,
         config$globals$rai_norm_hours,
-        config$globals$rai_net_count
+        config$globals$rai_net_count,
+        cache_context = paste("species_basis", species_name, period_name_label, paste(locality_filter, collapse = ","), sep = "|")
       )
 
       c(
@@ -526,13 +527,14 @@ species_dashboard_module_server <- function(id,
     })
 
     generate_rai_card <- function(species_obs, deps_data, period_name_label, title, subtitle, locality_token = locality_filter_token()) {
-      metric <- generate_rai_group_network_metric(
+      metric <- generate_rai_group_network_metric_cached(
         species_obs,
         deps_data,
         rai_groups_for_species,
         vernacular_name,
         rai_norm_hours,
-        config$globals$rai_net_count
+        config$globals$rai_net_count,
+        cache_context = paste("species_card", species_name, period_name_label, locality_token, sep = "|")
       )
       formatted_rai <- ifelse(is.na(metric$value), "N/A", metric$formatted_value)
 
@@ -771,7 +773,8 @@ species_dashboard_module_server <- function(id,
       overall_obs() %>% dplyr::filter(tolower(scientificName) == tolower(species_name))
     })
 
-    output$overall_metric_cards <- renderUI({ render_metric_cards(overall_sobs(), overall_deps(), "ALL") })
+    output$overall_metric_cards <- renderUI({ render_metric_cards(overall_sobs(), overall_deps(), "ALL") }) %>%
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, "ALL")
     output$overall_activity_plot <- renderPlot({ generate_activity_plot(overall_sobs()) })
     output$overall_cooccurrence_ui <- renderUI({ generate_cooccurrence(overall_sobs(), overall_obs()) })
 
@@ -860,7 +863,8 @@ species_dashboard_module_server <- function(id,
       filter_obs(overall_obs(), current_period_data$start_date(), current_period_data$end_date())
     })
 
-    output$current_metric_cards <- renderUI({ render_metric_cards(current_sobs(), current_deps(), current_period_data$period_name()) })
+    output$current_metric_cards <- renderUI({ render_metric_cards(current_sobs(), current_deps(), current_period_data$period_name()) }) %>%
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, current_period_data$period_name())
     output$current_activity_plot <- renderPlot({ generate_activity_plot(current_sobs()) })
     output$current_cooccurrence_ui <- renderUI({ generate_cooccurrence(current_sobs(), current_obs()) })
     output$current_period_name <- renderText({ current_period_data$period_name() })
@@ -879,7 +883,8 @@ species_dashboard_module_server <- function(id,
       filter_obs(overall_obs(), prior_period_data$start_date(), prior_period_data$end_date())
     })
 
-    output$prior_metric_cards <- renderUI({ render_metric_cards(prior_sobs(), prior_deps(), prior_period_data$period_name()) })
+    output$prior_metric_cards <- renderUI({ render_metric_cards(prior_sobs(), prior_deps(), prior_period_data$period_name()) }) %>%
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, prior_period_data$period_name())
     output$prior_activity_plot <- renderPlot({ generate_activity_plot(prior_sobs()) })
     output$prior_cooccurrence_ui <- renderUI({ generate_cooccurrence(prior_sobs(), prior_obs()) })
     output$prior_period_name <- renderText({ prior_period_data$period_name() })
@@ -896,7 +901,8 @@ species_dashboard_module_server <- function(id,
       filter_obs(overall_obs(), last_year_period_data$start_date(), last_year_period_data$end_date())
     })
 
-    output$last_year_metric_cards <- renderUI({ render_metric_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name()) })
+    output$last_year_metric_cards <- renderUI({ render_metric_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name()) }) %>%
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, last_year_period_data$period_name())
     output$last_year_activity_plot <- renderPlot({ generate_activity_plot(ly_sobs()) })
     output$last_year_cooccurrence_ui <- renderUI({ generate_cooccurrence(ly_sobs(), ly_obs()) })
     output$last_year_period_name <- renderText({ last_year_period_data$period_name() })

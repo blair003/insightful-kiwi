@@ -427,13 +427,14 @@ plotting_module_server <- function(id,
           period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality_filter)
         }
 
-        metric <- generate_rai_group_network_metric(
+        metric <- generate_rai_group_network_metric_cached(
           period_obs,
           period_deps,
           rai_groups,
           rai_group_name,
           rai_norm_hours,
-          use_net
+          use_net,
+          cache_context = paste("rai_plot", id, period_name, rai_group_name, paste(locality_filter, collapse = ","), sep = "|")
         )
 
         tibble::tibble(
@@ -471,7 +472,14 @@ plotting_module_server <- function(id,
       plot_data$period <- factor(plot_data$period, levels = rev(period_names))
       plot_data$rai_group <- factor(plot_data$rai_group, levels = rai_group)
       plot_data
-    })
+    }) %>%
+      bindCache(
+        paste(selected_rai_group(), collapse = "|"),
+        paste(selected_localities(), collapse = "|"),
+        combine_localities_selected(),
+        rai_norm_hours,
+        use_net
+      )
 
     output$rai_plot <- renderPlot({
       data <- rai_plotting_data()

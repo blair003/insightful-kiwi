@@ -556,6 +556,86 @@ generate_rai_group_summary <- function(obs, deployment_data, rai_groups, rai_nor
   )
 }
 
+.rai_metric_cache <- new.env(parent = emptyenv())
+.rai_metric_cache_order <- character()
+.rai_metric_cache_max_size <- 500L
+
+rai_metric_data_token <- function(obs, deps) {
+  obs_timestamp_range <- if (!is.null(obs) && nrow(obs) > 0 && "timestamp" %in% names(obs)) {
+    range(as.numeric(obs$timestamp), na.rm = TRUE)
+  } else {
+    c(NA_real_, NA_real_)
+  }
+  deps_start_range <- if (!is.null(deps) && nrow(deps) > 0 && "start" %in% names(deps)) {
+    range(as.numeric(as.Date(deps$start)), na.rm = TRUE)
+  } else {
+    c(NA_real_, NA_real_)
+  }
+  deps_end_range <- if (!is.null(deps) && nrow(deps) > 0 && "end" %in% names(deps)) {
+    range(as.numeric(as.Date(deps$end)), na.rm = TRUE)
+  } else {
+    c(NA_real_, NA_real_)
+  }
+  localities <- sort(unique(as.character(c(
+    if (!is.null(obs) && "locality" %in% names(obs)) obs$locality else character(),
+    if (!is.null(deps) && "locality" %in% names(deps)) deps$locality else character()
+  ))))
+
+  paste(
+    nrow(obs),
+    paste(obs_timestamp_range, collapse = ":"),
+    if (!is.null(obs) && "count" %in% names(obs)) sum(obs$count, na.rm = TRUE) else NA_real_,
+    nrow(deps),
+    paste(deps_start_range, collapse = ":"),
+    paste(deps_end_range, collapse = ":"),
+    if (!is.null(deps) && "camera_hours" %in% names(deps)) sum(deps$camera_hours, na.rm = TRUE) else NA_real_,
+    paste(localities, collapse = ","),
+    sep = "|"
+  )
+}
+
+rai_metric_cache_key <- function(obs,
+                                 deps,
+                                 rai_groups,
+                                 rai_group,
+                                 rai_norm_hours,
+                                 use_net,
+                                 context = NULL) {
+  package_token <- if (exists("package_id", envir = .GlobalEnv, inherits = FALSE)) {
+    get("package_id", envir = .GlobalEnv)
+  } else {
+    "unknown_package"
+  }
+  taxa_token <- if (!is.null(rai_groups) && !is.null(rai_groups[[rai_group]])) {
+    paste(sort(as.character(rai_groups[[rai_group]])), collapse = ",")
+  } else {
+    ""
+  }
+
+  paste(
+    "rai_metric",
+    package_token,
+    rai_group,
+    taxa_token,
+    rai_norm_hours,
+    isTRUE(use_net),
+    rai_metric_data_token(obs, deps),
+    sep = "||"
+  )
+}
+
+trim_rai_metric_cache <- function() {
+  if (length(.rai_metric_cache_order) <= .rai_metric_cache_max_size) {
+    return(invisible(NULL))
+  }
+
+  remove_count <- length(.rai_metric_cache_order) - .rai_metric_cache_max_size
+  remove_keys <- head(.rai_metric_cache_order, remove_count)
+  rm(list = remove_keys, envir = .rai_metric_cache)
+  .rai_metric_cache_order <<- setdiff(.rai_metric_cache_order, remove_keys)
+  invisible(NULL)
+}
+
 generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net = TRUE) {
   empty_metric <- list(
     value = NA_real_,
@@ -683,8 +763,43 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
   )
 }
 
+generate_rai_group_network_metric_cached <- function(obs,
+                                                     deps,
+                                                     rai_groups,
+                                                     rai_group,
+                                                     rai_norm_hours,
+                                                     use_net = TRUE,
+                                                     cache_context = NULL) {
+  cache_key <- rai_metric_cache_key(
+    obs = obs,
+    deps = deps,
+    rai_groups = rai_groups,
+    rai_group = rai_group,
+    rai_norm_hours = rai_norm_hours,
+    use_net = use_net,
+    context = cache_context
+  )
+
+  if (exists(cache_key, envir = .rai_metric_cache, inherits = FALSE)) {
+    return(get(cache_key, envir = .rai_metric_cache, inherits = FALSE))
+  }
+
+  metric <- generate_rai_group_network_metric(
+    obs = obs,
+    deps = deps,
+    rai_groups = rai_groups,
+    rai_group = rai_group,
+    rai_norm_hours = rai_norm_hours,
+    use_net = use_net
+  )
+  assign(cache_key, metric, envir = .rai_metric_cache)
+  .rai_metric_cache_order <<- c(setdiff(.rai_metric_cache_order, cache_key), cache_key)
+  trim_rai_metric_cache()
+  metric
+}
+
 generate_rai_group_network_value <- function(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net = TRUE) {
-  metric <- generate_rai_group_network_metric(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net)
+  metric <- generate_rai_group_network_metric_cached(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net)
   metric$value
 }
 
@@ -893,13 +1008,14 @@ generate_rai_group_period_comparison <- function(obs,
     period_obs <- filter_obs(obs, period$start_date, period$end_date)
     period_deps <- filter_deps(deps, period$start_date, period$end_date)
 
-    metric <- generate_rai_group_network_metric(
+    metric <- generate_rai_group_network_metric_cached(
       period_obs,
       period_deps,
       rai_groups,
       rai_group,
       rai_norm_hours,
-      use_net
+      use_net,
+      cache_context = paste("period_comparison", period_name, sep = "|")
     )
 
     c(
