@@ -521,9 +521,7 @@ plotting_module_server <- function(id,
           title = title,
           x = "Period",
           y = "RAI",
-          colour = "Species group",
-          caption = "Individual species graphs are available under 'Species Dashboards'. 
-                    This graph plots multiple species groups of your choosing."
+          colour = "Species"
         ) +
         scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.18))) +
         scale_colour_brewer(palette = "Dark2") +

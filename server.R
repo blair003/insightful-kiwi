@@ -89,7 +89,8 @@ server <- function(input, output, session) {
   }
 
   observeEvent(input$global_share_btn, {
-    session$sendCustomMessage(type = "collectShareViewState", message = list())
+    session$sendCustomMessage(type = "closeNavbarMenus", message = list())
+    session$sendCustomMessage(type = "collectShareViewState", message = list(delay = 250))
   })
 
   pdf_export_state <- reactiveVal(NULL)

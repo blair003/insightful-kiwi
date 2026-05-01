@@ -332,13 +332,17 @@
         };
 
         Shiny.addCustomMessageHandler('collectShareViewState', function(message) {
-          Shiny.setInputValue('share_view_state', {
-            base_url: window.location.protocol + "//" + window.location.host + window.location.pathname,
-            page_state: collectCurrentPageState(inputValue('nav')),
-            rawdata_observations_search: getDataTableSearch('rawdata_observations_browse'),
-            rawdata_deployments_search: getDataTableSearch('rawdata_deployments_browse'),
-            nonce: new Date().getTime()
-          }, { priority: 'event' });
+          var delay = message && message.delay ? Number(message.delay) : 0;
+
+          setTimeout(function() {
+            Shiny.setInputValue('share_view_state', {
+              base_url: window.location.protocol + "//" + window.location.host + window.location.pathname,
+              page_state: collectCurrentPageState(inputValue('nav')),
+              rawdata_observations_search: getDataTableSearch('rawdata_observations_browse'),
+              rawdata_deployments_search: getDataTableSearch('rawdata_deployments_browse'),
+              nonce: new Date().getTime()
+            }, { priority: 'event' });
+          }, delay);
         });
 
         Shiny.addCustomMessageHandler('collectPdfExportViewState', function(message) {
