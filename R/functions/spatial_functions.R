@@ -125,7 +125,7 @@ create_density_map <- function(obs, deps, species, show_zero = TRUE) {
 
   # Start with the base Leaflet map
   leaflet_map <- leaflet() %>%
-    addTiles() %>%
+    addTiles(options = tileOptions(crossOrigin = TRUE)) %>%
     #addProviderTiles(providers$Esri.WorldImagery) %>%
     addCircleMarkers(
       data = obs_summary_location %>% filter(count > 0),

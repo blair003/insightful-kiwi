@@ -106,7 +106,8 @@ mapping_module_server <- function(id,
                                   species_override = NULL, # Reactive: for comparative density map
                                   localities_override = NULL, # Reactive: for comparative density map
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
-                                  period_end_date = NULL    # Reactive: e.g. primary_period$end_date
+                                  period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
+                                  enable_map_outputs = TRUE
 ) {
   
   moduleServer(id, function(input, output, session) {
@@ -230,7 +231,7 @@ mapping_module_server <- function(id,
     # The content will be updated by type-specific observers.
     output$map_display <- renderLeaflet({
       logger::log_debug(sprintf("mapping_module_server [%s], %s renderLeaflet for unified map_display: %s", type, id, MAP_ID))
-      leaflet() %>% addTiles()
+      leaflet() %>% addTiles(options = tileOptions(crossOrigin = TRUE))
     })
     outputOptions(output, "map_display", suspendWhenHidden = FALSE)
     
@@ -323,6 +324,30 @@ mapping_module_server <- function(id,
           kableExtra::row_spec(total_row_index, bold = TRUE)
         HTML(kable_table)
       })
+
+      root_session <- session$rootScope()
+      if (is.null(root_session$userData$pdf_export_density_map_renderers)) {
+        root_session$userData$pdf_export_density_map_renderers <- list()
+      }
+
+      root_session$userData$pdf_export_density_map_renderers[[MAP_ID]] <- function(width = NULL, height = NULL, export_dir = NULL) {
+        data_for_map <- isolate(mapping_data_density())
+        export_map <- create_pdf_export_density_map(
+          active_locations = data_for_map$active_locations,
+          obs_summary_location = data_for_map$obs_summary_location,
+          show_zero = TRUE,
+          width = width,
+          height = height
+        )
+
+        render_pdf_export_leaflet_png(
+          map = export_map,
+          map_id = MAP_ID,
+          export_dir = export_dir,
+          width = width,
+          height = height
+        )
+      }
       
       # Observer for auto-recentering density map on tab switch
       # This assumes 'density_map_tabs' is an input in the parent UI controlling visibility
@@ -359,6 +384,14 @@ mapping_module_server <- function(id,
       
       # --- Observation Map Specific Logic ---
     } else if (type == "observation") {
+      if (!isTRUE(enable_map_outputs)) {
+        return(list(
+          selected_species = current_selected_species,
+          selected_localities = current_selected_localities,
+          recenter_map = recenter_map_generic
+        ))
+      }
+
       on.exit({ # Specific to observation type, as in original
         print(paste0("DEBUG: The fully namespaced ID for observation_map_tabs is: '", ns("observation_map_tabs"), "'"))
       })
@@ -366,7 +399,21 @@ mapping_module_server <- function(id,
       observation_map_warning_content <- reactiveVal(NULL) # Specific to observation map
       
       observation_map_processed_data <- reactive({
-        req(obs(), deps(), current_selected_species(), current_selected_localities(), period_start_date(), period_end_date())
+        req(obs(), deps(), current_selected_species(), current_selected_localities())
+
+        start_date <- if (is.function(period_start_date)) {
+          period_start_date()
+        } else {
+          suppressWarnings(min(as.Date(obs()$timestamp), na.rm = TRUE))
+        }
+
+        end_date <- if (is.function(period_end_date)) {
+          period_end_date()
+        } else {
+          suppressWarnings(max(as.Date(obs()$timestamp), na.rm = TRUE))
+        }
+
+        req(start_date, end_date)
         
         species_to_map <- tolower(unname(current_selected_species()))
         localities_to_map <- current_selected_localities()
@@ -509,10 +556,20 @@ mapping_module_server <- function(id,
       })
       
       output$observation_map_sidebar_summary_content <- renderUI({
-        req(observation_map_processed_data(), period_start_date(), period_end_date())
+        req(observation_map_processed_data())
         data_summary <- observation_map_processed_data()
         title <- "<strong>OBSERVATIONS SUMMARY</strong>"
-        start_d <- as.Date(period_start_date()); end_d <- as.Date(period_end_date())
+        start_d <- if (is.function(period_start_date)) {
+          as.Date(period_start_date())
+        } else {
+          suppressWarnings(min(as.Date(obs()$timestamp), na.rm = TRUE))
+        }
+        end_d <- if (is.function(period_end_date)) {
+          as.Date(period_end_date())
+        } else {
+          suppressWarnings(max(as.Date(obs()$timestamp), na.rm = TRUE))
+        }
+        req(start_d, end_d)
         formatted_start_date <- paste0("<strong>", format(start_d, "%d %b %Y (%a)"), "</strong>")
         formatted_end_date <- paste0("<strong>", format(end_d, "%d %b %Y (%a)"), "</strong>")
         date_table_df <- data.frame(Label = c("Start:", "End:"), Date = c(formatted_start_date, formatted_end_date))

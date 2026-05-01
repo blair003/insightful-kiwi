@@ -42,6 +42,7 @@ ui <- function(request) {
         tags$link(rel = "icon", href = "favicon.png", type = "image/png"),
         tags$script(src = "custom.js"),
         tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"),
+        tags$script(src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"),
         tags$link(rel = "stylesheet", type = "text/css", href = "https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css"),
         tags$link(rel = "stylesheet", type = "text/css", href = "https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.css"),
         tags$script(src = "https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"),
@@ -313,7 +314,9 @@ ui <- function(request) {
          # icon = icon("bullseye"),
           icon = icon("layer-group"),
           value = "density_map",
-        #  h3(textOutput("density_map_title"), style = "text-align: center;"),
+          h2("Density Map"),
+          uiOutput("density_map_species_heading"),
+          uiOutput("density_map_locality_heading"),
 
           navset_tab(
             id = "density_map_tabs",
@@ -337,6 +340,9 @@ ui <- function(request) {
           # icon = icon("layer-group"),
           icon = icon("map-location-dot"), # Example new icon
           value = "observation_map",
+          h2("Observation Map"),
+          uiOutput("observation_map_species_heading"),
+          uiOutput("observation_map_locality_heading"),
           # Call the module UI for the main layout
           mapping_module_ui(id = "observation_map", view = "observation_map_layout")
         ),

@@ -5,6 +5,7 @@
 .Renviron
 .Ruserdata
 *.Rproj
+insightful-kiwi.Rproj
 .DS_Store
 Dockerfile
 config/*

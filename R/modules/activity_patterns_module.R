@@ -33,6 +33,8 @@ activity_patterns_module_ui <- function(id,
         title = "Activity Patterns",
         icon = icon("clock"),
         value = "activity_patterns",
+        h2("Activity Patterns"),
+        uiOutput(ns("activity_patterns_locality_heading")),
         navset_tab(
           id = ns("activity_patterns_tabs"),
           selected = "overall",
@@ -64,7 +66,8 @@ activity_patterns_module_server <- function(id,
           id = "activity_patterns_map",
           type = "observation",
           obs = reactive({ core_data$obs }),
-          deps = reactive({ core_data$deps })
+          deps = reactive({ core_data$deps }),
+          enable_map_outputs = FALSE
         )
         activity_patterns_loaded(TRUE)
       }
@@ -77,6 +80,15 @@ activity_patterns_module_server <- function(id,
 
       core_data$obs %>%
         dplyr::filter(tolower(scientificName) %in% species, locality %in% localities)
+    })
+
+    output$activity_patterns_locality_heading <- renderUI({
+      req(activity_patterns_loaded(), activity_patterns_map$selected_localities())
+      localities <- activity_patterns_map$selected_localities()
+      div(
+        class = "dashboard-locality-heading",
+        paste("Locality selection:", paste(vapply(as.character(localities), locality_display_name, character(1)), collapse = ", "))
+      )
     })
 
     output$activity_patterns_overall <- renderPlot({

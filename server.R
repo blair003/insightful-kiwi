@@ -24,6 +24,7 @@ source("R/modules/reporting_rendering_module.R")
 
 source("R/functions/period_filter_functions.R")
 source("R/functions/report_generation_functions.R")
+source("R/functions/pdf_export_functions.R")
 source("R/functions/table_presentation_functions.R")
 source("R/functions/media_functions.R")
 source("R/functions/spatial_functions.R")
@@ -40,7 +41,10 @@ server <- function(input, output, session) {
 
   setBookmarkExclude(c(
     "global_share_btn",
+    "share_export_pdf_btn",
     "share_view_state",
+    "pdf_export_map_request",
+    "pdf_export_view_state",
     "observation_click",
     "observationID_click",
     "review_nav_click",
@@ -87,8 +91,98 @@ server <- function(input, output, session) {
     session$sendCustomMessage(type = "collectShareViewState", message = list())
   })
 
+  pdf_export_state <- reactiveVal(NULL)
+
+  observeEvent(input$pdf_export_map_request, {
+    request <- input$pdf_export_map_request
+    requested_maps <- if (is.list(request) && !is.null(request$maps)) request$maps else list()
+    renderers <- session$userData$pdf_export_density_map_renderers
+    export_dir <- file.path(config$env$dirs$cache, "exports", "leaflet")
+
+    rendered_maps <- lapply(requested_maps, function(map_request) {
+      map_id <- map_request$id
+
+      if (is.null(map_id) || !nzchar(map_id) || is.null(renderers[[map_id]])) {
+        return(NULL)
+      }
+
+      tryCatch({
+        rendered <- renderers[[map_id]](
+          width = map_request$width,
+          height = map_request$height,
+          export_dir = export_dir
+        )
+
+        list(
+          id = map_id,
+          src = rendered$src,
+          width = map_request$width,
+          height = map_request$height
+        )
+      }, error = function(error) {
+        logger::log_warn(sprintf("PDF export failed to render Leaflet map %s: %s", map_id, conditionMessage(error)))
+        NULL
+      })
+    })
+    rendered_maps <- Filter(Negate(is.null), rendered_maps)
+
+    session$sendCustomMessage(
+      type = "pdfExportMapImages",
+      message = list(
+        nonce = request$nonce,
+        maps = rendered_maps
+      )
+    )
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$pdf_export_view_state, {
+    pdf_state <- input$pdf_export_view_state
+    pdf_export_state(pdf_state)
+
+    if (!is.list(pdf_state) || is.null(pdf_state$screenshot_data_url) || !nzchar(pdf_state$screenshot_data_url)) {
+      showModal(modalDialog(
+        title = "PDF export failed",
+        tags$p("The browser could not capture the current page. Try again after the page has finished rendering."),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      return()
+    }
+
+    showModal(modalDialog(
+      title = "Export this view to PDF",
+      tags$p("The export uses the current page state and captures rendered plots and maps as an image before creating the PDF."),
+      tags$div(
+        class = "d-grid gap-2",
+        downloadButton("export_current_view_pdf", "Download PDF", class = "btn-primary")
+      ),
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  }, ignoreInit = TRUE)
+
+  output$export_current_view_pdf <- downloadHandler(
+    filename = function() {
+      state <- pdf_export_state()
+      nav <- if (is.list(state) && !is.null(state$nav)) state$nav else input$nav
+      tab <- if (is.list(state) && !is.null(state$tab)) state$tab else NULL
+      filename_parts <- c(nav, tab, format(Sys.time(), "%Y%m%d-%H%M%S"))
+      paste0(sanitize_pdf_export_filename(paste(filename_parts, collapse = "-")), ".pdf")
+    },
+    content = function(file) {
+      state <- pdf_export_state()
+
+      export_view_image_to_pdf(
+        screenshot_data_url = if (is.list(state)) state$screenshot_data_url else NULL,
+        pdf_file = file,
+        export_dir = file.path(config$env$dirs$cache, "exports")
+      )
+    }
+  )
+
   observeEvent(input$share_view_state, {
     share_state <- input$share_view_state
+
     url <- if (is.list(share_state) && !is.null(share_state$base_url) && nzchar(share_state$base_url)) {
       share_state$base_url
     } else {
@@ -152,9 +246,22 @@ server <- function(input, output, session) {
           icon("clipboard")
         )
       ),
+      tags$hr(),
+      tags$p("Export this page view:"),
+      tags$div(
+        class = "d-grid gap-2",
+        actionButton("share_export_pdf_btn", "Export PDF", icon = icon("file-pdf"), class = "btn-primary")
+      ),
       easyClose = TRUE,
       footer = modalButton("Close")
     ))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$share_export_pdf_btn, {
+    removeModal()
+    session$onFlushed(function() {
+      session$sendCustomMessage(type = "collectPdfExportViewState", message = list())
+    }, once = TRUE)
   }, ignoreInit = TRUE)
 
   primary_period <- period_selection_module_server(
@@ -290,7 +397,8 @@ server <- function(input, output, session) {
       "observation_id",
       "view_mode",
       "rai_detail",
-      "species_rai_detail"
+      "species_rai_detail",
+      "export_mode"
     )
 
     if (length(intersect(names(query), share_query_params)) == 0) {
@@ -743,6 +851,49 @@ server <- function(input, output, session) {
   
   output$comparative_season_name <- renderText({
     comparative_period$period_name()
+  })
+
+  selected_localities_heading <- function(localities) {
+    if (is.null(localities) || length(localities) == 0) {
+      localities <- unique(core_data$deps$locality)
+    }
+
+    paste("Locality selection:", paste(vapply(as.character(localities), locality_display_name, character(1)), collapse = ", "))
+  }
+
+  selected_species_heading <- function(species) {
+    species_choices <- unlist(unname(core_data$spp_classes), use.names = TRUE)
+
+    if (is.null(species) || length(species) == 0) {
+      species <- unname(species_choices)
+    }
+
+    species <- as.character(species)
+    species_labels <- names(species_choices)[match(tolower(species), tolower(unname(species_choices)))]
+    missing_labels <- is.na(species_labels) | !nzchar(species_labels)
+    species_labels[missing_labels] <- species[missing_labels]
+
+    paste("Species selection:", paste(species_labels, collapse = ", "))
+  }
+
+  output$density_map_species_heading <- renderUI({
+    species <- input[["density_map_primary-selected_species"]]
+    div(class = "dashboard-locality-heading", selected_species_heading(species))
+  })
+
+  output$density_map_locality_heading <- renderUI({
+    localities <- input[["density_map_primary-selected_localities"]]
+    div(class = "dashboard-locality-heading", selected_localities_heading(localities))
+  })
+
+  output$observation_map_species_heading <- renderUI({
+    species <- input[["observation_map-selected_species"]]
+    div(class = "dashboard-locality-heading", selected_species_heading(species))
+  })
+
+  output$observation_map_locality_heading <- renderUI({
+    localities <- input[["observation_map-selected_localities"]]
+    div(class = "dashboard-locality-heading", selected_localities_heading(localities))
   })
   
   observeEvent(list(input$nav, input$density_map_tabs), {

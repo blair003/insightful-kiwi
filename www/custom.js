@@ -231,11 +231,11 @@
           }
 
           var tabInputs = {
-            dashboard: 'main_dashboard_tabs',
+            dashboard: 'dashboard-main_dashboard_tabs',
             reporting: 'reporting_tabs',
             density_map: 'density_map_tabs',
             observation_map: 'observation_map-observation_map_tabs',
-            activity_patterns: 'activity_patterns_tabs',
+            activity_patterns: 'activity_patterns-activity_patterns_tabs',
             raw_data: 'raw_data_tabs'
           };
 
@@ -339,6 +339,415 @@
             rawdata_deployments_search: getDataTableSearch('rawdata_deployments_browse'),
             nonce: new Date().getTime()
           }, { priority: 'event' });
+        });
+
+        Shiny.addCustomMessageHandler('collectPdfExportViewState', function(message) {
+          var nav = inputValue('nav');
+
+          function sendPdfExportState(screenshotDataUrl, screenshotWidth, screenshotHeight) {
+            Shiny.setInputValue('pdf_export_view_state', {
+              base_url: window.location.protocol + "//" + window.location.host + window.location.pathname,
+              nav: nav,
+              tab: currentTabForNav(nav),
+              page_state: collectCurrentPageState(nav),
+              rawdata_observations_search: getDataTableSearch('rawdata_observations_browse'),
+              rawdata_deployments_search: getDataTableSearch('rawdata_deployments_browse'),
+              screenshot_data_url: screenshotDataUrl,
+              screenshot_width: screenshotWidth,
+              screenshot_height: screenshotHeight,
+              nonce: new Date().getTime()
+            }, { priority: 'event' });
+          }
+
+          if (!window.html2canvas) {
+            sendPdfExportState(null, null, null);
+            return;
+          }
+
+          $('.modal.show').modal('hide');
+          $('.modal-backdrop').remove();
+          document.body.classList.remove('modal-open');
+          document.body.style.removeProperty('padding-right');
+
+          function findExportElement() {
+            return document.body;
+          }
+
+          var exportElement = findExportElement();
+          var originalWindowScrollX = window.scrollX;
+          var originalWindowScrollY = window.scrollY;
+          var originalStyles = [];
+
+          function saveAndSetStyle(element, styles) {
+            var original = {};
+            Object.keys(styles).forEach(function(key) {
+              original[key] = element.style[key];
+              element.style[key] = styles[key];
+            });
+            originalStyles.push({ element: element, styles: original });
+          }
+
+          function addTemporaryElement(element) {
+            originalStyles.push({ element: element, remove: true });
+          }
+
+          function addExportCaptureStyle() {
+            var style = document.createElement('style');
+            style.setAttribute('data-pdf-export-style', 'true');
+            style.textContent = [
+              '.pdf-export-capture .recalculating,',
+              '.pdf-export-capture .shiny-bound-output,',
+              '.pdf-export-capture .shiny-plot-output,',
+              '.pdf-export-capture .html-widget {',
+              '  opacity: 1 !important;',
+              '  filter: none !important;',
+              '}',
+              '.pdf-export-capture .shiny-plot-output img {',
+              '  opacity: 1 !important;',
+              '  filter: none !important;',
+              '}'
+            ].join('\n');
+            document.head.appendChild(style);
+            addTemporaryElement(style);
+            document.body.classList.add('pdf-export-capture');
+          }
+
+          function waitForShinyOutputs() {
+            var deadline = Date.now() + 2500;
+
+            return new Promise(function(resolve) {
+              function check() {
+                var recalculating = document.querySelectorAll('.recalculating').length;
+
+                if (recalculating === 0 || Date.now() >= deadline) {
+                  window.setTimeout(resolve, 150);
+                  return;
+                }
+
+                window.setTimeout(check, 100);
+              }
+
+              check();
+            });
+          }
+
+          function visibleLeafletElements() {
+            return Array.prototype.slice.call(document.querySelectorAll('.leaflet')).filter(function(element) {
+              var rect = element.getBoundingClientRect();
+              return element.id && rect.width > 0 && rect.height > 0;
+            });
+          }
+
+          function ensurePdfExportMapImageHandler() {
+            window.pdfExportMapImageResolvers = window.pdfExportMapImageResolvers || {};
+
+            if (window.pdfExportMapImageHandlerRegistered) {
+              return;
+            }
+
+            Shiny.addCustomMessageHandler('pdfExportMapImages', function(message) {
+              var nonce = message && message.nonce;
+              var resolver = nonce && window.pdfExportMapImageResolvers[nonce];
+
+              if (!resolver) {
+                return;
+              }
+
+              delete window.pdfExportMapImageResolvers[nonce];
+              resolver((message && message.maps) || []);
+            });
+
+            window.pdfExportMapImageHandlerRegistered = true;
+          }
+
+          function requestServerLeafletImages(leafletElements) {
+            if (!window.Shiny || !leafletElements.length) {
+              return Promise.resolve([]);
+            }
+
+            ensurePdfExportMapImageHandler();
+
+            return new Promise(function(resolve) {
+              var nonce = String(new Date().getTime()) + '-' + String(Math.random()).slice(2);
+              var timeout = window.setTimeout(function() {
+                if (window.pdfExportMapImageResolvers && window.pdfExportMapImageResolvers[nonce]) {
+                  delete window.pdfExportMapImageResolvers[nonce];
+                }
+                resolve([]);
+              }, 45000);
+
+              window.pdfExportMapImageResolvers[nonce] = function(maps) {
+                window.clearTimeout(timeout);
+                resolve(maps || []);
+              };
+
+              Shiny.setInputValue('pdf_export_map_request', {
+                nonce: nonce,
+                maps: leafletElements.map(function(element) {
+                  var rect = element.getBoundingClientRect();
+                  return {
+                    id: element.id,
+                    width: Math.round(rect.width),
+                    height: Math.round(rect.height)
+                  };
+                })
+              }, { priority: 'event' });
+            });
+          }
+
+          function replaceLeafletWithStaticImage(element, src) {
+            var rect = element.getBoundingClientRect();
+
+            if (!src || rect.width <= 0 || rect.height <= 0) {
+              return false;
+            }
+
+            var image = document.createElement('img');
+            image.src = src + (src.indexOf('?') === -1 ? '?' : '&') + 'pdf_export_cache_bust=' + encodeURIComponent(String(new Date().getTime()));
+            image.alt = element.getAttribute('aria-label') || 'Map';
+            image.style.display = 'block';
+            image.style.width = rect.width + 'px';
+            image.style.height = rect.height + 'px';
+            image.style.maxWidth = rect.width + 'px';
+            image.style.maxHeight = rect.height + 'px';
+
+            element.parentNode.insertBefore(image, element);
+            addTemporaryElement(image);
+            saveAndSetStyle(element, { display: 'none' });
+            return true;
+          }
+
+          function prepareServerLeafletImages() {
+            var leafletElements = visibleLeafletElements();
+
+            return requestServerLeafletImages(leafletElements).then(function(maps) {
+              var replacedCount = 0;
+
+              maps.forEach(function(mapInfo) {
+                var element = mapInfo && mapInfo.id ? document.getElementById(mapInfo.id) : null;
+                if (element && replaceLeafletWithStaticImage(element, mapInfo.src)) {
+                  replacedCount += 1;
+                }
+              });
+
+              return replacedCount;
+            });
+          }
+
+          function loadLeafletImage() {
+            if (window.leafletImage) {
+              return Promise.resolve(true);
+            }
+
+            return new Promise(function(resolve) {
+              var existingScript = document.querySelector('script[data-pdf-export-leaflet-image]');
+
+              if (existingScript) {
+                existingScript.addEventListener('load', function() {
+                  resolve(!!window.leafletImage);
+                }, { once: true });
+                existingScript.addEventListener('error', function() {
+                  resolve(false);
+                }, { once: true });
+                return;
+              }
+
+              var script = document.createElement('script');
+              script.src = 'https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js';
+              script.async = true;
+              script.setAttribute('data-pdf-export-leaflet-image', 'true');
+              script.onload = function() {
+                resolve(!!window.leafletImage);
+              };
+              script.onerror = function() {
+                resolve(false);
+              };
+              document.head.appendChild(script);
+            });
+          }
+
+          function leafletMapForElement(element) {
+            if (!window.HTMLWidgets || !HTMLWidgets.find || !element.id) {
+              return null;
+            }
+
+            try {
+              var widget = HTMLWidgets.find('#' + element.id);
+              if (widget && widget.getMap) {
+                return widget.getMap();
+              }
+            } catch (error) {
+              console.warn('PDF export could not find Leaflet widget map:', error);
+            }
+
+            return null;
+          }
+
+          function replaceLeafletWithImage(element, map) {
+            return new Promise(function(resolve) {
+              var rect = element.getBoundingClientRect();
+
+              if (!window.leafletImage || !map || rect.width <= 0 || rect.height <= 0) {
+                resolve(false);
+                return;
+              }
+
+              try {
+                map.invalidateSize(false);
+              } catch (error) {
+                console.warn('PDF export could not refresh Leaflet size:', error);
+              }
+
+              window.leafletImage(map, function(error, canvas) {
+                if (error || !canvas) {
+                  console.warn('PDF export Leaflet image render failed:', error);
+                  resolve(false);
+                  return;
+                }
+
+                var image = document.createElement('img');
+                image.src = canvas.toDataURL('image/png');
+                image.alt = element.getAttribute('aria-label') || 'Map';
+                image.style.display = 'block';
+                image.style.width = rect.width + 'px';
+                image.style.height = rect.height + 'px';
+                image.style.maxWidth = rect.width + 'px';
+                image.style.maxHeight = rect.height + 'px';
+
+                element.parentNode.insertBefore(image, element);
+                addTemporaryElement(image);
+                saveAndSetStyle(element, { display: 'none' });
+                resolve(true);
+              });
+            });
+          }
+
+          function prepareLeafletImages() {
+            var leafletElements = visibleLeafletElements();
+
+            if (!leafletElements.length) {
+              return Promise.resolve();
+            }
+
+            return loadLeafletImage().then(function(loaded) {
+              if (!loaded) {
+                return;
+              }
+
+              return Promise.all(leafletElements.map(function(element) {
+                return replaceLeafletWithImage(element, leafletMapForElement(element));
+              }));
+            });
+          }
+
+          function waitForTemporaryImages() {
+            var temporaryImages = originalStyles
+              .filter(function(item) {
+                return item.remove && item.element && item.element.tagName === 'IMG';
+              })
+              .map(function(item) {
+                return item.element;
+              });
+
+            if (!temporaryImages.length) {
+              return Promise.resolve();
+            }
+
+            return Promise.all(temporaryImages.map(function(image) {
+              if (image.complete && image.naturalWidth > 0) {
+                return Promise.resolve();
+              }
+
+              return new Promise(function(resolve) {
+                var timeout = window.setTimeout(resolve, 5000);
+                image.onload = function() {
+                  window.clearTimeout(timeout);
+                  resolve();
+                };
+                image.onerror = function() {
+                  window.clearTimeout(timeout);
+                  resolve();
+                };
+              });
+            }));
+          }
+
+          [document.documentElement, document.body, exportElement].forEach(function(element) {
+            saveAndSetStyle(element, {
+              height: 'auto',
+              maxHeight: 'none',
+              overflow: 'visible'
+            });
+          });
+
+          addExportCaptureStyle();
+
+          Array.prototype.slice.call(document.querySelectorAll('.leaflet, .html-widget, .shiny-plot-output')).forEach(function(element) {
+            var rect = element.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              saveAndSetStyle(element, {
+                width: rect.width + 'px',
+                height: rect.height + 'px',
+                maxWidth: rect.width + 'px',
+                maxHeight: rect.height + 'px'
+              });
+            }
+          });
+
+          window.scrollTo(0, 0);
+
+          setTimeout(function() {
+            prepareServerLeafletImages().then(function(replacedCount) {
+              if (replacedCount > 0) {
+                return;
+              }
+
+              return prepareLeafletImages();
+            }).catch(function(error) {
+              console.warn('PDF export Leaflet preparation failed; falling back to direct page capture:', error);
+            }).then(function() {
+              return waitForTemporaryImages();
+            }).then(function() {
+              return waitForShinyOutputs();
+            }).then(function() {
+              var exportWidth = Math.max(exportElement.scrollWidth, document.documentElement.scrollWidth, document.body.scrollWidth, window.innerWidth);
+              var exportHeight = Math.max(exportElement.scrollHeight, document.documentElement.scrollHeight, document.body.scrollHeight, window.innerHeight);
+              var viewportHeight = window.innerHeight;
+
+              html2canvas(exportElement, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: exportWidth,
+                windowHeight: viewportHeight,
+                width: exportWidth,
+                height: exportHeight
+              }).then(function(canvas) {
+                sendPdfExportState(canvas.toDataURL('image/png'), canvas.width, canvas.height);
+            }).catch(function(error) {
+              console.error('PDF export capture failed:', error);
+              sendPdfExportState(null, null, null);
+            }).finally(function() {
+              originalStyles.reverse().forEach(function(item) {
+                if (item.remove) {
+                  if (item.element && item.element.parentNode) {
+                    item.element.parentNode.removeChild(item.element);
+                  }
+                  return;
+                }
+                Object.keys(item.styles).forEach(function(key) {
+                  item.element.style[key] = item.styles[key];
+                });
+              });
+              document.body.classList.remove('pdf-export-capture');
+              window.scrollTo(originalWindowScrollX, originalWindowScrollY);
+            });
+            });
+          }, 100);
+
         });
 
         Shiny.addCustomMessageHandler('restoreRawdataSearch', function(message) {
