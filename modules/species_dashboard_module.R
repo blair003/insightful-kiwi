@@ -60,6 +60,7 @@ species_dashboard_module_ui <- function(id) {
           ),
           full_screen = FALSE
         ),
+        uiOutput(ns("overall_favourite_images")),
         layout_column_wrap(
           width = 1/2,
           card(
@@ -232,6 +233,23 @@ species_dashboard_module_server <- function(id,
 
     output$overall_rai_plot_basis_link <- renderUI({
       rai_calculation_basis_link("ALL")
+    })
+
+    output$overall_favourite_images <- renderUI({
+      hero <- render_dashboard_favourites_hero(
+        context = "species",
+        species = species_name,
+        slider_id = ns("overall_favourites_slider")
+      )
+
+      if (is.null(hero)) {
+        return(NULL)
+      }
+
+      tagList(
+        div(class = "dashboard-section-heading", "FAVOURITE IMAGES"),
+        hero
+      )
     })
 
     period_metric_for_basis <- function(period_name_label, locality_filter) {

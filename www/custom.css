@@ -118,6 +118,117 @@
         position: relative;
       }
 
+      .dashboard-favourites-hero {
+        margin: 0.85rem 0 1rem;
+        overflow: hidden;
+        padding: 0.35rem 2.4rem 0.45rem;
+        position: relative;
+      }
+
+      .dashboard-favourites-slider {
+        min-height: 300px;
+      }
+
+      .dashboard-favourites-slider .slick-list {
+        overflow: visible;
+      }
+
+      .dashboard-favourites-slider .slick-track {
+        align-items: center;
+        display: flex;
+      }
+
+      .dashboard-favourites-slide {
+        padding: 0 0.5rem;
+      }
+
+      .dashboard-favourites-image-button {
+        background: transparent;
+        border: 0;
+        display: block;
+        padding: 0;
+        width: 100%;
+      }
+
+      .dashboard-favourites-image-button:focus-visible {
+        outline: 3px solid #0d6efd;
+        outline-offset: 4px;
+      }
+
+      .dashboard-favourites-slide img {
+        aspect-ratio: 16 / 9;
+        background: #f1f3f5;
+        border-radius: 6px;
+        box-shadow: 0 12px 30px rgba(33, 37, 41, 0.18);
+        display: block;
+        height: clamp(220px, 32vw, 420px);
+        object-fit: cover;
+        width: 100%;
+      }
+
+      .dashboard-favourites-slider .slick-slide {
+        opacity: 0.55;
+        transform: scale(0.82);
+        transition: opacity 220ms ease, transform 220ms ease;
+      }
+
+      .dashboard-favourites-slider .slick-center {
+        opacity: 1;
+        transform: scale(1);
+        z-index: 2;
+      }
+
+      .dashboard-favourites-slider .slick-arrow {
+        background: rgba(33, 37, 41, 0.78);
+        border: 0;
+        border-radius: 999px;
+        height: 2.25rem;
+        width: 2.25rem;
+        z-index: 3;
+      }
+
+      .dashboard-favourites-slider .slick-prev {
+        left: -2rem;
+      }
+
+      .dashboard-favourites-slider .slick-next {
+        right: -2rem;
+      }
+
+      .dashboard-favourites-slider .slick-arrow:before {
+        color: #fff;
+        font-size: 1rem;
+        opacity: 1;
+      }
+
+      @media (max-width: 560px) {
+        .dashboard-favourites-hero {
+          margin-top: 0.65rem;
+          padding-left: 1.9rem;
+          padding-right: 1.9rem;
+        }
+
+        .dashboard-favourites-slider {
+          min-height: 210px;
+        }
+
+        .dashboard-favourites-slide {
+          padding: 0 0.25rem;
+        }
+
+        .dashboard-favourites-slide img {
+          height: clamp(180px, 58vw, 230px);
+        }
+
+        .dashboard-favourites-slider .slick-prev {
+          left: -1.65rem;
+        }
+
+        .dashboard-favourites-slider .slick-next {
+          right: -1.65rem;
+        }
+      }
+
       .rai-plot-area-with-info .dashcard-info-link {
         position: absolute;
         right: 0.35rem;

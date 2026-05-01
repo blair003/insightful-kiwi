@@ -27,8 +27,7 @@ get_sequence_media_urls <- function(media) {
 
 
 # Check local cache for file and download an image from Agouti if we don't have it, reducing load
-# on their server over time. Also creates a resized versions of image on download, coping
-# extras to /favourites if it is tagged as favourite
+# on their server over time. Also creates resized versions on download.
 
 
 # For future call
@@ -36,12 +35,10 @@ get_sequence_media_urls <- function(media) {
 
 update_image_cache <- function(sequence_media_info) {
   local_cache_dir <- "www/cache/images"
-  favourites_dir <- file.path(local_cache_dir, "favourites")
   
   for (image_info in sequence_media_info) {
     local({
       image_info_local <- image_info
-      favourite_local <- image_info_local$favourite
       
       path_components <- unlist(strsplit(image_info_local$filePath, "/"))
       hash_dir_name <- path_components[length(path_components) - 1]
@@ -68,14 +65,6 @@ update_image_cache <- function(sequence_media_info) {
             if (!is.character(resized_file_path)) {
               stop("Resized file path is not a character vector.")
             }
-            
-            if (!is.null(favourite_local) && favourite_local == TRUE) {
-              dir.create(favourites_dir, recursive = TRUE, showWarnings = FALSE)
-              
-              favourite_file_path <- file.path(favourites_dir, basename(resized_file_path))
-              file.copy(resized_file_path, favourite_file_path, overwrite = TRUE)
-            }
-            
           }, error = function(e) {
             logger::log_error("Error in future block for %s: %s", local_file_path, e$message)
           })
@@ -84,6 +73,19 @@ update_image_cache <- function(sequence_media_info) {
         }
       } else {
         logger::log_info("Image exists: %s", local_file_path)
+        resized_file_path <- sub("\\.JPG$", "_resized.JPG", local_file_path, ignore.case = TRUE)
+        if (!file.exists(resized_file_path)) {
+          future({
+            tryCatch({
+              logger::log_info("Creating missing resized image for: %s", local_file_path)
+              create_resized_image(local_file_path, config$globals$image_resize_width_pixels)
+            }, error = function(e) {
+              logger::log_error("Error creating resized image for %s: %s", local_file_path, e$message)
+            })
+          }, seed = TRUE) %...>% {
+            logger::log_info("Resized image processing completed for: %s", local_file_path)
+          }
+        }
       }
     })
   }
@@ -232,12 +234,16 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
     hash_dir_name <- path_components[length(path_components) - 1]
     local_file_system_path <- file.path(local_cache_dir, hash_dir_name, image_info$fileName)
     resized_filename <- sub("\\.JPG$", "_resized.JPG", image_info$fileName, ignore.case = TRUE)
+    resized_file_system_path <- file.path(local_cache_dir, hash_dir_name, resized_filename)
+    local_web_dir <- paste0(gsub("^www/", "", local_cache_dir), "/", hash_dir_name, "/")
     
-    cache_hit <- file.exists(local_file_system_path)
+    cache_hit <- file.exists(resized_file_system_path)
     cache_hits[i] <<- cache_hit
     
     if (cache_hit) {
-      return(paste0(paste0(gsub("^www/", "", local_cache_dir), "/"), hash_dir_name, "/", resized_filename))
+      return(paste0(local_web_dir, resized_filename))
+    } else if (file.exists(local_file_system_path)) {
+      return(paste0(local_web_dir, image_info$fileName))
     } else {
       return(image_info$filePath)
     }
@@ -265,6 +271,13 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
                     // Check if all images are loaded
                     if(loadedImagesCount === totalImages) {
                         callback(loadedImages); // Call the callback function with loaded images
+                    }
+                };
+                img.onerror = function() {
+                    loadedImagesCount++;
+                    loadedImages[index] = '<div><img src=\"%s\" alt=\"Image loading\" class=\"carousel-image-placeholder\" style=\"%s\"></div>';
+                    if(loadedImagesCount === totalImages) {
+                        callback(loadedImages);
                     }
                 };
                 img.src = src;
@@ -301,6 +314,18 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
                 accessibility: true,
                 speed: 0
             });
+
+            carousel.find('img').on('load', function() {
+                if (carousel.hasClass('slick-initialized')) {
+                    carousel.slick('setPosition');
+                }
+            });
+
+            setTimeout(function() {
+                if (carousel.hasClass('slick-initialized')) {
+                    carousel.slick('setPosition');
+                }
+            }, 250);
 
             // Setup infinite navigation if in review mode
             if (%s && %s !== 'null') {
@@ -374,6 +399,8 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
       }
     });",
     image_sources_js_array,
+    image_css,
+    loading_placeholder,
     image_css,
     carousel_id,
     review_nav_json,

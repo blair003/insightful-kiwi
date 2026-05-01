@@ -133,23 +133,26 @@
                                                      initial_slide = initial_slide
                                                    ))
 
-      # Build navigation footer
-      nav_footer <- tagList(
-        if (current_index > 1) {
-          actionButton("review_prev", "Previous", icon = icon("arrow-left"),
-                       onclick = sprintf("Shiny.setInputValue('review_nav_click', %d, {priority: 'event'});", current_index - 1))
-        } else {
-          disabled(actionButton("review_prev_disabled", "Previous", icon = icon("arrow-left")))
-        },
-        tags$span(sprintf(" Sequence %d of %d ", current_index, total_sequences), style = "margin: 0 15px;"),
-        if (current_index < total_sequences) {
-          actionButton("review_next", "Next", icon = icon("arrow-right"),
-                       onclick = sprintf("Shiny.setInputValue('review_nav_click', %d, {priority: 'event'});", current_index + 1))
-        } else {
-          disabled(actionButton("review_next_disabled", "Next", icon = icon("arrow-right")))
-        },
+      nav_footer <- if (total_sequences > 1) {
+        tagList(
+          if (current_index > 1) {
+            actionButton("review_prev", "Previous", icon = icon("arrow-left"),
+                         onclick = sprintf("Shiny.setInputValue('review_nav_click', %d, {priority: 'event'});", current_index - 1))
+          } else {
+            disabled(actionButton("review_prev_disabled", "Previous", icon = icon("arrow-left")))
+          },
+          tags$span(sprintf(" Sequence %d of %d ", current_index, total_sequences), style = "margin: 0 15px;"),
+          if (current_index < total_sequences) {
+            actionButton("review_next", "Next", icon = icon("arrow-right"),
+                         onclick = sprintf("Shiny.setInputValue('review_nav_click', %d, {priority: 'event'});", current_index + 1))
+          } else {
+            disabled(actionButton("review_next_disabled", "Next", icon = icon("arrow-right")))
+          },
+          modalButton("Close")
+        )
+      } else {
         modalButton("Close")
-      )
+      }
 
       share_btn_html <- sprintf(
         "<button class='btn btn-sm btn-outline-secondary' style='margin-left: 10px;' onclick='copyObservationUrl(\"%s\", this)' title='Share this observation'><i class='fa fa-share-nodes'></i> Share</button>",
@@ -163,7 +166,7 @@
             class = "review-sequence-modal-title",
             tags$div(
               class = "review-sequence-heading-block",
-              tags$div(class = "review-sequences-title", "Review Sequence"),
+              tags$div(class = "review-sequences-title", sprintf("Review Sequence (%d of %d)", current_index, total_sequences)),
               tags$div(
                 class = "review-sequences-obs-id",
                 sprintf("Obs ID: %s", observation_id)

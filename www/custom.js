@@ -75,12 +75,29 @@
       // Set focus on the slick slider dots for modal to work
       $(document).on('shiny:connected', function(event) {
         Shiny.addCustomMessageHandler('refreshCarousel', function(message) {
-          // Introduce a delay before calling setPosition
-          setTimeout(function() {
-            $('#' + message.carouselId).slick('setPosition');
-            $('.slick-dots li:first-child button').focus().click();
-            console.log('setPosition on: ' + message.carouselId); 
-          }, 500); // Delay in milliseconds, adjust as needed
+          function carouselById(id) {
+            var escapedId = $.escapeSelector ? $.escapeSelector(id) : id.replace(/(:|\.|\[|\]|,|=|@)/g, "\\$1");
+            return $('#' + escapedId);
+          }
+
+          function refreshCarouselPosition(attemptsLeft) {
+            var carousel = carouselById(message.carouselId);
+
+            if (carousel.length && carousel.hasClass('slick-initialized')) {
+              carousel.slick('setPosition');
+              carousel.find('.slick-dots li:first-child button').focus().click();
+              console.log('setPosition on: ' + message.carouselId);
+              return;
+            }
+
+            if (attemptsLeft > 0) {
+              setTimeout(function() {
+                refreshCarouselPosition(attemptsLeft - 1);
+              }, 250);
+            }
+          }
+
+          refreshCarouselPosition(8);
         });
       });
 
@@ -472,6 +489,112 @@ function initImageSlider(sliderId) {
     });
   });
 }
+
+function dashboardHeroSliderById(sliderId) {
+  var escapedId = $.escapeSelector ? $.escapeSelector(sliderId) : sliderId.replace(/(:|\.|\[|\]|,|=|@)/g, "\\$1");
+  return $("#" + escapedId);
+}
+
+function initDashboardHeroSlider(sliderId) {
+  function initialize() {
+    var slider = dashboardHeroSliderById(sliderId);
+
+    if (!slider.length || !$.fn.slick) {
+      return;
+    }
+
+    if (slider.hasClass("slick-initialized")) {
+      slider.slick("unslick");
+    }
+
+    var slideCount = slider.children().length;
+    if (slideCount === 0) {
+      return;
+    }
+
+    slider.slick({
+      autoplay: slideCount > 1,
+      autoplaySpeed: 3600,
+      arrows: slideCount > 1,
+      centerMode: slideCount > 1,
+      centerPadding: "18vw",
+      dots: false,
+      infinite: slideCount > 1,
+      pauseOnFocus: true,
+      pauseOnHover: true,
+      slidesToScroll: 1,
+      slidesToShow: 1,
+      speed: 650,
+      responsive: [
+        {
+          breakpoint: 900,
+          settings: {
+            centerMode: slideCount > 1,
+            centerPadding: "12vw",
+            slidesToShow: 1
+          }
+        },
+        {
+          breakpoint: 560,
+          settings: {
+            arrows: slideCount > 1,
+            centerMode: slideCount > 1,
+            centerPadding: "34px",
+            slidesToShow: 1
+          }
+        }
+      ]
+    });
+
+    window.setTimeout(function() {
+      if (slider.hasClass("slick-initialized")) {
+        slider.slick("setPosition");
+      }
+    }, 250);
+  }
+
+  $(document).ready(function() {
+    window.setTimeout(initialize, 0);
+    $(document).off("shown.bs.tab.dashboardHero").on("shown.bs.tab.dashboardHero", function() {
+      var sliders = $(".dashboard-favourites-slider.slick-initialized");
+      if (sliders.length) {
+        window.setTimeout(function() {
+          sliders.slick("setPosition");
+        }, 100);
+      }
+    });
+  });
+}
+
+function pauseDashboardHeroSlider(sliderId) {
+  var slider = dashboardHeroSliderById(sliderId);
+  if (slider.length && slider.hasClass("slick-initialized")) {
+    slider.slick("slickPause");
+    slider.data("pausedByReviewModal", true);
+  }
+}
+
+function resumeDashboardHeroSlider(sliderId) {
+  var slider = dashboardHeroSliderById(sliderId);
+  if (slider.length && slider.hasClass("slick-initialized") && slider.data("pausedByReviewModal")) {
+    slider.slick("slickPlay");
+    slider.data("pausedByReviewModal", false);
+  }
+}
+
+function resumePausedDashboardHeroSliders() {
+  $(".dashboard-favourites-slider.slick-initialized").each(function() {
+    var slider = $(this);
+    if (slider.data("pausedByReviewModal")) {
+      slider.slick("slickPlay");
+      slider.data("pausedByReviewModal", false);
+    }
+  });
+}
+
+$(document).on("hidden.bs.modal", function() {
+  resumePausedDashboardHeroSliders();
+});
 
 function copyToClipboard(text, btn) {
   navigator.clipboard.writeText(text).then(function() {

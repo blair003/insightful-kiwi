@@ -373,6 +373,10 @@ server <- function(input, output, session) {
     }))
   })
 
+  output$dashboard_favourites_hero <- renderUI({
+    render_dashboard_favourites_hero()
+  })
+
   render_tab_cards <- function(period_name) {
     combine_localities <- dashboard_combine_localities()
     selected_localities <- dashboard_selected_localities()
@@ -387,6 +391,22 @@ server <- function(input, output, session) {
         render_dashboard_rai_cards(locality, period_name)
       )
     }))
+  }
+
+  render_tab_favourite_images <- function(period_name, slider_id) {
+    hero <- render_dashboard_favourites_hero(
+      period_name = period_name,
+      slider_id = slider_id
+    )
+
+    if (is.null(hero)) {
+      return(NULL)
+    }
+
+    tagList(
+      div(class = "dashboard-section-heading dashboard-current-period-heading", "FAVOURITE IMAGES"),
+      hero
+    )
   }
 
   render_tab_effort_cards <- function(period_name) {
@@ -433,6 +453,16 @@ server <- function(input, output, session) {
   output$main_dashboard_current_period_cards <- renderUI({ render_tab_cards(main_dashboard_current_period$period_name()) })
   output$main_dashboard_prior_period_cards <- renderUI({ render_tab_cards(main_dashboard_prior_period$period_name()) })
   output$main_dashboard_last_year_period_cards <- renderUI({ render_tab_cards(main_dashboard_last_year_period$period_name()) })
+
+  output$main_dashboard_current_period_favourite_images <- renderUI({
+    render_tab_favourite_images(main_dashboard_current_period$period_name(), "main_dashboard_current_period_favourites_slider")
+  })
+  output$main_dashboard_prior_period_favourite_images <- renderUI({
+    render_tab_favourite_images(main_dashboard_prior_period$period_name(), "main_dashboard_prior_period_favourites_slider")
+  })
+  output$main_dashboard_last_year_period_favourite_images <- renderUI({
+    render_tab_favourite_images(main_dashboard_last_year_period$period_name(), "main_dashboard_last_year_period_favourites_slider")
+  })
 
   output$main_dashboard_current_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_current_period$period_name()) })
   output$main_dashboard_prior_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_prior_period$period_name()) })

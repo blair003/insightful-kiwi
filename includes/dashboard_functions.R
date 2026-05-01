@@ -365,6 +365,95 @@ render_dashboard_rai_cards <- function(locality = NULL, period_name = NULL) {
   )
 }
 
+dashboard_favourite_image_records <- function(max_images = 30,
+                                             context = "period",
+                                             period_name = NULL,
+                                             species = NULL) {
+  manifest_path <- file.path("www", "cache", "images", "favourites", "_manifest.csv")
+
+  if (!file.exists(manifest_path)) {
+    return(data.frame())
+  }
+
+  manifest <- utils::read.csv(manifest_path, stringsAsFactors = FALSE)
+  if (!all(c("web_path", "context", "observationID") %in% names(manifest))) {
+    return(data.frame())
+  }
+
+  manifest <- manifest[manifest$context == context, , drop = FALSE]
+  manifest <- manifest[!is.na(manifest$observationID) & nzchar(manifest$observationID), , drop = FALSE]
+  if (!is.null(period_name) && "period" %in% names(manifest)) {
+    manifest <- manifest[manifest$period == period_name, , drop = FALSE]
+  }
+  if (!is.null(species) && "scientificName" %in% names(manifest)) {
+    manifest <- manifest[tolower(manifest$scientificName) == tolower(species), , drop = FALSE]
+  }
+
+  if (nrow(manifest) == 0) {
+    return(manifest)
+  }
+
+  file_paths <- file.path("www", manifest$web_path)
+  manifest$file_mtime <- as.POSIXct(file.info(file_paths)$mtime)
+  manifest <- manifest[order(manifest$file_mtime, decreasing = TRUE), , drop = FALSE]
+  manifest <- head(manifest, max_images)
+  manifest$src <- vapply(
+    strsplit(manifest$web_path, "/", fixed = TRUE),
+    function(path_parts) paste(utils::URLencode(path_parts, reserved = TRUE), collapse = "/"),
+    character(1)
+  )
+
+  manifest
+}
+
+render_dashboard_favourites_hero <- function(max_images = 30,
+                                             context = "period",
+                                             period_name = NULL,
+                                             species = NULL,
+                                             slider_id = "dashboard_favourites_hero_slider") {
+  image_records <- dashboard_favourite_image_records(
+    max_images = max_images,
+    context = context,
+    period_name = period_name,
+    species = species
+  )
+
+  if (nrow(image_records) == 0) {
+    return(NULL)
+  }
+
+  div(
+    class = "dashboard-favourites-hero",
+    div(
+      id = slider_id,
+      class = "dashboard-favourites-slider",
+      lapply(seq_len(nrow(image_records)), function(image_index) {
+        observation_id <- image_records$observationID[[image_index]]
+        click_payload <- jsonlite::toJSON(list(observation_ids = c(observation_id)), auto_unbox = TRUE)
+        div(
+          class = "dashboard-favourites-slide",
+          tags$button(
+            type = "button",
+            class = "dashboard-favourites-image-button",
+            title = "Review sequence",
+            onclick = sprintf(
+              "pauseDashboardHeroSlider('%s'); Shiny.setInputValue('review_sequences_click', %s, {priority: 'event'});",
+              slider_id,
+              click_payload
+            ),
+            tags$img(
+              src = image_records$src[[image_index]],
+              alt = sprintf("Favourite observation image %d", image_index),
+              loading = "lazy"
+            )
+          )
+        )
+      })
+    ),
+    tags$script(HTML(sprintf("initDashboardHeroSlider('%s');", slider_id)))
+  )
+}
+
 render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
   animal_metric <- dashboard_animal_detections_metric(locality = locality, period_name = period_name)
 
@@ -381,9 +470,10 @@ render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
   camera_hours_total <- sum(period_deps$camera_hours, na.rm = TRUE)
   deployments_count <- nrow(period_deps)
 
-  obs_main_figure <- sum(period_deps$animal_detections_count, na.rm = TRUE)
+  animal_observations_count <- sum(period_deps$animal_detections_count, na.rm = TRUE)
   blanks_count <- sum(period_deps$blank_detections_count, na.rm = TRUE)
   unclassified_unknown_count <- sum(period_deps$unknown_detections_count, na.rm = TRUE) + sum(period_deps$unclassified_detections_count, na.rm = TRUE)
+  obs_main_figure <- animal_observations_count + blanks_count + unclassified_unknown_count
   period_start_date <- if (nrow(period_deps) > 0) {
     min(as.Date(period_deps$start), na.rm = TRUE)
   } else {
@@ -422,7 +512,7 @@ render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
       full_screen = FALSE
     ),
     card(
-      card_header(render_dashboard_card_header("paw", "Observations")),
+      card_header(render_dashboard_card_header("clipboard-list", "Observations")),
       card_body(
         render_dashcard_metric_body(
           format(obs_main_figure, big.mark = ","),
@@ -433,7 +523,7 @@ render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
       full_screen = FALSE
     ),
     card(
-      card_header(render_dashboard_card_header("paw", "Animal Detections")),
+      card_header(render_dashboard_card_header("paw", "Animal Observations")),
       card_body(render_dashboard_comparison_body(animal_metric, use_state_background = FALSE)),
       full_screen = FALSE
     )

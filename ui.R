@@ -332,6 +332,8 @@ ui <- function(request) {
                 ),
                 full_screen = FALSE
               ),
+              div(class = "dashboard-section-heading", "LATEST IMAGES"),
+              uiOutput("dashboard_favourites_hero"),
               div(class = "dashboard-section-heading", "WHOLE PROJECT"),
               layout_column_wrap(
                 width = "180px",
@@ -366,6 +368,7 @@ ui <- function(request) {
               class = "dashboard-page",
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput("main_dashboard_current_period_cards"),
+              uiOutput("main_dashboard_current_period_favourite_images"),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "EFFORT"),
               uiOutput("main_dashboard_current_period_effort_cards"),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
@@ -380,6 +383,7 @@ ui <- function(request) {
               class = "dashboard-page",
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput("main_dashboard_prior_period_cards"),
+              uiOutput("main_dashboard_prior_period_favourite_images"),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "EFFORT"),
               uiOutput("main_dashboard_prior_period_effort_cards"),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
@@ -394,6 +398,7 @@ ui <- function(request) {
               class = "dashboard-page",
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput("main_dashboard_last_year_period_cards"),
+              uiOutput("main_dashboard_last_year_period_favourite_images"),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "EFFORT"),
               uiOutput("main_dashboard_last_year_period_effort_cards"),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
