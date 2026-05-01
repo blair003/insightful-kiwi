@@ -22,12 +22,14 @@ source("R/modules/reporting_data_module.R")
 source("R/modules/reporting_visualisations_module.R")
 source("R/modules/reporting_rendering_module.R")
 
-source("R/functions/data_preparation_functions.R")
-source("R/functions/data_presentation_functions.R")
+source("R/functions/period_filter_functions.R")
+source("R/functions/report_generation_functions.R")
+source("R/functions/table_presentation_functions.R")
 source("R/functions/media_functions.R")
 source("R/functions/spatial_functions.R")
 source("R/functions/visualisation_functions.R")
 source("R/functions/utility_functions.R")
+source("R/server/report_download_handler.R")
 
 server <- function(input, output, session) {
 
@@ -1006,70 +1008,14 @@ server <- function(input, output, session) {
 
   
   
-  ########### ACTIVITY PATTERNS FEATURE ###########
-  activity_patterns_map <- NULL
-  activity_patterns_loaded <- reactiveVal(FALSE)
-
-  observeEvent(input$nav, {
-    if (input$nav == "activity_patterns" && !activity_patterns_loaded()) {
-      logger::log_debug("server.R, lazily calling mapping_module_server() for activity_patterns_map")
-      activity_patterns_map <<- mapping_module_server(
-        id = "activity_patterns_map",
-        type = "observation", # Just to get selected species and localities
-        obs = reactive({core_data$obs}),
-        deps = reactive({core_data$deps})
-      )
-      activity_patterns_loaded(TRUE)
-    }
-  })
-
-  # Reactive to filter obs for activity pattern plots
-  activity_patterns_obs <- reactive({
-    req(activity_patterns_loaded(), activity_patterns_map$selected_species(), activity_patterns_map$selected_localities())
-    species <- tolower(activity_patterns_map$selected_species())
-    localities <- activity_patterns_map$selected_localities()
-
-    filtered_obs <- core_data$obs %>%
-      dplyr::filter(tolower(scientificName) %in% species, locality %in% localities)
-
-    return(filtered_obs)
-  })
-
-  # Overall Activity Pattern
-  output$activity_patterns_overall <- renderPlot({
-    req(activity_patterns_obs())
-    generate_multi_species_activity_plot(activity_patterns_obs())
-  })
-
-  # Current Period Activity Pattern
-  output$activity_patterns_current <- renderPlot({
-    req(activity_patterns_obs(), main_dashboard_current_period$start_date(), main_dashboard_current_period$end_date())
-    period_obs <- filter_obs(activity_patterns_obs(), main_dashboard_current_period$start_date(), main_dashboard_current_period$end_date())
-    generate_multi_species_activity_plot(period_obs)
-  })
-  output$activity_patterns_current_period_name <- renderText({
-    main_dashboard_current_period$period_name()
-  })
-
-  # Prior Period Activity Pattern
-  output$activity_patterns_prior <- renderPlot({
-    req(activity_patterns_obs(), main_dashboard_prior_period$start_date(), main_dashboard_prior_period$end_date())
-    period_obs <- filter_obs(activity_patterns_obs(), main_dashboard_prior_period$start_date(), main_dashboard_prior_period$end_date())
-    generate_multi_species_activity_plot(period_obs)
-  })
-  output$activity_patterns_prior_period_name <- renderText({
-    main_dashboard_prior_period$period_name()
-  })
-
-  # Last Year Period Activity Pattern
-  output$activity_patterns_last_year <- renderPlot({
-    req(activity_patterns_obs(), main_dashboard_last_year_period$start_date(), main_dashboard_last_year_period$end_date())
-    period_obs <- filter_obs(activity_patterns_obs(), main_dashboard_last_year_period$start_date(), main_dashboard_last_year_period$end_date())
-    generate_multi_species_activity_plot(period_obs)
-  })
-  output$activity_patterns_last_year_period_name <- renderText({
-    main_dashboard_last_year_period$period_name()
-  })
+  activity_patterns_module_server(
+    id = "activity_patterns",
+    core_data = core_data,
+    nav = reactive(input$nav),
+    current_period = main_dashboard_current_period,
+    prior_period = main_dashboard_prior_period,
+    last_year_period = main_dashboard_last_year_period
+  )
 
   ########### OBSERVATION MAP FEATURE ###########
   
@@ -1094,94 +1040,15 @@ server <- function(input, output, session) {
   })
   
 
-  ########### REPORT DOWNLOAD ###########
-  
-  #message(sprintf("Report download requested in %s format", input$report_format)),
-  # Create a downloadable report
-  # Creates an html file then converts that to PDF for better layout
-
-  output$download_report <- downloadHandler(
-    filename = function() {
-      generate_report_filename(primary_period$period_name(), core_data$created, input$report_format)
-    },
-    
-    content = function(file) {
-
-      reports_cache_dir <- "cache/reports"
-      density_maps_dir <- paste0(reports_cache_dir, "/density_maps")
-      plots_dir <- paste0(reports_cache_dir, "/plots")
-      
-      period_name <- primary_period$period_name()
-      package_created_date <- core_data$created
-      package_date_string <- format(as.POSIXct(package_created_date, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ"), format = "%Y%m%d%H%M", tz = "Pacific/Auckland")
-      
-      ensure_directories_exist(reports_cache_dir, density_maps_dir, plots_dir)
-      
-      report_html <- file.path(reports_cache_dir, gsub(" ", "_", paste0(period_name, "_deployment_report_", package_date_string, ".html")))
-      
-      if (!file.exists(report_html)) {
-        
-        start_date <- primary_period$start_date()
-        end_date <- primary_period$end_date()
-        reporting_data <- current_reporting$reporting_data()
-        #browser()
-        data_to_export <- collate_reporting_data(
-          start_date, 
-          end_date, 
-          period_name, 
-          reporting_data, 
-          filtered_deps_primary(),
-          config
-        )
-      #  browser()
-        # Maintain ordering per config$globals$spp_classes
-        named_class_species <- reporting_data$spp_summary$locality %>% 
-          dplyr::filter(species_class != config$globals$spp_class_unclassified) %>% 
-          mutate(scientificName = factor(scientificName, levels = unname(unlist(config$globals$spp_classes)), ordered = TRUE)) %>% 
-          arrange(scientificName) %>% 
-          distinct(scientificName, vernacularNames.eng, .keep_all = TRUE) %>% 
-          select(scientificName, vernacularNames.eng)
-        
-        data_to_export$data$density_maps <- generate_density_maps(
-          named_class_species,
-          period_name,
-          reports_cache_dir,
-          package_date_string,
-          filtered_obs_primary(),
-          filtered_deps_primary(),
-          config$globals$species_name_type
-        )
-        
-        
-        unique_localities <- filtered_deps_primary() %>% 
-          dplyr::distinct(locality) %>% 
-          dplyr::pull(locality)
-        
-        data_to_export$data$plots <- generate_locality_plots(
-          filtered_obs_primary(), 
-          unique_localities, 
-          period_name,
-          reports_cache_dir,
-          plots_dir, 
-          package_date_string
-        )
-       # browser()
-        render_report(period_name, 
-                      package_date_string, 
-                      reports_cache_dir, 
-                      data_to_export
-                      )
-      }
-      
-      if (input$report_format == "pdf") {
-      #  browser()
-        report_pdf <- file.path(reports_cache_dir, gsub(" ", "-", paste0(period_name, "_deployment_report_", package_date_string, ".pdf")))
-        convert_to_pdf(report_html, report_pdf)
-        file.copy(report_pdf, file, overwrite = TRUE)
-      } else {
-        file.copy(report_html, file, overwrite = TRUE)
-      }
-    }
+  register_report_download_handler(
+    input = input,
+    output = output,
+    primary_period = primary_period,
+    current_reporting = current_reporting,
+    filtered_deps_primary = filtered_deps_primary,
+    filtered_obs_primary = filtered_obs_primary,
+    core_data = core_data,
+    config = config
   )
   
   

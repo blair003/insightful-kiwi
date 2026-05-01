@@ -1,26 +1,4 @@
 
-
-
-
-filter_deps <- function(deps, start_date, end_date) {
-  deps %>%
-    dplyr::filter(
-      start <= as.Date(end_date),
-      end >= as.Date(start_date)
-    )
-}
-
-filter_obs <- function(obs, start_date, end_date) {
-  obs %>%
-    dplyr::filter(
-      timestamp >= as.Date(start_date), 
-      timestamp <= as.Date(end_date)
-    )
-}
-
-
-# Stuff to do with report generation
-
 generate_report_filename <- function(period_name, package_created_date, report_format) {
   package_date_posix <- as.POSIXct(package_created_date, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
   package_date_string <- format(package_date_posix, format = "%Y%m%d%H%M", tz = "Pacific/Auckland")
@@ -108,8 +86,10 @@ generate_density_maps <- function(named_class_species, period_name, reports_cach
     if (!file.exists(map_png_file_path)) {
       density_map <- create_density_map(obs, deps, species_scientificName, TRUE)
       
-      # Save the map as an HTML file using htmlwidgets::saveWidget
-      htmlwidgets::saveWidget(density_map, map_html_file_path, selfcontained = TRUE, libdir = "map_libs")
+      # Save as dependency-backed HTML so map screenshots do not require Pandoc.
+      suppressWarnings(
+        htmlwidgets::saveWidget(density_map, map_html_file_path, selfcontained = FALSE, libdir = "map_libs")
+      )
       
       # Check if HTML file was created successfully before attempting to webshot it
       if (file.exists(map_html_file_path)) {
@@ -127,6 +107,44 @@ generate_density_maps <- function(named_class_species, period_name, reports_cach
   }
   
   return(density_maps)
+}
+
+
+ensure_pandoc_available <- function() {
+  if (!requireNamespace("rmarkdown", quietly = TRUE)) {
+    stop("The rmarkdown package is required to render reports.", call. = FALSE)
+  }
+
+  if (rmarkdown::pandoc_available("1.12.3")) {
+    return(invisible(TRUE))
+  }
+
+  candidate_dirs <- c(
+    Sys.getenv("RSTUDIO_PANDOC", unset = NA_character_),
+    file.path(Sys.getenv("ProgramFiles"), "RStudio", "resources", "app", "bin", "quarto", "bin", "tools"),
+    file.path(Sys.getenv("ProgramFiles"), "RStudio", "resources", "app", "bin", "pandoc"),
+    file.path(Sys.getenv("ProgramFiles(x86)"), "RStudio", "resources", "app", "bin", "pandoc")
+  )
+  candidate_dirs <- unique(candidate_dirs[!is.na(candidate_dirs) & nzchar(candidate_dirs)])
+
+  for (candidate_dir in candidate_dirs) {
+    pandoc_exe <- file.path(candidate_dir, if (.Platform$OS.type == "windows") "pandoc.exe" else "pandoc")
+    if (file.exists(pandoc_exe)) {
+      Sys.setenv(RSTUDIO_PANDOC = candidate_dir)
+      if (rmarkdown::pandoc_available("1.12.3")) {
+        logger::log_info(sprintf("Using Pandoc from %s", candidate_dir))
+        return(invisible(TRUE))
+      }
+    }
+  }
+
+  stop(
+    paste(
+      "Pandoc 1.12.3 or higher is required to render reports, but it was not found.",
+      "Install Pandoc or set RSTUDIO_PANDOC to the folder containing pandoc.exe."
+    ),
+    call. = FALSE
+  )
 }
 
 
@@ -163,6 +181,8 @@ generate_locality_plots <- function(obs, unique_localities, period_name, reports
 
 render_report <- function(period_name, package_date_string, reports_cache_dir, data_to_export) {
   #browser()
+  ensure_pandoc_available()
+
   report_template <- "resources/templates/deployment_report.Rmd"
   report_css <- "resources/templates/custom_report.css"
   

@@ -154,25 +154,17 @@ ui <- function(request) {
         )
       ),
 
-      conditionalPanel(
-        condition = "input.nav === 'activity_patterns'",
-        mapping_module_ui(
-          id = "activity_patterns_map",
-          view = "select_species",
-          choices = core_data$spp_classes,
-          selected = c(
-            core_data$spp_classes[[1]][1],
-            core_data$spp_classes[[1]][2],
-            core_data$spp_classes[[1]][3]
-          ),
-          multiple = TRUE
+      activity_patterns_module_ui(
+        id = "activity_patterns",
+        view = "sidebar",
+        species_choices = core_data$spp_classes,
+        selected_species = c(
+          core_data$spp_classes[[1]][1],
+          core_data$spp_classes[[1]][2],
+          core_data$spp_classes[[1]][3]
         ),
-        mapping_module_ui(
-          id = "activity_patterns_map",
-          view = "select_localities",
-          choices = unique(core_data$deps$locality),
-          selected = unique(core_data$deps$locality)
-        )
+        locality_choices = unique(core_data$deps$locality),
+        selected_localities = unique(core_data$deps$locality)
       ),
       
 
@@ -523,19 +515,7 @@ ui <- function(request) {
         ),
 
         ######### ACTIVITY PATTERNS OUTPUT #########
-        nav_panel(
-          title = "Activity Patterns",
-          icon = icon("clock"),
-          value = "activity_patterns",
-          navset_tab(
-            id = "activity_patterns_tabs",
-            selected = "overall",
-            nav_panel("Overall", value = "overall", plotOutput("activity_patterns_overall", height = "560px")),
-            nav_panel(title = textOutput("activity_patterns_current_period_name", inline = TRUE), value = "current_period", plotOutput("activity_patterns_current", height = "560px")),
-            nav_panel(title = textOutput("activity_patterns_prior_period_name", inline = TRUE), value = "prior_period", plotOutput("activity_patterns_prior", height = "560px")),
-            nav_panel(title = textOutput("activity_patterns_last_year_period_name", inline = TRUE), value = "last_year_period", plotOutput("activity_patterns_last_year", height = "560px"))
-          )
-        )
+        activity_patterns_module_ui("activity_patterns", view = "main")
       ),
         
     
