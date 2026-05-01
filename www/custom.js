@@ -431,6 +431,32 @@
             });
           }
 
+          function hidePdfExcludedImageCarousels() {
+            if (!message || !message.exclude_image_carousel) {
+              return;
+            }
+
+            var carouselElements = Array.prototype.slice.call(document.querySelectorAll(
+              '.dashboard-favourites-hero, #slickSlider'
+            ));
+            var hiddenElements = [];
+
+            carouselElements.forEach(function(element) {
+              if (!element || hiddenElements.indexOf(element) !== -1) {
+                return;
+              }
+
+              var heading = element.previousElementSibling;
+              if (heading && heading.classList && heading.classList.contains('dashboard-section-heading')) {
+                saveAndSetStyle(heading, { display: 'none' });
+                hiddenElements.push(heading);
+              }
+
+              saveAndSetStyle(element, { display: 'none' });
+              hiddenElements.push(element);
+            });
+          }
+
           function visibleLeafletElements() {
             return Array.prototype.slice.call(document.querySelectorAll('.leaflet')).filter(function(element) {
               var rect = element.getBoundingClientRect();
@@ -681,6 +707,7 @@
           });
 
           addExportCaptureStyle();
+          hidePdfExcludedImageCarousels();
 
           Array.prototype.slice.call(document.querySelectorAll('.leaflet, .html-widget, .shiny-plot-output')).forEach(function(element) {
             var rect = element.getBoundingClientRect();
@@ -779,11 +806,35 @@
           });
         });
 
-        Shiny.addCustomMessageHandler('closeNavbarMenus', function(message) {
+        function closeOpenNavbarMenus() {
+          $('.navbar .dropdown-menu.show, .navbar .dropdown.show').removeClass('show');
+          $('.navbar [aria-expanded="true"]').attr('aria-expanded', 'false');
+
+          document.querySelectorAll('.navbar .navbar-collapse.show, .navbar .collapse.show').forEach(function(element) {
+            if (window.bootstrap && bootstrap.Collapse) {
+              bootstrap.Collapse.getOrCreateInstance(element, { toggle: false }).hide();
+            } else {
+              element.classList.remove('show');
+            }
+          });
+        }
+
+        $(document).on('click', '.navbar .nav-link:not(.dropdown-toggle), .navbar .dropdown-item', function() {
           setTimeout(function() {
-            $('.navbar .dropdown-menu.show, .navbar .dropdown.show').removeClass('show');
-            $('.navbar [aria-expanded="true"]').attr('aria-expanded', 'false');
-          }, 100);
+            if (window.innerWidth < 992) {
+              closeOpenNavbarMenus();
+            }
+          }, 150);
+        });
+
+        $(document).on('shiny:inputchanged', function(event) {
+          if (event.name === 'nav' && window.innerWidth < 992) {
+            setTimeout(closeOpenNavbarMenus, 150);
+          }
+        });
+
+        Shiny.addCustomMessageHandler('closeNavbarMenus', function(message) {
+          setTimeout(closeOpenNavbarMenus, 100);
         });
 
         Shiny.addCustomMessageHandler('cleanShareQueryParams', function(message) {

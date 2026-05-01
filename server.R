@@ -42,6 +42,7 @@ server <- function(input, output, session) {
   setBookmarkExclude(c(
     "global_share_btn",
     "share_export_pdf_btn",
+    "exclude_pdf_image_carousel",
     "share_view_state",
     "pdf_export_map_request",
     "pdf_export_view_state",
@@ -252,15 +253,24 @@ server <- function(input, output, session) {
         class = "d-grid gap-2",
         actionButton("share_export_pdf_btn", "Export PDF", icon = icon("file-pdf"), class = "btn-primary")
       ),
+      checkboxInput(
+        "exclude_pdf_image_carousel",
+        "Exclude image carousel from PDF",
+        value = FALSE
+      ),
       easyClose = TRUE,
       footer = modalButton("Close")
     ))
   }, ignoreInit = TRUE)
 
   observeEvent(input$share_export_pdf_btn, {
+    exclude_image_carousel <- isTRUE(input$exclude_pdf_image_carousel)
     removeModal()
     session$onFlushed(function() {
-      session$sendCustomMessage(type = "collectPdfExportViewState", message = list())
+      session$sendCustomMessage(
+        type = "collectPdfExportViewState",
+        message = list(exclude_image_carousel = exclude_image_carousel)
+      )
     }, once = TRUE)
   }, ignoreInit = TRUE)
 
