@@ -40,13 +40,16 @@ playback_map_module_ui <- function(id, view = "map", species_choices = NULL, spe
         ),
         sliderInput(
           inputId = ns("playback_speed"),
-          label = "Playback Speed (seconds between frames):",
+          label = "Playback speed",
           min = 0.5, max = 5, value = 1.5, step = 0.5
+        ),
+        div(style = "display: flex; justify-content: space-between; font-size: 0.8em; color: #888; margin-top: -15px; margin-bottom: 15px;",
+          span("Faster"), span("Slower")
         ),
         div(
           class = "d-grid gap-2",
           actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success"),
-          actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-secondary"),
+          actionButton(ns("pause_btn"), "Pause", icon = icon("pause")),
           actionButton(ns("reset_btn"), "Reset", icon = icon("rotate-left"), class = "btn-danger")
         ),
         hr(),
@@ -82,13 +85,20 @@ playback_map_module_server <- function(id, core_data, playback_period) {
     MAP_ID <- "map_display"
     current_bounds <- reactiveVal(NULL)
 
-    # Extract overall max date
-    overall_end <- as.POSIXct(max(core_data$obs$timestamp, na.rm = TRUE))
+    current_overall_end <- reactive({
+      req(playback_period$end_date())
+      if (isTRUE(input$limit_season)) {
+          as.POSIXct(playback_period$end_date())
+      } else {
+          as.POSIXct(max(core_data$obs$timestamp, na.rm = TRUE))
+      }
+    })
 
     # Render Slider based on step size
     output$slider_ui <- renderUI({
-      req(playback_period$start_date())
+      req(playback_period$start_date(), current_overall_end())
       start_date <- as.POSIXct(playback_period$start_date())
+      overall_end <- current_overall_end()
 
       step_val <- switch(input$step_size,
         "hour" = 3600,       # 1 hour in seconds
@@ -126,9 +136,28 @@ playback_map_module_server <- function(id, core_data, playback_period) {
       is_playing(FALSE)
     })
 
+    observeEvent(input$reset_btn, {
+      is_playing(FALSE)
+      req(playback_period$start_date(), current_overall_end())
+
+      start_date <- as.POSIXct(playback_period$start_date())
+      step_val <- switch(input$step_size, hour = 3600,
+          day = 86400, week = 604800, month = 2592000)
+
+      overall_end <- current_overall_end()
+      init_value <- if (!is.null(input$view_mode) && input$view_mode == "single") {
+          min(start_date + step_val, overall_end)
+      } else {
+          start_date
+      }
+
+      updateSliderInput(session, "time_slider", value = init_value)
+    })
+
     observe({
       if (is_playing()) {
-        invalidateLater(1500, session)
+        req(input$playback_speed)
+        invalidateLater(input$playback_speed * 1000, session)
 
         step_val <- switch(input$step_size,
           "hour" = 3600,
@@ -139,6 +168,7 @@ playback_map_module_server <- function(id, core_data, playback_period) {
 
         current_val <- as.POSIXct(input$time_slider)
         next_val <- current_val + step_val
+        overall_end <- current_overall_end()
 
         if (next_val <= overall_end) {
           updateSliderInput(session, "time_slider", value = next_val)
