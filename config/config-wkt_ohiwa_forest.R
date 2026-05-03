@@ -30,12 +30,17 @@ config$globals <- list(
   species_name_type = "vernacularNames.eng",
   #species_name_type = "scientificName",
   
-  # Actually don't touch this, even if your timezone is not UTC.
-  # If we need to support timezones later, we will need to do timeshifting from UTC?
-  timezone = "UTC", 
-  
-  # Put your real timezone here, for getSunlightTimes() to determine sunrise/sunset
+  # Legacy/internal timezone retained for older code paths.
+  timezone = "UTC",
+
+  # Real project timezone used for display, weather, daylight, and playback labels.
   actual_timezone = "Pacific/Auckland",
+
+  # Source camera timestamps may be tagged as UTC even though their clock time is
+  # already local. Reinterpret those timestamp columns as source_timestamp_timezone
+  # without converting the clock time.
+  source_timestamps_are_local = TRUE,
+  source_timestamp_timezone = "Pacific/Auckland",
   
   # To calculate seasons
   hemisphere = "south",

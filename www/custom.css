@@ -736,6 +736,33 @@
           max-width: 100%;
           min-width: 0;
           overflow-x: visible;
+          padding: 0;
+        }
+
+        .playback-timeline {
+          align-items: end;
+          box-sizing: border-box;
+          display: grid;
+          gap: 0.75rem;
+          grid-template-columns: auto minmax(0, 1fr);
+          max-width: 100%;
+          min-width: 0;
+        }
+
+        .playback-transport {
+          display: grid;
+          gap: 0.45rem;
+          grid-template-columns: repeat(2, minmax(4.75rem, 1fr));
+          margin-bottom: 1.65rem;
+        }
+
+        .playback-transport-btn {
+          white-space: nowrap;
+        }
+
+        .playback-slider {
+          box-sizing: border-box;
+          min-width: 0;
           padding: 0 3.25rem;
         }
 
@@ -783,25 +810,120 @@
           margin: -0.8rem 0 0;
         }
 
-        .playback-button-row {
-          display: grid;
-          gap: 0.5rem;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          margin-top: 0.35rem;
-        }
-
-        .playback-button-row .btn,
         .playback-reset-row .btn {
           width: 100%;
         }
 
         .playback-reset-row {
-          margin-top: 1rem;
+          margin: 0.75rem 0 1rem;
+        }
+
+        @media (max-width: 767.98px) {
+          .playback-timeline {
+            gap: 0.2rem;
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .playback-transport {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-bottom: 0;
+          }
+
+          .playback-slider {
+            padding: 0 2.75rem;
+          }
+
+          .playback-time-slider .irs-single {
+            max-width: 9rem;
+          }
         }
 
         .playback-summary-window {
           font-size: 0.9em;
           margin-bottom: 0.35rem;
+        }
+
+        .playback-window-readout {
+          color: #495057;
+          font-size: 0.82rem;
+          line-height: 1.25;
+          margin: -0.25rem 0 0.65rem;
+        }
+
+        .playback-window-readout span {
+          color: #6c757d;
+          white-space: nowrap;
+        }
+
+        .map-weather-control {
+          background: transparent;
+          border: 0;
+          box-shadow: none;
+        }
+
+        .map-weather-badge {
+          align-items: center;
+          backdrop-filter: blur(2px);
+          background: rgba(255, 255, 255, 0.88);
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          border-radius: 6px;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+          color: #212529;
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr);
+          max-width: 11rem;
+          min-width: 8rem;
+          padding: 0.35rem 0.45rem;
+          pointer-events: auto;
+        }
+
+        .map-weather-badge i {
+          color: #f0ad4e;
+          font-size: 1.35rem;
+          text-align: center;
+          width: 1.5rem;
+        }
+
+        .map-weather-icons {
+          align-items: center;
+          display: flex;
+          gap: 0.15rem;
+          grid-row: span 2;
+          margin-right: 0.45rem;
+        }
+
+        .map-weather-badge i.map-time-of-day-icon {
+          color: #495057;
+        }
+
+        .map-weather-badge .map-time-of-day-icon-group {
+          align-items: center;
+          display: inline-flex;
+          gap: 0.08rem;
+        }
+
+        .map-weather-badge .map-time-of-day-icon-group i {
+          font-size: 0.8rem;
+          width: auto;
+        }
+
+        .map-weather-badge span,
+        .map-weather-badge small {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .map-weather-badge span {
+          font-size: 0.78rem;
+          font-weight: 700;
+          line-height: 1.1;
+        }
+
+        .map-weather-badge small {
+          color: #6c757d;
+          font-size: 0.68rem;
+          line-height: 1.1;
         }
 
         /* If row is clickable e.g. copy UUID to clipboard, make it obvious */

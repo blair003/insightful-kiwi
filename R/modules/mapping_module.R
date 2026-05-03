@@ -1,5 +1,104 @@
 # R/modules/mapping_module.R
 
+playback_timeline_ui <- function(ns, min, max, value, step) {
+  timezone <- playback_actual_timezone()
+
+  div(
+    class = "playback-timeline",
+    div(
+      class = "playback-transport",
+      actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success playback-transport-btn"),
+      shinyjs::disabled(
+        actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning playback-transport-btn")
+      )
+    ),
+    div(
+      class = "playback-slider",
+      sliderInput(
+        inputId = ns("time_slider"),
+        label = "Time progression",
+        min = min,
+        max = max,
+        value = value,
+        step = step,
+        width = "100%",
+        ticks = FALSE,
+        timezone = timezone
+      )
+    )
+  )
+}
+
+playback_actual_timezone <- function() {
+  if (exists("weather_playback_timezone", mode = "function", inherits = TRUE)) {
+    return(weather_playback_timezone())
+  }
+
+  if (exists("config", inherits = TRUE) &&
+      !is.null(config$globals$actual_timezone) &&
+      nzchar(config$globals$actual_timezone)) {
+    return(config$globals$actual_timezone)
+  }
+
+  "Pacific/Auckland"
+}
+
+playback_as_posix <- function(value) {
+  as.POSIXct(value, tz = playback_actual_timezone())
+}
+
+playback_window_midpoint <- function(start_time, current_time) {
+  if (is.null(start_time) || is.null(current_time) || is.na(start_time) || is.na(current_time)) {
+    return(current_time)
+  }
+
+  as.POSIXct(
+    mean(c(as.numeric(start_time), as.numeric(current_time))),
+    origin = "1970-01-01",
+    tz = playback_actual_timezone()
+  )
+}
+
+playback_window_reference_time <- function(start_time, current_time, step_size, view_mode = "single") {
+  if (identical(view_mode, "single") && step_size %in% c("day_night", "diel")) {
+    return(playback_window_midpoint(start_time, current_time))
+  }
+
+  current_time
+}
+
+playback_time_info_for_window <- function(weather_df, start_time, current_time, step_size, view_mode = "single") {
+  reference_time <- playback_window_reference_time(start_time, current_time, step_size, view_mode)
+  time_of_day_info(weather_df, reference_time, step_size)
+}
+
+playback_format_time <- function(value) {
+  format(as.POSIXct(value, tz = playback_actual_timezone()), "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone())
+}
+
+playback_window_readout <- function(start_time, current_time, step_size, weather_df, view_mode = "single") {
+  if (is.null(start_time) || is.null(current_time) || is.na(start_time) || is.na(current_time)) {
+    return(NULL)
+  }
+
+  time_info <- playback_time_info_for_window(weather_df, start_time, current_time, step_size, view_mode)
+  period_text <- if (!identical(view_mode, "single")) {
+    "Cumulative playback"
+  } else if (!is.null(time_info) && !is.null(time_info$label)) {
+    paste0(weather_html_escape(time_info$label), " window")
+  } else {
+    "Current window"
+  }
+
+  sprintf(
+    "<div class='playback-window-readout'><strong>%s:</strong> %s to %s <span>%s</span></div>",
+    period_text,
+    weather_html_escape(playback_format_time(start_time)),
+    weather_html_escape(playback_format_time(current_time)),
+    weather_html_escape(playback_actual_timezone())
+  )
+}
+
 mapping_module_ui <- function(id,
                               view = "map",
                               choices,
@@ -65,20 +164,23 @@ mapping_module_ui <- function(id,
   } else if (view == "density_playback_controls") {
     return(
       tagList(
-        div(
-          class = "playback-button-row",
-          actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success"),
-          actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning")
-        ),
+        hr(),
+        div(class = "sidebar_heading", "PLAYBACK SETTINGS"),
         div(
           class = "playback-reset-row",
-          actionButton(ns("reset_btn"), "Reset", icon = icon("rotate-left"), class = "btn-outline-danger")
+          actionButton(ns("reset_btn"), "Start again", icon = icon("rotate-left"), class = "btn-outline-danger")
         ),
-        hr(),
         selectInput(
           inputId = ns("playback_step_size"),
           label = "Playback increments",
-          choices = c("Hourly" = "hour", "Daily" = "day", "Weekly" = "week", "Monthly" = "month"),
+          choices = c(
+            "Hourly" = "hour",
+            "Daily - Day/Night" = "day_night",
+            "Diel activity" = "diel",
+            "Daily" = "day",
+            "Weekly" = "week",
+            "Monthly" = "month"
+          ),
           selected = "day"
         ),
         radioButtons(
@@ -92,7 +194,7 @@ mapping_module_ui <- function(id,
           sliderInput(
             inputId = ns("playback_speed"),
             label = "Playback speed",
-            min = 0, max = 4, value = 0.5, step = 0.25
+            min = 0, max = 4, value = 1, step = 0.25
           ),
           div(
             class = "playback-speed-labels",
@@ -110,7 +212,11 @@ mapping_module_ui <- function(id,
   } else if (view == "density_playback_layout") {
     return(
       tagList(
-        div(class = "playback-time-slider", uiOutput(ns("playback_slider_ui"))),
+        div(
+          class = "playback-time-slider",
+          uiOutput(ns("playback_slider_ui")),
+          uiOutput(ns("playback_window_ui"))
+        ),
         navset_tab(
           id = ns("density_playback_tabs"),
           nav_panel(
@@ -130,7 +236,11 @@ mapping_module_ui <- function(id,
   } else if (view == "observation_map_layout") { # New view for the observation map page layout
     return(
       tagList(
-        div(class = "playback-time-slider", uiOutput(ns("playback_slider_ui"))),
+        div(
+          class = "playback-time-slider",
+          uiOutput(ns("playback_slider_ui")),
+          uiOutput(ns("playback_window_ui"))
+        ),
         navset_tab(
           id = ns("observation_map_tabs"),
           selected = ns("map_tab"),
@@ -317,20 +427,20 @@ mapping_module_server <- function(id,
       })
 
       floor_posix_hour <- function(value) {
-        value <- as.POSIXct(value, tz = config$globals$timezone)
+        value <- as.POSIXct(value, tz = playback_actual_timezone())
         as.POSIXct(
           floor(as.numeric(value) / 3600) * 3600,
           origin = "1970-01-01",
-          tz = config$globals$timezone
+          tz = playback_actual_timezone()
         )
       }
 
       ceiling_posix_hour <- function(value) {
-        value <- as.POSIXct(value, tz = config$globals$timezone)
+        value <- as.POSIXct(value, tz = playback_actual_timezone())
         as.POSIXct(
           ceiling(as.numeric(value) / 3600) * 3600,
           origin = "1970-01-01",
-          tz = config$globals$timezone
+          tz = playback_actual_timezone()
         )
       }
 
@@ -353,15 +463,15 @@ mapping_module_server <- function(id,
         obs_data <- obs()
 
         fallback_start <- if (is.function(period_start_date)) {
-          as.POSIXct(period_start_date(), tz = config$globals$timezone)
+          as.POSIXct(period_start_date(), tz = playback_actual_timezone())
         } else {
-          suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+          suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
 
         fallback_end <- if (is.function(period_end_date)) {
-          as.POSIXct(as.Date(period_end_date()) + 1, tz = config$globals$timezone) - 1
+          as.POSIXct(as.Date(period_end_date()) + 1, tz = playback_actual_timezone()) - 1
         } else {
-          suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+          suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
 
         req(fallback_start, fallback_end)
@@ -393,10 +503,25 @@ mapping_module_server <- function(id,
         playback_observation_bounds()$end
       })
 
+      playback_weather_data <- reactive({
+        req(playback_period_start(), playback_period_end(), current_selected_localities(), deps())
+        active_locations <- deps() %>%
+          dplyr::filter(locality %in% current_selected_localities()) %>%
+          dplyr::distinct(locationID, locality, .keep_all = TRUE)
+
+        fetch_weather_for_deployments(
+          active_locations,
+          as.Date(playback_period_start()),
+          as.Date(playback_period_end())
+        )
+      })
+
       playback_step_seconds <- reactive({
         step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
         switch(step_size,
           "hour" = 3600,
+          "day_night" = 3600,
+          "diel" = 3600,
           "day" = 86400,
           "week" = 604800,
           "month" = 2592000,
@@ -406,7 +531,14 @@ mapping_module_server <- function(id,
 
       playback_initial_value <- reactive({
         req(playback_period_start(), playback_period_end())
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
         if (identical(input$playback_view_mode, "single")) {
+          if (step_size %in% c("day_night", "diel")) {
+            return(min(
+              next_weather_boundary(playback_period_start(), playback_period_end(), playback_weather_data(), step_size),
+              playback_period_end()
+            ))
+          }
           min(playback_period_start() + playback_step_seconds(), playback_period_end())
         } else {
           playback_period_start()
@@ -420,16 +552,12 @@ mapping_module_server <- function(id,
 
       output$playback_slider_ui <- renderUI({
         req(playback_active(), playback_period_start(), playback_period_end())
-        sliderInput(
-          inputId = ns("time_slider"),
-          label = "Time progression",
+        playback_timeline_ui(
+          ns = ns,
           min = playback_period_start(),
           max = playback_period_end(),
           value = playback_initial_value(),
-          step = playback_step_seconds(),
-          width = "100%",
-          ticks = FALSE,
-          timezone = "Pacific/Auckland"
+          step = playback_step_seconds()
         )
       })
 
@@ -452,7 +580,7 @@ mapping_module_server <- function(id,
           return()
         }
 
-        playback_speed <- if (is.null(input$playback_speed)) 0.5 else input$playback_speed
+        playback_speed <- if (is.null(input$playback_speed)) 1 else input$playback_speed
         interval_ms <- max(50, as.numeric(playback_speed) * 1000)
         session$sendCustomMessage(
           "densityPlaybackTimer",
@@ -508,8 +636,13 @@ mapping_module_server <- function(id,
 
       observeEvent(input$playback_tick, {
         req(is_playing(), playback_active(), input$time_slider)
-        current_val <- as.POSIXct(input$time_slider)
-        next_val <- current_val + playback_step_seconds()
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        current_val <- playback_as_posix(input$time_slider)
+        next_val <- if (step_size %in% c("day_night", "diel")) {
+          next_weather_boundary(current_val, playback_period_end(), playback_weather_data(), step_size)
+        } else {
+          current_val + playback_step_seconds()
+        }
         if (next_val <= playback_period_end()) {
           updateSliderInput(session, "time_slider", value = next_val)
         } else {
@@ -562,9 +695,14 @@ mapping_module_server <- function(id,
         start_time_dens <- NULL
         current_time_dens <- NULL
         if (use_playback) {
-          current_time_dens <- as.POSIXct(input$time_slider)
+          step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+          current_time_dens <- playback_as_posix(input$time_slider)
           start_time_dens <- if (identical(input$playback_view_mode, "single")) {
-            current_time_dens - playback_step_seconds()
+            if (step_size %in% c("day_night", "diel")) {
+              previous_weather_boundary(current_time_dens, playback_period_start(), playback_weather_data(), step_size)
+            } else {
+              current_time_dens - playback_step_seconds()
+            }
           } else {
             playback_period_start()
           }
@@ -640,6 +778,18 @@ mapping_module_server <- function(id,
           absolute_max <- 0
         }
 
+        weather_control <- if (use_playback) {
+          step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+          view_mode_dens <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+          weather_time_dens <- playback_window_reference_time(start_time_dens, current_time_dens, step_size, view_mode_dens)
+          render_weather_map_control(
+            weather_row_for_time(playback_weather_data(), weather_time_dens),
+            time_info = playback_time_info_for_window(playback_weather_data(), start_time_dens, current_time_dens, step_size, view_mode_dens)
+          )
+        } else {
+          NULL
+        }
+
         list(
           active_locations = active_locations_dens,
           obs_summary_location = obs_summary_location_dens,
@@ -647,7 +797,8 @@ mapping_module_server <- function(id,
           start_time = start_time_dens,
           current_time = current_time_dens,
           absolute_max = absolute_max,
-          obs_filtered = obs_filtered_dens
+          obs_filtered = obs_filtered_dens,
+          weather_control = weather_control
         )
       })
       
@@ -664,7 +815,8 @@ mapping_module_server <- function(id,
           active_locations = data_for_map$active_locations,
           obs_summary_location = data_for_map$obs_summary_location,
           show_zero = TRUE,
-          absolute_max = data_for_map$absolute_max
+          absolute_max = data_for_map$absolute_max,
+          weather_control_html = data_for_map$weather_control
         )
         if (isTRUE(needs_fit_bounds())) {
           apply_map_fit_bounds()
@@ -681,8 +833,8 @@ mapping_module_server <- function(id,
           req(data_for_summary$start_time, data_for_summary$current_time)
           playback_window <- sprintf(
             "<div class=\"playback-summary-window\"><strong>Showing window:</strong> %s to %s</div>",
-            format(data_for_summary$start_time, "%Y-%m-%d %H:%M"),
-            format(data_for_summary$current_time, "%Y-%m-%d %H:%M")
+            playback_format_time(data_for_summary$start_time),
+            playback_format_time(data_for_summary$current_time)
           )
         }
         kable_table <- knitr::kable(data_summary, format = "html", escape = FALSE, col.names = c("Locality", "Count")) %>%
@@ -694,6 +846,23 @@ mapping_module_server <- function(id,
         HTML(paste0(playback_window, kable_table))
       })
       outputOptions(output, "obs_summary", suspendWhenHidden = FALSE)
+
+      output$playback_window_ui <- renderUI({
+        data_for_summary <- req(mapping_data_density())
+        if (!playback_active()) {
+          return(NULL)
+        }
+
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        HTML(playback_window_readout(
+          data_for_summary$start_time,
+          data_for_summary$current_time,
+          step_size,
+          playback_weather_data(),
+          if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+        ))
+      })
+      outputOptions(output, "playback_window_ui", suspendWhenHidden = FALSE)
 
       output$playback_data_table <- DT::renderDataTable({
         req(playback_active(), mapping_data_density())
@@ -802,20 +971,20 @@ mapping_module_server <- function(id,
       observation_map_warning_content <- reactiveVal(NULL) # Specific to observation map
 
       floor_posix_hour_obs <- function(value) {
-        value <- as.POSIXct(value, tz = config$globals$timezone)
+        value <- as.POSIXct(value, tz = playback_actual_timezone())
         as.POSIXct(
           floor(as.numeric(value) / 3600) * 3600,
           origin = "1970-01-01",
-          tz = config$globals$timezone
+          tz = playback_actual_timezone()
         )
       }
 
       ceiling_posix_hour_obs <- function(value) {
-        value <- as.POSIXct(value, tz = config$globals$timezone)
+        value <- as.POSIXct(value, tz = playback_actual_timezone())
         as.POSIXct(
           ceiling(as.numeric(value) / 3600) * 3600,
           origin = "1970-01-01",
-          tz = config$globals$timezone
+          tz = playback_actual_timezone()
         )
       }
 
@@ -842,15 +1011,15 @@ mapping_module_server <- function(id,
         obs_data <- obs()
 
         fallback_start <- if (is.function(period_start_date)) {
-          as.POSIXct(period_start_date(), tz = config$globals$timezone)
+          as.POSIXct(period_start_date(), tz = playback_actual_timezone())
         } else {
-          suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+          suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
 
         fallback_end <- if (is.function(period_end_date)) {
-          as.POSIXct(as.Date(period_end_date()) + 1, tz = config$globals$timezone) - 1
+          as.POSIXct(as.Date(period_end_date()) + 1, tz = playback_actual_timezone()) - 1
         } else {
-          suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+          suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
 
         req(fallback_start, fallback_end)
@@ -876,10 +1045,25 @@ mapping_module_server <- function(id,
         playback_observation_bounds_obs()$end
       })
 
+      playback_weather_data_obs <- reactive({
+        req(playback_period_start_obs(), playback_period_end_obs(), current_selected_localities(), deps())
+        active_locations <- deps() %>%
+          dplyr::filter(locality %in% current_selected_localities()) %>%
+          dplyr::distinct(locationID, .keep_all = TRUE)
+
+        fetch_weather_for_deployments(
+          active_locations,
+          as.Date(playback_period_start_obs()),
+          as.Date(playback_period_end_obs())
+        )
+      })
+
       playback_step_seconds_obs <- reactive({
         step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
         switch(step_size,
           "hour" = 3600,
+          "day_night" = 3600,
+          "diel" = 3600,
           "day" = 86400,
           "week" = 604800,
           "month" = 2592000,
@@ -889,7 +1073,14 @@ mapping_module_server <- function(id,
 
       playback_initial_value_obs <- reactive({
         req(playback_period_start_obs(), playback_period_end_obs())
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
         if (identical(input$playback_view_mode, "single")) {
+          if (step_size %in% c("day_night", "diel")) {
+            return(min(
+              next_weather_boundary(playback_period_start_obs(), playback_period_end_obs(), playback_weather_data_obs(), step_size),
+              playback_period_end_obs()
+            ))
+          }
           min(playback_period_start_obs() + playback_step_seconds_obs(), playback_period_end_obs())
         } else {
           playback_period_start_obs()
@@ -903,16 +1094,12 @@ mapping_module_server <- function(id,
 
       output$playback_slider_ui <- renderUI({
         req(playback_active_obs(), playback_period_start_obs(), playback_period_end_obs())
-        sliderInput(
-          inputId = ns("time_slider"),
-          label = "Time progression",
+        playback_timeline_ui(
+          ns = ns,
           min = playback_period_start_obs(),
           max = playback_period_end_obs(),
           value = playback_initial_value_obs(),
-          step = playback_step_seconds_obs(),
-          width = "100%",
-          ticks = FALSE,
-          timezone = "Pacific/Auckland"
+          step = playback_step_seconds_obs()
         )
       })
 
@@ -937,7 +1124,7 @@ mapping_module_server <- function(id,
           return()
         }
 
-        playback_speed <- if (is.null(input$playback_speed)) 0.5 else input$playback_speed
+        playback_speed <- if (is.null(input$playback_speed)) 1 else input$playback_speed
         interval_ms <- max(50, as.numeric(playback_speed) * 1000)
         session$sendCustomMessage(
           "densityPlaybackTimer",
@@ -984,8 +1171,13 @@ mapping_module_server <- function(id,
 
       observeEvent(input$playback_tick, {
         req(is_playing_obs(), playback_active_obs(), input$time_slider)
-        current_val <- as.POSIXct(input$time_slider)
-        next_val <- current_val + playback_step_seconds_obs()
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        current_val <- playback_as_posix(input$time_slider)
+        next_val <- if (step_size %in% c("day_night", "diel")) {
+          next_weather_boundary(current_val, playback_period_end_obs(), playback_weather_data_obs(), step_size)
+        } else {
+          current_val + playback_step_seconds_obs()
+        }
         if (next_val <= playback_period_end_obs()) {
           updateSliderInput(session, "time_slider", value = next_val)
         } else {
@@ -1049,9 +1241,14 @@ mapping_module_server <- function(id,
         start_time_obsmap <- NULL
         current_time_obsmap <- NULL
         if (playback_active_obs()) {
-          current_time_obsmap <- as.POSIXct(input$time_slider)
+          step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+          current_time_obsmap <- playback_as_posix(input$time_slider)
           start_time_obsmap <- if (identical(input$playback_view_mode, "single")) {
-            current_time_obsmap - playback_step_seconds_obs()
+            if (step_size %in% c("day_night", "diel")) {
+              previous_weather_boundary(current_time_obsmap, playback_period_start_obs(), playback_weather_data_obs(), step_size)
+            } else {
+              current_time_obsmap - playback_step_seconds_obs()
+            }
           } else {
             playback_period_start_obs()
           }
@@ -1089,6 +1286,18 @@ mapping_module_server <- function(id,
           dplyr::arrange(species_rank) %>%
           dplyr::select(Species, Count)
         
+        weather_control <- if (playback_active_obs()) {
+          step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+          view_mode_obsmap <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+          weather_time_obsmap <- playback_window_reference_time(start_time_obsmap, current_time_obsmap, step_size, view_mode_obsmap)
+          render_weather_map_control(
+            weather_row_for_time(playback_weather_data_obs(), weather_time_obsmap),
+            time_info = playback_time_info_for_window(playback_weather_data_obs(), start_time_obsmap, current_time_obsmap, step_size, view_mode_obsmap)
+          )
+        } else {
+          NULL
+        }
+
         list(
           observations_for_table = obs_filtered_obsmap,
           obs_summary_for_sidebar = obs_summary_for_sidebar,
@@ -1096,7 +1305,8 @@ mapping_module_server <- function(id,
           active_locations = active_locations_obsmap,
           no_obs_locations_count = nrow(no_obs_locations_obsmap),
           start_time = start_time_obsmap,
-          current_time = current_time_obsmap
+          current_time = current_time_obsmap,
+          weather_control = weather_control
         )
       })
       
@@ -1139,7 +1349,7 @@ mapping_module_server <- function(id,
         
         # update_map is a function specific to rendering observation data.
         # It now targets the unified MAP_ID.
-        update_map(all_markers_data, MAP_ID, active_locs) 
+        update_map(all_markers_data, MAP_ID, active_locs, weather_control_html = processed_data_val$weather_control) 
         
         if (isTRUE(needs_fit_bounds())) {
           recenter_map_generic()
@@ -1217,6 +1427,23 @@ mapping_module_server <- function(id,
         footer <- paste0("<div><small>Locations with no selected species: <strong>", data_summary$no_obs_locations_count, "</strong></small></div>")
         HTML(paste0(title, header, kable_summary_table, footer))
       })
+
+      output$playback_window_ui <- renderUI({
+        data_summary <- req(observation_map_processed_data())
+        if (!playback_active_obs()) {
+          return(NULL)
+        }
+
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        HTML(playback_window_readout(
+          data_summary$start_time,
+          data_summary$current_time,
+          step_size,
+          playback_weather_data_obs(),
+          if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+        ))
+      })
+      outputOptions(output, "playback_window_ui", suspendWhenHidden = FALSE)
       
       output$observation_map_textoverlay_warning <- renderUI({
         if (!is.null(observation_map_warning_content())) {
@@ -1238,7 +1465,8 @@ update_density_map <- function(map_id = NULL,
                                active_locations = NULL, 
                                obs_summary_location = NULL, 
                                show_zero = TRUE,
-                               absolute_max = NULL) {
+                               absolute_max = NULL,
+                               weather_control_html = NULL) {
   #browser()
   max_scale <- 1
   radius_range <- c(10, 50)
@@ -1248,6 +1476,14 @@ update_density_map <- function(map_id = NULL,
     clearMarkers() %>%
     clearShapes() %>%
     clearControls()
+
+  if (!is.null(weather_control_html)) {
+    proxy <- proxy %>% addControl(
+      html = weather_control_html,
+      position = "topright",
+      className = "map-weather-control"
+    )
+  }
   
   # Check if obs_summary_location has any rows
   if (nrow(obs_summary_location) > 0) {
@@ -1514,11 +1750,20 @@ get_confidence_text <- function(confidence) {
 
 
 
-update_map <- function(all_marker_data_with_warnings, map_id, active_locations) {
+update_map <- function(all_marker_data_with_warnings, map_id, active_locations, weather_control_html = NULL) {
   
   proxy <- leafletProxy(map_id) %>% 
     clearMarkers() %>% 
-    clearShapes() # Also clear shapes if update_map_area adds them
+    clearShapes() %>% # Also clear shapes if update_map_area adds them
+    clearControls()
+
+  if (!is.null(weather_control_html)) {
+    proxy <- proxy %>% addControl(
+      html = weather_control_html,
+      position = "topright",
+      className = "map-weather-control"
+    )
+  }
   
   all_marker_data <- all_marker_data_with_warnings$markers
   

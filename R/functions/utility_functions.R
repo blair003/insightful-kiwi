@@ -123,7 +123,7 @@ generate_season_selection_text <- function(start_date, end_date, season) {
 generate_package_date_text <- function(package_date) {
 
   package_date_posix <- as.POSIXct(package_date, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
-  formatted_date <- format(package_date_posix, format = "%Y-%m-%d %H:%M", tz = "Pacific/Auckland")
+  formatted_date <- format(package_date_posix, format = "%Y-%m-%d %H:%M", tz = config$globals$actual_timezone)
 
   html_string <- sprintf(
     "The data package on which all reporting is based was created on <strong>%s</strong>.", formatted_date

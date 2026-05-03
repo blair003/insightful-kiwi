@@ -706,6 +706,12 @@ prepare_spec_table_data <- function(data,
 format_fieldnames <- function(data) {
   
   date_columns <- list("start", "end", "timestamp")
+  display_timezone <- if (!is.null(config$globals$actual_timezone) &&
+                          nzchar(config$globals$actual_timezone)) {
+    config$globals$actual_timezone
+  } else {
+    config$globals$timezone
+  }
 
   columns_to_round <- get_columns_to_round()
   
@@ -714,8 +720,9 @@ format_fieldnames <- function(data) {
     if (col_name %in% names(data)) {
       # Convert the column to POSIXct with the specified format, they will be chr strings
       data[[col_name]] <- format(
-        as.POSIXct(data[[col_name]], tz = config$globals$timezone), 
-        format = "%Y-%m-%d %H:%M:%S"
+        as.POSIXct(data[[col_name]], tz = display_timezone),
+        format = "%Y-%m-%d %H:%M:%S",
+        tz = display_timezone
       )
     }
   }

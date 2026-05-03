@@ -168,12 +168,7 @@ ui <- function(request) {
         mapping_module_ui(
           id = "density_map_primary",
           view = "density_options"
-        ),
-
-        hr(),
-        
-        div(class = "sidebar_heading", "OBSERVATIONS SUMMARY"),
-        
+        )
       ), # conditionalPanel
       
       conditionalPanel(
@@ -183,16 +178,13 @@ ui <- function(request) {
           id = "primary_period", 
           view = "summary", 
           summary_output_id = "summary_output_density_map"
-        ),
-        
-        mapping_module_ui(id = "density_map_primary", view = "summary")
+        )
       ),
       
       conditionalPanel(
         condition = "input.nav === 'density_map' && input.density_map_tabs === 'comparative'",
         
-        period_selection_module_ui(id = "comparative_period", view = "summary"),
-        mapping_module_ui("density_map_comparative", view = "summary")
+        period_selection_module_ui(id = "comparative_period", view = "summary")
       ),
 
       conditionalPanel(

@@ -57,6 +57,8 @@ logger::log_info("All required packages loaded.")
 # create_directories_if_missing is defined in global_functions.R
 create_directories_if_missing(config$env$dirs)
 
+source("R/functions/camtrapdp_functions.R")
+
 # Load environment variables (dotenv is now available)
 dotenv::load_dot_env("config/.env")
 
@@ -77,6 +79,7 @@ if (file.exists(cache_file)) {
             package_id, config$env$dirs$cache)
   )
   core_data <- readRDS(cache_file)
+  core_data <- normalise_core_data_timezones(core_data)
   
 } else {
   # Cache miss, proceed with initial processing
@@ -84,8 +87,6 @@ if (file.exists(cache_file)) {
     sprintf("global.R, cache miss for data package id %s, processing data...", 
             package_id)
   )
-  source("R/functions/camtrapdp_functions.R")
-
   core_data <- process_camtrapdp_package()
 
   # Trim the dataset -- a hack for Ohiwa as we want to ignore intial deployments
@@ -106,6 +107,7 @@ if (file.exists(cache_file)) {
   
   core_data$obs <- enhanced_data$obs
   core_data$deps <- enhanced_data$deps
+  core_data <- normalise_core_data_timezones(core_data)
   
   core_data$spp_classes <- create_species_list(core_data$obs)
   
@@ -136,7 +138,7 @@ if (isTRUE(config$globals$import_trap_data)) {
     output_dir = config$env$dirs$trap_data_package,
     first_deployment_days = config$globals$trap_data_first_deployment_days,
     package_name = "wkt-trap-checks",
-    timezone = config$globals$timezone,
+    timezone = config$globals$actual_timezone,
     period_groups = core_data$period_groups
   )
 

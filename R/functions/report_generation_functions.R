@@ -1,7 +1,7 @@
 
 generate_report_filename <- function(period_name, package_created_date, report_format) {
   package_date_posix <- as.POSIXct(package_created_date, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
-  package_date_string <- format(package_date_posix, format = "%Y%m%d%H%M", tz = "Pacific/Auckland")
+  package_date_string <- format(package_date_posix, format = "%Y%m%d%H%M", tz = config$globals$actual_timezone)
   
   # Construct the initial file name with potential spaces
   initial_filename <- paste(period_name, "deployment_report", package_date_string, sep = "_")

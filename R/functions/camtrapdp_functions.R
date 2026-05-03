@@ -1,4 +1,99 @@
 
+# Defines how source camera timestamps are interpreted. Some exports label local
+# camera clock times as UTC, so these helpers can force the timezone without
+# converting the displayed clock time.
+source_timestamp_timezone <- function() {
+  if (exists("config", inherits = TRUE) &&
+      !is.null(config$globals$source_timestamp_timezone) &&
+      nzchar(config$globals$source_timestamp_timezone)) {
+    return(config$globals$source_timestamp_timezone)
+  }
+
+  if (exists("config", inherits = TRUE) &&
+      !is.null(config$globals$actual_timezone) &&
+      nzchar(config$globals$actual_timezone)) {
+    return(config$globals$actual_timezone)
+  }
+
+  "Pacific/Auckland"
+}
+
+should_force_source_timestamp_timezone <- function() {
+  exists("config", inherits = TRUE) &&
+    isTRUE(config$globals$source_timestamps_are_local)
+}
+
+parse_source_timestamp_as_local <- function(value, timezone = source_timestamp_timezone()) {
+  if (inherits(value, "POSIXt")) {
+    value_chr <- format(value, "%Y-%m-%d %H:%M:%S")
+    value_chr[is.na(value)] <- NA_character_
+    return(suppressWarnings(as.POSIXct(value_chr, tz = timezone)))
+  }
+
+  if (inherits(value, "Date")) {
+    return(as.POSIXct(value, tz = timezone))
+  }
+
+  value_chr <- as.character(value)
+  value_chr[!nzchar(value_chr)] <- NA_character_
+  value_chr <- sub("(Z|[+-][0-9]{2}:?[0-9]{2})$", "", value_chr)
+  value_chr <- sub("T", " ", value_chr, fixed = TRUE)
+
+  suppressWarnings(as.POSIXct(value_chr, tz = timezone))
+}
+
+force_timestamp_columns_timezone <- function(data, columns, timezone = source_timestamp_timezone()) {
+  if (!should_force_source_timestamp_timezone() || is.null(data)) {
+    return(data)
+  }
+
+  for (column in intersect(columns, names(data))) {
+    data[[column]] <- parse_source_timestamp_as_local(data[[column]], timezone)
+  }
+
+  data
+}
+
+normalise_camtrapdp_source_timezones <- function(package) {
+  if (!should_force_source_timestamp_timezone() || is.null(package$data)) {
+    return(package)
+  }
+
+  package$data$deployments <- force_timestamp_columns_timezone(
+    package$data$deployments,
+    c("deploymentStart", "deploymentEnd", "start", "end")
+  )
+  package$data$observations <- force_timestamp_columns_timezone(
+    package$data$observations,
+    c("eventStart", "eventEnd", "timestamp")
+  )
+  package$data$media <- force_timestamp_columns_timezone(
+    package$data$media,
+    "timestamp"
+  )
+
+  package
+}
+
+normalise_core_data_timezones <- function(core_data) {
+  if (!should_force_source_timestamp_timezone() || is.null(core_data)) {
+    return(core_data)
+  }
+
+  core_data$deps <- force_timestamp_columns_timezone(core_data$deps, c("start", "end"))
+  core_data$obs <- force_timestamp_columns_timezone(core_data$obs, "timestamp")
+  core_data$media <- force_timestamp_columns_timezone(core_data$media, "timestamp")
+
+  if (!is.null(core_data$period_groups)) {
+    core_data$period_groups <- lapply(core_data$period_groups, function(period_group) {
+      force_timestamp_columns_timezone(period_group, c("start_date", "end_date"))
+    })
+  }
+
+  core_data
+}
+
+
 # Define the function that processes the camtrapdp package
 process_camtrapdp_package <- function() {
  # browser()
@@ -13,6 +108,7 @@ process_camtrapdp_package <- function() {
       logger::log_error("Error reading the camtrapdp package with read_camtrapdp()")
       stop("Error reading the camtrapdp package with read_camtrapdp()")
     }
+    package <- normalise_camtrapdp_source_timezones(package)
     logger::log_info("Success in Step 1: read_camtrapdp()")
 
     core_data <- list()
@@ -455,6 +551,13 @@ get_season <- function(month, hemisphere) {
 
 create_seasons_available_list <- function(deps, hemisphere) {
 #  browser()
+  display_timezone <- if (!is.null(config$globals$actual_timezone) &&
+                          nzchar(config$globals$actual_timezone)) {
+    config$globals$actual_timezone
+  } else {
+    config$globals$timezone
+  }
+
   deps <- deps %>%
     mutate(
       # Extract the date part only for start and end dates
@@ -469,8 +572,8 @@ create_seasons_available_list <- function(deps, hemisphere) {
 
       # Create a unique identifier for each season within its year
       season_year = paste(season, year),
-      start_date = as.POSIXct(paste(start_date, "00:00"), tz = config$globals$timezone),
-      end_date = as.POSIXct(paste(end_date, "23:59:59"), tz = config$globals$timezone)
+      start_date = as.POSIXct(paste(start_date, "00:00"), tz = display_timezone),
+      end_date = as.POSIXct(paste(end_date, "23:59:59"), tz = display_timezone)
     ) %>%
     group_by(season_year, year) %>%
     summarise(

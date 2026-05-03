@@ -122,7 +122,7 @@ playback_map_module_server <- function(id, core_data, playback_period) {
         value = init_value,
         step = step_val,
         width = "100%",
-        timezone = "Pacific/Auckland" # assuming application timezone
+        timezone = config$globals$actual_timezone
       )
     })
 
