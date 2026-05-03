@@ -1,4 +1,4 @@
-playback_map_module_ui <- function(id, view = "map", choices = NULL, selected = NULL, map_height = config$globals$leaflet_height) {
+playback_map_module_ui <- function(id, view = "map", species_choices = NULL, species_selected = NULL, locality_choices = NULL, locality_selected = NULL, map_height = config$globals$leaflet_height) {
   ns <- NS(id)
 
   if (view == "sidebar") {
@@ -7,16 +7,16 @@ playback_map_module_ui <- function(id, view = "map", choices = NULL, selected = 
         selectizeInput(
           inputId = ns("selected_species"),
           label = tagList(icon("paw"), "Species selection:"),
-          choices = choices,
-          selected = selected,
+          choices = species_choices,
+          selected = species_selected,
           multiple = TRUE,
           options = list(placeholder = "Select species...", closeAfterSelect = TRUE)
         ),
         selectInput(
           inputId = ns("selected_localities"),
           label = tagList(icon("location-dot"), "Locality selection:"),
-          choices = choices, # will be overridden in call
-          selected = selected,
+          choices = locality_choices,
+          selected = locality_selected,
           multiple = TRUE,
           selectize = TRUE
         ),
@@ -33,6 +33,12 @@ playback_map_module_ui <- function(id, view = "map", choices = NULL, selected = 
           choices = c("Single Period" = "single", "Cumulative" = "cumulative"),
           selected = "cumulative"
         ),
+        div(
+          class = "d-grid gap-2",
+          actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success"),
+          actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning")
+        ),
+        hr(),
         uiOutput(ns("playback_summary"))
       )
     )
@@ -83,10 +89,41 @@ playback_map_module_server <- function(id, core_data, playback_period) {
         max = overall_end,
         value = init_value,
         step = step_val,
-        animate = animationOptions(interval = 1500, loop = FALSE),
         width = "100%",
         timezone = "Pacific/Auckland" # assuming application timezone
       )
+    })
+
+    is_playing <- reactiveVal(FALSE)
+
+    observeEvent(input$play_btn, {
+      is_playing(TRUE)
+    })
+
+    observeEvent(input$pause_btn, {
+      is_playing(FALSE)
+    })
+
+    observe({
+      if (is_playing()) {
+        invalidateLater(1500, session)
+
+        step_val <- switch(input$step_size,
+          "hour" = 3600,
+          "day" = 86400,
+          "week" = 604800,
+          "month" = 2592000
+        )
+
+        current_val <- as.POSIXct(input$time_slider)
+        next_val <- current_val + step_val
+
+        if (next_val <= overall_end) {
+          updateSliderInput(session, "time_slider", value = next_val)
+        } else {
+          is_playing(FALSE)
+        }
+      }
     })
 
     playback_data <- reactive({

@@ -22,7 +22,7 @@ def run_cuj(page):
 
     # Click play button
     try:
-        page.locator(".slider-animate-button").click()
+        page.get_by_role("button", name="Play").click()
         page.wait_for_timeout(5000)
     except:
         pass

@@ -143,12 +143,14 @@ ui <- function(request) {
         playback_map_module_ui(
           id = "playback_map",
           view = "sidebar",
-          choices = core_data$spp_classes,
-          selected = c(
+          species_choices = core_data$spp_classes,
+          species_selected = c(
             core_data$spp_classes[[1]][1],
             core_data$spp_classes[[1]][2],
             core_data$spp_classes[[1]][3]
-          )
+          ),
+          locality_choices = unique(core_data$deps$locality),
+          locality_selected = unique(core_data$deps$locality)
         )
       ),
 
