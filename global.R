@@ -120,6 +120,36 @@ core_data$period_defaults <- get_default_complete_period_selection(
   core_data$period_groups
 )
 
+trap_data <- NULL
+
+if (isTRUE(config$globals$import_trap_data)) {
+  logger::log_info("global.R, importing WKT trap data...")
+  source("R/functions/wkt_trap_conversion_functions.R")
+
+  trap_data_source_dir <- config$env$dirs$trap_data_source
+  trap_data_files <- config$env$trap_data_files
+
+  trap_data <- convert_wkt_trap_data_to_camtrapdp(
+    raw_trap_data_path = file.path(trap_data_source_dir, trap_data_files$raw_trap_data),
+    trap_locations_path = file.path(trap_data_source_dir, trap_data_files$trap_locations),
+    reference_tables_path = file.path(trap_data_source_dir, trap_data_files$reference_tables),
+    output_dir = config$env$dirs$trap_data_package,
+    first_deployment_days = config$globals$trap_data_first_deployment_days,
+    package_name = "wkt-trap-checks",
+    timezone = config$globals$timezone,
+    period_groups = core_data$period_groups
+  )
+
+  logger::log_info(
+    "global.R, imported WKT trap data: %s deployments, %s observations, %s animal observations",
+    trap_data$summary$deployments,
+    trap_data$summary$observations,
+    trap_data$summary$animal_observations
+  )
+} else {
+  logger::log_info("global.R, WKT trap data import disabled by config$globals$import_trap_data.")
+}
+
 source("R/modules/period_selection_module.R")
 source("R/modules/plotting_module.R")
 source("R/modules/mapping_module.R")

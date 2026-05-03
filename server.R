@@ -385,6 +385,111 @@ server <- function(input, output, session) {
                      table_type = "paged",
                      table_order = list(list(4, 'asc'))) 
 
+  trap_table_options <- function(order = list(list(0, "desc"))) {
+    list(
+      pageLength = 25,
+      scrollX = TRUE,
+      order = order,
+      dom = "tip"
+    )
+  }
+
+  output$trapdata_observations_browse <- DT::renderDataTable({
+    req(!is.null(trap_data))
+
+    trap_locations <- trap_data$deps %>%
+      dplyr::select(
+        deploymentID,
+        trap_code = locationName,
+        trap_line = deploymentGroups,
+        latitude,
+        longitude
+      )
+
+    trap_obs <- trap_data$obs %>%
+      dplyr::left_join(trap_locations, by = "deploymentID") %>%
+      dplyr::select(
+        check_date,
+        closest_period,
+        closest_period_boundary,
+        closest_period_boundary_date,
+        days_from_closest_period_boundary,
+        trap_code,
+        trap_line,
+        observationType,
+        scientificName,
+        count,
+        behavior,
+        sex,
+        lifeStage,
+        classifiedBy,
+        observationTags,
+        observationComments,
+        latitude,
+        longitude,
+        observationID,
+        deploymentID
+      )
+
+    DT::datatable(
+      trap_obs,
+      rownames = FALSE,
+      filter = "top",
+      options = trap_table_options()
+    )
+  })
+
+  output$trapdata_deployments_browse <- DT::renderDataTable({
+    req(!is.null(trap_data))
+
+    trap_deps <- trap_data$deps %>%
+      dplyr::mutate(
+        interval_days = as.integer(as.Date(deploymentEnd) - as.Date(deploymentStart))
+      ) %>%
+      dplyr::select(
+        check_date,
+        closest_period,
+        closest_period_boundary,
+        closest_period_boundary_date,
+        days_from_closest_period_boundary,
+        trap_code = locationName,
+        trap_line = deploymentGroups,
+        deploymentStart,
+        deploymentEnd,
+        interval_days,
+        latitude,
+        longitude,
+        deploymentTags,
+        deploymentID
+      )
+
+    DT::datatable(
+      trap_deps,
+      rownames = FALSE,
+      filter = "top",
+      options = trap_table_options()
+    )
+  })
+
+  output$trapdata_conversion_summary <- DT::renderDataTable({
+    req(!is.null(trap_data))
+
+    summary_values <- trap_data$summary
+    trap_summary <- data.frame(
+      metric = names(summary_values),
+      value = vapply(summary_values, function(value) {
+        paste(value, collapse = ", ")
+      }, character(1)),
+      stringsAsFactors = FALSE
+    )
+
+    DT::datatable(
+      trap_summary,
+      rownames = FALSE,
+      options = trap_table_options(order = list(list(0, "asc")))
+    )
+  })
+
   restore_rawdata_search <- function(query) {
     session$onFlushed(function() {
       session$sendCustomMessage(

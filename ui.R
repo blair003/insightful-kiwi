@@ -383,7 +383,31 @@ ui <- function(request) {
             "Deployments",
             DT::dataTableOutput("rawdata_deployments_browse"),
             value = "deps"
-          )
+          ),
+          if (!is.null(trap_data)) {
+            nav_panel(
+              "Trap Data",
+              value = "trap_data",
+              navset_tab(
+                id = "trap_data_tabs",
+                nav_panel(
+                  "Trap observations",
+                  DT::dataTableOutput("trapdata_observations_browse"),
+                  value = "trap_obs"
+                ),
+                nav_panel(
+                  "Trap deployments",
+                  DT::dataTableOutput("trapdata_deployments_browse"),
+                  value = "trap_deps"
+                ),
+                nav_panel(
+                  "Conversion summary",
+                  DT::dataTableOutput("trapdata_conversion_summary"),
+                  value = "trap_summary"
+                )
+              )
+            )
+          }
         )
       ),
     

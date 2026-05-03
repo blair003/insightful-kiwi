@@ -22,6 +22,10 @@ config$meta <- list(
 config$globals <- list(
   # Set logger threshold as required: DEBUG, INFO, SUCCESS, WARN, ERROR, FATAL
   log_threshold = "DEBUG",
+
+  # Import converted WKT trap check data as global trap_data on startup.
+  import_trap_data = TRUE,
+  trap_data_first_deployment_days = NULL,
   
   # Google analytics code, read in from config/.env
   ga_tag = Sys.getenv("GA_TAG"),
@@ -51,7 +55,6 @@ config$globals <- list(
   default_primary_period = 1, # Most recent season
   default_comparative_period = 5, # Same season prior year
 
-  
   # Normalisation applied to all RAI calculations
   rai_norm_hours  = 2000,
   
@@ -88,6 +91,9 @@ config$globals <- list(
   # maintained. Recommended 800, 1024, 1200 as we have placeholder images
   image_resize_width_pixels = 1200,
   
+  ###########################
+  # Observations map settings
+  ###########################
   # How far from a location an species icon can be randomly dispersed
   marker_offset_value = 0.0002,
   
@@ -148,7 +154,7 @@ config$globals <- list(
   ),
   
   # Classify species into classes, starting with the most important class (e.g. 
-  # protected) and working down. You can change the species in each class 
+  # target) and working down. You can change the species in each class 
   # (use scientific name), rename classes, remove classes, and you can add classes
   # You are limited based on what will fit the default reporting template
   
@@ -173,7 +179,7 @@ config$globals <- list(
   ),
 
   # Species excluded from background image caching. Useful for high-volume,
-  # low-interest species that would otherwise fill the local cache.
+  # low-interest species that would otherwise fill the local image cache/disk drive
   image_cache_excluded_species = c(
     "Rattus",
     "Mus musculus",
