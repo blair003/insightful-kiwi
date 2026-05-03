@@ -963,12 +963,18 @@ server <- function(input, output, session) {
 
   ########### PLAYBACK MAP FEATURE ###########
 
+  playback_period <- period_selection_module_server(
+    id = "playback_period",
+    period_groups = core_data$period_groups,
+    selected = core_data$period_defaults$primary_period
+  )
+
   playback_map_loaded <- reactiveVal(FALSE)
 
   observeEvent(input$nav, {
     if (input$nav == "playback_map" && !playback_map_loaded()) {
       logger::log_debug("server.R, lazily calling playback_map_module_server() for playback_map")
-      playback_map_module_server("playback_map", core_data = core_data)
+      playback_map_module_server("playback_map", core_data = core_data, playback_period = playback_period)
       playback_map_loaded(TRUE)
     }
   })

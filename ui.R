@@ -133,6 +133,13 @@ ui <- function(request) {
       
       conditionalPanel(
         condition = "input.nav === 'playback_map'",
+        period_selection_module_ui(
+          id = "playback_period",
+          view = "select",
+          choices = names(core_data$period_groups),
+          selected = core_data$period_defaults$primary_period,
+          label = "Starting season:"
+        ),
         playback_map_module_ui(
           id = "playback_map",
           view = "sidebar",

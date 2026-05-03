@@ -47,22 +47,21 @@ playback_map_module_ui <- function(id, view = "map", choices = NULL, selected = 
   }
 }
 
-playback_map_module_server <- function(id, core_data) {
+playback_map_module_server <- function(id, core_data, playback_period) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     MAP_ID <- "map_display"
     current_bounds <- reactiveVal(NULL)
 
-    # Extract overall min and max dates
-    overall_start <- min(core_data$obs$timestamp, na.rm = TRUE)
-    overall_end <- max(core_data$obs$timestamp, na.rm = TRUE)
-
-    # Initialize slider state
-    slider_value <- reactiveVal(overall_start)
+    # Extract overall max date
+    overall_end <- as.POSIXct(max(core_data$obs$timestamp, na.rm = TRUE))
 
     # Render Slider based on step size
     output$slider_ui <- renderUI({
+      req(playback_period$start_date())
+      start_date <- as.POSIXct(playback_period$start_date())
+
       step_val <- switch(input$step_size,
         "hour" = 3600,       # 1 hour in seconds
         "day" = 86400,       # 1 day in seconds
@@ -70,35 +69,36 @@ playback_map_module_server <- function(id, core_data) {
         "month" = 2592000    # 30 days in seconds (approx)
       )
 
+      # Default to a small window ahead if in single mode, else just start
+      init_value <- if (!is.null(input$view_mode) && input$view_mode == "single") {
+        min(start_date + step_val, overall_end)
+      } else {
+        start_date
+      }
+
       sliderInput(
         inputId = ns("time_slider"),
         label = "Time Progression",
-        min = overall_start,
+        min = start_date,
         max = overall_end,
-        value = slider_value(),
+        value = init_value,
         step = step_val,
-        animate = animationOptions(interval = 1500, loop = FALSE, playButton = icon("play"), pauseButton = icon("pause")),
+        animate = animationOptions(interval = 1500, loop = FALSE),
         width = "100%",
         timezone = "Pacific/Auckland" # assuming application timezone
       )
     })
 
-    # Observe slider changes and update reactiveVal
-    observeEvent(input$time_slider, {
-      slider_value(input$time_slider)
-    })
-
-
     playback_data <- reactive({
-      req(input$selected_species, input$selected_localities, slider_value(), input$step_size, input$view_mode)
+      req(input$selected_species, input$selected_localities, input$time_slider, input$step_size, input$view_mode, playback_period$start_date())
 
       species_to_map <- tolower(unname(input$selected_species))
       localities_to_map <- input$selected_localities
-      current_time <- slider_value()
+      current_time <- as.POSIXct(input$time_slider)
 
       # Determine start time based on view mode
       start_time <- if (input$view_mode == "cumulative") {
-        overall_start
+        as.POSIXct(playback_period$start_date())
       } else {
         step_val <- switch(input$step_size,
           "hour" = lubridate::hours(1),
