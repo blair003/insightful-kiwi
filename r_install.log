@@ -1,0 +1,803 @@
+also installing the dependencies ‘credentials’, ‘sys’, ‘gitcreds’, ‘ini’, ‘fansi’, ‘diffobj’, ‘proxy’, ‘geometries’, ‘jsonify’, ‘rapidjsonr’, ‘sfheaders’, ‘utf8’, ‘pkgconfig’, ‘clipr’, ‘crayon’, ‘gert’, ‘gh’, ‘rprojroot’, ‘whisker’, ‘downlit’, ‘httr2’, ‘ragg’, ‘prettyunits’, ‘xopen’, ‘brew’, ‘brio’, ‘evaluate’, ‘praise’, ‘ps’, ‘waldo’, ‘highr’, ‘tinytex’, ‘systemfonts’, ‘textshaping’, ‘terra’, ‘askpass’, ‘e1071’, ‘wk’, ‘geojsonsf’, ‘uuid’, ‘plyr’, ‘AsioHeaders’, ‘httpuv’, ‘generics’, ‘pillar’, ‘tibble’, ‘tidyselect’, ‘vctrs’, ‘timechange’, ‘stringi’, ‘purrr’, ‘cpp11’, ‘usethis’, ‘desc’, ‘ellipsis’, ‘miniUI’, ‘pak’, ‘pkgbuild’, ‘pkgdown’, ‘pkgload’, ‘profvis’, ‘rcmdcheck’, ‘roxygen2’, ‘rversions’, ‘sessioninfo’, ‘testthat’, ‘urlchecker’, ‘crosstalk’, ‘knitr’, ‘xml2’, ‘rmarkdown’, ‘viridisLite’, ‘rstudioapi’, ‘svglite’, ‘leaflet.providers’, ‘png’, ‘raster’, ‘RColorBrewer’, ‘xfun’, ‘gtable’, ‘isoband’, ‘S7’, ‘farver’, ‘labeling’, ‘lazyeval’, ‘data.table’, ‘curl’, ‘openssl’, ‘globals’, ‘listenv’, ‘parallelly’, ‘yaml’, ‘classInt’, ‘DBI’, ‘s2’, ‘units’, ‘callr’, ‘leafem’, ‘leafpop’, ‘satellite’, ‘servr’, ‘sp’, ‘processx’, ‘websocket’, ‘zip’
+
+trying URL 'http://cran.us.r-project.org/src/contrib/credentials_2.0.3.tar.gz'
+Content type 'application/x-gzip' length 283143 bytes (276 KB)
+==================================================
+downloaded 276 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/sys_3.4.3.tar.gz'
+Content type 'application/x-gzip' length 19936 bytes (19 KB)
+==================================================
+downloaded 19 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/gitcreds_0.1.2.tar.gz'
+Content type 'application/x-gzip' length 62569 bytes (61 KB)
+==================================================
+downloaded 61 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/ini_0.3.1.tar.gz'
+Content type 'application/x-gzip' length 3488 bytes
+==================================================
+downloaded 3488 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/fansi_1.0.7.tar.gz'
+Content type 'application/x-gzip' length 685932 bytes (669 KB)
+==================================================
+downloaded 669 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/diffobj_0.3.6.tar.gz'
+Content type 'application/x-gzip' length 472960 bytes (461 KB)
+==================================================
+downloaded 461 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/proxy_0.4-29.tar.gz'
+Content type 'application/x-gzip' length 71437 bytes (69 KB)
+==================================================
+downloaded 69 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/geometries_0.2.5.tar.gz'
+Content type 'application/x-gzip' length 53215 bytes (51 KB)
+==================================================
+downloaded 51 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/jsonify_1.2.3.tar.gz'
+Content type 'application/x-gzip' length 38995 bytes (38 KB)
+==================================================
+downloaded 38 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/rapidjsonr_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 145987 bytes (142 KB)
+==================================================
+downloaded 142 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/sfheaders_0.4.5.tar.gz'
+Content type 'application/x-gzip' length 84672 bytes (82 KB)
+==================================================
+downloaded 82 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/utf8_1.2.6.tar.gz'
+Content type 'application/x-gzip' length 243856 bytes (238 KB)
+==================================================
+downloaded 238 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/pkgconfig_2.0.3.tar.gz'
+Content type 'application/x-gzip' length 6080 bytes
+==================================================
+downloaded 6080 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/clipr_0.8.0.tar.gz'
+Content type 'application/x-gzip' length 21898 bytes (21 KB)
+==================================================
+downloaded 21 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/crayon_1.5.3.tar.gz'
+Content type 'application/x-gzip' length 40396 bytes (39 KB)
+==================================================
+downloaded 39 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/gert_2.3.1.tar.gz'
+Content type 'application/x-gzip' length 130066 bytes (127 KB)
+==================================================
+downloaded 127 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/gh_1.5.0.tar.gz'
+Content type 'application/x-gzip' length 46366 bytes (45 KB)
+==================================================
+downloaded 45 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/rprojroot_2.1.1.tar.gz'
+Content type 'application/x-gzip' length 59899 bytes (58 KB)
+==================================================
+downloaded 58 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/whisker_0.4.1.tar.gz'
+Content type 'application/x-gzip' length 28586 bytes (27 KB)
+==================================================
+downloaded 27 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/downlit_0.4.5.tar.gz'
+Content type 'application/x-gzip' length 37263 bytes (36 KB)
+==================================================
+downloaded 36 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/httr2_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 277334 bytes (270 KB)
+==================================================
+downloaded 270 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/ragg_1.5.2.tar.gz'
+Content type 'application/x-gzip' length 438353 bytes (428 KB)
+==================================================
+downloaded 428 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/prettyunits_1.2.0.tar.gz'
+Content type 'application/x-gzip' length 97496 bytes (95 KB)
+==================================================
+downloaded 95 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/xopen_1.0.1.tar.gz'
+Content type 'application/x-gzip' length 11855 bytes (11 KB)
+==================================================
+downloaded 11 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/brew_1.0-10.tar.gz'
+Content type 'application/x-gzip' length 71087 bytes (69 KB)
+==================================================
+downloaded 69 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/brio_1.1.5.tar.gz'
+Content type 'application/x-gzip' length 13172 bytes (12 KB)
+==================================================
+downloaded 12 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/evaluate_1.0.5.tar.gz'
+Content type 'application/x-gzip' length 39322 bytes (38 KB)
+==================================================
+downloaded 38 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/praise_1.0.0.tar.gz'
+Content type 'application/x-gzip' length 6100 bytes
+==================================================
+downloaded 6100 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/ps_1.9.3.tar.gz'
+Content type 'application/x-gzip' length 172432 bytes (168 KB)
+==================================================
+downloaded 168 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/waldo_0.6.2.tar.gz'
+Content type 'application/x-gzip' length 45913 bytes (44 KB)
+==================================================
+downloaded 44 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/highr_0.12.tar.gz'
+Content type 'application/x-gzip' length 13622 bytes (13 KB)
+==================================================
+downloaded 13 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tinytex_0.59.tar.gz'
+Content type 'application/x-gzip' length 37498 bytes (36 KB)
+==================================================
+downloaded 36 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/systemfonts_1.3.2.tar.gz'
+Content type 'application/x-gzip' length 594775 bytes (580 KB)
+==================================================
+downloaded 580 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/textshaping_1.0.5.tar.gz'
+Content type 'application/x-gzip' length 77066 bytes (75 KB)
+==================================================
+downloaded 75 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/terra_1.9-11.tar.gz'
+Content type 'application/x-gzip' length 1071693 bytes (1.0 MB)
+==================================================
+downloaded 1.0 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/askpass_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 6058 bytes
+==================================================
+downloaded 6058 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/e1071_1.7-17.tar.gz'
+Content type 'application/x-gzip' length 318056 bytes (310 KB)
+==================================================
+downloaded 310 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/wk_0.9.5.tar.gz'
+Content type 'application/x-gzip' length 1041465 bytes (1017 KB)
+==================================================
+downloaded 1017 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/geojsonsf_2.0.5.tar.gz'
+Content type 'application/x-gzip' length 1488224 bytes (1.4 MB)
+==================================================
+downloaded 1.4 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/uuid_1.2-2.tar.gz'
+Content type 'application/x-gzip' length 81189 bytes (79 KB)
+==================================================
+downloaded 79 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/plyr_1.8.9.tar.gz'
+Content type 'application/x-gzip' length 401488 bytes (392 KB)
+==================================================
+downloaded 392 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/AsioHeaders_1.30.2-1.tar.gz'
+Content type 'application/x-gzip' length 699604 bytes (683 KB)
+==================================================
+downloaded 683 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/httpuv_1.6.17.tar.gz'
+Content type 'application/x-gzip' length 1892489 bytes (1.8 MB)
+==================================================
+downloaded 1.8 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/generics_0.1.4.tar.gz'
+Content type 'application/x-gzip' length 47224 bytes (46 KB)
+==================================================
+downloaded 46 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/pillar_1.11.1.tar.gz'
+Content type 'application/x-gzip' length 409508 bytes (399 KB)
+==================================================
+downloaded 399 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tibble_3.3.1.tar.gz'
+Content type 'application/x-gzip' length 557135 bytes (544 KB)
+==================================================
+downloaded 544 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tidyselect_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 103591 bytes (101 KB)
+==================================================
+downloaded 101 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/vctrs_0.7.3.tar.gz'
+Content type 'application/x-gzip' length 1083213 bytes (1.0 MB)
+==================================================
+downloaded 1.0 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/timechange_0.4.0.tar.gz'
+Content type 'application/x-gzip' length 103966 bytes (101 KB)
+==================================================
+downloaded 101 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/stringi_1.8.7.tar.gz'
+Content type 'application/x-gzip' length 11910646 bytes (11.4 MB)
+==================================================
+downloaded 11.4 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/purrr_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 278508 bytes (271 KB)
+==================================================
+downloaded 271 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/cpp11_0.5.4.tar.gz'
+Content type 'application/x-gzip' length 303477 bytes (296 KB)
+==================================================
+downloaded 296 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/usethis_3.2.1.tar.gz'
+Content type 'application/x-gzip' length 393912 bytes (384 KB)
+==================================================
+downloaded 384 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/desc_1.4.3.tar.gz'
+Content type 'application/x-gzip' length 80066 bytes (78 KB)
+==================================================
+downloaded 78 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/ellipsis_0.3.3.tar.gz'
+Content type 'application/x-gzip' length 5849 bytes
+==================================================
+downloaded 5849 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/miniUI_0.1.2.tar.gz'
+Content type 'application/x-gzip' length 100855 bytes (98 KB)
+==================================================
+downloaded 98 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/pak_0.9.5.tar.gz'
+Content type 'application/x-gzip' length 3336780 bytes (3.2 MB)
+==================================================
+downloaded 3.2 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/pkgbuild_1.4.8.tar.gz'
+Content type 'application/x-gzip' length 51302 bytes (50 KB)
+==================================================
+downloaded 50 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/pkgdown_2.2.0.tar.gz'
+Content type 'application/x-gzip' length 1280630 bytes (1.2 MB)
+==================================================
+downloaded 1.2 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/pkgload_1.5.2.tar.gz'
+Content type 'application/x-gzip' length 88118 bytes (86 KB)
+==================================================
+downloaded 86 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/profvis_0.4.0.tar.gz'
+Content type 'application/x-gzip' length 301123 bytes (294 KB)
+==================================================
+downloaded 294 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/rcmdcheck_1.4.0.tar.gz'
+Content type 'application/x-gzip' length 73522 bytes (71 KB)
+==================================================
+downloaded 71 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/roxygen2_8.0.0.tar.gz'
+Content type 'application/x-gzip' length 370877 bytes (362 KB)
+==================================================
+downloaded 362 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/rversions_3.0.0.tar.gz'
+Content type 'application/x-gzip' length 86682 bytes (84 KB)
+==================================================
+downloaded 84 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/sessioninfo_1.2.3.tar.gz'
+Content type 'application/x-gzip' length 175597 bytes (171 KB)
+==================================================
+downloaded 171 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/testthat_3.3.2.tar.gz'
+Content type 'application/x-gzip' length 834043 bytes (814 KB)
+==================================================
+downloaded 814 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/urlchecker_1.0.1.tar.gz'
+Content type 'application/x-gzip' length 13340 bytes (13 KB)
+==================================================
+downloaded 13 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/crosstalk_1.2.2.tar.gz'
+Content type 'application/x-gzip' length 297847 bytes (290 KB)
+==================================================
+downloaded 290 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/knitr_1.51.tar.gz'
+Content type 'application/x-gzip' length 483744 bytes (472 KB)
+==================================================
+downloaded 472 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/xml2_1.5.2.tar.gz'
+Content type 'application/x-gzip' length 154697 bytes (151 KB)
+==================================================
+downloaded 151 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/rmarkdown_2.31.tar.gz'
+Content type 'application/x-gzip' length 2199845 bytes (2.1 MB)
+==================================================
+downloaded 2.1 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/viridisLite_0.4.3.tar.gz'
+Content type 'application/x-gzip' length 1269031 bytes (1.2 MB)
+==================================================
+downloaded 1.2 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/rstudioapi_0.18.0.tar.gz'
+Content type 'application/x-gzip' length 126484 bytes (123 KB)
+==================================================
+downloaded 123 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/svglite_2.2.2.tar.gz'
+Content type 'application/x-gzip' length 125651 bytes (122 KB)
+==================================================
+downloaded 122 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/leaflet.providers_3.0.0.tar.gz'
+Content type 'application/x-gzip' length 36109 bytes (35 KB)
+==================================================
+downloaded 35 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/png_0.1-9.tar.gz'
+Content type 'application/x-gzip' length 24939 bytes (24 KB)
+==================================================
+downloaded 24 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/raster_3.6-32.tar.gz'
+Content type 'application/x-gzip' length 575813 bytes (562 KB)
+==================================================
+downloaded 562 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/RColorBrewer_1.1-3.tar.gz'
+Content type 'application/x-gzip' length 11638 bytes (11 KB)
+==================================================
+downloaded 11 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/xfun_0.57.tar.gz'
+Content type 'application/x-gzip' length 172719 bytes (168 KB)
+==================================================
+downloaded 168 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/gtable_0.3.6.tar.gz'
+Content type 'application/x-gzip' length 148148 bytes (144 KB)
+==================================================
+downloaded 144 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/isoband_0.3.0.tar.gz'
+Content type 'application/x-gzip' length 1593511 bytes (1.5 MB)
+==================================================
+downloaded 1.5 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/S7_0.2.2.tar.gz'
+Content type 'application/x-gzip' length 184632 bytes (180 KB)
+==================================================
+downloaded 180 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/farver_2.1.2.tar.gz'
+Content type 'application/x-gzip' length 1275981 bytes (1.2 MB)
+==================================================
+downloaded 1.2 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/labeling_0.4.3.tar.gz'
+Content type 'application/x-gzip' length 10167 bytes
+==================================================
+downloaded 10167 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/lazyeval_0.2.3.tar.gz'
+Content type 'application/x-gzip' length 130115 bytes (127 KB)
+==================================================
+downloaded 127 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/data.table_1.18.2.1.tar.gz'
+Content type 'application/x-gzip' length 6023973 bytes (5.7 MB)
+==================================================
+downloaded 5.7 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/curl_7.1.0.tar.gz'
+Content type 'application/x-gzip' length 717725 bytes (700 KB)
+==================================================
+downloaded 700 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/openssl_2.4.0.tar.gz'
+Content type 'application/x-gzip' length 1180292 bytes (1.1 MB)
+==================================================
+downloaded 1.1 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/globals_0.19.1.tar.gz'
+Content type 'application/x-gzip' length 56552 bytes (55 KB)
+==================================================
+downloaded 55 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/listenv_0.10.1.tar.gz'
+Content type 'application/x-gzip' length 47895 bytes (46 KB)
+==================================================
+downloaded 46 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/parallelly_1.47.0.tar.gz'
+Content type 'application/x-gzip' length 346491 bytes (338 KB)
+==================================================
+downloaded 338 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/yaml_2.3.12.tar.gz'
+Content type 'application/x-gzip' length 108975 bytes (106 KB)
+==================================================
+downloaded 106 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/classInt_0.4-11.tar.gz'
+Content type 'application/x-gzip' length 440406 bytes (430 KB)
+==================================================
+downloaded 430 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/DBI_1.3.0.tar.gz'
+Content type 'application/x-gzip' length 744704 bytes (727 KB)
+==================================================
+downloaded 727 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/s2_1.1.9.tar.gz'
+Content type 'application/x-gzip' length 2967364 bytes (2.8 MB)
+==================================================
+downloaded 2.8 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/units_1.0-1.tar.gz'
+Content type 'application/x-gzip' length 369348 bytes (360 KB)
+==================================================
+downloaded 360 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/callr_3.7.6.tar.gz'
+Content type 'application/x-gzip' length 104358 bytes (101 KB)
+==================================================
+downloaded 101 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/leafem_0.2.5.tar.gz'
+Content type 'application/x-gzip' length 963667 bytes (941 KB)
+==================================================
+downloaded 941 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/leafpop_0.1.0.tar.gz'
+Content type 'application/x-gzip' length 1870372 bytes (1.8 MB)
+==================================================
+downloaded 1.8 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/satellite_1.0.6.tar.gz'
+Content type 'application/x-gzip' length 2300211 bytes (2.2 MB)
+==================================================
+downloaded 2.2 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/servr_0.32.tar.gz'
+Content type 'application/x-gzip' length 25384 bytes (24 KB)
+==================================================
+downloaded 24 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/sp_2.2-1.tar.gz'
+Content type 'application/x-gzip' length 4472598 bytes (4.3 MB)
+==================================================
+downloaded 4.3 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/processx_3.9.0.tar.gz'
+Content type 'application/x-gzip' length 195281 bytes (190 KB)
+==================================================
+downloaded 190 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/websocket_1.4.4.tar.gz'
+Content type 'application/x-gzip' length 201849 bytes (197 KB)
+==================================================
+downloaded 197 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/zip_2.3.3.tar.gz'
+Content type 'application/x-gzip' length 115472 bytes (112 KB)
+==================================================
+downloaded 112 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/shiny_1.13.0.tar.gz'
+Content type 'application/x-gzip' length 2712329 bytes (2.6 MB)
+==================================================
+downloaded 2.6 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/logger_0.4.1.tar.gz'
+Content type 'application/x-gzip' length 685880 bytes (669 KB)
+==================================================
+downloaded 669 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/dplyr_1.2.1.tar.gz'
+Content type 'application/x-gzip' length 923509 bytes (901 KB)
+==================================================
+downloaded 901 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/lubridate_1.9.5.tar.gz'
+Content type 'application/x-gzip' length 429855 bytes (419 KB)
+==================================================
+downloaded 419 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/stringr_1.6.0.tar.gz'
+Content type 'application/x-gzip' length 195833 bytes (191 KB)
+==================================================
+downloaded 191 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/tidyr_1.3.2.tar.gz'
+Content type 'application/x-gzip' length 809031 bytes (790 KB)
+==================================================
+downloaded 790 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/bslib_0.10.0.tar.gz'
+Content type 'application/x-gzip' length 5769350 bytes (5.5 MB)
+==================================================
+downloaded 5.5 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/devtools_2.5.2.tar.gz'
+Content type 'application/x-gzip' length 412614 bytes (402 KB)
+==================================================
+downloaded 402 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/bsicons_0.1.2.tar.gz'
+Content type 'application/x-gzip' length 246734 bytes (240 KB)
+==================================================
+downloaded 240 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/DT_0.34.0.tar.gz'
+Content type 'application/x-gzip' length 1664306 bytes (1.6 MB)
+==================================================
+downloaded 1.6 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/kableExtra_1.4.0.tar.gz'
+Content type 'application/x-gzip' length 1824636 bytes (1.7 MB)
+==================================================
+downloaded 1.7 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/leaflet_2.2.3.tar.gz'
+Content type 'application/x-gzip' length 2013248 bytes (1.9 MB)
+==================================================
+downloaded 1.9 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/leaflet.extras_2.0.2.tar.gz'
+Content type 'application/x-gzip' length 1396753 bytes (1.3 MB)
+==================================================
+downloaded 1.3 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/ggplot2_4.0.3.tar.gz'
+Content type 'application/x-gzip' length 6327703 bytes (6.0 MB)
+==================================================
+downloaded 6.0 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/scales_1.4.0.tar.gz'
+Content type 'application/x-gzip' length 328671 bytes (320 KB)
+==================================================
+downloaded 320 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/plotly_4.12.0.tar.gz'
+Content type 'application/x-gzip' length 4614623 bytes (4.4 MB)
+==================================================
+downloaded 4.4 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/httr_1.4.8.tar.gz'
+Content type 'application/x-gzip' length 113914 bytes (111 KB)
+==================================================
+downloaded 111 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/fs_2.1.0.tar.gz'
+Content type 'application/x-gzip' length 1471347 bytes (1.4 MB)
+==================================================
+downloaded 1.4 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/magick_2.9.1.tar.gz'
+Content type 'application/x-gzip' length 4596497 bytes (4.4 MB)
+==================================================
+downloaded 4.4 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/promises_1.5.0.tar.gz'
+Content type 'application/x-gzip' length 3210294 bytes (3.1 MB)
+==================================================
+downloaded 3.1 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/future_1.70.0.tar.gz'
+Content type 'application/x-gzip' length 450683 bytes (440 KB)
+==================================================
+downloaded 440 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/shinybusy_0.3.3.tar.gz'
+Content type 'application/x-gzip' length 2053521 bytes (2.0 MB)
+==================================================
+downloaded 2.0 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/htmlwidgets_1.6.4.tar.gz'
+Content type 'application/x-gzip' length 868895 bytes (848 KB)
+==================================================
+downloaded 848 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/shinyjs_2.1.1.tar.gz'
+Content type 'application/x-gzip' length 992492 bytes (969 KB)
+==================================================
+downloaded 969 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/sf_1.1-0.tar.gz'
+Content type 'application/x-gzip' length 9876822 bytes (9.4 MB)
+==================================================
+downloaded 9.4 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/geosphere_1.6-8.tar.gz'
+Content type 'application/x-gzip' length 879922 bytes (859 KB)
+==================================================
+downloaded 859 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/webshot2_0.1.2.tar.gz'
+Content type 'application/x-gzip' length 530252 bytes (517 KB)
+==================================================
+downloaded 517 KB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/mapview_2.11.4.tar.gz'
+Content type 'application/x-gzip' length 1691274 bytes (1.6 MB)
+==================================================
+downloaded 1.6 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/jsonlite_2.0.0.tar.gz'
+Content type 'application/x-gzip' length 1055849 bytes (1.0 MB)
+==================================================
+downloaded 1.0 MB
+
+trying URL 'http://cran.us.r-project.org/src/contrib/dotenv_1.0.3.tar.gz'
+Content type 'application/x-gzip' length 4092 bytes
+==================================================
+downloaded 4092 bytes
+
+trying URL 'http://cran.us.r-project.org/src/contrib/chromote_0.5.1.tar.gz'
+Content type 'application/x-gzip' length 298113 bytes (291 KB)
+==================================================
+downloaded 291 KB
+
+* installing *source* package ‘sys’ ...
+** package ‘sys’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c exec.c -o exec.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o sys.so exec.o init.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-sys/00new/sys/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (sys)
+* installing *source* package ‘gitcreds’ ...
+** package ‘gitcreds’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (gitcreds)
+* installing *source* package ‘ini’ ...
+** package ‘ini’ successfully unpacked and MD5 sums checked
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (ini)
+* installing *source* package ‘fansi’ ...
+** package ‘fansi’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c assumptions.c -o assumptions.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c carry.c -o carry.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c has.c -o has.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c init.c -o init.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c nchar.c -o nchar.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c normalize.c -o normalize.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c read.c -o read.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c state.c -o state.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c strip.c -o strip.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c substr.c -o substr.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c tabs.c -o tabs.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c tohtml.c -o tohtml.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c trimws.c -o trimws.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c unhandled.c -o unhandled.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c utf8.c -o utf8.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c utils.c -o utils.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c width.c -o width.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c wrap.c -o wrap.o
+gcc -I"/usr/share/R/include" -DNDEBUG      -fvisibility=hidden -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c write.c -o write.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o fansi.so assumptions.o carry.o has.o init.o nchar.o normalize.o read.o state.o strip.o substr.o tabs.o tohtml.o trimws.o unhandled.o utf8.o utils.o width.o wrap.o write.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-fansi/00new/fansi/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (fansi)
+* installing *source* package ‘proxy’ ...
+** package ‘proxy’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C compiler: ‘gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c apply.c -o apply.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c arrayIndex.c -o arrayIndex.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c distance.c -o distance.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c dll.c -o dll.o
+gcc -I"/usr/share/R/include" -DNDEBUG       -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c util.c -o util.o
+gcc -shared -L/usr/lib/R/lib -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -o proxy.so apply.o arrayIndex.o distance.o dll.o util.o -L/usr/lib/R/lib -lR
+installing to /home/jules/.R/library/00LOCK-proxy/00new/proxy/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (proxy)
+* installing *source* package ‘geometries’ ...
+** package ‘geometries’ successfully unpacked and MD5 sums checked
+** using staged installation
+** libs
+using C++ compiler: ‘g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0’
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c RcppExports.cpp -o RcppExports.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c bbox.cpp -o bbox.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c close.cpp -o close.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c columns.cpp -o columns.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c coordinates.cpp -o coordinates.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c geometries.cpp -o geometries.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c lines.cpp -o lines.o
+g++ -std=gnu++17 -I"/usr/share/R/include" -DNDEBUG -DSTRICT_R_HEADERS -I'/home/jules/.R/library/Rcpp/include'    -I../inst/include/ -fpic  -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/build/r-base-FPSnzf/r-base-4.3.3=/usr/src/r-base-4.3.3-2build2 -Wdate-time -D_FORTIFY_SOURCE=3  -c lists.cpp -o lists.o

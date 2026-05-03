@@ -203,6 +203,7 @@ server <- function(input, output, session) {
         density_map = input$density_map_tabs,
         observation_map = input[["observation_map-observation_map_tabs"]],
         activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
+        playback_map = NULL,
         raw_data = input$raw_data_tabs,
         NULL
       )
@@ -714,6 +715,7 @@ server <- function(input, output, session) {
         density_map = "density_map_tabs",
         observation_map = "observation_map-observation_map_tabs",
         activity_patterns = "activity_patterns-activity_patterns_tabs",
+        playback_map = NULL,
         raw_data = "raw_data_tabs",
         NULL
       )
@@ -958,6 +960,18 @@ server <- function(input, output, session) {
     prior_period = dashboard_state$prior_period,
     last_year_period = dashboard_state$last_year_period
   )
+
+  ########### PLAYBACK MAP FEATURE ###########
+
+  playback_map_loaded <- reactiveVal(FALSE)
+
+  observeEvent(input$nav, {
+    if (input$nav == "playback_map" && !playback_map_loaded()) {
+      logger::log_debug("server.R, lazily calling playback_map_module_server() for playback_map")
+      playback_map_module_server("playback_map", core_data = core_data)
+      playback_map_loaded(TRUE)
+    }
+  })
 
   ########### OBSERVATION MAP FEATURE ###########
   
