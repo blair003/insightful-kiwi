@@ -13,6 +13,7 @@ ui <- function(request) {
       'density_map': true,
       'observation_map': true,
       'activity_patterns': true,
+      'playback_map': true,
       'raw_data': false
     };
     
@@ -130,6 +131,28 @@ ui <- function(request) {
         selected_localities = unique(core_data$deps$locality)
       ),
       
+      conditionalPanel(
+        condition = "input.nav === 'playback_map'",
+        period_selection_module_ui(
+          id = "playback_period",
+          view = "select",
+          choices = names(core_data$period_groups),
+          selected = core_data$period_defaults$primary_period,
+          label = "Starting season:"
+        ),
+        playback_map_module_ui(
+          id = "playback_map",
+          view = "sidebar",
+          species_choices = core_data$spp_classes,
+          species_selected = c(
+            core_data$spp_classes[[1]][1],
+            core_data$spp_classes[[1]][2],
+            core_data$spp_classes[[1]][3]
+          ),
+          locality_choices = unique(core_data$deps$locality),
+          locality_selected = unique(core_data$deps$locality)
+        )
+      ),
 
       # Conditional content for Report
       conditionalPanel(
@@ -363,7 +386,17 @@ ui <- function(request) {
         ),
 
         ######### ACTIVITY PATTERNS OUTPUT #########
-        activity_patterns_module_ui("activity_patterns", view = "main")
+        activity_patterns_module_ui("activity_patterns", view = "main"),
+
+        ######### PLAYBACK MAP OUTPUT #########
+        nav_panel(
+          title = "Playback Map",
+          icon = icon("play-circle"),
+          value = "playback_map",
+          h2("Playback Map"),
+          p("Observe species density changes dynamically over time."),
+          playback_map_module_ui("playback_map", view = "map")
+        )
       ),
         
     

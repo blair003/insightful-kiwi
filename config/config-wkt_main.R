@@ -233,7 +233,7 @@ config$globals <- list(
   spp_show_unclassified = FALSE,
   
   # Default height output for all leaflet maps
-  leaflet_height = "calc(100vh - 150px)",
+  leaflet_height = "calc(100vh - 170px)",
   
   # By default, we output column names (exploded by underscore), with capitalisation 
   # applied to each word. The list below lets you completely change the output name. 
