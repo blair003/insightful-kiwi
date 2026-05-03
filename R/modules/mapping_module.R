@@ -1549,33 +1549,6 @@ update_map <- function(all_marker_data_with_warnings, map_id, active_locations) 
     logger::log_debug(sprintf("update_map() for map_id: %s - No species data in all_marker_data.", map_id))
   }
   
-  # Fit Bounds Logic
-  logger::log_debug(sprintf("update_map() for map_id: %s - About to call fitBounds. Number of active_locations: %d", 
-                            map_id, if(!is.null(active_locations)) nrow(active_locations) else 0))
-  
-  if (!is.null(active_locations) && nrow(active_locations) > 0 && 
-      all(c("longitude", "latitude") %in% names(active_locations)) &&
-      !any(is.na(active_locations$longitude)) && !any(is.na(active_locations$latitude))) {
-    
-    min_lng_val <- min(active_locations$longitude, na.rm = TRUE)
-    min_lat_val <- min(active_locations$latitude, na.rm = TRUE)
-    max_lng_val <- max(active_locations$longitude, na.rm = TRUE)
-    max_lat_val <- max(active_locations$latitude, na.rm = TRUE)
-    
-    logger::log_debug(sprintf("update_map() for map_id: %s - Valid active_locations for fitBounds. MinLng: %f, MinLat: %f, MaxLng: %f, MaxLat: %f",
-                              map_id, min_lng_val, min_lat_val, max_lng_val, max_lat_val))
-    proxy %>%
-      fitBounds(
-        lng1 = min_lng_val, lat1 = min_lat_val,
-        lng2 = max_lng_val, lat2 = max_lat_val
-      )
-  } else {
-    logger::log_warn(sprintf("update_map() for map_id: %s - Skipping fitBounds due to empty or invalid active_locations.", map_id))
-    # Optionally, you could set a default wide view if active_locations is bad,
-    # but world view is the typical leaflet default.
-    # proxy %>% setView(lng = 0, lat = 0, zoom = 2) 
-  }
-  
   # Return the summary of markers added (from your original server.R logic, adapted)
   output_summary <- list()
   if (length(all_marker_data) > 0) {
