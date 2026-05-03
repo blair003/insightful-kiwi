@@ -607,7 +607,8 @@ mapping_module_server <- function(id,
 update_density_map <- function(map_id = NULL, 
                                active_locations = NULL, 
                                obs_summary_location = NULL, 
-                               show_zero = TRUE) {
+                               show_zero = TRUE,
+                               absolute_max = NULL) {
   #browser()
   max_scale <- 1
   radius_range <- c(10, 50)
@@ -621,9 +622,12 @@ update_density_map <- function(map_id = NULL,
   # Check if obs_summary_location has any rows
   if (nrow(obs_summary_location) > 0) {
     max_count <- max(obs_summary_location$count, na.rm = TRUE)
+    if (!is.null(absolute_max) && absolute_max > 0) {
+      max_count <- max(max_count, absolute_max)
+    }
   } else {
     logger::log_debug(sprintf("mapping_module_server, %s update_density_map() has no results available", map_id))
-    max_count <- NA
+    max_count <- if (!is.null(absolute_max)) absolute_max else NA
     
     # Show "No results!" message 
     if (!show_zero || nrow(active_locations) == 0) {
@@ -652,7 +656,8 @@ update_density_map <- function(map_id = NULL,
                            scales::rescale(count, to = radius_range, from = c(0, max_count)),
                            radius_range[1]))
   
-  pal <- colorNumeric(palette = "inferno", domain = obs_summary_location$count)
+  pal_domain <- if (!is.na(max_count) && max_count > 0) c(0, max_count) else obs_summary_location$count
+  pal <- colorNumeric(palette = "inferno", domain = pal_domain)
 
   non_zero_locations <- obs_summary_location %>%
     filter(count > 0)

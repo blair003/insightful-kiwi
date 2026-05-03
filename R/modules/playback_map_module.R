@@ -33,10 +33,21 @@ playback_map_module_ui <- function(id, view = "map", species_choices = NULL, spe
           choices = c("Single Period" = "single", "Cumulative" = "cumulative"),
           selected = "cumulative"
         ),
+        checkboxInput(
+          inputId = ns("limit_season"),
+          label = "Limit to starting season",
+          value = TRUE
+        ),
+        sliderInput(
+          inputId = ns("playback_speed"),
+          label = "Playback Speed (seconds between frames):",
+          min = 0.5, max = 5, value = 1.5, step = 0.5
+        ),
         div(
           class = "d-grid gap-2",
           actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success"),
-          actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning")
+          actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-secondary"),
+          actionButton(ns("reset_btn"), "Reset", icon = icon("rotate-left"), class = "btn-danger")
         ),
         hr(),
         uiOutput(ns("playback_summary"))
@@ -45,9 +56,20 @@ playback_map_module_ui <- function(id, view = "map", species_choices = NULL, spe
   } else if (view == "map") {
     return(
       tagList(
-        leafletOutput(ns("map_display"), height = map_height),
-        hr(),
-        uiOutput(ns("slider_ui"))
+        div(style = "margin-bottom: 20px;", uiOutput(ns("slider_ui"))),
+        navset_tab(
+          id = ns("playback_map_tabs"),
+          nav_panel(
+            "Map",
+            leafletOutput(ns("map_display"), height = map_height)
+          ),
+          nav_panel(
+            "Data",
+            h3("Observations Data in Current Slice"),
+            p("This table shows the raw observations for the time slice currently shown on the map."),
+            DT::dataTableOutput(ns("playback_data_table"))
+          )
+        )
       )
     )
   }
@@ -186,18 +208,67 @@ playback_map_module_server <- function(id, core_data, playback_period) {
         dplyr::summarise(count = sum(count)) %>%
         dplyr::mutate(locality = "Grand Total")
 
+      absolute_max <- core_data$obs %>%
+        dplyr::filter(
+          scientificName_lower %in% species_to_map,
+          locality %in% localities_to_map,
+          timestamp >= as.POSIXct(playback_period$start_date()),
+          timestamp <= current_overall_end()
+        ) %>%
+        dplyr::group_by(locationID) %>%
+        dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+        dplyr::summarise(max_count = max(count, na.rm = TRUE)) %>%
+        dplyr::pull(max_count)
+
+      if (is.na(absolute_max) || is.infinite(absolute_max)) absolute_max <- 0
+
       list(
         active_locations = active_locations,
         obs_summary_location = obs_summary_location,
         obs_summary_locality_with_total = dplyr::bind_rows(obs_summary_locality, grand_total),
         current_time = current_time,
-        start_time = start_time
+        start_time = start_time,
+        absolute_max = absolute_max,
+        obs_filtered = obs_filtered
       )
     })
 
     # Map Output Initialization
     output$map_display <- renderLeaflet({
       leaflet() %>% addTiles(options = tileOptions(crossOrigin = TRUE))
+    })
+
+    # Reset bounds when locality selection changes to refit the map
+    observeEvent(input$selected_localities, {
+      current_bounds(NULL)
+    }, ignoreNULL = FALSE)
+
+    # Invalidate size when navigating to the tab or sub-tabs to ensure proper rendering
+    observeEvent(list(session$rootScope()$input$nav, input$playback_map_tabs), {
+      req(session$rootScope()$input$nav == "playback_map")
+      shinyjs::runjs(sprintf(
+        'setTimeout(function() {
+           var mapWidget = HTMLWidgets.find(%s);
+           if (mapWidget) {
+             var mapObj = mapWidget.getMap();
+             if (mapObj) {
+               mapObj.invalidateSize();
+             }
+           }
+         }, 100);', jsonlite::toJSON(paste0("#", ns("map_display")), auto_unbox = TRUE)
+      ))
+
+      # Re-apply bounds after sizing
+      bounds <- current_bounds()
+      if (!is.null(bounds)) {
+        shinyjs::delay(150, {
+          leafletProxy(MAP_ID) %>%
+            fitBounds(
+              lng1 = bounds$min_lng, lat1 = bounds$min_lat,
+              lng2 = bounds$max_lng, lat2 = bounds$max_lat
+            )
+        })
+      }
     })
 
     # Update Map Output
@@ -209,10 +280,11 @@ playback_map_module_server <- function(id, core_data, playback_period) {
         map_id = MAP_ID,
         active_locations = data_for_map$active_locations,
         obs_summary_location = data_for_map$obs_summary_location,
-        show_zero = TRUE
+        show_zero = TRUE,
+        absolute_max = data_for_map$absolute_max
       )
 
-      # Fit bounds once to keep map stable
+      # Fit bounds
       if (is.null(current_bounds())) {
         bounds <- calculate_bounds_from_locations(data_for_map$active_locations, id, "playback")
         if (!is.null(bounds)) {
@@ -224,6 +296,22 @@ playback_map_module_server <- function(id, core_data, playback_period) {
             )
         }
       }
+    })
+
+    output$playback_data_table <- DT::renderDataTable({
+      req(playback_data())
+      table_data <- playback_data()$obs_filtered %>%
+        dplyr::select(locality, line, locationName, timestamp, count, `vernacularNames.eng`, scientificName, possible_duplicate, observationID)
+
+      table_data <- prepare_spec_table_data(
+          table_data,
+          table_id = "playback_observations_browse",
+          column_help = FALSE
+        )$table_data
+
+      DT::datatable(table_data, escape = FALSE,
+                    options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
+                    class = 'display', rownames = FALSE)
     })
 
     output$playback_summary <- renderUI({
