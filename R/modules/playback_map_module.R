@@ -44,7 +44,7 @@ playback_map_module_ui <- function(id, view = "map", species_choices = NULL, spe
           min = 0.5, max = 5, value = 1.5, step = 0.5
         ),
         div(style = "display: flex; justify-content: space-between; font-size: 0.8em; color: #888; margin-top: -15px; margin-bottom: 15px;",
-          span("Faster"), span("Slower")
+          tags$span("Faster"), tags$span("Slower")
         ),
         div(
           class = "d-grid gap-2",
