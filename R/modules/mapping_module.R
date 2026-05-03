@@ -548,7 +548,12 @@ mapping_module_server <- function(id,
       # --- Observation-specific outputs (UI elements other than the map) ---
       output$observation_data_table <- DT::renderDataTable({
         req(observation_map_processed_data())
-        table_data <- observation_map_processed_data()$observations_for_table
+        table_data <- prepare_spec_table_data(
+          observation_map_processed_data()$observations_for_table,
+          table_id = "observationmap_observations_browse",
+          column_help = FALSE
+        )$table_data
+
         DT::datatable( table_data, escape = FALSE,
                        options = list( pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc')) ),
                        class = 'display', rownames = FALSE

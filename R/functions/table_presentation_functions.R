@@ -23,6 +23,36 @@ get_columns_to_round <- function() {
 
 
 
+# Active table_id values that route through get_table_specification().
+# The table_id convention is "<view>_<table_name>"; get_table_name_and_view()
+# treats the first underscore-separated token as the view and the remainder as
+# the table name.
+#
+# Raw data page:
+# - rawdata_observations_browse
+# - rawdata_deployments_browse
+#
+# Observation map:
+# - observationmap_observations_browse
+#
+# Reporting:
+# - locality_species_mean_rai_showing_class
+# - locality_camera_monitoring_network_overview
+# - locality_mean_rai_se
+# - locality_deployments_overview
+# - locality_observations_overview
+# - line_deployments_overview
+# - line_observations_overview
+# - location_deployments_overview
+# - location_observations_overview
+# - network_spp_summary
+# - locality_spp_summary
+# - line_spp_summary
+# - location_spp_summary
+#
+# Observation viewer:
+# - special_observation_viewer
+# - sequence_editor_viewer
 get_table_specification <- function(table_id = NULL) {
    
   table <- get_table_name_and_view(table_id)
@@ -150,8 +180,22 @@ get_table_specification <- function(table_id = NULL) {
                                             config$globals$species_name_type,
                                             "count",
                                             "possible_duplicate",
-                                            "observationID",
-                                            "sequenceID")
+                                            "observationID")
+
+                  },
+                  "observationmap" = {
+                    output_data$caption <- "Table showing observations currently
+                    selected for the Observation Map."
+
+                    output_data$fields <- c("locality",
+                                            "line",
+                                            "locationName",
+                                            "period",
+                                            "timestamp",
+                                            config$globals$species_name_type,
+                                            "count",
+                                            "possible_duplicate",
+                                            "observationID")
                     
                   }
            )
@@ -640,6 +684,21 @@ prepare_table_data <- function(data,
   
   
   return(output_data)
+}
+
+
+prepare_spec_table_data <- function(data,
+                                    table_id,
+                                    column_help = FALSE) {
+
+  table_spec <- get_table_specification(table_id)
+
+  prepare_table_data(
+    data = data,
+    table_id = table_id,
+    fields = table_spec$fields,
+    column_help = column_help
+  )
 }
 
 
