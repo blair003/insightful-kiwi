@@ -1159,3 +1159,50 @@ function verifyRaiProof(provider, btn) {
     console.error('Could not copy RAI proof text: ', err);
   });
 }
+
+(function() {
+  var densityPlaybackTimers = {};
+  var densityPlaybackHandlerRegistered = false;
+
+  function stopDensityPlaybackTimer(id) {
+    if (densityPlaybackTimers[id]) {
+      window.clearInterval(densityPlaybackTimers[id]);
+      delete densityPlaybackTimers[id];
+    }
+  }
+
+  function registerDensityPlaybackHandler() {
+    if (densityPlaybackHandlerRegistered || !window.Shiny || !Shiny.addCustomMessageHandler) {
+      return;
+    }
+
+    densityPlaybackHandlerRegistered = true;
+    Shiny.addCustomMessageHandler("densityPlaybackTimer", function(message) {
+      if (!message || !message.id) {
+        return;
+      }
+
+      stopDensityPlaybackTimer(message.id);
+
+      if (!message.enabled) {
+        return;
+      }
+
+      var interval = Math.max(50, Number(message.interval));
+      if (!Number.isFinite(interval)) {
+        interval = 50;
+      }
+      densityPlaybackTimers[message.id] = window.setInterval(function() {
+        if (window.Shiny && Shiny.setInputValue) {
+          Shiny.setInputValue(message.id, Date.now(), { priority: "event" });
+        }
+      }, interval);
+    });
+  }
+
+  if (window.jQuery) {
+    $(document).on("shiny:connected", registerDensityPlaybackHandler);
+  }
+
+  registerDensityPlaybackHandler();
+})();

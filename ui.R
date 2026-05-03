@@ -11,9 +11,9 @@ ui <- function(request) {
       'plots': true,
       'reporting': true,
       'density_map': true,
+      'density_playback_map': true,
       'observation_map': true,
       'activity_patterns': true,
-      'playback_map': true,
       'raw_data': false
     };
     
@@ -131,29 +131,6 @@ ui <- function(request) {
         selected_localities = unique(core_data$deps$locality)
       ),
       
-      conditionalPanel(
-        condition = "input.nav === 'playback_map'",
-        period_selection_module_ui(
-          id = "playback_period",
-          view = "select",
-          choices = names(core_data$period_groups),
-          selected = core_data$period_defaults$primary_period,
-          label = "Starting season:"
-        ),
-        playback_map_module_ui(
-          id = "playback_map",
-          view = "sidebar",
-          species_choices = core_data$spp_classes,
-          species_selected = c(
-            core_data$spp_classes[[1]][1],
-            core_data$spp_classes[[1]][2],
-            core_data$spp_classes[[1]][3]
-          ),
-          locality_choices = unique(core_data$deps$locality),
-          locality_selected = unique(core_data$deps$locality)
-        )
-      ),
-
       # Conditional content for Report
       conditionalPanel(
         condition = "input.nav === 'reporting'",
@@ -187,7 +164,12 @@ ui <- function(request) {
           choices = unique(core_data$deps$locality),  # Set choices to unique localities
           selected = unique(core_data$deps$locality)  # Default selection is all localities
         ),
-        
+
+        mapping_module_ui(
+          id = "density_map_primary",
+          view = "density_options"
+        ),
+
         hr(),
         
         div(class = "sidebar_heading", "OBSERVATIONS SUMMARY"),
@@ -211,6 +193,46 @@ ui <- function(request) {
         
         period_selection_module_ui(id = "comparative_period", view = "summary"),
         mapping_module_ui("density_map_comparative", view = "summary")
+      ),
+
+      conditionalPanel(
+        condition = "input.nav === 'density_playback_map'",
+
+        period_selection_module_ui(
+          id = "playback_period",
+          view = "select",
+          choices = names(core_data$period_groups),
+          selected = core_data$period_defaults$primary_period,
+          label = "Starting season:"
+        ),
+
+        mapping_module_ui(
+          id = "density_playback_map",
+          view = "select_species",
+          choices = core_data$spp_classes,
+          selected = c(
+            core_data$spp_classes[[1]][1],
+            core_data$spp_classes[[1]][2],
+            core_data$spp_classes[[1]][3]
+          )
+        ),
+
+        mapping_module_ui(
+          id = "density_playback_map",
+          view = "select_localities",
+          choices = unique(core_data$deps$locality),
+          selected = unique(core_data$deps$locality)
+        ),
+
+        mapping_module_ui(
+          id = "density_playback_map",
+          view = "density_options"
+        ),
+
+        mapping_module_ui(
+          id = "density_playback_map",
+          view = "density_playback_controls"
+        )
       ),
       
       
@@ -245,10 +267,11 @@ ui <- function(request) {
           id = "observation_map",
           view = "select_observation_map_options"
         ),
-        
-        hr(),
-        # Call module UI for the sidebar summary display
-        mapping_module_ui(id = "observation_map", view = "observation_map_sidebar_summary")
+
+        mapping_module_ui(
+          id = "observation_map",
+          view = "density_playback_controls"
+        )
         
       ), # conditionalPanel
       
@@ -337,9 +360,11 @@ ui <- function(request) {
          # icon = icon("bullseye"),
           icon = icon("layer-group"),
           value = "density_map",
-          h2("Density Map"),
-          uiOutput("density_map_species_heading"),
-          uiOutput("density_map_locality_heading"),
+          div(
+            class = "map-page-heading",
+            h2("Density Map"),
+            uiOutput("density_map_selection_heading")
+          ),
 
           navset_tab(
             id = "density_map_tabs",
@@ -356,6 +381,19 @@ ui <- function(request) {
           )
         ),
 
+        ######### DENSITY PLAYBACK MAP OUTPUT #########
+        nav_panel(
+          title = "Density Playback Map",
+          icon = icon("play-circle"),
+          value = "density_playback_map",
+          div(
+            class = "map-page-heading",
+            h2("Density Playback Map"),
+            uiOutput("density_playback_map_selection_heading")
+          ),
+          mapping_module_ui("density_playback_map", view = "density_playback_layout")
+        ),
+
         ######### OBSERVATION MAP OUTPUT #########
         nav_panel(
           title = "Observation Map",
@@ -363,9 +401,11 @@ ui <- function(request) {
           # icon = icon("layer-group"),
           icon = icon("map-location-dot"), # Example new icon
           value = "observation_map",
-          h2("Observation Map"),
-          uiOutput("observation_map_species_heading"),
-          uiOutput("observation_map_locality_heading"),
+          div(
+            class = "map-page-heading",
+            h2("Observation Map"),
+            uiOutput("observation_map_selection_heading")
+          ),
           # Call the module UI for the main layout
           mapping_module_ui(id = "observation_map", view = "observation_map_layout")
         ),
@@ -386,17 +426,7 @@ ui <- function(request) {
         ),
 
         ######### ACTIVITY PATTERNS OUTPUT #########
-        activity_patterns_module_ui("activity_patterns", view = "main"),
-
-        ######### PLAYBACK MAP OUTPUT #########
-        nav_panel(
-          title = "Playback Map",
-          icon = icon("play-circle"),
-          value = "playback_map",
-          h2("Playback Map"),
-          p("Observe species density changes dynamically over time."),
-          playback_map_module_ui("playback_map", view = "map")
-        )
+        activity_patterns_module_ui("activity_patterns", view = "main")
       ),
         
     

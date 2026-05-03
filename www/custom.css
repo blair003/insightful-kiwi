@@ -63,6 +63,22 @@
         margin: 0.9rem 0 0.35rem;
       }
 
+      .map-page-heading {
+        margin-bottom: 0.35rem;
+      }
+
+      .map-page-heading h2 {
+        font-size: 1.35rem;
+        line-height: 1.15;
+        margin: 0 0 0.2rem;
+      }
+
+      .map-selection-heading {
+        font-size: 0.92rem;
+        line-height: 1.25;
+        margin: 0 0 0.45rem;
+      }
+
       .dashcard-header-row {
         align-items: center;
         display: flex;
@@ -712,6 +728,80 @@
           background-color: #ffcc66;
           padding: 5px;
           border-radius: 5px;
+        }
+
+        .playback-time-slider {
+          box-sizing: border-box;
+          margin-bottom: 0.75rem;
+          max-width: 100%;
+          min-width: 0;
+          overflow-x: visible;
+          padding: 0 3.25rem;
+        }
+
+        .playback-time-slider .shiny-input-container,
+        .playback-time-slider .irs,
+        .playback-speed-control .shiny-input-container,
+        .playback-speed-control .irs {
+          box-sizing: border-box;
+          max-width: 100%;
+          min-width: 0;
+          width: 100% !important;
+        }
+
+        .playback-time-slider .irs-min,
+        .playback-time-slider .irs-grid-text:first-child {
+          left: 0 !important;
+          margin-left: 0 !important;
+          text-align: left;
+          transform: none !important;
+        }
+
+        .playback-time-slider .irs-max,
+        .playback-time-slider .irs-grid-text:last-child {
+          margin-left: 0 !important;
+          right: 0 !important;
+          text-align: right;
+          transform: none !important;
+        }
+
+        .playback-time-slider .irs-single {
+          max-width: 11rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .playback-speed-control {
+          margin-bottom: 0.75rem;
+        }
+
+        .playback-speed-labels {
+          color: #6c757d;
+          display: flex;
+          font-size: 0.8em;
+          justify-content: space-between;
+          margin: -0.8rem 0 0;
+        }
+
+        .playback-button-row {
+          display: grid;
+          gap: 0.5rem;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          margin-top: 0.35rem;
+        }
+
+        .playback-button-row .btn,
+        .playback-reset-row .btn {
+          width: 100%;
+        }
+
+        .playback-reset-row {
+          margin-top: 1rem;
+        }
+
+        .playback-summary-window {
+          font-size: 0.9em;
+          margin-bottom: 0.35rem;
         }
 
         /* If row is clickable e.g. copy UUID to clipboard, make it obvious */

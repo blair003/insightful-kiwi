@@ -201,9 +201,9 @@ server <- function(input, output, session) {
         dashboard = input[["dashboard-main_dashboard_tabs"]],
         reporting = input$reporting_tabs,
         density_map = input$density_map_tabs,
+        density_playback_map = input[["density_playback_map-density_playback_tabs"]],
         observation_map = input[["observation_map-observation_map_tabs"]],
         activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
-        playback_map = NULL,
         raw_data = input$raw_data_tabs,
         NULL
       )
@@ -818,9 +818,9 @@ server <- function(input, output, session) {
         dashboard = "dashboard-main_dashboard_tabs",
         reporting = "reporting_tabs",
         density_map = "density_map_tabs",
+        density_playback_map = "density_playback_map-density_playback_tabs",
         observation_map = "observation_map-observation_map_tabs",
         activity_patterns = "activity_patterns-activity_patterns_tabs",
-        playback_map = NULL,
         raw_data = "raw_data_tabs",
         NULL
       )
@@ -976,7 +976,7 @@ server <- function(input, output, session) {
       localities <- unique(core_data$deps$locality)
     }
 
-    paste("Locality selection:", paste(vapply(as.character(localities), locality_display_name, character(1)), collapse = ", "))
+    paste(vapply(as.character(localities), locality_display_name, character(1)), collapse = ", ")
   }
 
   selected_species_heading <- function(species) {
@@ -991,27 +991,29 @@ server <- function(input, output, session) {
     missing_labels <- is.na(species_labels) | !nzchar(species_labels)
     species_labels[missing_labels] <- species[missing_labels]
 
-    paste("Species selection:", paste(species_labels, collapse = ", "))
+    paste(species_labels, collapse = ", ")
   }
 
-  output$density_map_species_heading <- renderUI({
+  selected_map_heading <- function(species, localities) {
+    paste(selected_species_heading(species), "at", selected_localities_heading(localities))
+  }
+
+  output$density_map_selection_heading <- renderUI({
     species <- input[["density_map_primary-selected_species"]]
-    div(class = "dashboard-locality-heading", selected_species_heading(species))
-  })
-
-  output$density_map_locality_heading <- renderUI({
     localities <- input[["density_map_primary-selected_localities"]]
-    div(class = "dashboard-locality-heading", selected_localities_heading(localities))
+    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
 
-  output$observation_map_species_heading <- renderUI({
+  output$observation_map_selection_heading <- renderUI({
     species <- input[["observation_map-selected_species"]]
-    div(class = "dashboard-locality-heading", selected_species_heading(species))
+    localities <- input[["observation_map-selected_localities"]]
+    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
 
-  output$observation_map_locality_heading <- renderUI({
-    localities <- input[["observation_map-selected_localities"]]
-    div(class = "dashboard-locality-heading", selected_localities_heading(localities))
+  output$density_playback_map_selection_heading <- renderUI({
+    species <- input[["density_playback_map-selected_species"]]
+    localities <- input[["density_playback_map-selected_localities"]]
+    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
   
   observeEvent(list(input$nav, input$density_map_tabs), {
@@ -1026,7 +1028,9 @@ server <- function(input, output, session) {
           id = "density_map_primary",
           type = "density",
           obs = filtered_obs_primary,
-          deps = filtered_deps_primary
+          deps = filtered_deps_primary,
+          period_start_date = primary_period$start_date,
+          period_end_date = primary_period$end_date
         )
       } else if (current_tab == "comparative") {
         logger::log_debug("server.R, lazily calling mapping_module_server() for density_map_comparative")
@@ -1036,7 +1040,9 @@ server <- function(input, output, session) {
             id = "density_map_primary",
             type = "density",
             obs = filtered_obs_primary,
-            deps = filtered_deps_primary
+            deps = filtered_deps_primary,
+            period_start_date = primary_period$start_date,
+            period_end_date = primary_period$end_date
           )
           loaded_density_tabs(c(loaded_density_tabs(), "primary"))
         }
@@ -1066,7 +1072,7 @@ server <- function(input, output, session) {
     last_year_period = dashboard_state$last_year_period
   )
 
-  ########### PLAYBACK MAP FEATURE ###########
+  ########### DENSITY PLAYBACK MAP FEATURE ###########
 
   playback_period <- period_selection_module_server(
     id = "playback_period",
@@ -1074,13 +1080,21 @@ server <- function(input, output, session) {
     selected = core_data$period_defaults$primary_period
   )
 
-  playback_map_loaded <- reactiveVal(FALSE)
+  density_playback_map_loaded <- reactiveVal(FALSE)
 
   observeEvent(input$nav, {
-    if (input$nav == "playback_map" && !playback_map_loaded()) {
-      logger::log_debug("server.R, lazily calling playback_map_module_server() for playback_map")
-      playback_map_module_server("playback_map", core_data = core_data, playback_period = playback_period)
-      playback_map_loaded(TRUE)
+    if (input$nav == "density_playback_map" && !density_playback_map_loaded()) {
+      logger::log_debug("server.R, lazily calling mapping_module_server() for density_playback_map")
+      mapping_module_server(
+        id = "density_playback_map",
+        type = "density",
+        obs = reactive(core_data$obs),
+        deps = reactive(core_data$deps),
+        period_start_date = playback_period$start_date,
+        period_end_date = playback_period$end_date,
+        playback_mode = "always"
+      )
+      density_playback_map_loaded(TRUE)
     }
   })
 
@@ -1098,7 +1112,8 @@ server <- function(input, output, session) {
         obs = filtered_obs_primary,
         deps = filtered_deps_primary,
         period_start_date = primary_period$start_date, # Pass reactive from period_selection_module
-        period_end_date = primary_period$end_date     # Pass reactive from period_selection_module
+        period_end_date = primary_period$end_date,     # Pass reactive from period_selection_module
+        playback_mode = "always"
         # The module will use its own internal input$selected_species and input$enhance_map_details
         # from the UI elements defined by mapping_module_ui in the sidebar.
       )

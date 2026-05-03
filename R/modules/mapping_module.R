@@ -43,6 +43,16 @@ mapping_module_ui <- function(id,
         )
       )
     )
+  } else if (view == "density_options") {
+    return(
+      tagList(
+        checkboxInput(
+          inputId = ns("exclude_possible_duplicates"),
+          label = "Exclude possible duplicates",
+          value = FALSE
+        )
+      )
+    )
   } else if (view == "select_observation_map_options") { # New view for observation map specific options
     return(
       tagList(
@@ -52,15 +62,75 @@ mapping_module_ui <- function(id,
         )
       )
     )
+  } else if (view == "density_playback_controls") {
+    return(
+      tagList(
+        div(
+          class = "playback-button-row",
+          actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success"),
+          actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning")
+        ),
+        div(
+          class = "playback-reset-row",
+          actionButton(ns("reset_btn"), "Reset", icon = icon("rotate-left"), class = "btn-outline-danger")
+        ),
+        hr(),
+        selectInput(
+          inputId = ns("playback_step_size"),
+          label = "Playback increments",
+          choices = c("Hourly" = "hour", "Daily" = "day", "Weekly" = "week", "Monthly" = "month"),
+          selected = "day"
+        ),
+        radioButtons(
+          inputId = ns("playback_view_mode"),
+          label = "View mode:",
+          choices = c("Single period" = "single", "Cumulative" = "cumulative"),
+          selected = "cumulative"
+        ),
+        div(
+          class = "playback-speed-control",
+          sliderInput(
+            inputId = ns("playback_speed"),
+            label = "Playback speed",
+            min = 0, max = 4, value = 0.5, step = 0.25
+          ),
+          div(
+            class = "playback-speed-labels",
+            tags$span("Faster"), tags$span("Slower")
+          )
+        )
+      )
+    )
   } else if (view == "map") { # This is for the density map
     return(
       tagList(
         leafletOutput(ns("map_display"), height = map_height)
       )
     )
+  } else if (view == "density_playback_layout") {
+    return(
+      tagList(
+        div(class = "playback-time-slider", uiOutput(ns("playback_slider_ui"))),
+        navset_tab(
+          id = ns("density_playback_tabs"),
+          nav_panel(
+            "Map",
+            leafletOutput(ns("map_display"), height = map_height),
+            value = "map"
+          ),
+          nav_panel(
+            "Data",
+            h3("Observations data in current window"),
+            DT::dataTableOutput(ns("playback_data_table")),
+            value = "data"
+          )
+        )
+      )
+    )
   } else if (view == "observation_map_layout") { # New view for the observation map page layout
     return(
       tagList(
+        div(class = "playback-time-slider", uiOutput(ns("playback_slider_ui"))),
         navset_tab(
           id = ns("observation_map_tabs"),
           selected = ns("map_tab"),
@@ -74,8 +144,7 @@ mapping_module_ui <- function(id,
             "Data",
             h3("Browse observations shown on the map"),
             p(
-              "The map is showing graphically the (unfiltered) results in this table,
-              subject to limits imposed for species with high counts (see notes tab)."
+              "This table shows the observations in the current playback window."
             ),
             DT::dataTableOutput(ns("observation_data_table")),
             value = ns("data_tab")
@@ -107,8 +176,10 @@ mapping_module_server <- function(id,
                                   localities_override = NULL, # Reactive: for comparative density map
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
+                                  playback_mode = c("none", "always"),
                                   enable_map_outputs = TRUE
 ) {
+  playback_mode <- match.arg(playback_mode, choices = c("none", "always"))
   
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -116,6 +187,7 @@ mapping_module_server <- function(id,
     
     MAP_ID <- ns("map_display") 
     current_bounds <- reactiveVal(NULL) # Unified reactiveVal for map bounds
+    needs_fit_bounds <- reactiveVal(FALSE)
     
     # --- Common Reactives ---
     current_selected_species <- reactive({
@@ -238,11 +310,221 @@ mapping_module_server <- function(id,
     
     # --- Density Map Specific Logic ---
     if (type == "density") {
+      is_playing <- reactiveVal(FALSE)
+
+      playback_active <- reactive({
+        identical(playback_mode, "always")
+      })
+
+      floor_posix_hour <- function(value) {
+        value <- as.POSIXct(value, tz = config$globals$timezone)
+        as.POSIXct(
+          floor(as.numeric(value) / 3600) * 3600,
+          origin = "1970-01-01",
+          tz = config$globals$timezone
+        )
+      }
+
+      ceiling_posix_hour <- function(value) {
+        value <- as.POSIXct(value, tz = config$globals$timezone)
+        as.POSIXct(
+          ceiling(as.numeric(value) / 3600) * 3600,
+          origin = "1970-01-01",
+          tz = config$globals$timezone
+        )
+      }
+
+      playback_bounds <- function(start, end) {
+        start <- floor_posix_hour(start)
+        end <- ceiling_posix_hour(end)
+
+        if (is.na(start) || is.na(end)) {
+          return(NULL)
+        }
+
+        if (end <= start) {
+          end <- start + 3600
+        }
+
+        list(start = start, end = end)
+      }
+
+      playback_observation_bounds <- reactive({
+        obs_data <- obs()
+
+        fallback_start <- if (is.function(period_start_date)) {
+          as.POSIXct(period_start_date(), tz = config$globals$timezone)
+        } else {
+          suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+        }
+
+        fallback_end <- if (is.function(period_end_date)) {
+          as.POSIXct(as.Date(period_end_date()) + 1, tz = config$globals$timezone) - 1
+        } else {
+          suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+        }
+
+        req(fallback_start, fallback_end)
+
+        period_obs <- obs_data %>%
+          dplyr::filter(
+            as.Date(timestamp) >= as.Date(fallback_start),
+            as.Date(timestamp) <= as.Date(fallback_end),
+            !is.na(timestamp)
+          )
+
+        if (nrow(period_obs) > 0) {
+          return(playback_bounds(
+            min(period_obs$timestamp, na.rm = TRUE),
+            max(period_obs$timestamp, na.rm = TRUE)
+          ))
+        }
+
+        playback_bounds(fallback_start, fallback_end)
+      })
+
+      playback_period_start <- reactive({
+        req(playback_observation_bounds())
+        playback_observation_bounds()$start
+      })
+
+      playback_period_end <- reactive({
+        req(playback_observation_bounds())
+        playback_observation_bounds()$end
+      })
+
+      playback_step_seconds <- reactive({
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        switch(step_size,
+          "hour" = 3600,
+          "day" = 86400,
+          "week" = 604800,
+          "month" = 2592000,
+          86400
+        )
+      })
+
+      playback_initial_value <- reactive({
+        req(playback_period_start(), playback_period_end())
+        if (identical(input$playback_view_mode, "single")) {
+          min(playback_period_start() + playback_step_seconds(), playback_period_end())
+        } else {
+          playback_period_start()
+        }
+      })
+
+      reset_playback_slider <- function() {
+        req(playback_period_start(), playback_period_end())
+        updateSliderInput(session, "time_slider", value = playback_initial_value())
+      }
+
+      output$playback_slider_ui <- renderUI({
+        req(playback_active(), playback_period_start(), playback_period_end())
+        sliderInput(
+          inputId = ns("time_slider"),
+          label = "Time progression",
+          min = playback_period_start(),
+          max = playback_period_end(),
+          value = playback_initial_value(),
+          step = playback_step_seconds(),
+          width = "100%",
+          ticks = FALSE,
+          timezone = "Pacific/Auckland"
+        )
+      })
+
+      set_playback_button_state <- function(playing) {
+        if (!playback_active()) {
+          return()
+        }
+
+        if (isTRUE(playing)) {
+          shinyjs::disable(selector = paste0("#", ns("play_btn")))
+          shinyjs::enable(selector = paste0("#", ns("pause_btn")))
+        } else {
+          shinyjs::enable(selector = paste0("#", ns("play_btn")))
+          shinyjs::disable(selector = paste0("#", ns("pause_btn")))
+        }
+      }
+
+      send_playback_timer <- function() {
+        if (!playback_active()) {
+          return()
+        }
+
+        playback_speed <- if (is.null(input$playback_speed)) 0.5 else input$playback_speed
+        interval_ms <- max(50, as.numeric(playback_speed) * 1000)
+        session$sendCustomMessage(
+          "densityPlaybackTimer",
+          list(
+            id = ns("playback_tick"),
+            enabled = isTRUE(is_playing() && playback_active()),
+            interval = interval_ms
+          )
+        )
+      }
+
+      observe({
+        set_playback_button_state(is_playing())
+        send_playback_timer()
+      })
+
+      observeEvent(input$play_btn, {
+        req(playback_active())
+        is_playing(TRUE)
+      })
+
+      observeEvent(input$pause_btn, {
+        is_playing(FALSE)
+      })
+
+      observeEvent(input$reset_btn, {
+        is_playing(FALSE)
+        reset_playback_slider()
+      })
+
+      observeEvent(list(input$playback_step_size, input$playback_view_mode), {
+        if (playback_active()) {
+          is_playing(FALSE)
+          reset_playback_slider()
+        }
+      }, ignoreInit = TRUE)
+
+      observeEvent(list(session$rootScope()$input$nav, session$rootScope()$input$density_map_tabs), {
+        if (identical(playback_mode, "none") &&
+            (!identical(session$rootScope()$input$nav, "density_map") ||
+             !identical(session$rootScope()$input$density_map_tabs, sub("^.*_", "", id)))) {
+          is_playing(FALSE)
+        }
+      }, ignoreInit = TRUE)
+
+      observeEvent(list(session$rootScope()$input$nav, input$density_playback_tabs), {
+        if (identical(playback_mode, "always") &&
+            (!identical(session$rootScope()$input$nav, "density_playback_map") ||
+             !is.null(input$density_playback_tabs) && !identical(input$density_playback_tabs, "map"))) {
+          is_playing(FALSE)
+        }
+      }, ignoreInit = TRUE)
+
+      observeEvent(input$playback_tick, {
+        req(is_playing(), playback_active(), input$time_slider)
+        current_val <- as.POSIXct(input$time_slider)
+        next_val <- current_val + playback_step_seconds()
+        if (next_val <= playback_period_end()) {
+          updateSliderInput(session, "time_slider", value = next_val)
+        } else {
+          is_playing(FALSE)
+        }
+      }, ignoreInit = TRUE)
       
       mapping_data_density <- reactive({
         req(obs(), deps(), current_selected_species(), current_selected_localities())
         species_dens <- tolower(unname(current_selected_species()))
         localities_dens <- current_selected_localities()
+        if (playback_active()) {
+          req(input$time_slider)
+        }
+        use_playback <- playback_active()
         
         logger::log_debug(sprintf(
           "mapping_module_server [density], %s mapping_data_density() for species: %s, localities: %s",
@@ -253,15 +535,58 @@ mapping_module_server <- function(id,
           dplyr::filter(locality %in% localities_dens) %>%
           dplyr::distinct(locationID, locality, .keep_all = TRUE)
         
-        # Calculate and set the unified bounds
         new_map_bounds <- calculate_bounds_from_locations(active_locations_dens, id, "density")
-        current_bounds(new_map_bounds) # Update the single reactiveVal
+        new_bounds_key <- if (nrow(active_locations_dens) > 0) {
+          paste(sort(unique(active_locations_dens$locationID)), collapse = "|")
+        } else {
+          ""
+        }
+        old_bounds <- current_bounds()
+        old_bounds_key <- if (!is.null(old_bounds$key)) old_bounds$key else NULL
+        if (!identical(new_bounds_key, old_bounds_key)) {
+          if (!is.null(new_map_bounds)) {
+            new_map_bounds$key <- new_bounds_key
+          }
+          current_bounds(new_map_bounds)
+          needs_fit_bounds(TRUE)
+        }
         
         obs_filtered_dens <- obs() %>%
           dplyr::filter(
             scientificName_lower %in% species_dens,
             locality %in% localities_dens
           )
+
+        obs_for_scale_dens <- obs_filtered_dens
+
+        start_time_dens <- NULL
+        current_time_dens <- NULL
+        if (use_playback) {
+          current_time_dens <- as.POSIXct(input$time_slider)
+          start_time_dens <- if (identical(input$playback_view_mode, "single")) {
+            current_time_dens - playback_step_seconds()
+          } else {
+            playback_period_start()
+          }
+
+          obs_filtered_dens <- obs_filtered_dens %>%
+            dplyr::filter(
+              timestamp >= start_time_dens,
+              timestamp <= current_time_dens
+            )
+
+          obs_for_scale_dens <- obs_for_scale_dens %>%
+            dplyr::filter(
+              timestamp >= start_time_dens,
+              timestamp <= current_time_dens
+            )
+        }
+
+        if (isTRUE(input$exclude_possible_duplicates) &&
+            "possible_duplicate" %in% names(obs_filtered_dens)) {
+          obs_filtered_dens <- obs_filtered_dens %>%
+            dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
+        }
         
         obs_summary_location_dens <- obs_filtered_dens %>%
           dplyr::group_by(locationID, locationName, locality, longitude, latitude) %>%
@@ -287,10 +612,42 @@ mapping_module_server <- function(id,
           dplyr::summarise(count = sum(count)) %>%
           dplyr::mutate(locality = "Grand Total")
         
+        absolute_max <- obs_for_scale_dens %>%
+          dplyr::group_by(locationID) %>%
+          dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::summarise(max_count = max(count, na.rm = TRUE)) %>%
+          dplyr::pull(max_count)
+
+        if (use_playback) {
+          playback_absolute_max <- obs() %>%
+            dplyr::filter(
+              scientificName_lower %in% species_dens,
+              locality %in% localities_dens,
+              timestamp >= playback_period_start(),
+              timestamp <= playback_period_end()
+            ) %>%
+            dplyr::group_by(locationID) %>%
+            dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+            dplyr::summarise(max_count = max(count, na.rm = TRUE)) %>%
+            dplyr::pull(max_count)
+
+          if (!is.na(playback_absolute_max) && !is.infinite(playback_absolute_max)) {
+            absolute_max <- playback_absolute_max
+          }
+        }
+
+        if (is.na(absolute_max) || is.infinite(absolute_max)) {
+          absolute_max <- 0
+        }
+
         list(
           active_locations = active_locations_dens,
           obs_summary_location = obs_summary_location_dens,
-          obs_summary_locality_with_total = dplyr::bind_rows(obs_summary_locality_dens, grand_total_dens)
+          obs_summary_locality_with_total = dplyr::bind_rows(obs_summary_locality_dens, grand_total_dens),
+          start_time = start_time_dens,
+          current_time = current_time_dens,
+          absolute_max = absolute_max,
+          obs_filtered = obs_filtered_dens
         )
       })
       
@@ -306,23 +663,55 @@ mapping_module_server <- function(id,
           map_id = MAP_ID, 
           active_locations = data_for_map$active_locations,
           obs_summary_location = data_for_map$obs_summary_location,
-          show_zero = TRUE # Assuming this is a param for update_density_map
+          show_zero = TRUE,
+          absolute_max = data_for_map$absolute_max
         )
-        # Apply fit bounds after updating map content, as in original logic for density
-        apply_map_fit_bounds() 
+        if (isTRUE(needs_fit_bounds())) {
+          apply_map_fit_bounds()
+          needs_fit_bounds(FALSE)
+        }
       })
       
       output$obs_summary <- renderUI({ # Density-specific summary table
-        req(mapping_data_density())
-        data_summary <- mapping_data_density()$obs_summary_locality_with_total
+        data_for_summary <- req(mapping_data_density())
+        data_summary <- data_for_summary$obs_summary_locality_with_total
         total_row_index <- nrow(data_summary)
+        playback_window <- NULL
+        if (playback_active()) {
+          req(data_for_summary$start_time, data_for_summary$current_time)
+          playback_window <- sprintf(
+            "<div class=\"playback-summary-window\"><strong>Showing window:</strong> %s to %s</div>",
+            format(data_for_summary$start_time, "%Y-%m-%d %H:%M"),
+            format(data_for_summary$current_time, "%Y-%m-%d %H:%M")
+          )
+        }
         kable_table <- knitr::kable(data_summary, format = "html", escape = FALSE, col.names = c("Locality", "Count")) %>%
           kableExtra::kable_styling(
             bootstrap_options = c("hover", "condensed", "bordered"),
             full_width = FALSE, position = "center", font_size = 12
           ) %>%
           kableExtra::row_spec(total_row_index, bold = TRUE)
-        HTML(kable_table)
+        HTML(paste0(playback_window, kable_table))
+      })
+      outputOptions(output, "obs_summary", suspendWhenHidden = FALSE)
+
+      output$playback_data_table <- DT::renderDataTable({
+        req(playback_active(), mapping_data_density())
+        table_data <- mapping_data_density()$obs_filtered
+
+        table_data <- prepare_spec_table_data(
+          table_data,
+          table_id = "observationmap_observations_browse",
+          column_help = FALSE
+        )$table_data
+
+        DT::datatable(
+          table_data,
+          escape = FALSE,
+          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
+          class = 'display',
+          rownames = FALSE
+        )
       })
 
       root_session <- session$rootScope()
@@ -356,7 +745,7 @@ mapping_module_server <- function(id,
         main_nav <- session$rootScope()$input$nav
         sub_tab  <- session$rootScope()$input$density_map_tabs # Input from parent UI
         
-        req(main_nav == "density_map", sub_tab == sub_tab_id)
+        req(identical(playback_mode, "none"), main_nav == "density_map", sub_tab == sub_tab_id)
         
         shinyjs::runjs(sprintf( # GA event
           "gtag('event','tab_switch',{
@@ -373,6 +762,20 @@ mapping_module_server <- function(id,
           id, sub_tab
         ))
         recenter_map_generic() # Use the generic recenter function
+      })
+
+      observe({
+        main_nav <- session$rootScope()$input$nav
+        playback_tab <- input$density_playback_tabs
+
+        req(identical(playback_mode, "always"), main_nav == "density_playback_map")
+        req(is.null(playback_tab) || identical(playback_tab, "map"))
+
+        logger::log_debug(sprintf(
+          "mapping_module_server [density playback], %s auto-recenter due to navigation/tab switch",
+          id
+        ))
+        recenter_map_generic()
       })
       
       return(list(
@@ -397,9 +800,204 @@ mapping_module_server <- function(id,
       })
       
       observation_map_warning_content <- reactiveVal(NULL) # Specific to observation map
+
+      floor_posix_hour_obs <- function(value) {
+        value <- as.POSIXct(value, tz = config$globals$timezone)
+        as.POSIXct(
+          floor(as.numeric(value) / 3600) * 3600,
+          origin = "1970-01-01",
+          tz = config$globals$timezone
+        )
+      }
+
+      ceiling_posix_hour_obs <- function(value) {
+        value <- as.POSIXct(value, tz = config$globals$timezone)
+        as.POSIXct(
+          ceiling(as.numeric(value) / 3600) * 3600,
+          origin = "1970-01-01",
+          tz = config$globals$timezone
+        )
+      }
+
+      playback_bounds_obs <- function(start, end) {
+        start <- floor_posix_hour_obs(start)
+        end <- ceiling_posix_hour_obs(end)
+
+        if (is.na(start) || is.na(end)) {
+          return(NULL)
+        }
+
+        if (end <= start) {
+          end <- start + 3600
+        }
+
+        list(start = start, end = end)
+      }
+
+      playback_active_obs <- reactive({
+        identical(playback_mode, "always")
+      })
+
+      playback_observation_bounds_obs <- reactive({
+        obs_data <- obs()
+
+        fallback_start <- if (is.function(period_start_date)) {
+          as.POSIXct(period_start_date(), tz = config$globals$timezone)
+        } else {
+          suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+        }
+
+        fallback_end <- if (is.function(period_end_date)) {
+          as.POSIXct(as.Date(period_end_date()) + 1, tz = config$globals$timezone) - 1
+        } else {
+          suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = config$globals$timezone))
+        }
+
+        req(fallback_start, fallback_end)
+
+        period_obs <- obs_data %>% dplyr::filter(!is.na(timestamp))
+        if (nrow(period_obs) > 0) {
+          return(playback_bounds_obs(
+            min(period_obs$timestamp, na.rm = TRUE),
+            max(period_obs$timestamp, na.rm = TRUE)
+          ))
+        }
+
+        playback_bounds_obs(fallback_start, fallback_end)
+      })
+
+      playback_period_start_obs <- reactive({
+        req(playback_observation_bounds_obs())
+        playback_observation_bounds_obs()$start
+      })
+
+      playback_period_end_obs <- reactive({
+        req(playback_observation_bounds_obs())
+        playback_observation_bounds_obs()$end
+      })
+
+      playback_step_seconds_obs <- reactive({
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        switch(step_size,
+          "hour" = 3600,
+          "day" = 86400,
+          "week" = 604800,
+          "month" = 2592000,
+          86400
+        )
+      })
+
+      playback_initial_value_obs <- reactive({
+        req(playback_period_start_obs(), playback_period_end_obs())
+        if (identical(input$playback_view_mode, "single")) {
+          min(playback_period_start_obs() + playback_step_seconds_obs(), playback_period_end_obs())
+        } else {
+          playback_period_start_obs()
+        }
+      })
+
+      reset_playback_slider_obs <- function() {
+        req(playback_period_start_obs(), playback_period_end_obs())
+        updateSliderInput(session, "time_slider", value = playback_initial_value_obs())
+      }
+
+      output$playback_slider_ui <- renderUI({
+        req(playback_active_obs(), playback_period_start_obs(), playback_period_end_obs())
+        sliderInput(
+          inputId = ns("time_slider"),
+          label = "Time progression",
+          min = playback_period_start_obs(),
+          max = playback_period_end_obs(),
+          value = playback_initial_value_obs(),
+          step = playback_step_seconds_obs(),
+          width = "100%",
+          ticks = FALSE,
+          timezone = "Pacific/Auckland"
+        )
+      })
+
+      is_playing_obs <- reactiveVal(FALSE)
+
+      set_playback_button_state_obs <- function(playing) {
+        if (!playback_active_obs()) {
+          return()
+        }
+
+        if (isTRUE(playing)) {
+          shinyjs::disable(selector = paste0("#", ns("play_btn")))
+          shinyjs::enable(selector = paste0("#", ns("pause_btn")))
+        } else {
+          shinyjs::enable(selector = paste0("#", ns("play_btn")))
+          shinyjs::disable(selector = paste0("#", ns("pause_btn")))
+        }
+      }
+
+      send_playback_timer_obs <- function() {
+        if (!playback_active_obs()) {
+          return()
+        }
+
+        playback_speed <- if (is.null(input$playback_speed)) 0.5 else input$playback_speed
+        interval_ms <- max(50, as.numeric(playback_speed) * 1000)
+        session$sendCustomMessage(
+          "densityPlaybackTimer",
+          list(
+            id = ns("playback_tick"),
+            enabled = isTRUE(is_playing_obs() && playback_active_obs()),
+            interval = interval_ms
+          )
+        )
+      }
+
+      observe({
+        set_playback_button_state_obs(is_playing_obs())
+        send_playback_timer_obs()
+      })
+
+      observeEvent(input$play_btn, {
+        req(playback_active_obs())
+        is_playing_obs(TRUE)
+      })
+
+      observeEvent(input$pause_btn, {
+        is_playing_obs(FALSE)
+      })
+
+      observeEvent(input$reset_btn, {
+        is_playing_obs(FALSE)
+        reset_playback_slider_obs()
+      })
+
+      observeEvent(list(input$playback_step_size, input$playback_view_mode), {
+        if (playback_active_obs()) {
+          is_playing_obs(FALSE)
+          reset_playback_slider_obs()
+        }
+      }, ignoreInit = TRUE)
+
+      observeEvent(list(session$rootScope()$input$nav, input$observation_map_tabs), {
+        if (!identical(session$rootScope()$input$nav, "observation_map") ||
+            !is.null(input$observation_map_tabs) && !identical(input$observation_map_tabs, ns("map_tab"))) {
+          is_playing_obs(FALSE)
+        }
+      }, ignoreInit = TRUE)
+
+      observeEvent(input$playback_tick, {
+        req(is_playing_obs(), playback_active_obs(), input$time_slider)
+        current_val <- as.POSIXct(input$time_slider)
+        next_val <- current_val + playback_step_seconds_obs()
+        if (next_val <= playback_period_end_obs()) {
+          updateSliderInput(session, "time_slider", value = next_val)
+        } else {
+          is_playing_obs(FALSE)
+        }
+      }, ignoreInit = TRUE)
       
       observation_map_processed_data <- reactive({
         req(obs(), deps(), current_selected_species(), current_selected_localities())
+        if (playback_active_obs()) {
+          req(input$time_slider)
+        }
 
         start_date <- if (is.function(period_start_date)) {
           period_start_date()
@@ -428,13 +1026,42 @@ mapping_module_server <- function(id,
           dplyr::filter(locality %in% localities_to_map) %>%
           dplyr::distinct(locationID, .keep_all = TRUE) 
         
-        # Calculate and set the unified bounds
         new_map_bounds <- calculate_bounds_from_locations(active_locations_obsmap, id, "observation")
-        current_bounds(new_map_bounds) # Update the single reactiveVal
+        new_bounds_key <- if (nrow(active_locations_obsmap) > 0) {
+          paste(sort(unique(active_locations_obsmap$locationID)), collapse = "|")
+        } else {
+          ""
+        }
+        old_bounds <- current_bounds()
+        old_bounds_key <- if (!is.null(old_bounds$key)) old_bounds$key else NULL
+        if (!identical(new_bounds_key, old_bounds_key)) {
+          if (!is.null(new_map_bounds)) {
+            new_map_bounds$key <- new_bounds_key
+          }
+          current_bounds(new_map_bounds)
+          needs_fit_bounds(TRUE)
+        }
         
         obs_filtered_obsmap <- obs() %>%
           dplyr::filter(tolower(scientificName) %in% species_to_map,
                         locality %in% localities_to_map)
+
+        start_time_obsmap <- NULL
+        current_time_obsmap <- NULL
+        if (playback_active_obs()) {
+          current_time_obsmap <- as.POSIXct(input$time_slider)
+          start_time_obsmap <- if (identical(input$playback_view_mode, "single")) {
+            current_time_obsmap - playback_step_seconds_obs()
+          } else {
+            playback_period_start_obs()
+          }
+
+          obs_filtered_obsmap <- obs_filtered_obsmap %>%
+            dplyr::filter(
+              timestamp >= start_time_obsmap,
+              timestamp <= current_time_obsmap
+            )
+        }
         
         no_obs_locations_obsmap <- active_locations_obsmap %>%
           dplyr::filter(!locationName %in% obs_filtered_obsmap$locationName)
@@ -463,12 +1090,13 @@ mapping_module_server <- function(id,
           dplyr::select(Species, Count)
         
         list(
-          observations_for_table = obs_filtered_obsmap %>%
-            dplyr::select(locality, line, locationName, timestamp, count, `vernacularNames.eng`, scientificName, possible_duplicate, observationID),
+          observations_for_table = obs_filtered_obsmap,
           obs_summary_for_sidebar = obs_summary_for_sidebar,
           prepared_markers = prepared_markers_list,
           active_locations = active_locations_obsmap,
-          no_obs_locations_count = nrow(no_obs_locations_obsmap)
+          no_obs_locations_count = nrow(no_obs_locations_obsmap),
+          start_time = start_time_obsmap,
+          current_time = current_time_obsmap
         )
       })
       
@@ -513,8 +1141,10 @@ mapping_module_server <- function(id,
         # It now targets the unified MAP_ID.
         update_map(all_markers_data, MAP_ID, active_locs) 
         
-        # Recenter map after updating content, as in original logic for observation
-        recenter_map_generic() 
+        if (isTRUE(needs_fit_bounds())) {
+          recenter_map_generic()
+          needs_fit_bounds(FALSE)
+        }
         
         if (!is.null(input$enhance_map_details) && input$enhance_map_details) {
           # update_map_area is specific to observation map type
@@ -547,9 +1177,9 @@ mapping_module_server <- function(id,
       
       # --- Observation-specific outputs (UI elements other than the map) ---
       output$observation_data_table <- DT::renderDataTable({
-        req(observation_map_processed_data())
+        processed_data <- req(observation_map_processed_data())
         table_data <- prepare_spec_table_data(
-          observation_map_processed_data()$observations_for_table,
+          processed_data$observations_for_table,
           table_id = "observationmap_observations_browse",
           column_help = FALSE
         )$table_data
