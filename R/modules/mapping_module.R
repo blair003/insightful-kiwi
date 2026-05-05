@@ -148,13 +148,18 @@ mapping_module_ui <- function(id,
         checkboxInput(
           inputId = ns("exclude_possible_duplicates"),
           label = "Exclude possible duplicates",
-          value = FALSE
+          value = isTRUE(config$globals$use_net_data)
         )
       )
     )
   } else if (view == "select_observation_map_options") { # New view for observation map specific options
     return(
       tagList(
+        checkboxInput(
+          inputId = ns("exclude_possible_duplicates"),
+          label = "Exclude possible duplicates",
+          value = isTRUE(config$globals$use_net_data)
+        ),
         checkboxInput(
           inputId = ns("enhance_map_details"),
           label = "Show area calc"
@@ -287,7 +292,8 @@ mapping_module_server <- function(id,
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
                                   playback_mode = c("none", "always"),
-                                  enable_map_outputs = TRUE
+                                  enable_map_outputs = TRUE,
+                                  use_net = reactive(config$globals$use_net_data)
 ) {
   playback_mode <- match.arg(playback_mode, choices = c("none", "always"))
   
@@ -298,6 +304,22 @@ mapping_module_server <- function(id,
     MAP_ID <- ns("map_display") 
     current_bounds <- reactiveVal(NULL) # Unified reactiveVal for map bounds
     needs_fit_bounds <- reactiveVal(FALSE)
+
+    observeEvent(use_net(), {
+      updateCheckboxInput(
+        session,
+        "exclude_possible_duplicates",
+        value = isTRUE(use_net())
+      )
+    }, ignoreInit = FALSE)
+
+    exclude_possible_duplicates_selected <- reactive({
+      if (is.null(input$exclude_possible_duplicates)) {
+        return(isTRUE(use_net()))
+      }
+
+      isTRUE(input$exclude_possible_duplicates)
+    })
     
     # --- Common Reactives ---
     current_selected_species <- reactive({
@@ -720,9 +742,11 @@ mapping_module_server <- function(id,
             )
         }
 
-        if (isTRUE(input$exclude_possible_duplicates) &&
+        if (isTRUE(exclude_possible_duplicates_selected()) &&
             "possible_duplicate" %in% names(obs_filtered_dens)) {
           obs_filtered_dens <- obs_filtered_dens %>%
+            dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
+          obs_for_scale_dens <- obs_for_scale_dens %>%
             dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
         }
         
@@ -763,7 +787,15 @@ mapping_module_server <- function(id,
               locality %in% localities_dens,
               timestamp >= playback_period_start(),
               timestamp <= playback_period_end()
-            ) %>%
+            )
+
+          if (isTRUE(exclude_possible_duplicates_selected()) &&
+              "possible_duplicate" %in% names(playback_absolute_max)) {
+            playback_absolute_max <- playback_absolute_max %>%
+              dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
+          }
+
+          playback_absolute_max <- playback_absolute_max %>%
             dplyr::group_by(locationID) %>%
             dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
             dplyr::summarise(max_count = max(count, na.rm = TRUE)) %>%
@@ -1237,6 +1269,12 @@ mapping_module_server <- function(id,
         obs_filtered_obsmap <- obs() %>%
           dplyr::filter(tolower(scientificName) %in% species_to_map,
                         locality %in% localities_to_map)
+
+        if (isTRUE(exclude_possible_duplicates_selected()) &&
+            "possible_duplicate" %in% names(obs_filtered_obsmap)) {
+          obs_filtered_obsmap <- obs_filtered_obsmap %>%
+            dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
+        }
 
         start_time_obsmap <- NULL
         current_time_obsmap <- NULL
@@ -1944,6 +1982,3 @@ get_species_icon <- function(species) {
     return(default_icon)
   }
 }
-
-
-

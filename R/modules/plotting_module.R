@@ -145,6 +145,14 @@ plotting_module_server <- function(id,
   moduleServer(id, function(input, output, session) {
     logger::log_debug(sprintf("plotting_module_server, %s moduleServer() running", id))
 
+    use_net_value <- reactive({
+      if (is.function(use_net)) {
+        return(isTRUE(use_net()))
+      }
+
+      isTRUE(use_net)
+    })
+
     get_plot_width <- function() {
       plot_width <- session$clientData[[paste0("output_", session$ns("obs_plot"), "_width")]]
 
@@ -433,8 +441,8 @@ plotting_module_server <- function(id,
           rai_groups,
           rai_group_name,
           rai_norm_hours,
-          use_net,
-          cache_context = paste("rai_plot", id, period_name, rai_group_name, paste(locality_filter, collapse = ","), sep = "|")
+          use_net_value(),
+          cache_context = paste("rai_plot", id, period_name, rai_group_name, paste(locality_filter, collapse = ","), use_net_value(), sep = "|")
         )
 
         tibble::tibble(
@@ -478,7 +486,7 @@ plotting_module_server <- function(id,
         paste(selected_localities(), collapse = "|"),
         combine_localities_selected(),
         rai_norm_hours,
-        use_net
+        use_net_value()
       )
 
     output$rai_plot <- renderPlot({

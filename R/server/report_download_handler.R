@@ -5,7 +5,8 @@ register_report_download_handler <- function(input,
                                              filtered_deps_primary,
                                              filtered_obs_primary,
                                              core_data,
-                                             config) {
+                                             config,
+                                             use_net = reactive(config$globals$use_net_data)) {
   output$download_report <- downloadHandler(
     filename = function() {
       generate_report_filename(primary_period$period_name(), core_data$created, input$report_format)
@@ -22,7 +23,8 @@ register_report_download_handler <- function(input,
 
       ensure_directories_exist(reports_cache_dir, density_maps_dir, plots_dir)
 
-      report_html <- file.path(reports_cache_dir, gsub(" ", "_", paste0(period_name, "_deployment_report_", package_date_string, ".html")))
+      report_count_basis <- if (isTRUE(use_net())) "net" else "total"
+      report_html <- file.path(reports_cache_dir, gsub(" ", "_", paste0(period_name, "_", report_count_basis, "_deployment_report_", package_date_string, ".html")))
 
       if (!file.exists(report_html)) {
         ensure_pandoc_available()
@@ -36,8 +38,11 @@ register_report_download_handler <- function(input,
           period_name,
           reporting_data,
           filtered_deps_primary(),
-          config
+          config,
+          use_net()
         )
+
+        report_obs <- filter_possible_duplicates_for_use_net(filtered_obs_primary(), use_net())
 
         named_class_species <- reporting_data$spp_summary$locality %>%
           dplyr::filter(species_class != config$globals$spp_class_unclassified) %>%
@@ -51,7 +56,7 @@ register_report_download_handler <- function(input,
           period_name,
           reports_cache_dir,
           package_date_string,
-          filtered_obs_primary(),
+          report_obs,
           filtered_deps_primary(),
           config$globals$species_name_type
         )
@@ -61,7 +66,7 @@ register_report_download_handler <- function(input,
           dplyr::pull(locality)
 
         data_to_export$data$plots <- generate_locality_plots(
-          filtered_obs_primary(),
+          report_obs,
           unique_localities,
           period_name,
           reports_cache_dir,
@@ -78,7 +83,7 @@ register_report_download_handler <- function(input,
       }
 
       if (input$report_format == "pdf") {
-        report_pdf <- file.path(reports_cache_dir, gsub(" ", "-", paste0(period_name, "_deployment_report_", package_date_string, ".pdf")))
+        report_pdf <- file.path(reports_cache_dir, gsub(" ", "-", paste0(period_name, "_", report_count_basis, "_deployment_report_", package_date_string, ".pdf")))
         convert_to_pdf(report_html, report_pdf)
         file.copy(report_pdf, file, overwrite = TRUE)
       } else {

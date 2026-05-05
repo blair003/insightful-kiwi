@@ -473,15 +473,15 @@ ui <- function(request) {
       nav_item(
         tags$a(
           href = "#",
-          # Prevent default navigation behavior
           class = "nav-link",
-          onclick = "customInfoButtonClickHandler('About InsightfulKiwi', 'about_app_button')",
-          # JavaScript function call for both icon and text
-          style = "cursor: pointer;", # Set cursor to pointer to indicate clickability
+          onclick = "Shiny.setInputValue('global_setup_btn', Math.random(), {priority: 'event'}); return false;",
+          style = "cursor: pointer;",
           tags$span(
-            tags$i(class = "fa fa-info-circle",
-                   style = "margin-right: 5px;",  # Adds some space between icon and text),
-                   ""  # Text to display next to the icon
+            tags$i(
+              class = "fa fa-gear",
+              title = "Setup",
+              style = "margin-right: 5px;",
+              ""
             )
           )
         ),

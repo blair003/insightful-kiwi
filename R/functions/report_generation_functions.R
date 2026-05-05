@@ -29,7 +29,7 @@ ensure_directories_exist <- function(reports_cache_dir, density_maps_dir, plots_
 }
 
 
-collate_reporting_data <- function(start_date, end_date, period_name, reporting_data, deps, config) {
+collate_reporting_data <- function(start_date, end_date, period_name, reporting_data, deps, config, use_net = get_use_net_data_setting()) {
 
   column_descriptions <- get_column_description()
   
@@ -43,7 +43,8 @@ collate_reporting_data <- function(start_date, end_date, period_name, reporting_
     ),
     config = list(
       globals = list(
-        species_name_type = config$globals$species_name_type
+        species_name_type = config$globals$species_name_type,
+        use_net_data = isTRUE(use_net)
       ),
       
       meta = list(
@@ -58,6 +59,8 @@ collate_reporting_data <- function(start_date, end_date, period_name, reporting_
       spp_summary = reporting_data$spp_summary,
       summary_data = reporting_data$summary_data,
       column_descriptions = column_descriptions,
+      count_basis = if (isTRUE(use_net)) "net" else "total",
+      count_basis_label = if (isTRUE(use_net)) "Net data: possible duplicates excluded" else "Total data: possible duplicates included",
       deployments = deps
     )
   )
@@ -183,6 +186,12 @@ render_report <- function(period_name, package_date_string, reports_cache_dir, d
   #browser()
   ensure_pandoc_available()
 
+  previous_use_net_data <- config$globals$use_net_data
+  config$globals$use_net_data <<- isTRUE(data_to_export$config$globals$use_net_data)
+  on.exit({
+    config$globals$use_net_data <<- previous_use_net_data
+  }, add = TRUE)
+
   report_template <- "resources/templates/deployment_report.Rmd"
   report_css <- "resources/templates/custom_report.css"
   
@@ -212,8 +221,6 @@ convert_to_pdf <- function(report_html, report_pdf) {
   
   if (!file.exists(report_pdf)) stop("File not found: ", report_pdf)
 }
-
-
 
 
 

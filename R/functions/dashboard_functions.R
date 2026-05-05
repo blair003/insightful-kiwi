@@ -26,7 +26,7 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL, pe
     rai_groups = config$globals$rai_groups,
     rai_group = rai_group,
     rai_norm_hours = config$globals$rai_norm_hours,
-    use_net = config$globals$rai_net_count,
+    use_net = get_use_net_data_setting(),
     current_period_index = current_period_index,
     lower_is_better = lower_is_better
   )
@@ -169,11 +169,14 @@ dashboard_animal_detections_metric <- function(locality = NULL, period_name = NU
     }
 
     period <- core_data$period_groups[[period_name]]
-    period_deps <- filter_deps(core_data$deps, period$start_date, period$end_date)
+    period_obs <- filter_obs(core_data$obs, period$start_date, period$end_date)
     if (!is.null(locality)) {
-      period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
+      period_obs <- period_obs %>% dplyr::filter(.data$locality %in% !!locality)
     }
-    sum(period_deps$animal_detections_count, na.rm = TRUE)
+
+    period_obs <- filter_possible_duplicates_for_use_net(period_obs)
+
+    sum(period_obs$count, na.rm = TRUE)
   }
 
   current_value <- get_period_value(current_period)
@@ -296,6 +299,27 @@ render_dashcard_metric_body <- function(value, ...) {
   )
 }
 
+render_count_basis_footer <- function(use_net = get_use_net_data_setting()) {
+  if (!isTRUE(use_net)) {
+    return(NULL)
+  }
+
+  label <- "Net data used"
+  info_js <- "Shiny.setInputValue('info_field_clicked', 'Net Data Basis', {priority: 'event'}); return false;"
+
+  card_footer(
+    class = "dashcard-count-basis-footer",
+    tags$span(label),
+    tags$a(
+      href = "#",
+      class = "dashcard-count-basis-info",
+      title = "Count basis",
+      onclick = info_js,
+      icon("circle-info")
+    )
+  )
+}
+
 format_dashboard_date_range <- function(start_date, end_date) {
   start_date <- as.Date(start_date)
   end_date <- as.Date(end_date)
@@ -318,14 +342,32 @@ summarise_dashboard_effort <- function(locality = NULL, period_name = NULL) {
   } else {
     core_data$deps
   }
+  period_obs <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
+    period <- core_data$period_groups[[period_name]]
+    filter_obs(core_data$obs, period$start_date, period$end_date)
+  } else {
+    core_data$obs
+  }
   if (!is.null(locality)) {
     period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
+    period_obs <- period_obs %>% dplyr::filter(.data$locality %in% !!locality)
   }
 
-  animal_observations_count <- sum(period_deps$animal_detections_count, na.rm = TRUE)
+  total_animal_observations_count <- sum(period_obs$count, na.rm = TRUE)
+  possible_duplicate_animals_count <- if ("possible_duplicate" %in% names(period_obs)) {
+    sum(ifelse(is.na(period_obs$possible_duplicate) | !period_obs$possible_duplicate, 0, period_obs$count), na.rm = TRUE)
+  } else {
+    0
+  }
+  net_animal_observations_count <- total_animal_observations_count - possible_duplicate_animals_count
+  animal_observations_count <- if (isTRUE(get_use_net_data_setting())) {
+    net_animal_observations_count
+  } else {
+    total_animal_observations_count
+  }
   blanks_count <- sum(period_deps$blank_detections_count, na.rm = TRUE)
   unclassified_unknown_count <- sum(period_deps$unknown_detections_count, na.rm = TRUE) + sum(period_deps$unclassified_detections_count, na.rm = TRUE)
-  observations_count <- animal_observations_count + blanks_count + unclassified_unknown_count
+  observations_count <- total_animal_observations_count + blanks_count + unclassified_unknown_count
 
   deployment_start_dates <- as.Date(period_deps$start)
   deployment_end_dates <- as.Date(period_deps$end)
@@ -347,6 +389,9 @@ summarise_dashboard_effort <- function(locality = NULL, period_name = NULL) {
     camera_hours_total = sum(period_deps$camera_hours, na.rm = TRUE),
     deployments_count = nrow(period_deps),
     animal_observations_count = animal_observations_count,
+    total_animal_observations_count = total_animal_observations_count,
+    possible_duplicate_animals_count = possible_duplicate_animals_count,
+    net_animal_observations_count = net_animal_observations_count,
     blanks_count = blanks_count,
     unclassified_unknown_count = unclassified_unknown_count,
     observations_count = observations_count
@@ -387,6 +432,8 @@ render_dashboard_observations_card <- function(effort_summary) {
     card_body(
       render_dashcard_metric_body(
         format(effort_summary$observations_count, big.mark = ","),
+        div(paste(format(effort_summary$possible_duplicate_animals_count, big.mark = ","), "possible duplicate animals"), class = "dashcard-period"),
+        div(paste(format(effort_summary$net_animal_observations_count, big.mark = ","), "net animal observations"), class = "dashcard-period"),
         div(paste(format(effort_summary$blanks_count, big.mark = ","), "blanks"), class = "dashcard-period"),
         div(paste(format(effort_summary$unclassified_unknown_count, big.mark = ","), "unclassified or unknown"), class = "dashcard-period")
       )
@@ -396,14 +443,21 @@ render_dashboard_observations_card <- function(effort_summary) {
 }
 
 render_dashboard_animal_observations_total_card <- function(effort_summary) {
+  animal_label <- if (isTRUE(get_use_net_data_setting())) {
+    "net animal observations"
+  } else {
+    "total animal observations"
+  }
+
   card(
     card_header(render_dashboard_card_header("paw", "Animal Observations")),
     card_body(
       render_dashcard_metric_body(
         format(effort_summary$animal_observations_count, big.mark = ","),
-        div("total animal observations", class = "dashcard-period")
+        div(animal_label, class = "dashcard-period")
       )
     ),
+    render_count_basis_footer(),
     full_screen = FALSE
   )
 }
@@ -464,18 +518,21 @@ render_dashboard_rai_cards <- function(locality = NULL,
     card(
       card_header(render_dashboard_card_header("otter", "Mustelid RAI")),
       card_body(render_dashboard_comparison_body(mustelid_metric, detail_token("Mustelids"), detail_input_id = detail_input_id)),
+      render_count_basis_footer(),
       full_screen = FALSE
     ),
     if (!is.null(rat_metric)) {
       card(
         card_header(render_dashboard_card_header(NULL, "Rat RAI", custom_icon = dashboard_rat_icon())),
         card_body(render_dashboard_comparison_body(rat_metric, detail_token("Rats"), detail_input_id = detail_input_id)),
+        render_count_basis_footer(),
         full_screen = FALSE
       )
     },
     card(
       card_header(render_dashboard_card_header("kiwi-bird", "Kiwi RAI")),
       card_body(render_dashboard_comparison_body(kiwi_metric, detail_token("Kiwi"), detail_input_id = detail_input_id)),
+      render_count_basis_footer(),
       full_screen = FALSE
     )
   )
@@ -573,7 +630,6 @@ render_dashboard_favourites_hero <- function(max_images = 30,
 render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
   animal_metric <- dashboard_animal_detections_metric(locality = locality, period_name = period_name)
   effort_summary <- summarise_dashboard_effort(locality = locality, period_name = period_name)
-
   layout_column_wrap(
     width = "180px",
     render_dashboard_period_dates_card(effort_summary),
@@ -582,6 +638,7 @@ render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
     card(
       card_header(render_dashboard_card_header("paw", "Animal Observations")),
       card_body(render_dashboard_comparison_body(animal_metric, use_state_background = FALSE)),
+      render_count_basis_footer(),
       full_screen = FALSE
     )
   )

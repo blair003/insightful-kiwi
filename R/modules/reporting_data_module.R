@@ -105,17 +105,22 @@ generate_summary_data <- function(obs = NULL, deps = NULL) {
       summarise(unique_species_count = n_distinct(scientificName), .groups = "drop")
     
     # Group for pivot_wider, include species_class in grouping
-    obs_details <- obs_details %>% 
+    obs_details <- obs_details %>%
+      mutate(net_count = ifelse(is.na(possible_duplicate) | !possible_duplicate, count, 0)) %>%
       group_by(across(all_of(group_vars)), species_class)
 
     # Sum counts and pivot for species_class counts
     species_class_counts <- obs_details %>%
-      summarise(total_individuals_count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+      summarise(
+        total_individuals_count = sum(count, na.rm = TRUE),
+        total_net_individuals_count = sum(net_count, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
       pivot_wider(
         names_from = species_class,
-        values_from = total_individuals_count,
-        values_fill = list(total_individuals_count = 0),
-        names_prefix = "individuals_count_"
+        values_from = c(total_individuals_count, total_net_individuals_count),
+        values_fill = list(total_individuals_count = 0, total_net_individuals_count = 0),
+        names_glue = "{ifelse(.value == 'total_net_individuals_count', 'net_individuals_count', 'individuals_count')}_{species_class}"
       )
     
     # Combine unique_species_counts with species_class_counts
@@ -140,6 +145,7 @@ generate_summary_data <- function(obs = NULL, deps = NULL) {
       animal_detections = n(), # Total number of records in obs_details
       individuals_count = sum(count, na.rm = TRUE),
       possible_duplicates_count = sum(ifelse(possible_duplicate, count, 0), na.rm = TRUE),
+      net_individuals_count = individuals_count - possible_duplicates_count,
       .groups = "drop"
     ) %>%
     ungroup() %>%
@@ -162,6 +168,7 @@ generate_summary_data <- function(obs = NULL, deps = NULL) {
       deployments = sum(deployments, na.rm = TRUE),
       animal_detections = sum(animal_detections, na.rm = TRUE),
       individuals_count = sum(individuals_count, na.rm = TRUE),
+      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
       blank_detections_count = sum(blank_detections_count, na.rm = TRUE),
       unknown_detections_count = sum(unknown_detections_count, na.rm = TRUE),
       possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
@@ -188,6 +195,7 @@ generate_summary_data <- function(obs = NULL, deps = NULL) {
       deployments = sum(deployments, na.rm = TRUE),
       animal_detections = sum(animal_detections, na.rm = TRUE),
       individuals_count = sum(individuals_count, na.rm = TRUE),
+      net_individuals_count = sum(net_individuals_count, na.rm = TRUE),
       blank_detections_count = sum(blank_detections_count, na.rm = TRUE),
       unknown_detections_count = sum(unknown_detections_count, na.rm = TRUE),
       possible_duplicates_count = sum(possible_duplicates_count, na.rm = TRUE),
@@ -224,7 +232,7 @@ generate_summary_data <- function(obs = NULL, deps = NULL) {
     summarise(
       locations = first(locations_count),
       across(
-        c(deployments, animal_detections, individuals_count, possible_duplicates_count, camera_hours, blank_detections_count, unknown_detections_count),
+        c(deployments, animal_detections, individuals_count, net_individuals_count, possible_duplicates_count, camera_hours, blank_detections_count, unknown_detections_count),
         \(x) sum(x, na.rm = TRUE)
       )
     ) %>%
@@ -291,7 +299,5 @@ generate_camera_network_overview <- function(deps) {
   
   return(result)
 }
-
-
 
 

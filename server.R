@@ -51,6 +51,7 @@ server <- function(input, output, session) {
     "review_nav_click",
     "review_sequences_click",
     "density_map_review_sequences_click",
+    "global_setup_btn",
     "reset_button",
     "info_field_clicked",
     "is_fullscreen",
@@ -87,6 +88,38 @@ server <- function(input, output, session) {
     separator <- if (grepl("\\?", url)) "&" else "?"
     paste0(url, separator, query_string)
   }
+
+  session$userData$use_net_data <- reactiveVal(isTRUE(config$globals$use_net_data))
+  global_use_net <- reactive({
+    isTRUE(session$userData$use_net_data())
+  })
+
+  observeEvent(input$global_setup_btn, {
+    showModal(modalDialog(
+      title = tagList(icon("gear"), "Settings"),
+
+      tags$h3("Global Data Filter"),
+      checkboxInput(
+        "global_use_net_data",
+        "Exclude possible duplicate observations",
+        value = global_use_net()
+      ),
+      tags$small(HTML(get_description("Possible Duplicate Logic"))),
+
+      tags$hr(),
+      tags$h5("About InsightfulKiwi"),
+      tags$p("InsightfulKiwi provides insights into data collected from wildlife camera monitoring programs using the Camera Trap Data Packages (Camtrap DP) format."),
+      tags$p("For more information about InsightfulKiwi, contact blair@aketechnology.co.nz."),
+      easyClose = TRUE,
+      footer = tagList(
+        modalButton("Close")
+      )
+    ))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$global_use_net_data, {
+    session$userData$use_net_data(isTRUE(input$global_use_net_data))
+  }, ignoreInit = TRUE)
 
   observeEvent(input$global_share_btn, {
     session$sendCustomMessage(type = "closeNavbarMenus", message = list())
@@ -308,7 +341,7 @@ server <- function(input, output, session) {
     filter_obs(core_data$obs, comparative_period$start_date(), comparative_period$end_date())
   })
   
-  dashboard_state <- dashboard_module_server("dashboard", core_data = core_data, config = config)
+  dashboard_state <- dashboard_module_server("dashboard", core_data = core_data, config = config, use_net = global_use_net)
 
   dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
   dashboard_plot_periods <- dashboard_plot_periods[
@@ -353,6 +386,7 @@ server <- function(input, output, session) {
                 obs = filtered_obs_primary,
                 deps = filtered_deps_primary,
                 core_data = core_data,
+                use_net = global_use_net,
                 initial_rai_detail = pending_species_rai_detail()
               )
               pending_species_rai_detail(NULL)
@@ -1030,7 +1064,8 @@ server <- function(input, output, session) {
           obs = filtered_obs_primary,
           deps = filtered_deps_primary,
           period_start_date = primary_period$start_date,
-          period_end_date = primary_period$end_date
+          period_end_date = primary_period$end_date,
+          use_net = global_use_net
         )
       } else if (current_tab == "comparative") {
         logger::log_debug("server.R, lazily calling mapping_module_server() for density_map_comparative")
@@ -1042,7 +1077,8 @@ server <- function(input, output, session) {
             obs = filtered_obs_primary,
             deps = filtered_deps_primary,
             period_start_date = primary_period$start_date,
-            period_end_date = primary_period$end_date
+            period_end_date = primary_period$end_date,
+            use_net = global_use_net
           )
           loaded_density_tabs(c(loaded_density_tabs(), "primary"))
         }
@@ -1053,7 +1089,8 @@ server <- function(input, output, session) {
           obs = filtered_obs_comparative,
           deps = filtered_deps_comparative,
           species_override = density_map_primary$selected_species,
-          localities_override = density_map_primary$selected_localities
+          localities_override = density_map_primary$selected_localities,
+          use_net = global_use_net
         )
       }
 
@@ -1069,7 +1106,8 @@ server <- function(input, output, session) {
     nav = reactive(input$nav),
     current_period = dashboard_state$current_period,
     prior_period = dashboard_state$prior_period,
-    last_year_period = dashboard_state$last_year_period
+    last_year_period = dashboard_state$last_year_period,
+    use_net = global_use_net
   )
 
   ########### DENSITY PLAYBACK MAP FEATURE ###########
@@ -1092,7 +1130,8 @@ server <- function(input, output, session) {
         deps = reactive(core_data$deps),
         period_start_date = playback_period$start_date,
         period_end_date = playback_period$end_date,
-        playback_mode = "always"
+        playback_mode = "always",
+        use_net = global_use_net
       )
       density_playback_map_loaded(TRUE)
     }
@@ -1113,7 +1152,8 @@ server <- function(input, output, session) {
         deps = filtered_deps_primary,
         period_start_date = primary_period$start_date, # Pass reactive from period_selection_module
         period_end_date = primary_period$end_date,     # Pass reactive from period_selection_module
-        playback_mode = "always"
+        playback_mode = "always",
+        use_net = global_use_net
         # The module will use its own internal input$selected_species and input$enhance_map_details
         # from the UI elements defined by mapping_module_ui in the sidebar.
       )
@@ -1130,7 +1170,8 @@ server <- function(input, output, session) {
     filtered_deps_primary = filtered_deps_primary,
     filtered_obs_primary = filtered_obs_primary,
     core_data = core_data,
-    config = config
+    config = config,
+    use_net = global_use_net
   )
   
   
@@ -1194,6 +1235,8 @@ server <- function(input, output, session) {
           filtered_obs <- filtered_obs %>% filter(tolower(scientificName) %in% tolower(species_list))
         }
       }
+
+      filtered_obs <- filter_possible_duplicates_for_use_net(filtered_obs, global_use_net())
 
       # Extract observation IDs
       observation_ids <- filtered_obs$observationID
@@ -1293,4 +1336,3 @@ server <- function(input, output, session) {
   })
 
 } # server
-

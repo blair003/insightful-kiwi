@@ -120,6 +120,8 @@ generate_description_table <- function(column_names, column_descriptions) {
 
 This `r params$config$meta$project_name` report relates to data collected during the <strong>`r params$dates$deployments_period`</strong> deployment selection period.
 
+Count and RAI basis: <strong>`r params$data$count_basis_label`</strong>.
+
 ## Background
 
 The Whakatane Kiwi Trust (WKT) has established a comprehensive camera monitoring network across three key operational areas in Whakatāne and Ōhope. This initiative is designed to assess the impact of pest control measures, focusing on stoats, other mustelids, rats, and feral cats.
@@ -167,7 +169,7 @@ setup_kable_output(table_id = "locality_species_mean_rai_showing_class",
                    heading_level = "##"
                    )
 
-generate_column_descriptions(c("Species Class", "RAI ± SE"))
+generate_column_descriptions(c("Species Class", "RAI ± SE", "Net Data Basis"))
 
 ```
 

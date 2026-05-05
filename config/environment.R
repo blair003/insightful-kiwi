@@ -5,21 +5,16 @@ config$env <- list(
     camtrap_package = normalizePath("extdata", mustWork = FALSE),
     trap_data_source = normalizePath(file.path("extdata", "trap-data"), mustWork = FALSE),
     cache = normalizePath("cache", mustWork = FALSE),
-    logs = normalizePath("logs", mustWork = FALSE),
-    temp = normalizePath("temp", mustWork = FALSE)
+    logs = normalizePath("logs", mustWork = FALSE)
   ),
   
   
   # List of required CRAN packages
-  # "leaflet.extras",
-  # "bsicons",
-  # "mapview",
-  # "promises", 
 
   required_cran_packages = c(
     "logger", "shiny", "dplyr", "lubridate", "stringr", "tidyr", "bslib", "remotes",
-     "DT", "kableExtra", "leaflet",  "ggplot2",  "scales", "plotly", "httr", "fs", 
-     "magick", "future", "shinybusy", "htmlwidgets", "shinyjs", "sf", 
+     "DT", "kableExtra", "leaflet",  "ggplot2",  "scales", "plotly", "httr", "fs",
+     "magick", "future", "shinybusy", "htmlwidgets", "shinyjs", "sf",
      "geosphere", "webshot2",  "jsonlite", "dotenv", "chromote"
   ),
   
@@ -29,6 +24,12 @@ config$env <- list(
   )
   
 )
+
+# Removed as no longer using
+  # "leaflet.extras",
+  # "bsicons",
+  # "mapview",
+  # "promises", 
 
 # Add subdirectories dynamically based off root path
 config$env$dirs$trap_data_package <- file.path(config$env$dirs$cache, "trap-data-camtrapdp")

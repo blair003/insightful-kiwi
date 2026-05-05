@@ -427,6 +427,28 @@
         color: #212529;
       }
 
+      .dashcard-count-basis-footer {
+        align-items: center;
+        color: #6c757d;
+        display: flex;
+        font-size: 0.72rem;
+        gap: 0.3rem;
+        justify-content: center;
+        line-height: 1.1;
+        padding-bottom: 0.35rem;
+        padding-top: 0.3rem;
+      }
+
+      .dashcard-count-basis-info {
+        color: inherit;
+        line-height: 1;
+        text-decoration: none;
+      }
+
+      .dashcard-count-basis-info:hover {
+        color: #212529;
+      }
+
       .dashcard-header-info-link {
         flex: 0 0 auto;
       }

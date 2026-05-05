@@ -425,7 +425,7 @@ generate_spp_summary <- function(obs, deps, rai_norm_hours) {
     deps = deps,
     taxa_groups = NULL,
     rai_norm_hours = rai_norm_hours,
-    use_net = config$globals$rai_net_count
+    use_net = get_use_net_data_setting()
   )
 
   deployment_data <- deps %>%
@@ -545,7 +545,7 @@ generate_rai_group_summary <- function(obs, deployment_data, rai_groups, rai_nor
     deps = deployment_data,
     taxa_groups = rai_groups,
     rai_norm_hours = rai_norm_hours,
-    use_net = config$globals$rai_net_count
+    use_net = get_use_net_data_setting()
   )
 
   list(
@@ -1071,7 +1071,7 @@ generate_rai_group_period_comparison <- function(obs,
 generate_rai_species_comparison_table <- function(spp_summary, species) {
 
   # Determine which column to use based on config
-  mRAI_column <- ifelse(config$globals$rai_net_count, "mRAI_SE_net", "mRAI_SE")
+  mRAI_column <- ifelse(get_use_net_data_setting(), "mRAI_SE_net", "mRAI_SE")
   logger::log_debug(sprintf("metrics_functions: RAI data using values from: %s", mRAI_column))
 
   # Convert species list to lowercase for case-insensitive comparison

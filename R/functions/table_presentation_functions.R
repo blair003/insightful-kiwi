@@ -62,6 +62,11 @@ get_table_specification <- function(table_id = NULL) {
   output_data <- list()
   formatted_table_view <- str_to_title(str_replace_all(table_view, "_", " "))
   output_data$footnote = NULL
+  use_net_counts <- get_use_net_data_setting()
+  displayed_count_field <- if (isTRUE(use_net_counts)) "net_individuals_count" else "individuals_count"
+  displayed_spp_count_field <- function(species_class) {
+    paste0(if (isTRUE(use_net_counts)) "net_individuals_count_" else "individuals_count_", species_class)
+  }
   
   switch(table_name,
          
@@ -101,7 +106,7 @@ get_table_specification <- function(table_id = NULL) {
            )
            combined_footnote <- paste(footnote_parts, collapse = ".<br>")
            
-           if (config$globals$rai_net_count) {
+           if (isTRUE(use_net_counts)) {
              output_data$footnote <- paste(
                "The RAI ± SE figures have been calculated based on 
                 Net Individuals Count (i.e. excluding Possible Duplicates).<br><br>",
@@ -291,13 +296,13 @@ get_table_specification <- function(table_id = NULL) {
            spp_class_names <- names(config$globals$spp_classes)
            
            # Prefixing each element of the names_list
-           spp_count_fields <- paste0("individuals_count_", spp_class_names)
+           spp_count_fields <- vapply(spp_class_names, displayed_spp_count_field, character(1))
            
            switch(table_view,
                   "locality" = {
                     output_data$fields <- c("locality", 
                                             "unique_species_count",
-                                            "individuals_count",
+                                            displayed_count_field,
                                             spp_count_fields)
                     
                   },
@@ -306,7 +311,7 @@ get_table_specification <- function(table_id = NULL) {
                     output_data$fields <- c("locality",
                                             "line",
                                             "unique_species_count",
-                                            "individuals_count",
+                                            displayed_count_field,
                                             spp_count_fields)
                     
                   },
@@ -316,7 +321,7 @@ get_table_specification <- function(table_id = NULL) {
                                             "line",
                                             "locationName",
                                             "unique_species_count",
-                                            "individuals_count",
+                                            displayed_count_field,
                                             spp_count_fields)
                     
                   }
@@ -353,7 +358,7 @@ get_table_specification <- function(table_id = NULL) {
                                             "possible_duplicates_count",
                                             "net_individuals_count")
                     
-                    if (config$globals$rai_net_count) {
+                    if (isTRUE(use_net_counts)) {
                       output_data$fields <- c(output_data$fields, "RAI_net")
                       output_data$footnote <- paste(
                         "The RAI figures have been calculated based on Net Individuals 
@@ -391,7 +396,7 @@ get_table_specification <- function(table_id = NULL) {
                                             "possible_duplicates_count",
                                             "net_individuals_count")
                     
-                    if (config$globals$rai_net_count) {
+                    if (isTRUE(use_net_counts)) {
                       output_data$fields <- c(output_data$fields, "mRAI_SE_net")
                       output_data$footnote <-  paste(
                         "All RAI calculations are based on Net Individuals Count 
@@ -748,10 +753,14 @@ format_fieldnames <- function(data) {
   format_column_name <- function(name) {
     
     # Check if the column name matches the pattern for special formatting
-    if (grepl("^individuals_count_", name)) {
+    if (grepl("^(net_)?individuals_count_", name)) {
       # Manually change the order of the words in heading for species_counts
       parts <- unlist(strsplit(name, "_"))
-      new_name <- paste(c(parts[3:length(parts)], parts[1:2]), collapse = " ")
+      if (identical(parts[[1]], "net")) {
+        new_name <- paste(c(parts[4:length(parts)], parts[1:3]), collapse = " ")
+      } else {
+        new_name <- paste(c(parts[3:length(parts)], parts[1:2]), collapse = " ")
+      }
       formatted_name <- str_to_title(new_name)
     } else {
       # Remove underscore and apply str_to_title to all other column headings
@@ -858,6 +867,35 @@ get_table_name_and_view <- function(table_id) {
 
 
 
+
+get_description <- function(description_name = NULL) {
+  possible_duplicate_description <- sprintf("
+      An observation is considered a possible duplicate if it matches the same species, count,
+      and life stage as another observation within the previous %s minutes at the same Location.
+      These observations are legitimate source records, but may be excluded from counts and RAI
+      calculations depending on the selected data basis.
+    ", config$globals$dup_detect_threshold)
+
+  descriptions <- list(
+    "Possible Duplicate Logic" = possible_duplicate_description,
+    "Net Data Basis" = sprintf("
+      When net data is shown, InsightfulKiwi excludes observations marked as possible duplicates from
+      count displays and RAI calculations.<br><br>
+
+      %s<br><br>
+
+      When total data is shown, possible duplicates remain included in count displays and RAI calculations.
+    ", possible_duplicate_description)
+  )
+
+  if (is.null(description_name)) {
+    return(descriptions)
+  }
+  if (description_name %in% names(descriptions)) {
+    return(descriptions[[description_name]])
+  }
+  NULL
+}
 
 # Returns the column description of column_name if specified, all column descriptions if non column_name specified, and
 # NULL if a column_name is specified that doesn't exist.
@@ -991,14 +1029,11 @@ column_descriptions <- list(
   ",
 
   "Dup Count" = sprintf("
-    Short for possible duplicate count. An observation is considered a possible duplicate if it matches the same species,
-    count, and life stage as another observation within the previous %s minutes at the same Location. These are legitimate
-    observations based on the data, but may be candidates for removal from RAI calculations or other analyses, depending on
-    the methodology of the monitoring program.<br><br>
+    Short for possible duplicate count. %s<br><br>
 
     The threshold (%s minutes, decimal) is defined globally in the configuration. It can be calibrated for the project based on the
     composition of camera lines, camera rest interval, and behaviours of target species. The same threshold is applied to all species.
-  ", config$globals$dup_detect_threshold, config$globals$dup_detect_threshold),
+  ", get_description("Possible Duplicate Logic"), config$globals$dup_detect_threshold),
 
   # See "Possible Duplicate" as well, at the end. Possible duplicates is at the summary level
   # Possible Duplicate is at the indivudal observation level
@@ -1007,9 +1042,8 @@ column_descriptions <- list(
     The percentage of the Animal Count (or Total Count if in a species view) that are possible duplicates based
     on the Possible Duplicates logic.<br><br>
 
-    An observation is considered a possible duplicate if it matches the same species, count, and life stage as
-    another observation within the previous %s minutes at the same Location.
-  ", config$globals$dup_detect_threshold),
+    %s
+  ", get_description("Possible Duplicate Logic")),
 
 
   "Blank Observations" = "
@@ -1111,6 +1145,8 @@ column_descriptions <- list(
     Each time detection is triggered, the camera rest interval begins, during which time nothing can be detected, including animals.
     High levels of blank detections should be investigated and resolved to reduce the chance of missing animal detections.
   ",
+
+  "Net Data Basis" = get_description("Net Data Basis"),
 
   "About InsightfulKiwi" = sprintf("
           InsightfulKiwi provides insights into data collected from wildlife camera monitoring

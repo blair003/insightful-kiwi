@@ -58,6 +58,7 @@ species_dashboard_module_ui <- function(id) {
             uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE),
             plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot")
           ),
+          uiOutput(ns("overall_rai_plot_count_basis_footer")),
           full_screen = FALSE
         ),
         uiOutput(ns("overall_favourite_images")),
@@ -65,7 +66,8 @@ species_dashboard_module_ui <- function(id) {
           width = 1/2,
           card(
             card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("overall_activity_plot"), height = "400px")
+            plotOutput(ns("overall_activity_plot"), height = "400px"),
+            uiOutput(ns("overall_activity_plot_count_basis_footer"))
           ),
           card(
             card_header("Co-occurrence with Kiwi"),
@@ -75,7 +77,7 @@ species_dashboard_module_ui <- function(id) {
         br(),
         card(
           class = "dashboard-plot-card",
-          card_header(tagList(icon("map"), "Species Density Map")),
+          card_header(uiOutput(ns("species_density_map_overall_header"))),
           mapping_module_ui(id = ns("species_density_map_overall"), view = "map"),
           full_screen = FALSE
         )
@@ -92,7 +94,8 @@ species_dashboard_module_ui <- function(id) {
           width = 1/2,
           card(
             card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("current_activity_plot"), height = "400px")
+            plotOutput(ns("current_activity_plot"), height = "400px"),
+            uiOutput(ns("current_activity_plot_count_basis_footer"))
           ),
           card(
             card_header("Co-occurrence with Kiwi"),
@@ -102,7 +105,7 @@ species_dashboard_module_ui <- function(id) {
         br(),
         card(
           class = "dashboard-plot-card",
-          card_header(tagList(icon("map"), "Species Density Map")),
+          card_header(uiOutput(ns("species_density_map_current_header"))),
           mapping_module_ui(id = ns("species_density_map_current"), view = "map"),
           full_screen = FALSE
         )
@@ -119,7 +122,8 @@ species_dashboard_module_ui <- function(id) {
           width = 1/2,
           card(
             card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("prior_activity_plot"), height = "400px")
+            plotOutput(ns("prior_activity_plot"), height = "400px"),
+            uiOutput(ns("prior_activity_plot_count_basis_footer"))
           ),
           card(
             card_header("Co-occurrence with Kiwi"),
@@ -129,7 +133,7 @@ species_dashboard_module_ui <- function(id) {
         br(),
         card(
           class = "dashboard-plot-card",
-          card_header(tagList(icon("map"), "Species Density Map")),
+          card_header(uiOutput(ns("species_density_map_prior_header"))),
           mapping_module_ui(id = ns("species_density_map_prior"), view = "map"),
           full_screen = FALSE
         )
@@ -146,7 +150,8 @@ species_dashboard_module_ui <- function(id) {
           width = 1/2,
           card(
             card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("last_year_activity_plot"), height = "400px")
+            plotOutput(ns("last_year_activity_plot"), height = "400px"),
+            uiOutput(ns("last_year_activity_plot_count_basis_footer"))
           ),
           card(
             card_header("Co-occurrence with Kiwi"),
@@ -156,7 +161,7 @@ species_dashboard_module_ui <- function(id) {
         br(),
         card(
           class = "dashboard-plot-card",
-          card_header(tagList(icon("map"), "Species Density Map")),
+          card_header(uiOutput(ns("species_density_map_last_year_header"))),
           mapping_module_ui(id = ns("species_density_map_last_year"), view = "map"),
           full_screen = FALSE
         )
@@ -172,6 +177,7 @@ species_dashboard_module_server <- function(id,
                                             deps,
                                             core_data,
                                             rai_norm_hours = 2000,
+                                            use_net = reactive(config$globals$use_net_data),
                                             initial_rai_detail = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -207,6 +213,42 @@ species_dashboard_module_server <- function(id,
       combine_localities <- input[["overall_rai_plot-combine_localities"]]
       is.null(combine_localities) || isTRUE(combine_localities)
     })
+
+    render_species_count_basis_footer <- function() {
+      render_count_basis_footer(use_net())
+    }
+
+    render_species_density_map_header <- function() {
+      title <- if (isTRUE(use_net())) {
+        "Species Density Map (net data used)"
+      } else {
+        "Species Density Map"
+      }
+
+      tagList(
+        icon("map"),
+        title,
+        if (isTRUE(use_net())) {
+          tags$a(
+            href = "#",
+            class = "dashcard-count-basis-info",
+            title = "Count basis",
+            onclick = "Shiny.setInputValue('info_field_clicked', 'Net Data Basis', {priority: 'event'}); return false;",
+            icon("circle-info")
+          )
+        }
+      )
+    }
+
+    output$overall_rai_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$overall_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$current_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$prior_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$last_year_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$species_density_map_overall_header <- renderUI({ render_species_density_map_header() })
+    output$species_density_map_current_header <- renderUI({ render_species_density_map_header() })
+    output$species_density_map_prior_header <- renderUI({ render_species_density_map_header() })
+    output$species_density_map_last_year_header <- renderUI({ render_species_density_map_header() })
 
     rai_calculation_basis_link <- function(period_name_label, locality_token = locality_filter_token()) {
       onclick_payload <- jsonlite::toJSON(
@@ -281,7 +323,7 @@ species_dashboard_module_server <- function(id,
         rai_groups_for_species,
         vernacular_name,
         config$globals$rai_norm_hours,
-        config$globals$rai_net_count,
+        use_net(),
         cache_context = paste("species_basis", species_name, period_name_label, paste(locality_filter, collapse = ","), sep = "|")
       )
 
@@ -533,7 +575,7 @@ species_dashboard_module_server <- function(id,
         rai_groups_for_species,
         vernacular_name,
         rai_norm_hours,
-        config$globals$rai_net_count,
+        use_net(),
         cache_context = paste("species_card", species_name, period_name_label, locality_token, sep = "|")
       )
       formatted_rai <- ifelse(is.na(metric$value), "N/A", metric$formatted_value)
@@ -547,7 +589,8 @@ species_dashboard_module_server <- function(id,
             div(formatted_rai, class = "dashcard-output"),
             div(subtitle, class = "dashcard-period")
           )
-        )
+        ),
+        render_count_basis_footer(use_net())
       )
     }
 
@@ -578,7 +621,9 @@ species_dashboard_module_server <- function(id,
 
     # Helper to generate the cards
     render_metric_cards <- function(species_obs, deps_data, period_name_label) {
-      total_count <- sum(species_obs$count, na.rm = TRUE)
+      species_obs_for_counts <- filter_possible_duplicates_for_use_net(species_obs, use_net())
+
+      total_count <- sum(species_obs_for_counts$count, na.rm = TRUE)
       unique_locs <- length(unique(species_obs$locationName))
       total_deployments <- length(unique(deps_data$locationName))
       pct_locations <- if (total_deployments > 0) (unique_locs / total_deployments) * 100 else 0
@@ -610,7 +655,8 @@ species_dashboard_module_server <- function(id,
         NULL
       }
 
-      total_detections_count <- nrow(species_obs)
+      total_detections_count <- nrow(species_obs_for_counts)
+      count_label <- if (isTRUE(use_net())) "net individuals" else "individuals"
       season_dates_card <- if (!is.null(period_name_label) &&
                                length(period_name_label) == 1 &&
                                !is.na(period_name_label) &&
@@ -624,14 +670,15 @@ species_dashboard_module_server <- function(id,
       }
 
       total_card <- card(
-          card_header("Observations"),
+          card_header("Animal Observations"),
           card_body(
             render_dashcard_metric_body(
               total_detections_count,
-              div(sprintf("for %d individuals", total_count), class = "dashcard-period"),
+              div(sprintf("for %d %s", total_count, count_label), class = "dashcard-period"),
               review_action
             )
-          )
+          ),
+          render_count_basis_footer(use_net())
         )
       unique_card <- card(
           card_header("Unique Locations"),
@@ -788,8 +835,8 @@ species_dashboard_module_server <- function(id,
     })
 
     output$overall_metric_cards <- renderUI({ render_metric_cards(overall_sobs(), overall_deps(), "ALL") }) %>%
-      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, "ALL")
-    output$overall_activity_plot <- renderPlot({ generate_activity_plot(overall_sobs()) })
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), "ALL")
+    output$overall_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(overall_sobs(), use_net())) })
     output$overall_cooccurrence_ui <- renderUI({ generate_cooccurrence(overall_sobs(), overall_obs()) })
 
     period_defaults <- species_dashboard_period_defaults(core_data)
@@ -803,7 +850,7 @@ species_dashboard_module_server <- function(id,
       species_override = species_name,
       rai_groups = rai_groups_for_species,
       rai_norm_hours = config$globals$rai_norm_hours,
-      use_net = config$globals$rai_net_count
+      use_net = use_net
     )
 
     # Track loaded map tabs for lazy loading
@@ -823,7 +870,8 @@ species_dashboard_module_server <- function(id,
             obs = overall_obs,
             deps = overall_deps,
             species_override = reactive(species_name),
-            localities_override = selected_localities
+            localities_override = selected_localities,
+            use_net = use_net
           )
         } else if (current_tab == "current_period") {
           # Current Period Density Map
@@ -833,7 +881,8 @@ species_dashboard_module_server <- function(id,
             obs = current_obs,
             deps = current_deps,
             species_override = reactive(species_name),
-            localities_override = selected_localities
+            localities_override = selected_localities,
+            use_net = use_net
           )
         } else if (current_tab == "prior_period") {
           # Prior Period Density Map
@@ -843,7 +892,8 @@ species_dashboard_module_server <- function(id,
             obs = prior_obs,
             deps = prior_deps,
             species_override = reactive(species_name),
-            localities_override = selected_localities
+            localities_override = selected_localities,
+            use_net = use_net
           )
         } else if (current_tab == "last_year_period") {
           # Last Year Period Density Map
@@ -853,7 +903,8 @@ species_dashboard_module_server <- function(id,
             obs = ly_obs,
             deps = ly_deps,
             species_override = reactive(species_name),
-            localities_override = selected_localities
+            localities_override = selected_localities,
+            use_net = use_net
           )
         }
 
@@ -878,8 +929,8 @@ species_dashboard_module_server <- function(id,
     })
 
     output$current_metric_cards <- renderUI({ render_metric_cards(current_sobs(), current_deps(), current_period_data$period_name()) }) %>%
-      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, current_period_data$period_name())
-    output$current_activity_plot <- renderPlot({ generate_activity_plot(current_sobs()) })
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), current_period_data$period_name())
+    output$current_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(current_sobs(), use_net())) })
     output$current_cooccurrence_ui <- renderUI({ generate_cooccurrence(current_sobs(), current_obs()) })
     output$current_period_name <- renderText({ current_period_data$period_name() })
 
@@ -898,8 +949,8 @@ species_dashboard_module_server <- function(id,
     })
 
     output$prior_metric_cards <- renderUI({ render_metric_cards(prior_sobs(), prior_deps(), prior_period_data$period_name()) }) %>%
-      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, prior_period_data$period_name())
-    output$prior_activity_plot <- renderPlot({ generate_activity_plot(prior_sobs()) })
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), prior_period_data$period_name())
+    output$prior_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(prior_sobs(), use_net())) })
     output$prior_cooccurrence_ui <- renderUI({ generate_cooccurrence(prior_sobs(), prior_obs()) })
     output$prior_period_name <- renderText({ prior_period_data$period_name() })
 
@@ -916,8 +967,8 @@ species_dashboard_module_server <- function(id,
     })
 
     output$last_year_metric_cards <- renderUI({ render_metric_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name()) }) %>%
-      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, config$globals$rai_net_count, last_year_period_data$period_name())
-    output$last_year_activity_plot <- renderPlot({ generate_activity_plot(ly_sobs()) })
+      bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), last_year_period_data$period_name())
+    output$last_year_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(ly_sobs(), use_net())) })
     output$last_year_cooccurrence_ui <- renderUI({ generate_cooccurrence(ly_sobs(), ly_obs()) })
     output$last_year_period_name <- renderText({ last_year_period_data$period_name() })
 

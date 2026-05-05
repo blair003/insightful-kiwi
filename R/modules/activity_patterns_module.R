@@ -22,6 +22,11 @@ activity_patterns_module_ui <- function(id,
           view = "select_localities",
           choices = locality_choices,
           selected = selected_localities
+        ),
+        checkboxInput(
+          inputId = ns("exclude_possible_duplicates"),
+          label = "Exclude possible duplicates",
+          value = isTRUE(config$globals$use_net_data)
         )
       )
     )
@@ -54,7 +59,8 @@ activity_patterns_module_server <- function(id,
                                             nav,
                                             current_period,
                                             prior_period,
-                                            last_year_period) {
+                                            last_year_period,
+                                            use_net = reactive(config$globals$use_net_data)) {
   moduleServer(id, function(input, output, session) {
     activity_patterns_map <- NULL
     activity_patterns_loaded <- reactiveVal(FALSE)
@@ -73,13 +79,27 @@ activity_patterns_module_server <- function(id,
       }
     })
 
+    observeEvent(use_net(), {
+      updateCheckboxInput(
+        session,
+        "exclude_possible_duplicates",
+        value = isTRUE(use_net())
+      )
+    }, ignoreInit = FALSE)
+
     activity_patterns_obs <- reactive({
       req(activity_patterns_loaded(), activity_patterns_map$selected_species(), activity_patterns_map$selected_localities())
       species <- tolower(activity_patterns_map$selected_species())
       localities <- activity_patterns_map$selected_localities()
 
-      core_data$obs %>%
+      obs <- core_data$obs %>%
         dplyr::filter(tolower(scientificName) %in% species, locality %in% localities)
+
+      if (isTRUE(input$exclude_possible_duplicates)) {
+        obs <- filter_possible_duplicates_for_use_net(obs, TRUE)
+      }
+
+      obs
     })
 
     output$activity_patterns_locality_heading <- renderUI({

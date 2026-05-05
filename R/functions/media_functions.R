@@ -38,7 +38,7 @@ get_sequence_media_urls <- function(media) {
 
 update_image_cache <- function(sequence_media_info) {
   tryCatch({
-    local_cache_dir <- "www/cache/images"
+    local_cache_dir <- file.path(config$env$dirs$cache, "images")
     on_demand_log_file <- file.path(
       config$env$dirs$logs,
       sprintf("image-cache-on-demand-%s.log", format(Sys.Date(), "%Y-%m-%d"))
@@ -301,7 +301,7 @@ show_image_modal <- function(observation_id, ui_elements) {
 
 create_observation_images_ui <- function(sequence_media_info, observation_id, context = "pageview", review_nav = NULL) {
 
-  local_cache_dir <- "www/cache/images"  # Directory for cached images
+  local_cache_dir <- file.path(config$env$dirs$cache, "images")
   carousel_id <- paste0("carousel_", observation_id) # Unique ID for the carousel container
   #carousel_id <- "observation_image_viewer_carousel"
   
@@ -544,7 +544,7 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
 # Check for favourites folder for each, see if that gets us to 40?
 # Consider usage of function e.g. iimage page by species? Favourites for everything?
 get_latest_images <- function(max_images = 40) {
-  base_dir <- "www/cache/images/favourites"
+  base_dir <- file.path(config$env$dirs$cache, "favourites")
   
   if (!dir_exists(base_dir)) { 
     dir_create(base_dir)

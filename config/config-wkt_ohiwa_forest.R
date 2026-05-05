@@ -70,7 +70,7 @@ config$globals <- list(
   dashboard_weather_by_locality = FALSE,
   
   # Show RAI calculations based on net individuals count (excluding duplicates)
-  rai_net_count = TRUE,
+  use_net_data = TRUE,
   
   # For species that have no observations on a particular line, we create '0' entries 
   # so we can get accurate standard error calculations. The following field determine 

@@ -56,6 +56,40 @@ create_directories_if_missing <- function(dirs) {
   })
 }
 
+get_use_net_data_setting <- function(default = NULL) {
+  if (is.null(default) && exists("config", inherits = TRUE)) {
+    default <- config$globals$use_net_data
+  }
+
+  domain <- shiny::getDefaultReactiveDomain()
+  if (!is.null(domain)) {
+    root_session <- domain$rootScope()
+    setting <- root_session$userData$use_net_data
+    if (is.function(setting)) {
+      value <- tryCatch(
+        setting(),
+        error = function(e) shiny::isolate(setting())
+      )
+      return(isTRUE(value))
+    }
+  }
+
+  isTRUE(default)
+}
+
+filter_possible_duplicates_for_use_net <- function(obs, use_net = NULL) {
+  if (is.null(obs) || !isTRUE(if (is.null(use_net)) get_use_net_data_setting() else use_net)) {
+    return(obs)
+  }
+
+  if (!"possible_duplicate" %in% names(obs)) {
+    return(obs)
+  }
+
+  obs %>%
+    dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
+}
+
 
 configure_image_cache_logger <- function(config, log_file = NULL) {
   if (is.null(log_file)) {
@@ -172,7 +206,7 @@ get_media_public_flags <- function(media_df, config = NULL) {
 #' @return Invisibly returns NULL. Called for its side-effect of managing cached files.
 
 cache_selected_images <- function(media_df, obs_df, config) {
-  local_cache_dir <- "www/cache/images"
+  local_cache_dir <- file.path(config$env$dirs$cache, "images")
   favourites_base_dir <- file.path(local_cache_dir, "favourites")
   favourites_manifest_path <- file.path(favourites_base_dir, "_manifest.csv")
   cache_species_classes <- c("target", "interesting")
@@ -540,4 +574,3 @@ cache_selected_images <- function(media_df, obs_df, config) {
   
   invisible(NULL)
 }
-

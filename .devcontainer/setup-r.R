@@ -7,6 +7,7 @@ if (!requireNamespace("pak", quietly = TRUE)) {
   install.packages("pak")
 }
 
+# Removed
 #   "shinydashboard",
 #   "leaflet.extras",
 #   "shinyWidgets",
