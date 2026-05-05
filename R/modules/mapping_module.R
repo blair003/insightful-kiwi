@@ -509,7 +509,7 @@ mapping_module_server <- function(id,
           dplyr::filter(locality %in% current_selected_localities()) %>%
           dplyr::distinct(locationID, locality, .keep_all = TRUE)
 
-        fetch_weather_for_deployments(
+        playback_weather_for_deployments(
           active_locations,
           as.Date(playback_period_start()),
           as.Date(playback_period_end())
@@ -1051,7 +1051,7 @@ mapping_module_server <- function(id,
           dplyr::filter(locality %in% current_selected_localities()) %>%
           dplyr::distinct(locationID, .keep_all = TRUE)
 
-        fetch_weather_for_deployments(
+        playback_weather_for_deployments(
           active_locations,
           as.Date(playback_period_start_obs()),
           as.Date(playback_period_end_obs())

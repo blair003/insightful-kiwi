@@ -20,7 +20,7 @@ install_if_missing <- function(packages, source = c("cran", "github")) {
   } else if (source == "github") {
     missing_packages <- setdiff(sapply(packages, basename), installed.packages()[, "Package"])
     if (length(missing_packages) > 0) {
-      devtools::install_github(packages[match(missing_packages, sapply(packages, basename))])
+      remotes::install_github(packages[match(missing_packages, sapply(packages, basename))])
     }
   } else {
     stop("Invalid source argument. Must be either 'cran' or 'github'.")

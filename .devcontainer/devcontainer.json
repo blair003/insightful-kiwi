@@ -1,0 +1,24 @@
+{
+  "name": "insightful-kiwi-shiny",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/srv/shiny-server/insightful.kiwi",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/srv/shiny-server/insightful.kiwi,type=bind,consistency=cached",
+  "forwardPorts": [3838],
+  "portsAttributes": {
+    "3838": {
+      "label": "Shiny Server",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "REditorSupport.r",
+        "Posit.shiny"
+      ]
+    }
+  }
+}

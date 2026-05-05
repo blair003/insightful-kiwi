@@ -83,6 +83,10 @@ normalise_core_data_timezones <- function(core_data) {
   core_data$deps <- force_timestamp_columns_timezone(core_data$deps, c("start", "end"))
   core_data$obs <- force_timestamp_columns_timezone(core_data$obs, "timestamp")
   core_data$media <- force_timestamp_columns_timezone(core_data$media, "timestamp")
+  core_data$weather_daily <- force_timestamp_columns_timezone(
+    core_data$weather_daily,
+    c("sunrise", "sunset", "matutinal_end", "diurnal_end")
+  )
 
   if (!is.null(core_data$period_groups)) {
     core_data$period_groups <- lapply(core_data$period_groups, function(period_group) {
@@ -395,10 +399,27 @@ enhance_core_data <- function(obs, deps, period_groups) {
   })
 
 
+  weather_enrichment <- tryCatch({
+    if (exists("enrich_observations_with_daily_weather", mode = "function", inherits = TRUE)) {
+      enrich_observations_with_daily_weather(obs_merged, deps)
+    } else {
+      list(obs = obs_merged, weather_daily = NULL)
+    }
+  }, error = function(e) {
+    logger::log_warn(
+      "Unable to add observation daylight/diel classifications in enhance_core_data: %s",
+      conditionMessage(e)
+    )
+    list(obs = obs_merged, weather_daily = NULL)
+  })
+
+  obs_merged <- weather_enrichment$obs
+
 
   return(list(
     deps = deps,
-    obs = obs_merged
+    obs = obs_merged,
+    weather_daily = weather_enrichment$weather_daily
   ))
 }
 

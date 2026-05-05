@@ -12,7 +12,7 @@ config$env <- list(
   
   # List of required CRAN packages
   required_cran_packages = c(
-    "logger", "shiny", "dplyr", "lubridate", "stringr", "tidyr", "bslib", "devtools",
+    "logger", "shiny", "dplyr", "lubridate", "stringr", "tidyr", "bslib", "remotes",
     "bsicons", "DT", "kableExtra", "leaflet", "leaflet.extras", "ggplot2",
     "scales", "plotly", "httr", "fs", "magick", "promises", "future", "shinybusy",
     "htmlwidgets", "shinyjs", "sf", "geosphere", "webshot2", "mapview", "jsonlite", 

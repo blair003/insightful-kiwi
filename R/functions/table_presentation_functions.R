@@ -162,6 +162,8 @@ get_table_specification <- function(table_id = NULL) {
                                             "line", 
                                             "locationName",
                                             "timestamp", 
+                                            "day_night_class",
+                                            "diel_class",
                                             config$globals$species_name_type,
                                             "count",
                                             "possible_duplicate",
@@ -177,6 +179,8 @@ get_table_specification <- function(table_id = NULL) {
                                             "locationName", 
                                             "period",
                                             "timestamp",
+                                            "day_night_class",
+                                            "diel_class",
                                             config$globals$species_name_type,
                                             "count",
                                             "possible_duplicate",
@@ -192,6 +196,8 @@ get_table_specification <- function(table_id = NULL) {
                                             "locationName",
                                             "period",
                                             "timestamp",
+                                            "day_night_class",
+                                            "diel_class",
                                             config$globals$species_name_type,
                                             "count",
                                             "possible_duplicate",
@@ -912,6 +918,14 @@ column_descriptions <- list(
   "Timestamp" = "
     Usually refers to the date and time of the first camera image in the sequence that contained the observed species.<br><br>
     The timestamp is based on the camera time and time. The camera is set to local time/time at the start of every deployment.
+  ",
+
+  "Day Night Class" = "
+    Day or Night classification for the observation timestamp, based on sunrise and sunset for the observation date and location.
+  ",
+
+  "Diel Class" = "
+    Diel activity period for the observation timestamp. Daylight is split into Matutinal, Diurnal, and Vespertine periods; timestamps outside daylight are Nocturnal.
   ",
 
   "Deployments" = "

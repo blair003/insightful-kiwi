@@ -12,7 +12,7 @@ install_if_missing(bootstrap_cran_packages, "cran")
 # Essential libraries we just installed that are needed immediately
 library(logger)
 
-# fs, jsonlite, devtools will be loaded later by the comprehensive lapply call
+# fs, jsonlite, remotes will be loaded later by the comprehensive lapply call
 
 logger::log_formatter(logger::formatter_sprintf)
 
@@ -57,6 +57,7 @@ logger::log_info("All required packages loaded.")
 # create_directories_if_missing is defined in global_functions.R
 create_directories_if_missing(config$env$dirs)
 
+source("R/functions/weather_functions.R")
 source("R/functions/camtrapdp_functions.R")
 
 # Load environment variables (dotenv is now available)
@@ -80,6 +81,19 @@ if (file.exists(cache_file)) {
   )
   core_data <- readRDS(cache_file)
   core_data <- normalise_core_data_timezones(core_data)
+  if (is.null(core_data$weather_daily) ||
+      !("matutinal_end" %in% names(core_data$weather_daily)) ||
+      !("diel_class" %in% names(core_data$obs)) ||
+      !("day_night_class" %in% names(core_data$obs))) {
+    weather_enrichment <- enrich_observations_with_daily_weather(
+      core_data$obs,
+      core_data$deps,
+      core_data$weather_daily
+    )
+    core_data$obs <- weather_enrichment$obs
+    core_data$weather_daily <- weather_enrichment$weather_daily
+    saveRDS(core_data, cache_file)
+  }
   
 } else {
   # Cache miss, proceed with initial processing
@@ -107,6 +121,7 @@ if (file.exists(cache_file)) {
   
   core_data$obs <- enhanced_data$obs
   core_data$deps <- enhanced_data$deps
+  core_data$weather_daily <- enhanced_data$weather_daily
   core_data <- normalise_core_data_timezones(core_data)
   
   core_data$spp_classes <- create_species_list(core_data$obs)
@@ -160,7 +175,6 @@ source("R/modules/activity_patterns_module.R")
 source("R/modules/dashboard_module.R")
 source("R/functions/media_functions.R")
 source("R/functions/spatial_functions.R")
-source("R/functions/weather_functions.R")
 source("R/functions/visualisation_functions.R")
 source("R/functions/utility_functions.R")
 source("R/ui/ui_components.R")

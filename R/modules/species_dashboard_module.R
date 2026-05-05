@@ -613,7 +613,7 @@ species_dashboard_module_server <- function(id,
       total_detections_count <- nrow(species_obs)
 
       total_card <- card(
-          card_header("Total Detections"),
+          card_header("Observations"),
           card_body(
             render_dashcard_metric_body(
               total_detections_count,
