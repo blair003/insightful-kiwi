@@ -21,8 +21,6 @@ Camtrap DP key files:
 - media.csv → media/image records
 - observations.csv → observation records
 
-Do not recursively scan the entire dataset unless explicitly required.
-
 When investigating data-related logic:
 - start with `datapackage.json`
 - then inspect specific CSVs as needed
@@ -45,7 +43,6 @@ When looking for representative images or favourite images, check:
 ## App structure
 
 Main entry points:
-
 - `global.R` → global setup, configuration, package loading, data loading
 - `ui.R` → UI definition
 - `server.R` → server logic
@@ -54,77 +51,15 @@ Main entry points:
 
 Prefer editing files in `R/` where possible rather than making large changes directly in `server.R`.
 
-## Cache usage
+## Runtime usage
 
-`cache/` contains runtime/generated data.
+Do not run the full Shiny app unless explicitly asked.
 
-Some `.rds` files in `cache/` may be relevant for debugging and should not be ignored blindly.
+The app is long-running and GUI-based. Running it provides limited value for debugging.
 
-Ignore these generated/heavy cache subfolders unless explicitly asked:
+Assume the user will run the app and validate behaviour.
 
-- `cache/exports/`
-- `cache/maps/`
-- `cache/media/`
-- `cache/plots/`
-- `cache/reports/`
-
-## Search discipline
-
-Avoid broad recursive searches.
-
-Do not run these unless explicitly needed:
-
-```bash
-find .
-ls -R
-grep -R . .
-```
-
-When searching code, prefer targeted searches such as:
-```bash
-grep -R "search_term" R/ global.R server.R ui.R
-```
-
-Do not search:
-- www/cache/
-- logs/
-- temp/
-- large data folders unless directly relevant
-
-## Debugging approach
-
-When investigating an issue:
-
-1. Reproduce the error first
-2. Read the error carefully
-3. Inspect only the directly relevant files
-4. Make the smallest reasonable change
-
-Do not reinstall packages, rebuild the container, or change Docker files unless explicitly asked.
-
-## Environment
-
-Assume these are already installed and working in the dev container:
-
-- R 4.5.3
-- Chrome for chromote / webshot2
-- WeasyPrint
-- system libraries for sf, GDAL, GEOS, PROJ
-- R package dependencies from .devcontainer/setup-r.R
-
-To verify the environment, use:
-
-```bash
-Rscript -e "library(shiny); library(sf); library(webshot2); library(chromote); library(magick)"
-```
-
-## Runtime
-
-Run the app with:
-
-```bash
-Rscript -e "shiny::runApp('/srv/shiny-server/insightful.kiwi', host='0.0.0.0', port=3838)"
-```
-
-Open the app at:
-`http://localhost:3838/`
+Prefer:
+- inspecting functions
+- running small, targeted R code
+- reasoning about reactive logic

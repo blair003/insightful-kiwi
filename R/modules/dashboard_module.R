@@ -99,29 +99,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading", "LATEST IMAGES"),
               uiOutput(ns("dashboard_favourites_hero")),
               div(class = "dashboard-section-heading", "WHOLE PROJECT"),
-              layout_column_wrap(
-                width = "180px",
-                card(
-                  card_header(
-                    tagList(icon("camera"), "Camera Hours")
-                  ),
-                  card_body(
-                    div(textOutput(ns("dashcard_camera_hours")), class = "dashcard-output"),
-                    div(textOutput(ns("dashcard_camera_days")), class = "dashcard-period")
-                  ),
-                  full_screen = FALSE
-                ),
-                card(
-                  card_header(
-                    tagList(icon("rotate"), "Data Package")
-                  ),
-                  card_body(
-                    div(textOutput(ns("dashcard_data_updated")), class = "dashcard-output"),
-                    div(textOutput(ns("dashcard_data_package_name")), class = "dashcard-period")
-                  ),
-                  full_screen = FALSE
-                )
-              )
+              uiOutput(ns("whole_project_cards"))
             )
           ),
 
@@ -252,6 +230,10 @@ dashboard_module_server <- function(id, core_data, config) {
 
     output$dashboard_favourites_hero <- renderUI({
       render_dashboard_favourites_hero()
+    })
+
+    output$whole_project_cards <- renderUI({
+      render_dashboard_whole_project_cards(dashboard_selected_localities())
     })
 
     render_tab_cards <- function(period_name) {
@@ -397,22 +379,6 @@ dashboard_module_server <- function(id, core_data, config) {
     observeEvent(input$dashboard_weather_details_clicked, {
       token <- input$dashboard_weather_details_clicked
       show_weather_modal(token$lat, token$lng, token$start_date, token$end_date)
-    })
-
-    output$dashcard_camera_hours <- renderText({
-      format(round(sum(core_data$deps$camera_hours, na.rm = TRUE)), big.mark = ",")
-    })
-
-    output$dashcard_camera_days <- renderText({
-      paste(format_dash_number(sum(core_data$deps$camera_hours, na.rm = TRUE) / 24), "camera days")
-    })
-
-    output$dashcard_data_updated <- renderText({
-      format(as.POSIXct(core_data$created, format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"), "%d/%m/%Y")
-    })
-
-    output$dashcard_data_package_name <- renderText({
-      core_data$name
     })
 
     plotting_module_server(

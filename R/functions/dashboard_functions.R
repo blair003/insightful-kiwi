@@ -311,6 +311,116 @@ format_dashboard_date_range <- function(start_date, end_date) {
   paste(format(start_date, "%d %b %Y"), "-", format(end_date, "%d %b %Y"))
 }
 
+summarise_dashboard_effort <- function(locality = NULL, period_name = NULL) {
+  period_deps <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
+    period <- core_data$period_groups[[period_name]]
+    filter_deps(core_data$deps, period$start_date, period$end_date)
+  } else {
+    core_data$deps
+  }
+  if (!is.null(locality)) {
+    period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
+  }
+
+  animal_observations_count <- sum(period_deps$animal_detections_count, na.rm = TRUE)
+  blanks_count <- sum(period_deps$blank_detections_count, na.rm = TRUE)
+  unclassified_unknown_count <- sum(period_deps$unknown_detections_count, na.rm = TRUE) + sum(period_deps$unclassified_detections_count, na.rm = TRUE)
+  observations_count <- animal_observations_count + blanks_count + unclassified_unknown_count
+
+  deployment_start_dates <- as.Date(period_deps$start)
+  deployment_end_dates <- as.Date(period_deps$end)
+  period_start_date <- if (nrow(period_deps) > 0 && any(!is.na(deployment_start_dates))) {
+    min(deployment_start_dates, na.rm = TRUE)
+  } else {
+    NA
+  }
+  period_end_date <- if (nrow(period_deps) > 0 && any(!is.na(deployment_end_dates))) {
+    max(deployment_end_dates, na.rm = TRUE)
+  } else {
+    NA
+  }
+
+  list(
+    period_name = period_name,
+    period_label = if (is.null(period_name)) "All Data" else period_name,
+    period_date_text = format_dashboard_date_range(period_start_date, period_end_date),
+    camera_hours_total = sum(period_deps$camera_hours, na.rm = TRUE),
+    deployments_count = nrow(period_deps),
+    animal_observations_count = animal_observations_count,
+    blanks_count = blanks_count,
+    unclassified_unknown_count = unclassified_unknown_count,
+    observations_count = observations_count
+  )
+}
+
+render_dashboard_period_dates_card <- function(effort_summary, title = "Season Dates") {
+  card(
+    card_header(render_dashboard_card_header("calendar-days", title)),
+    card_body(
+      render_dashcard_metric_body(
+        effort_summary$period_date_text,
+        div(effort_summary$period_label, class = "dashcard-period"),
+        div("actual deployment span", class = "dashcard-period")
+      )
+    ),
+    full_screen = FALSE
+  )
+}
+
+render_dashboard_camera_hours_card <- function(effort_summary) {
+  card(
+    card_header(render_dashboard_card_header("camera", "Camera Hours")),
+    card_body(
+      render_dashcard_metric_body(
+        format(round(effort_summary$camera_hours_total), big.mark = ","),
+        div(paste(format_dash_number(effort_summary$camera_hours_total / 24), "camera days"), class = "dashcard-period"),
+        div(paste(effort_summary$deployments_count, "cameras deployed"), class = "dashcard-period")
+      )
+    ),
+    full_screen = FALSE
+  )
+}
+
+render_dashboard_observations_card <- function(effort_summary) {
+  card(
+    card_header(render_dashboard_card_header("clipboard-list", "Observations")),
+    card_body(
+      render_dashcard_metric_body(
+        format(effort_summary$observations_count, big.mark = ","),
+        div(paste(format(effort_summary$blanks_count, big.mark = ","), "blanks"), class = "dashcard-period"),
+        div(paste(format(effort_summary$unclassified_unknown_count, big.mark = ","), "unclassified or unknown"), class = "dashcard-period")
+      )
+    ),
+    full_screen = FALSE
+  )
+}
+
+render_dashboard_animal_observations_total_card <- function(effort_summary) {
+  card(
+    card_header(render_dashboard_card_header("paw", "Animal Observations")),
+    card_body(
+      render_dashcard_metric_body(
+        format(effort_summary$animal_observations_count, big.mark = ","),
+        div("total animal observations", class = "dashcard-period")
+      )
+    ),
+    full_screen = FALSE
+  )
+}
+
+render_dashboard_data_package_card <- function() {
+  card(
+    card_header(render_dashboard_card_header("rotate", "Data Package")),
+    card_body(
+      render_dashcard_metric_body(
+        format(as.POSIXct(core_data$created, format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"), "%d/%m/%Y"),
+        div(core_data$name, class = "dashcard-period")
+      )
+    ),
+    full_screen = FALSE
+  )
+}
+
 dashboard_rat_icon <- function() {
   HTML(
     '<i class="fas fa-rat" style="display: inline-block; width: 1.2em; height: 1em; vertical-align: -0.125em;">
@@ -462,77 +572,31 @@ render_dashboard_favourites_hero <- function(max_images = 30,
 
 render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
   animal_metric <- dashboard_animal_detections_metric(locality = locality, period_name = period_name)
-
-  period_deps <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
-    period <- core_data$period_groups[[period_name]]
-    filter_deps(core_data$deps, period$start_date, period$end_date)
-  } else {
-    core_data$deps
-  }
-  if (!is.null(locality)) {
-    period_deps <- period_deps %>% dplyr::filter(.data$locality %in% !!locality)
-  }
-
-  camera_hours_total <- sum(period_deps$camera_hours, na.rm = TRUE)
-  deployments_count <- nrow(period_deps)
-
-  animal_observations_count <- sum(period_deps$animal_detections_count, na.rm = TRUE)
-  blanks_count <- sum(period_deps$blank_detections_count, na.rm = TRUE)
-  unclassified_unknown_count <- sum(period_deps$unknown_detections_count, na.rm = TRUE) + sum(period_deps$unclassified_detections_count, na.rm = TRUE)
-  obs_main_figure <- animal_observations_count + blanks_count + unclassified_unknown_count
-  period_start_date <- if (nrow(period_deps) > 0) {
-    min(as.Date(period_deps$start), na.rm = TRUE)
-  } else {
-    NA
-  }
-  period_end_date <- if (nrow(period_deps) > 0) {
-    max(as.Date(period_deps$end), na.rm = TRUE)
-  } else {
-    NA
-  }
-  period_date_text <- format_dashboard_date_range(period_start_date, period_end_date)
-  period_label <- if (is.null(period_name)) "All Data" else period_name
+  effort_summary <- summarise_dashboard_effort(locality = locality, period_name = period_name)
 
   layout_column_wrap(
     width = "180px",
-    card(
-      card_header(render_dashboard_card_header("calendar-days", "Season Dates")),
-      card_body(
-        render_dashcard_metric_body(
-          period_date_text,
-          div(period_label, class = "dashcard-period"),
-          div("actual deployment span", class = "dashcard-period")
-        )
-      ),
-      full_screen = FALSE
-    ),
-    card(
-      card_header(render_dashboard_card_header("camera", "Camera Hours")),
-      card_body(
-        render_dashcard_metric_body(
-          format(round(camera_hours_total), big.mark = ","),
-          div(paste(format_dash_number(camera_hours_total / 24), "camera days"), class = "dashcard-period"),
-          div(paste(deployments_count, "cameras deployed"), class = "dashcard-period")
-        )
-      ),
-      full_screen = FALSE
-    ),
-    card(
-      card_header(render_dashboard_card_header("clipboard-list", "Observations")),
-      card_body(
-        render_dashcard_metric_body(
-          format(obs_main_figure, big.mark = ","),
-          div(paste(format(blanks_count, big.mark = ","), "blanks"), class = "dashcard-period"),
-          div(paste(format(unclassified_unknown_count, big.mark = ","), "unclassified or unknown"), class = "dashcard-period")
-        )
-      ),
-      full_screen = FALSE
-    ),
+    render_dashboard_period_dates_card(effort_summary),
+    render_dashboard_camera_hours_card(effort_summary),
+    render_dashboard_observations_card(effort_summary),
     card(
       card_header(render_dashboard_card_header("paw", "Animal Observations")),
       card_body(render_dashboard_comparison_body(animal_metric, use_state_background = FALSE)),
       full_screen = FALSE
     )
+  )
+}
+
+render_dashboard_whole_project_cards <- function(locality = NULL) {
+  effort_summary <- summarise_dashboard_effort(locality = locality)
+
+  layout_column_wrap(
+    width = "180px",
+    render_dashboard_period_dates_card(effort_summary, title = "Project Dates"),
+    render_dashboard_camera_hours_card(effort_summary),
+    render_dashboard_observations_card(effort_summary),
+    render_dashboard_animal_observations_total_card(effort_summary),
+    render_dashboard_data_package_card()
   )
 }
 

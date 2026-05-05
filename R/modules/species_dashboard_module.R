@@ -611,6 +611,17 @@ species_dashboard_module_server <- function(id,
       }
 
       total_detections_count <- nrow(species_obs)
+      season_dates_card <- if (!is.null(period_name_label) &&
+                               length(period_name_label) == 1 &&
+                               !is.na(period_name_label) &&
+                               period_name_label != "ALL" &&
+                               period_name_label %in% names(core_data$period_groups)) {
+        render_dashboard_period_dates_card(
+          summarise_dashboard_effort(locality = selected_localities(), period_name = period_name_label)
+        )
+      } else {
+        NULL
+      }
 
       total_card <- card(
           card_header("Observations"),
@@ -632,12 +643,15 @@ species_dashboard_module_server <- function(id,
           )
       )
 
+      metric_cards <- list(width = "250px")
+      if (!is.null(season_dates_card)) {
+        metric_cards <- c(metric_cards, list(season_dates_card))
+      }
+      metric_cards <- c(metric_cards, list(total_card, unique_card), generate_rai_cards(species_obs, deps_data, period_name_label))
+
       do.call(
         layout_column_wrap,
-        c(
-          list(width = "250px", total_card, unique_card),
-          generate_rai_cards(species_obs, deps_data, period_name_label)
-        )
+        metric_cards
       )
     }
 
