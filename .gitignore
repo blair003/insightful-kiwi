@@ -7,7 +7,7 @@
 *.Rproj
 insightful-kiwi.Rproj
 .DS_Store
-Dockerfile
+app_cache/
 config/*
 !config/environment.R
 !config/config-wkt_main.R
