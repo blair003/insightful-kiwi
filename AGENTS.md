@@ -2,33 +2,23 @@
 
 ## Project
 
-This is an R/Shiny app for Insightful Kiwi, which is primarily an app to analyse and visualise data from camera monitoring networks.
+This is an R/Shiny app for Insightful Kiwi, an app to allow community-based conversation groups to analyse and visualise data from camera monitoring networks.
 
 The app is running inside a VS Code dev container using Docker.
 
 Do not reinstall R packages, rebuild the container, or modify Docker setup unless explicitly asked.
 
+## Data model
 
-## Data model (important)
-
-`extdata/` contains the primary camera monitoring source data in Camtrap DP format, which is the primary basis for the application.
+`extdata/` contains the primary camera monitoring source data in Camtrap DP format, which is the primary basis for the application. 
 
 `extdata/trap-data/` contains trapping data used for development and testing. This is also Camtrap DP format, but includes the source files which we run a custom conversion on as part of the application startup to transform to Camtrap DP format.
 
-Camtrap DP key files:
-- datapackage.json → schema and metadata
-- deployments.csv → deployment-level data
-- media.csv → media/image records
-- observations.csv → observation records
-
-When investigating data-related logic:
-- start with `datapackage.json`
-- then inspect specific CSVs as needed
-- avoid loading full datasets unless necessary
+This data forms the basis of the global `core_data` variable.
 
 ## Image cache
 
-`www/cache/` contains thousands of generated cache directories. Do not search or enumerate this folder.
+`www/cache/` contains thousands of generated cache directories. There is no need to search or enumerate this folder.
 
 Exception:
 `www/cache/favourites/` directory structure is meaningful and may be inspected when relevant.
@@ -58,8 +48,3 @@ Do not run the full Shiny app unless explicitly asked.
 The app is long-running and GUI-based. Running it provides limited value for debugging.
 
 Assume the user will run the app and validate behaviour.
-
-Prefer:
-- inspecting functions
-- running small, targeted R code
-- reasoning about reactive logic

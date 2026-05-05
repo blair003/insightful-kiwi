@@ -11,12 +11,16 @@ config$env <- list(
   
   
   # List of required CRAN packages
+  # "leaflet.extras",
+  # "bsicons",
+  # "mapview",
+  # "promises", 
+
   required_cran_packages = c(
     "logger", "shiny", "dplyr", "lubridate", "stringr", "tidyr", "bslib", "remotes",
-    "bsicons", "DT", "kableExtra", "leaflet", "leaflet.extras", "ggplot2",
-    "scales", "plotly", "httr", "fs", "magick", "promises", "future", "shinybusy",
-    "htmlwidgets", "shinyjs", "sf", "geosphere", "webshot2", "mapview", "jsonlite", 
-    "dotenv", "chromote"
+     "DT", "kableExtra", "leaflet",  "ggplot2",  "scales", "plotly", "httr", "fs", 
+     "magick", "future", "shinybusy", "htmlwidgets", "shinyjs", "sf", 
+     "geosphere", "webshot2",  "jsonlite", "dotenv", "chromote"
   ),
   
   # List of required GitHub packages
