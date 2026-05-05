@@ -1,5 +1,5 @@
 options(
-  repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/latest"),
+  repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/noble/latest"),
   Ncpus = max(1, parallel::detectCores() - 1)
 )
 
@@ -8,6 +8,10 @@ if (!requireNamespace("pak", quietly = TRUE)) {
 }
 
 pkgs <- c(
+  "languageserver",
+  "httpgd",
+  "styler",
+  "lintr",
   "gapminder",
   "logger",
   "shiny",
@@ -43,7 +47,6 @@ pkgs <- c(
   "dotenv",
   "chromote",
   "remotes",
-  "leonawicz/apputils",
   "inbo/camtraptor"
 )
 

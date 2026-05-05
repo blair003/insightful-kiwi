@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Dev-only config
+.vscode/
+.devcontainer/devcontainer.json
+
+# R / IDE noise
+.Rproj.user
+.Rhistory
+.RData
+.Rprofile
+.Renviron
+.Ruserdata
+*.Rproj
+
+# Runtime / generated
+cache/
+logs/
+temp/
+www/cache/
+
+# Data (important — keep this out unless needed in image)
+extdata/
+data/
+
+# Large / binary
+*.rds
+*.RData
+*.sqlite
+*.csv
+*.parquet
+
+# Secrets
+config/.env
+
+# Misc
+.DS_Store
+.positai

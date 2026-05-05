@@ -17,8 +17,16 @@
     "vscode": {
       "extensions": [
         "REditorSupport.r",
-        "Posit.shiny"
-      ]
+        "Posit.shiny",
+        "OpenAI.chatgpt",
+        "Google.gemini",
+        "Natizyskunk.sftp",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "r.lsp.enabled": true,
+        "r.plot.useHttpgd": true
+      }
     }
   }
 }
