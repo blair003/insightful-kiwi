@@ -1,0 +1,6 @@
+```gitignore
+cache/
+logs/
+temp/
+www/cache/*
+!www/cache/favourites/
