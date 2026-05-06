@@ -357,80 +357,25 @@ species_dashboard_module_server <- function(id,
         c("RAI", metric$formatted_value),
         c("Period", metric$period),
         c("Start Date", if (is.na(metric$start_date)) "All data" else as.character(metric$start_date)),
-        c("End Date", if (is.na(metric$end_date)) "All data" else as.character(metric$end_date)),
+        c("End Date", if (is.na(metric$end_date)) "All data" else as.character(metric$end_date))
+      )
+
+      input_rows <- list(
         c("Detections", format_dash_number(metric$animal_detections)),
         c("Individuals counted", format_dash_number(metric$individuals_count)),
-        c("Possible duplicate individuals", format_dash_number(metric$possible_duplicates_count)),
-        c("Net individuals used", format_dash_number(metric$net_individuals_count)),
+        c("Possible duplicate individuals", format_dash_number(metric$possible_duplicates_count))
+      )
+
+      if (isTRUE(metric$use_net)) {
+        input_rows <- c(input_rows, list(c("Net individuals used", format_dash_number(metric$net_individuals_count))))
+      }
+
+      input_rows <- c(input_rows, list(
         c("Camera hours", format_dash_number(metric$camera_hours, 1)),
         c("Localities averaged", format_dash_number(metric$locality_count)),
         c("Locality-line records", format_dash_number(metric$line_count))
-      )
+      ))
 
-      line_values <- metric$line_rai_values
-      locality_values <- metric$locality_rai_values
-      line_table <- if (!is.null(line_values) && nrow(line_values) > 0) {
-        tbody_rows <- list()
-
-        localities <- unique(line_values$locality)
-        for (locality in localities) {
-          locality_lines <- line_values[line_values$locality == locality, , drop = FALSE]
-
-          # Add line rows
-          for (i in seq_len(nrow(locality_lines))) {
-            row <- locality_lines[i, ]
-            tbody_rows <- append(tbody_rows, list(tags$tr(
-              tags$td(locality_display_name(row$locality)),
-              tags$td(row$line),
-              tags$td(row$formatted_value),
-              tags$td(format_dash_number(row$individuals_count)),
-              tags$td(format_dash_number(row$possible_duplicates_count)),
-              tags$td(format_dash_number(row$net_individuals_count)),
-              tags$td(format_dash_number(row$camera_hours, 1))
-            )))
-          }
-
-          # Add locality subtotal row
-          locality_row <- if (!is.null(locality_values) && nrow(locality_values) > 0) {
-            locality_values[locality_values$locality == locality, , drop = FALSE]
-          } else {
-            data.frame()
-          }
-
-          locality_rai <- if (nrow(locality_row) > 0 && !is.na(locality_row$formatted_value[[1]])) {
-            locality_row$formatted_value[[1]]
-          } else {
-            "N/A"
-          }
-
-          tbody_rows <- append(tbody_rows, list(tags$tr(
-            class = "fw-bold", style = "border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6;",
-            tags$td(locality_display_name(locality)),
-            tags$td("Locality RAI"),
-            tags$td(locality_rai),
-            tags$td(""),
-            tags$td(""),
-            tags$td(""),
-            tags$td("")
-          )))
-        }
-
-        tags$table(
-          class = "table table-sm table-striped rai-detail-table",
-          tags$thead(tags$tr(
-            tags$th("Locality"),
-            tags$th("Line"),
-            tags$th("Line/Locality RAI"),
-            tags$th("Individuals"),
-            tags$th("Duplicates"),
-            tags$th("Net individuals"),
-            tags$th("Camera hours")
-          )),
-          tags$tbody(tbody_rows)
-        )
-      } else {
-        tags$p("Line RAI values are not available.", class = "rai-line-empty")
-      }
       render_key_value_table <- function(rows) {
         tags$table(
           class = "table table-sm table-striped rai-detail-table",
@@ -439,32 +384,6 @@ species_dashboard_module_server <- function(id,
           }))
         )
       }
-      render_rai_proof_actions <- function() {
-        tags$div(
-          class = "rai-proof-actions",
-          tags$span("Hint: copy or send the proof text below to verify the calculations.", class = "rai-proof-hint"),
-          tags$div(
-            class = "rai-proof-action-buttons",
-            tags$button(
-              type = "button",
-              class = "btn btn-sm btn-outline-secondary",
-              onclick = "copyRaiProof(this)",
-              title = "Copy RAI proof text",
-              tags$i(class = "fa fa-copy"),
-              " Copy proof"
-            ),
-            tags$button(
-              type = "button",
-              class = "btn btn-sm btn-outline-secondary",
-              onclick = "verifyRaiProof('chatgpt', this)",
-              title = "Open ChatGPT with this proof text",
-              tags$i(class = "fa fa-arrow-up-right-from-square"),
-              " Verify with ChatGPT"
-            )
-          )
-        )
-      }
-
       detail_token <- paste(period_name_label, paste(locality_filter, collapse = ","), sep = "|")
       share_btn <- tags$button(
         type = "button",
@@ -479,6 +398,18 @@ species_dashboard_module_server <- function(id,
       if (!is.null(locality_filter) && length(locality_filter) > 0) {
         modal_title_text <- paste(modal_title_text, "-", locality_scope_label(locality_filter))
       }
+
+      source_rows <- rai_metric_source_rows(
+        period_metric = metric,
+        period_label = "Selected",
+        rai_group = vernacular_name,
+        species_included = species_name,
+        scope_label = locality_scope_label(locality_filter)
+      )
+      csv_link <- rai_basis_csv_download_link(
+        source_rows,
+        rai_basis_filename(paste(vernacular_name, metric$period, "rai source data"))
+      )
 
       showModal(modalDialog(
         title = tagList(
@@ -495,25 +426,14 @@ species_dashboard_module_server <- function(id,
         ),
         tags$h5("Constant Settings"),
         tags$div(class = "rai-table-scroll", render_key_value_table(constant_rows)),
-        tags$h5("Results and Inputs"),
+        tags$h5("Period Results"),
         tags$div(class = "rai-table-scroll", render_key_value_table(result_rows)),
         tags$details(
           class = "rai-detail-section",
-          open = "open",
-          tags$summary("Line and Locality RAIs"),
-          tags$div(class = "rai-table-scroll", line_table)
+          tags$summary("Period Inputs"),
+          tags$div(class = "rai-table-scroll", render_key_value_table(input_rows))
         ),
-        tags$h5("RAI Proof"),
-        render_rai_proof_actions(),
-
-        tags$pre(
-          class = "rai-calculation-trace",
-          if (!is.null(metric$calculation_trace) && !is.na(metric$calculation_trace)) {
-            metric$calculation_trace
-          } else {
-            "Calculation trace is not available."
-          }
-        ),
+        tags$div(class = "rai-source-download-row", csv_link),
         easyClose = TRUE,
         footer = modalButton("Close"),
         size = "l"

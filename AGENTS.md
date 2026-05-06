@@ -12,8 +12,7 @@ Do not reinstall R packages, rebuild the container, or modify Docker setup unles
 
 The performance of this application relies on using the `core_data` global variable as the main data source.
 
-Don't write code or functions that ingest data from files in extdata/ directly. If you think you need to, `STOP` and ask first.
-The solution will likely be to update `core_data` to include what we need, if it is missing. Ask before updating core_data.
+Don't write code or functions that ingest data from files in extdata/ directly. If you think you need to, `STOP` and ask first. The solution will likely be to update `core_data` to include what we need, if it is missing. Ask before updating core_data.
 
 For reference:
 The source for `core_data$deps` is `extdata/deployments.csv`

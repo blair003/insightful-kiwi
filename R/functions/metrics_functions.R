@@ -664,7 +664,16 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
     ),
     locality_rai_values = tibble::tibble(
       locality = character(),
-      formatted_value = character()
+      locality_rai = numeric(),
+      se = numeric(),
+      formatted_value = character(),
+      animal_detections = numeric(),
+      individuals_count = numeric(),
+      possible_duplicates_count = numeric(),
+      net_individuals_count = numeric(),
+      camera_hours = numeric(),
+      line_count = integer(),
+      calculation_trace = character()
     ),
     calculation_trace = NA_character_
   )
@@ -739,10 +748,28 @@ generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, 
     )
 
   locality_value_column <- if (isTRUE(use_net)) "mRAI_SE_net" else "mRAI_SE"
+  locality_numeric_column <- if (isTRUE(use_net)) "mRAI_net" else "mRAI"
+  locality_se_column <- if (isTRUE(use_net)) "SE_filtered" else "SE"
   locality_rai_values <- group_locality_rows %>%
-    mutate(formatted_value = as.character(.data[[locality_value_column]])) %>%
+    mutate(
+      locality_rai = as.numeric(.data[[locality_numeric_column]]),
+      se = as.numeric(.data[[locality_se_column]]),
+      formatted_value = as.character(.data[[locality_value_column]])
+    ) %>%
     arrange(locality) %>%
-    select(locality, formatted_value)
+    select(
+      locality,
+      locality_rai,
+      se,
+      formatted_value,
+      animal_detections,
+      individuals_count,
+      possible_duplicates_count,
+      net_individuals_count,
+      camera_hours,
+      line_count = rai_count,
+      calculation_trace
+    )
 
   list(
     value = as.numeric(group_row[[value_column]][1]),
@@ -846,7 +873,16 @@ generate_rai_group_period_comparison <- function(obs,
       ),
       locality_rai_values = tibble::tibble(
         locality = character(),
-        formatted_value = character()
+        locality_rai = numeric(),
+        se = numeric(),
+        formatted_value = character(),
+        animal_detections = numeric(),
+        individuals_count = numeric(),
+        possible_duplicates_count = numeric(),
+        net_individuals_count = numeric(),
+        camera_hours = numeric(),
+        line_count = integer(),
+        calculation_trace = character()
       ),
       calculation_trace = NA_character_
     )

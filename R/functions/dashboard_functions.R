@@ -657,6 +657,156 @@ render_dashboard_whole_project_cards <- function(locality = NULL) {
   )
 }
 
+rai_basis_filename <- function(label) {
+  safe_label <- gsub("[^A-Za-z0-9]+", "-", label)
+  safe_label <- gsub("(^-+|-+$)", "", safe_label)
+  paste0(tolower(safe_label), "-rai-source-data.csv")
+}
+
+rai_metric_source_rows <- function(period_metric,
+                                   period_label,
+                                   rai_group,
+                                   species_included,
+                                   scope_label = NULL) {
+  metric_value <- function(name, default = NA) {
+    value <- period_metric[[name]]
+    if (is.null(value) || length(value) == 0) {
+      return(default)
+    }
+    if (is.data.frame(value)) {
+      return(value)
+    }
+
+    value[[1]]
+  }
+
+  row_from_values <- function(row_type,
+                              locality = NA_character_,
+                              line = NA_character_,
+                              rai = NA_real_,
+                              se = NA_real_,
+                              formatted_value = NA_character_,
+                              animal_detections = NA_real_,
+                              individuals_count = NA_real_,
+                              possible_duplicates_count = NA_real_,
+                              net_individuals_count = NA_real_,
+                              camera_hours = NA_real_,
+                              line_count = NA_integer_,
+                              locality_count = NA_integer_,
+                              calculation_trace = NA_character_) {
+    data.frame(
+      period_label = period_label,
+      period = metric_value("period", NA_character_),
+      start_date = as.character(metric_value("start_date", NA)),
+      end_date = as.character(metric_value("end_date", NA)),
+      rai_group = rai_group,
+      species_included = species_included,
+      locality_scope = if (is.null(scope_label)) NA_character_ else scope_label,
+      count_basis = if (isTRUE(metric_value("use_net", TRUE))) "net_individuals_count" else "individuals_count",
+      rai_norm_hours = metric_value("rai_norm_hours", NA_real_),
+      row_type = row_type,
+      locality = locality,
+      line = line,
+      rai = rai,
+      se = se,
+      formatted_value = formatted_value,
+      animal_detections = animal_detections,
+      individuals_count = individuals_count,
+      possible_duplicates_count = possible_duplicates_count,
+      net_individuals_count = net_individuals_count,
+      camera_hours = camera_hours,
+      line_count = line_count,
+      locality_count = locality_count,
+      calculation_trace = calculation_trace,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  rows <- list(row_from_values(
+    row_type = "period_result",
+    rai = metric_value("value", NA_real_),
+    se = metric_value("se", NA_real_),
+    formatted_value = metric_value("formatted_value", NA_character_),
+    animal_detections = metric_value("animal_detections", NA_real_),
+    individuals_count = metric_value("individuals_count", NA_real_),
+    possible_duplicates_count = metric_value("possible_duplicates_count", NA_real_),
+    net_individuals_count = metric_value("net_individuals_count", NA_real_),
+    camera_hours = metric_value("camera_hours", NA_real_),
+    line_count = metric_value("line_count", NA_integer_),
+    locality_count = metric_value("locality_count", NA_integer_),
+    calculation_trace = metric_value("calculation_trace", NA_character_)
+  ))
+
+  locality_values <- metric_value("locality_rai_values", NULL)
+  if (!is.null(locality_values) && nrow(locality_values) > 0) {
+    rows <- c(rows, lapply(seq_len(nrow(locality_values)), function(i) {
+      locality_row <- locality_values[i, , drop = FALSE]
+      row_from_values(
+        row_type = "locality_summary",
+        locality = as.character(locality_row$locality[[1]]),
+        rai = if ("locality_rai" %in% names(locality_row)) as.numeric(locality_row$locality_rai[[1]]) else NA_real_,
+        se = if ("se" %in% names(locality_row)) as.numeric(locality_row$se[[1]]) else NA_real_,
+        formatted_value = as.character(locality_row$formatted_value[[1]]),
+        animal_detections = if ("animal_detections" %in% names(locality_row)) as.numeric(locality_row$animal_detections[[1]]) else NA_real_,
+        individuals_count = if ("individuals_count" %in% names(locality_row)) as.numeric(locality_row$individuals_count[[1]]) else NA_real_,
+        possible_duplicates_count = if ("possible_duplicates_count" %in% names(locality_row)) as.numeric(locality_row$possible_duplicates_count[[1]]) else NA_real_,
+        net_individuals_count = if ("net_individuals_count" %in% names(locality_row)) as.numeric(locality_row$net_individuals_count[[1]]) else NA_real_,
+        camera_hours = if ("camera_hours" %in% names(locality_row)) as.numeric(locality_row$camera_hours[[1]]) else NA_real_,
+        line_count = if ("line_count" %in% names(locality_row)) as.integer(locality_row$line_count[[1]]) else NA_integer_,
+        calculation_trace = if ("calculation_trace" %in% names(locality_row)) as.character(locality_row$calculation_trace[[1]]) else NA_character_
+      )
+    }))
+  }
+
+  line_values <- metric_value("line_rai_values", NULL)
+  if (!is.null(line_values) && nrow(line_values) > 0) {
+    rows <- c(rows, lapply(seq_len(nrow(line_values)), function(i) {
+      line_row <- line_values[i, , drop = FALSE]
+      row_from_values(
+        row_type = "line_input",
+        locality = as.character(line_row$locality[[1]]),
+        line = as.character(line_row$line[[1]]),
+        rai = as.numeric(line_row$line_rai[[1]]),
+        formatted_value = as.character(line_row$formatted_value[[1]]),
+        animal_detections = as.numeric(line_row$animal_detections[[1]]),
+        individuals_count = as.numeric(line_row$individuals_count[[1]]),
+        possible_duplicates_count = as.numeric(line_row$possible_duplicates_count[[1]]),
+        net_individuals_count = as.numeric(line_row$net_individuals_count[[1]]),
+        camera_hours = as.numeric(line_row$camera_hours[[1]]),
+        calculation_trace = as.character(line_row$calculation_trace[[1]])
+      )
+    }))
+  }
+
+  do.call(rbind, rows)
+}
+
+rai_basis_csv_text <- function(rows) {
+  character_columns <- vapply(rows, is.character, logical(1))
+  rows[character_columns] <- lapply(rows[character_columns], function(column) {
+    gsub("\u00b1", "+/-", column, fixed = TRUE)
+  })
+
+  csv_lines <- character()
+  csv_connection <- textConnection("csv_lines", "w", local = TRUE)
+  on.exit(close(csv_connection), add = TRUE)
+  utils::write.csv(rows, csv_connection, row.names = FALSE, na = "")
+  paste(csv_lines, collapse = "\n")
+}
+
+rai_basis_csv_download_link <- function(rows, filename) {
+  csv <- rai_basis_csv_text(rows)
+
+  tags$a(
+    href = paste0("data:text/csv;charset=utf-8,", utils::URLencode(csv, reserved = TRUE)),
+    download = filename,
+    class = "btn btn-sm btn-outline-secondary rai-source-download",
+    title = "Download source data for checking this RAI calculation",
+    icon("download"),
+    " Download source CSV"
+  )
+}
+
 show_rai_metric_modal <- function(metric) {
   format_period_date <- function(period_metric, field) {
     if (is.na(period_metric[[field]])) {
@@ -850,44 +1000,6 @@ show_rai_metric_modal <- function(metric) {
       tags$tbody(tbody_rows)
     )
   }
-  render_calculation_trace_section <- function() {
-    traces <- vapply(period_columns, function(column) {
-      trace <- column$metric$calculation_trace
-      if (is.null(trace) || length(trace) == 0 || is.na(trace[[1]])) {
-        trace <- "Calculation trace is not available."
-      }
-
-      paste(column$label, trace[[1]], sep = ": ")
-    }, character(1))
-
-    tags$pre(class = "rai-calculation-trace", paste(traces, collapse = "\n\n"))
-  }
-  render_rai_proof_actions <- function() {
-    tags$div(
-      class = "rai-proof-actions",
-      tags$span("Hint: copy or send the proof text below to verify the calculations.", class = "rai-proof-hint"),
-      tags$div(
-        class = "rai-proof-action-buttons",
-        tags$button(
-          type = "button",
-          class = "btn btn-sm btn-outline-secondary",
-          onclick = "copyRaiProof(this)",
-          title = "Copy RAI proof text",
-          tags$i(class = "fa fa-copy"),
-          " Copy proof"
-        ),
-        tags$button(
-          type = "button",
-          class = "btn btn-sm btn-outline-secondary",
-          onclick = "verifyRaiProof('chatgpt', this)",
-          title = "Open ChatGPT with this proof text",
-          tags$i(class = "fa fa-arrow-up-right-from-square"),
-          " Verify with ChatGPT"
-        )
-      )
-    )
-  }
-
   constant_rows <- list(
     c("Species included", paste(config$globals$rai_groups[[metric$rai_group]], collapse = ", ")),
     c("RAI normalisation", paste(format_dash_number(metric$current_metric$rai_norm_hours), "camera hours")),
@@ -956,6 +1068,20 @@ show_rai_metric_modal <- function(metric) {
     " Share"
   )
 
+  source_rows <- do.call(rbind, lapply(period_columns, function(column) {
+    rai_metric_source_rows(
+      period_metric = column$metric,
+      period_label = column$label,
+      rai_group = metric$rai_group,
+      species_included = paste(config$globals$rai_groups[[metric$rai_group]], collapse = ", "),
+      scope_label = metric$scope_label
+    )
+  }))
+  csv_link <- rai_basis_csv_download_link(
+    source_rows,
+    rai_basis_filename(paste(metric$rai_group, "rai source data"))
+  )
+
   showModal(modalDialog(
     title = tagList(
       tags$div(
@@ -991,15 +1117,7 @@ show_rai_metric_modal <- function(metric) {
       tags$summary("Period Inputs"),
       tags$div(class = "rai-table-scroll", render_period_table(period_input_rows))
     ),
-    tags$details(
-      class = "rai-detail-section",
-      open = "open",
-      tags$summary("Line and Locality RAIs"),
-      render_line_rai_section()
-    ),
-    tags$h5("RAI Proof"),
-    render_rai_proof_actions(),
-    render_calculation_trace_section(),
+    tags$div(class = "rai-source-download-row", csv_link),
     easyClose = TRUE,
     footer = modalButton("Close"),
     size = "l"
