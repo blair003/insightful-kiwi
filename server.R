@@ -53,6 +53,7 @@ server <- function(input, output, session) {
     "review_sequences_click",
     "density_map_review_sequences_click",
     "global_setup_btn",
+    "rebuild_core_data_from_source_btn",
     "reset_button",
     "info_field_clicked",
     "is_fullscreen",
@@ -94,6 +95,7 @@ server <- function(input, output, session) {
   global_use_net <- reactive({
     isTRUE(session$userData$use_net_data())
   })
+  core_data_rebuild_running <- reactiveVal(FALSE)
 
   observeEvent(input$global_setup_btn, {
     showModal(modalDialog(
@@ -108,6 +110,16 @@ server <- function(input, output, session) {
       tags$small(HTML(get_description("Possible Duplicate Logic"))),
 
       tags$hr(),
+      tags$h3("Rebuild data from source"),
+      tags$p("Delete the current core_data cache file and rebuild it from the source data package."),
+      actionButton(
+        "rebuild_core_data_from_source_btn",
+        "Rebuild data from source",
+        icon = icon("rotate"),
+        class = "btn-warning"
+      ),
+
+      tags$hr(),
       tags$h5("About InsightfulKiwi"),
       tags$p("InsightfulKiwi provides insights into data collected from wildlife camera monitoring programs using the Camera Trap Data Packages (Camtrap DP) format."),
       tags$p("For more information about InsightfulKiwi, contact blair@aketechnology.co.nz."),
@@ -120,6 +132,51 @@ server <- function(input, output, session) {
 
   observeEvent(input$global_use_net_data, {
     session$userData$use_net_data(isTRUE(input$global_use_net_data))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$rebuild_core_data_from_source_btn, {
+    if (isTRUE(core_data_rebuild_running())) {
+      showNotification("A data rebuild is already running in the background.", type = "warning")
+      return()
+    }
+
+    core_data_rebuild_running(TRUE)
+    shinyjs::disable("rebuild_core_data_from_source_btn")
+    showNotification(
+      "Data rebuild started in the background. You can keep using the app.",
+      type = "message",
+      duration = 5
+    )
+
+    future::future({
+      old_defer <- getOption("insightfulkiwi.defer_weather_on_rate_limit", TRUE)
+      options(insightfulkiwi.defer_weather_on_rate_limit = FALSE)
+      on.exit(options(insightfulkiwi.defer_weather_on_rate_limit = old_defer), add = TRUE)
+
+      load_core_data(config, force_rebuild = TRUE, refresh_weather = TRUE)
+    }, seed = TRUE) %...>% (function(rebuilt) {
+      core_data_rebuild_running(FALSE)
+      shinyjs::enable("rebuild_core_data_from_source_btn")
+      logger::log_info(
+        "server.R, background rebuilt core_data from source for data package id %s and saved %s",
+        rebuilt$package_id,
+        rebuilt$cache_file
+      )
+      showNotification(
+        "Data rebuild finished. New sessions will use the refreshed cache.",
+        type = "message",
+        duration = 8
+      )
+    }) %...!% (function(error) {
+      core_data_rebuild_running(FALSE)
+      shinyjs::enable("rebuild_core_data_from_source_btn")
+      logger::log_error("server.R, failed to rebuild core_data from source: %s", conditionMessage(error))
+      showNotification(
+        paste("Failed to rebuild data from source:", conditionMessage(error)),
+        type = "error",
+        duration = NULL
+      )
+    })
   }, ignoreInit = TRUE)
 
   observeEvent(input$global_share_btn, {
@@ -824,7 +881,12 @@ server <- function(input, output, session) {
     # Use URL parameters on initial load
 
     query <- parseQueryString(session$clientData$url_search)
-    print(sprintf("Query string is %s", query))
+    query_log <- if (length(query) == 0) {
+      "<empty>"
+    } else {
+      paste(sprintf("%s=%s", names(query), unlist(query, use.names = FALSE)), collapse = "&")
+    }
+    logger::log_debug("server.R, query string is %s", query_log)
 
     if (!is.null(query$species_rai_detail) && nzchar(query$species_rai_detail)) {
       pending_species_rai_detail(query$species_rai_detail)

@@ -244,7 +244,7 @@ create_species_rank <- function(scientificName_lower, spp_classes) {
 }
 
 
-enhance_core_data <- function(obs, deps, period_groups) {
+enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) {
   logger::log_info("camtrapdp_functions.R, enhance_core_data() running...")
 
   capitalise_first_word <- function(s) {
@@ -400,8 +400,11 @@ enhance_core_data <- function(obs, deps, period_groups) {
 
 
   weather_enrichment <- tryCatch({
-    if (exists("enrich_observations_with_daily_weather", mode = "function", inherits = TRUE)) {
+    if (isTRUE(include_weather) &&
+        exists("enrich_observations_with_daily_weather", mode = "function", inherits = TRUE)) {
       enrich_observations_with_daily_weather(obs_merged, deps)
+    } else if (exists("add_observation_time_classes", mode = "function", inherits = TRUE)) {
+      list(obs = add_observation_time_classes(obs_merged, NULL), weather_daily = NULL)
     } else {
       list(obs = obs_merged, weather_daily = NULL)
     }
@@ -640,12 +643,22 @@ create_seasons_available_list <- function(deps, hemisphere) {
 
 # Used in creation of spp_classes_list
 
-get_species_name <- function(scientific_name, nametype) {
+get_species_name <- function(scientific_name, nametype, taxonomic = NULL) {
   scientific_name_lower <- tolower(scientific_name)
 
+  if (is.null(taxonomic) &&
+      exists("core_data", inherits = TRUE) &&
+      !is.null(core_data$taxonomic)) {
+    taxonomic <- core_data$taxonomic
+  }
+
+  if (is.null(taxonomic)) {
+    return(scientific_name)
+  }
+
   # Find the species entry by matching scientificName
-  species_entry <- core_data$taxonomic[
-    sapply(core_data$taxonomic, function(x) tolower(x$scientificName) == scientific_name_lower)
+  species_entry <- taxonomic[
+    sapply(taxonomic, function(x) tolower(x$scientificName) == scientific_name_lower)
   ]
 
   # Return the scientific name if no match is found
@@ -682,7 +695,7 @@ capitalise_first_word <- function(s) {
 
 # Main function to process species data
 
-create_species_list <- function(obs) {
+create_species_list <- function(obs, taxonomic = NULL) {
   # Helper function to filter observed species in case-insensitive manner
   filter_observed_species <- function(species_list, observed_species) {
     tolower(species_list) %in% observed_species
@@ -690,7 +703,7 @@ create_species_list <- function(obs) {
   #browser()
   # Helper function to build species list with the desired name type
   build_species_list <- function(species, nametype) {
-    setNames(species, sapply(species, get_species_name, nametype = nametype))
+    setNames(species, sapply(species, get_species_name, nametype = nametype, taxonomic = taxonomic))
   }
 
   # Get observed species in lowercase

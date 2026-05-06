@@ -205,8 +205,17 @@ download_image <- function(source_url, destination_file) {
     
     # Check if download was successful
     if (!grepl("success", http_status(download_response)$category, ignore.case = TRUE)) {
-      logger::log_error("Download did not succeed, HTTP status: ", http_status(download_response)$category)
-      stop("Download did not succeed, HTTP status: ", http_status(download_response)$category)
+      status <- http_status(download_response)
+      logger::log_error(
+        "Download did not succeed, HTTP status: %s (%s)",
+        status$category,
+        status$message
+      )
+      stop(sprintf(
+        "Download did not succeed, HTTP status: %s (%s)",
+        status$category,
+        status$message
+      ))
     }
     # Using future
     return(invisible(TRUE))

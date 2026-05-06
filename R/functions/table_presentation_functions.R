@@ -643,10 +643,10 @@ prepare_table_data <- function(data,
   }
   
   if ("observationID" %in% names(data) && "observationID" %in% fields) {
-    project_id <- monitoring_data$project$id
     truncate_uuid <- TRUE
     #action_type <- "edit_sequence|modal" 
     action_type <- "view_sequence|modal"
+    project_id <- if (startsWith(action_type, "edit_sequence")) core_data$id else NULL
     
     # Pre-fetch observation-to-sequence mappings to avoid repeated filtering
     observation_to_sequence <- core_data$obs %>%

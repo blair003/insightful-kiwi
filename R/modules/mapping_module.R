@@ -183,7 +183,7 @@ mapping_module_ui <- function(id,
         div(class = "sidebar_heading", "PLAYBACK SETTINGS"),
         div(
           class = "playback-reset-row",
-          actionButton(ns("reset_btn"), "Start again", icon = icon("rotate-left"), class = "btn-outline-danger")
+          actionButton(ns("reset_btn"), "Reset progression", icon = icon("rotate-left"), class = "btn-outline-danger")
         ),
         selectInput(
           inputId = ns("playback_step_size"),
@@ -449,6 +449,36 @@ mapping_module_server <- function(id,
         apply_map_fit_bounds()
       })
     }
+
+    register_map_resize_handler <- function() {
+      map_id_selector_json <- jsonlite::toJSON(paste0("#", MAP_ID), auto_unbox = TRUE)
+      resize_input_id_json <- jsonlite::toJSON(ns("map_resize"), auto_unbox = TRUE)
+      handler_name_json <- jsonlite::toJSON(paste0("insightfulKiwiMapResize_", gsub("[^A-Za-z0-9_]", "_", MAP_ID)), auto_unbox = TRUE)
+      shinyjs::runjs(sprintf(
+        '(function() {
+           var selector = %s;
+           var inputId = %s;
+           var handlerName = %s;
+           if (window[handlerName]) {
+             window.removeEventListener("resize", window[handlerName]);
+           }
+           var timer = null;
+           window[handlerName] = function() {
+             clearTimeout(timer);
+             timer = setTimeout(function() {
+               var element = document.querySelector(selector);
+               if (window.Shiny && element && element.offsetParent !== null) {
+                 Shiny.setInputValue(inputId, Date.now(), {priority: "event"});
+               }
+             }, 200);
+           };
+           window.addEventListener("resize", window[handlerName]);
+         })();',
+        map_id_selector_json,
+        resize_input_id_json,
+        handler_name_json
+      ))
+    }
     
     # --- Unified Map Output ---
     # This single output will be used for both density and observation maps.
@@ -458,6 +488,10 @@ mapping_module_server <- function(id,
       leaflet() %>% addTiles(options = tileOptions(crossOrigin = TRUE))
     })
     outputOptions(output, "map_display", suspendWhenHidden = FALSE)
+    register_map_resize_handler()
+    observeEvent(input$map_resize, {
+      recenter_map_generic()
+    }, ignoreInit = TRUE)
     
     
     # --- Density Map Specific Logic ---
@@ -1474,7 +1508,7 @@ mapping_module_server <- function(id,
           active_locations = active_locations_obsmap,
           no_obs_locations_count = nrow(no_obs_locations_obsmap),
           trap_observations_count = nrow(trap_obs_filtered),
-          trap_legend = render_trap_marker_legend(trap_obs_filtered),
+          trap_legend = NULL,
           start_time = start_time_obsmap,
           current_time = current_time_obsmap,
           weather_control = weather_control
@@ -2199,7 +2233,7 @@ create_trap_marker_from_record <- function(trap_record) {
       "Trap kill: <strong>%s</strong><br>",
       "Trap: %s<br>",
       "Line: %s<br>",
-      "Possible kill window: %s to %s<br>",
+      "Kill window: %s to %s<br>",
       "Observation ID: <a href='javascript:void(0);' class='trap-observation-link' data-observationid='%s'>%s</a>",
       "</div>"
     ),

@@ -387,7 +387,7 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
 
     observeEvent(input$dashboard_weather_details_clicked, {
       token <- input$dashboard_weather_details_clicked
-      show_weather_modal(token$lat, token$lng, token$start_date, token$end_date)
+      show_weather_modal(token$lat, token$lng, token$start_date, token$end_date, token$locality)
     })
 
     plotting_module_server(

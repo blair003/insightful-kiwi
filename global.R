@@ -62,71 +62,13 @@ source("R/functions/camtrapdp_functions.R")
 dotenv::load_dot_env("config/.env")
 
 
-# Code to check if this data package has been processed before
-monitoring_data <- fromJSON(file.path(config$env$dirs$camtrap_package, "datapackage.json"))
-
-package_id <- monitoring_data$id
-
-cache_filename <- paste0("core_data_", package_id, ".RDS")
-
-# Construct the full file path
-cache_file <- file.path(config$env$dirs$cache, cache_filename)
-
-# If processed before, read session data and use it
-if (file.exists(cache_file)) {
-  logger::log_info(sprintf("global.R, cache hit for data package id %s, loading core_data from %s", 
-            package_id, config$env$dirs$cache)
-  )
-  core_data <- readRDS(cache_file)
-  core_data <- normalise_core_data_timezones(core_data)
-  if (is.null(core_data$weather_daily) ||
-      !("matutinal_end" %in% names(core_data$weather_daily)) ||
-      !("diel_class" %in% names(core_data$obs)) ||
-      !("day_night_class" %in% names(core_data$obs))) {
-    weather_enrichment <- enrich_observations_with_daily_weather(
-      core_data$obs,
-      core_data$deps,
-      core_data$weather_daily
-    )
-    core_data$obs <- weather_enrichment$obs
-    core_data$weather_daily <- weather_enrichment$weather_daily
-    saveRDS(core_data, cache_file)
-  }
-  
-} else {
-  # Cache miss, proceed with initial processing
-  logger::log_info(
-    sprintf("global.R, cache miss for data package id %s, processing data...", 
-            package_id)
-  )
-  core_data <- process_camtrapdp_package()
-
-  # Trim the dataset -- a hack for Ohiwa as we want to ignore intial deployments
-  if (!is.null(config$globals$custom_start_date)) {
-    core_data$deps <- core_data$deps %>%
-      dplyr::filter(start >= as.Date(config$globals$custom_start_date))
-  }
-
-
-  # Ordering is important; each step builds on the last
-  core_data$period_groups <- create_period_groups(
-    core_data$deps, config$globals$period_grouping, config$globals$hemisphere
-  )
-  #browser()
-  enhanced_data <- enhance_core_data(
-    core_data$obs, core_data$deps, core_data$period_groups
-  )
-  
-  core_data$obs <- enhanced_data$obs
-  core_data$deps <- enhanced_data$deps
-  core_data$weather_daily <- enhanced_data$weather_daily
-  core_data <- normalise_core_data_timezones(core_data)
-  
-  core_data$spp_classes <- create_species_list(core_data$obs)
-  
-  # Save the cached data to file. Disable for debugging
-  saveRDS(core_data, cache_file)
-}
+core_data_weather_deferred <- local({
+  core_data_result <- load_core_data(config)
+  core_data <<- core_data_result$core_data
+  cache_file <<- core_data_result$cache_file
+  package_id <<- core_data_result$package_id
+  isTRUE(core_data_result$weather_deferred)
+})
 
 # These modules are required for UI and server. Dependent on core_data$period_groups
 source("R/functions/period_group_functions.R")
@@ -179,6 +121,33 @@ source("R/ui/ui_components.R")
 
 # For future call
 plan(multisession)
+
+if (isTRUE(core_data_weather_deferred)) {
+  logger::log_warn(
+    "global.R, weather enrichment is incomplete or deferred. Loading app now and completing core_data weather cache in the background."
+  )
+
+  future::future({
+    old_defer <- getOption("insightfulkiwi.defer_weather_on_rate_limit", TRUE)
+    options(insightfulkiwi.defer_weather_on_rate_limit = FALSE)
+    on.exit(options(insightfulkiwi.defer_weather_on_rate_limit = old_defer), add = TRUE)
+
+    Sys.sleep(60)
+    load_core_data(config, refresh_weather = TRUE)
+  }, seed = TRUE) %...>% (function(rebuilt) {
+    logger::log_info(
+      "global.R, background weather rebuild complete for data package id %s. Cache saved to %s",
+      rebuilt$package_id,
+      rebuilt$cache_file
+    )
+  }) %...!% (function(error) {
+    logger::log_error(
+      "global.R, background weather rebuild failed: %s",
+      conditionMessage(error)
+    )
+  })
+}
+rm(core_data_weather_deferred)
 
 
 # --- Background Caching of favourite and selected species images on Startup ---

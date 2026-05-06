@@ -1,6 +1,152 @@
 # R/functions/weather_functions.R
 
 weather_cache <- new.env()
+open_meteo_rate_limit <- new.env()
+open_meteo_rate_limit$request_times <- numeric(0)
+open_meteo_rate_limit$backoff_until <- as.POSIXct(NA)
+open_meteo_rate_limit$rate_limited <- FALSE
+
+open_meteo_should_defer_on_rate_limit <- function() {
+  isTRUE(getOption("insightfulkiwi.defer_weather_on_rate_limit", TRUE))
+}
+
+open_meteo_reset_rate_limit_flag <- function() {
+  open_meteo_rate_limit$rate_limited <- FALSE
+}
+
+open_meteo_mark_rate_limited <- function() {
+  open_meteo_rate_limit$rate_limited <- TRUE
+}
+
+open_meteo_rate_limit_hit <- function() {
+  isTRUE(open_meteo_rate_limit$rate_limited)
+}
+
+open_meteo_prune_request_times <- function(now = Sys.time()) {
+  cutoff <- as.numeric(now) - 24 * 60 * 60
+  open_meteo_rate_limit$request_times <- open_meteo_rate_limit$request_times[
+    open_meteo_rate_limit$request_times > cutoff
+  ]
+}
+
+open_meteo_request_count <- function(window_seconds, now = Sys.time()) {
+  open_meteo_prune_request_times(now)
+  cutoff <- as.numeric(now) - window_seconds
+  sum(open_meteo_rate_limit$request_times > cutoff)
+}
+
+open_meteo_wait_until_available <- function(cache_key) {
+  limits <- list(
+    minute = list(seconds = 60, max = 600),
+    hour = list(seconds = 60 * 60, max = 5000),
+    day = list(seconds = 24 * 60 * 60, max = 10000)
+  )
+
+  now <- Sys.time()
+  if (!is.na(open_meteo_rate_limit$backoff_until) &&
+      now < open_meteo_rate_limit$backoff_until) {
+    wait_seconds <- max(1, ceiling(as.numeric(difftime(
+      open_meteo_rate_limit$backoff_until,
+      now,
+      units = "secs"
+    ))))
+    logger::log_warn(
+      "weather_functions.R, Open-Meteo backoff active before %s; waiting %s seconds",
+      cache_key,
+      wait_seconds
+    )
+    if (open_meteo_should_defer_on_rate_limit()) {
+      open_meteo_mark_rate_limited()
+      return(FALSE)
+    }
+    Sys.sleep(wait_seconds)
+  }
+
+  now <- Sys.time()
+  hour_count <- open_meteo_request_count(limits$hour$seconds, now)
+  day_count <- open_meteo_request_count(limits$day$seconds, now)
+
+  if (hour_count >= limits$hour$max) {
+    logger::log_error(
+      "weather_functions.R, Open-Meteo hourly limit reached (%s/%s); skipping request for %s",
+      hour_count,
+      limits$hour$max,
+      cache_key
+    )
+    return(FALSE)
+  }
+
+  if (day_count >= limits$day$max) {
+    logger::log_error(
+      "weather_functions.R, Open-Meteo daily limit reached (%s/%s); skipping request for %s",
+      day_count,
+      limits$day$max,
+      cache_key
+    )
+    return(FALSE)
+  }
+
+  minute_count <- open_meteo_request_count(limits$minute$seconds, now)
+  if (minute_count >= limits$minute$max) {
+    cutoff <- as.numeric(now) - limits$minute$seconds
+    oldest <- min(open_meteo_rate_limit$request_times[open_meteo_rate_limit$request_times > cutoff])
+    wait_seconds <- max(1, ceiling(oldest + limits$minute$seconds - as.numeric(now)))
+    logger::log_warn(
+      "weather_functions.R, Open-Meteo minute limit reached before %s; waiting %s seconds",
+      cache_key,
+      wait_seconds
+    )
+    if (open_meteo_should_defer_on_rate_limit()) {
+      open_meteo_mark_rate_limited()
+      return(FALSE)
+    }
+    Sys.sleep(wait_seconds)
+  }
+
+  now <- Sys.time()
+  hour_count <- open_meteo_request_count(limits$hour$seconds, now)
+  day_count <- open_meteo_request_count(limits$day$seconds, now)
+
+  if (hour_count >= limits$hour$max) {
+    logger::log_error(
+      "weather_functions.R, Open-Meteo hourly limit reached (%s/%s); skipping request for %s",
+      hour_count,
+      limits$hour$max,
+      cache_key
+    )
+    return(FALSE)
+  }
+
+  if (day_count >= limits$day$max) {
+    logger::log_error(
+      "weather_functions.R, Open-Meteo daily limit reached (%s/%s); skipping request for %s",
+      day_count,
+      limits$day$max,
+      cache_key
+    )
+    return(FALSE)
+  }
+
+  TRUE
+}
+
+open_meteo_record_request <- function(now = Sys.time()) {
+  open_meteo_prune_request_times(now)
+  open_meteo_rate_limit$request_times <- c(
+    open_meteo_rate_limit$request_times,
+    as.numeric(now)
+  )
+}
+
+open_meteo_backoff <- function(wait_seconds = 60, cache_key = NA_character_) {
+  wait_seconds <- max(1, as.integer(wait_seconds))
+  open_meteo_rate_limit$backoff_until <- Sys.time() + wait_seconds
+  logger::log_warn(
+    "weather_functions.R, Open-Meteo rate limit response for %s; backing off for %s seconds",
+    cache_key,
+    wait_seconds
+  )
+}
 
 weather_actual_timezone <- function() {
   if (exists("config", inherits = TRUE) &&
@@ -92,16 +238,55 @@ fetch_weather_data <- function(lat, lng, start_date, end_date) {
   logger::log_info("weather_functions.R, fetch_weather_data: querying open-meteo for %s", cache_key)
 
   daily <- tryCatch({
-    res <- httr::GET(url, httr::timeout(8))
-    if (httr::status_code(res) == 200) {
-      parsed <- jsonlite::fromJSON(httr::content(res, "text", encoding = "UTF-8"))
-      parsed$daily
-    } else {
-      logger::log_error("weather_functions.R: Failed to fetch weather data. Status code: %s", httr::status_code(res))
-      NULL
+    daily_result <- NULL
+
+    for (attempt in seq_len(2)) {
+      if (open_meteo_rate_limit_hit() && open_meteo_should_defer_on_rate_limit()) {
+        break
+      }
+
+      if (!open_meteo_wait_until_available(cache_key)) {
+        break
+      }
+
+      open_meteo_record_request()
+      res <- httr::GET(url, httr::timeout(8))
+      status_code <- httr::status_code(res)
+      response_text <- httr::content(res, "text", encoding = "UTF-8")
+
+      if (status_code == 200) {
+        parsed <- jsonlite::fromJSON(response_text)
+        daily_result <- parsed$daily
+        break
+      }
+
+      logger::log_error(
+        "weather_functions.R: Failed to fetch weather data for %s. Status code: %s. Response: %s",
+        cache_key,
+        status_code,
+        substr(response_text, 1, 300)
+      )
+
+      if (status_code == 429 && attempt == 1) {
+        retry_after <- httr::headers(res)[["retry-after"]]
+        wait_seconds <- suppressWarnings(as.integer(retry_after))
+        if (is.na(wait_seconds)) {
+          wait_seconds <- 60L
+        }
+        open_meteo_backoff(wait_seconds, cache_key)
+        if (open_meteo_should_defer_on_rate_limit()) {
+          open_meteo_mark_rate_limited()
+          break
+        }
+        next
+      }
+
+      break
     }
+
+    daily_result
   }, error = function(e) {
-    logger::log_warn("weather_functions.R: Weather fetch failed for %s: %s", cache_key, conditionMessage(e))
+    logger::log_error("weather_functions.R: Weather fetch failed for %s: %s", cache_key, conditionMessage(e))
     NULL
   })
 
@@ -118,9 +303,13 @@ weather_daily_to_df <- function(daily_data) {
     return(NULL)
   }
 
+  weather_descriptions <- lapply(daily_data$weathercode, get_weather_description)
+
   data.frame(
     date = as.Date(daily_data$time),
     weathercode = daily_data$weathercode,
+    weather_condition = vapply(weather_descriptions, `[[`, character(1), "label"),
+    weather_icon = vapply(weather_descriptions, `[[`, character(1), "icon"),
     temperature_2m_max = daily_data$temperature_2m_max,
     temperature_2m_min = daily_data$temperature_2m_min,
     precipitation_sum = daily_data$precipitation_sum,
@@ -148,6 +337,70 @@ add_diel_boundaries_to_weather_daily <- function(weather_df) {
   weather_df$matutinal_end <- weather_df$sunrise + daylight / 3
   weather_df$diurnal_end <- weather_df$sunrise + 2 * daylight / 3
   weather_df
+}
+
+weather_daily_key <- function(weather_daily) {
+  paste(as.character(weather_daily$locationID), as.character(weather_daily$date), sep = "|")
+}
+
+merge_weather_daily <- function(existing_weather_daily, new_weather_daily) {
+  weather_daily <- dplyr::bind_rows(
+    new_weather_daily,
+    existing_weather_daily
+  )
+
+  if (is.null(weather_daily) || nrow(weather_daily) == 0) {
+    return(NULL)
+  }
+
+  weather_daily <- weather_daily %>%
+    dplyr::filter(!is.na(locationID), !is.na(date)) %>%
+    dplyr::arrange(locationID, date) %>%
+    dplyr::distinct(locationID, date, .keep_all = TRUE)
+
+  add_diel_boundaries_to_weather_daily(weather_daily)
+}
+
+weather_coverage_status <- function(obs, weather_daily = NULL) {
+  if (is.null(obs) || nrow(obs) == 0 ||
+      !"timestamp" %in% names(obs) ||
+      !"locationID" %in% names(obs)) {
+    return(list(status = "not_applicable", required = 0L, available = 0L, missing = 0L))
+  }
+
+  required <- obs %>%
+    dplyr::filter(!is.na(timestamp), !is.na(locationID)) %>%
+    dplyr::mutate(date = as.Date(timestamp, tz = weather_playback_timezone())) %>%
+    dplyr::distinct(locationID, date) %>%
+    dplyr::filter(!is.na(date))
+
+  required_count <- nrow(required)
+  if (required_count == 0) {
+    return(list(status = "not_applicable", required = 0L, available = 0L, missing = 0L))
+  }
+
+  if (is.null(weather_daily) || nrow(weather_daily) == 0 ||
+      !all(c("locationID", "date") %in% names(weather_daily))) {
+    return(list(status = "missing", required = required_count, available = 0L, missing = required_count))
+  }
+
+  available <- required %>%
+    dplyr::inner_join(
+      weather_daily %>% dplyr::distinct(locationID, date),
+      by = c("locationID", "date")
+    ) %>%
+    nrow()
+
+  missing <- required_count - available
+  status <- if (missing == 0) {
+    "complete"
+  } else if (available > 0) {
+    "partial"
+  } else {
+    "missing"
+  }
+
+  list(status = status, required = required_count, available = available, missing = missing)
 }
 
 fetch_weather_for_location <- function(location, start_date, end_date) {
@@ -183,7 +436,7 @@ fetch_weather_for_location <- function(location, start_date, end_date) {
   )]
 }
 
-build_observation_weather_daily <- function(obs, deps) {
+build_observation_weather_daily <- function(obs, deps, weather_daily = NULL) {
   required_obs_columns <- c("timestamp", "locationID")
   required_dep_columns <- c("locationID", "latitude", "longitude")
   if (is.null(obs) || nrow(obs) == 0 ||
@@ -193,9 +446,29 @@ build_observation_weather_daily <- function(obs, deps) {
     return(NULL)
   }
 
-  obs_dates <- obs %>%
+  required_dates <- obs %>%
     dplyr::filter(!is.na(timestamp), !is.na(locationID)) %>%
     dplyr::mutate(observation_date = as.Date(timestamp, tz = weather_playback_timezone())) %>%
+    dplyr::distinct(locationID, observation_date) %>%
+    dplyr::filter(!is.na(observation_date))
+
+  if (nrow(required_dates) == 0) {
+    return(add_diel_boundaries_to_weather_daily(weather_daily))
+  }
+
+  existing_weather <- add_diel_boundaries_to_weather_daily(weather_daily)
+  if (!is.null(existing_weather) && nrow(existing_weather) > 0 &&
+      all(c("locationID", "date") %in% names(existing_weather))) {
+    existing_keys <- weather_daily_key(existing_weather)
+    required_dates <- required_dates %>%
+      dplyr::filter(!paste(as.character(locationID), as.character(observation_date), sep = "|") %in% existing_keys)
+  }
+
+  if (nrow(required_dates) == 0) {
+    return(existing_weather)
+  }
+
+  obs_dates <- required_dates %>%
     dplyr::group_by(locationID) %>%
     dplyr::summarise(
       start_date = min(observation_date, na.rm = TRUE),
@@ -205,7 +478,7 @@ build_observation_weather_daily <- function(obs, deps) {
     dplyr::filter(!is.na(start_date), !is.na(end_date))
 
   if (nrow(obs_dates) == 0) {
-    return(NULL)
+    return(existing_weather)
   }
 
   locations <- deps %>%
@@ -213,37 +486,87 @@ build_observation_weather_daily <- function(obs, deps) {
     dplyr::distinct(locationID, .keep_all = TRUE) %>%
     dplyr::left_join(obs_dates, by = "locationID")
 
-  weather_by_location <- lapply(seq_len(nrow(locations)), function(i) {
-    fetch_weather_for_location(locations[i, , drop = FALSE], locations$start_date[[i]], locations$end_date[[i]])
+  locations <- locations %>%
+    dplyr::mutate(
+      weather_latitude = round(latitude, 2),
+      weather_longitude = round(longitude, 2)
+    ) %>%
+    dplyr::filter(!is.na(weather_latitude), !is.na(weather_longitude))
+
+  location_groups <- locations %>%
+    dplyr::group_by(weather_latitude, weather_longitude) %>%
+    dplyr::summarise(
+      start_date = min(start_date, na.rm = TRUE),
+      end_date = max(end_date, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  weather_by_location <- lapply(seq_len(nrow(location_groups)), function(i) {
+    if (open_meteo_rate_limit_hit() && open_meteo_should_defer_on_rate_limit()) {
+      return(NULL)
+    }
+
+    group <- location_groups[i, , drop = FALSE]
+    weather_df <- weather_daily_to_df(fetch_weather_data(
+      group$weather_latitude[[1]],
+      group$weather_longitude[[1]],
+      group$start_date[[1]],
+      group$end_date[[1]]
+    ))
+    if (is.null(weather_df) || nrow(weather_df) == 0) {
+      return(NULL)
+    }
+
+    weather_df <- add_diel_boundaries_to_weather_daily(weather_df)
+    group_locations <- locations %>%
+      dplyr::filter(
+        weather_latitude == group$weather_latitude[[1]],
+        weather_longitude == group$weather_longitude[[1]]
+      )
+
+    dplyr::bind_rows(lapply(seq_len(nrow(group_locations)), function(j) {
+      location <- group_locations[j, , drop = FALSE]
+      location_weather <- weather_df %>%
+        dplyr::filter(
+          date >= location$start_date[[1]],
+          date <= location$end_date[[1]]
+        )
+
+      if (nrow(location_weather) == 0) {
+        return(NULL)
+      }
+
+      location_weather$locationID <- location$locationID[[1]]
+      if ("locationName" %in% names(location)) {
+        location_weather$locationName <- location$locationName[[1]]
+      }
+      if ("locality" %in% names(location)) {
+        location_weather$locality <- location$locality[[1]]
+      }
+      location_weather$latitude <- location$latitude[[1]]
+      location_weather$longitude <- location$longitude[[1]]
+
+      location_weather[, c(
+        intersect(c("locationID", "locationName", "locality", "latitude", "longitude"), names(location_weather)),
+        setdiff(names(location_weather), c("locationID", "locationName", "locality", "latitude", "longitude"))
+      )]
+    }))
   })
 
   weather_by_location <- Filter(Negate(is.null), weather_by_location)
   if (length(weather_by_location) == 0) {
-    return(NULL)
+    return(existing_weather)
   }
 
-  dplyr::bind_rows(weather_by_location)
+  merge_weather_daily(existing_weather, dplyr::bind_rows(weather_by_location))
 }
 
 classify_observation_time <- function(timestamp, sunrise, sunset, matutinal_end, diurnal_end) {
   timezone <- weather_playback_timezone()
   timestamp <- as.POSIXct(timestamp, tz = timezone)
-  hour_value <- as.integer(format(timestamp, "%H", tz = timezone))
-
-  fallback_day_night <- if (!is.na(hour_value) && hour_value >= 6 && hour_value < 18) {
-    "Day"
-  } else {
-    "Night"
-  }
-
-  fallback_diel <- if (identical(fallback_day_night, "Day")) {
-    "Diurnal"
-  } else {
-    "Nocturnal"
-  }
 
   if (is.na(timestamp) || is.na(sunrise) || is.na(sunset) || sunset <= sunrise) {
-    return(list(day_night_class = fallback_day_night, diel_class = fallback_diel))
+    return(list(day_night_class = "Unknown", diel_class = "Unknown"))
   }
 
   day_night_class <- if (timestamp >= sunrise && timestamp < sunset) "Day" else "Night"
@@ -283,7 +606,8 @@ add_observation_time_classes <- function(obs, weather_daily = NULL) {
         dplyr::any_of(c(
           "locationID", "date", "sunrise", "sunset", "matutinal_end",
           "diurnal_end", "weathercode", "temperature_2m_max",
-          "temperature_2m_min", "precipitation_sum"
+          "temperature_2m_min", "precipitation_sum", "weather_condition",
+          "weather_icon"
         ))
       ) %>%
       dplyr::rename(observation_date = date)
@@ -324,15 +648,16 @@ add_observation_time_classes <- function(obs, weather_daily = NULL) {
 }
 
 enrich_observations_with_daily_weather <- function(obs, deps, weather_daily = NULL) {
-  if (is.null(weather_daily)) {
-    weather_daily <- build_observation_weather_daily(obs, deps)
-  } else {
-    weather_daily <- add_diel_boundaries_to_weather_daily(weather_daily)
+  weather_daily <- build_observation_weather_daily(obs, deps, weather_daily)
+  coverage <- weather_coverage_status(obs, weather_daily)
+  if (open_meteo_rate_limit_hit()) {
+    coverage$status <- if (coverage$available > 0) "deferred_partial" else "deferred"
   }
 
   list(
     obs = add_observation_time_classes(obs, weather_daily),
-    weather_daily = weather_daily
+    weather_daily = weather_daily,
+    weather_status = coverage
   )
 }
 
@@ -393,6 +718,34 @@ weather_daily_from_core_data <- function(deployments, start_date, end_date) {
     )
 
   add_diel_boundaries_to_weather_daily(summarised)
+}
+
+weather_daily_as_api_daily <- function(weather_df) {
+  if (is.null(weather_df) || nrow(weather_df) == 0) {
+    return(NULL)
+  }
+
+  list(
+    time = as.character(weather_df$date),
+    weathercode = weather_df$weathercode,
+    weather_condition = if ("weather_condition" %in% names(weather_df)) weather_df$weather_condition else NULL,
+    weather_icon = if ("weather_icon" %in% names(weather_df)) weather_df$weather_icon else NULL,
+    temperature_2m_max = weather_df$temperature_2m_max,
+    temperature_2m_min = weather_df$temperature_2m_min,
+    precipitation_sum = weather_df$precipitation_sum,
+    sunrise = weather_df$sunrise,
+    sunset = weather_df$sunset
+  )
+}
+
+format_weather_clock_time <- function(value) {
+  time_value <- if (inherits(value, "POSIXt")) {
+    as.POSIXct(value, tz = weather_actual_timezone())
+  } else {
+    as.POSIXct(value, format="%Y-%m-%dT%H:%M", tz=weather_actual_timezone())
+  }
+
+  format(time_value, "%H:%M")
 }
 
 playback_weather_for_deployments <- function(deployments, start_date, end_date) {
@@ -634,7 +987,11 @@ summarise_weather <- function(daily_data) {
   # Format sunrise and sunset times (average them by converting to seconds since midnight)
   get_avg_time <- function(times) {
     if (length(times) == 0 || all(is.na(times))) return(NA)
-    times_posix <- as.POSIXct(times, format="%Y-%m-%dT%H:%M", tz=weather_actual_timezone())
+    times_posix <- if (inherits(times, "POSIXt")) {
+      as.POSIXct(times, tz = weather_actual_timezone())
+    } else {
+      as.POSIXct(times, format="%Y-%m-%dT%H:%M", tz=weather_actual_timezone())
+    }
     # extract hours and minutes as seconds from midnight
     secs <- as.numeric(format(times_posix, "%H")) * 3600 + as.numeric(format(times_posix, "%M")) * 60
     avg_secs <- mean(secs, na.rm = TRUE)
@@ -658,12 +1015,13 @@ summarise_weather <- function(daily_data) {
   )
 }
 
-render_weather_info_link <- function(lat, lng, start_date, end_date, input_id = "dashboard_weather_details_clicked") {
+render_weather_info_link <- function(lat, lng, start_date, end_date, input_id = "dashboard_weather_details_clicked", locality = NULL) {
   token <- list(
     lat = lat,
     lng = lng,
     start_date = format(as.Date(start_date), "%Y-%m-%d"),
-    end_date = format(as.Date(end_date), "%Y-%m-%d")
+    end_date = format(as.Date(end_date), "%Y-%m-%d"),
+    locality = if (is.null(locality)) "ALL" else paste(as.character(locality), collapse = ",")
   )
 
   tags$a(
@@ -691,14 +1049,18 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
   lat <- mean(deps$latitude, na.rm = TRUE)
   lng <- mean(deps$longitude, na.rm = TRUE)
 
-  daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
+  stored_weather <- weather_daily_from_core_data(deps, start_date, end_date)
+  daily_data <- weather_daily_as_api_daily(stored_weather)
+  if (is.null(daily_data)) {
+    daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
+  }
   summary <- summarise_weather(daily_data)
 
   if (is.null(summary)) {
     return(div(class = "text-muted", "Weather data unavailable for this period."))
   }
 
-  info_link_html <- render_weather_info_link(lat, lng, start_date, end_date, info_input_id)
+  info_link_html <- render_weather_info_link(lat, lng, start_date, end_date, info_input_id, locality)
 
   rain_text <- if (summary$heavy_rain_days > 0) {
     sprintf("Rain: %.1f mm (%d heavy days)", summary$total_rain, summary$heavy_rain_days)
@@ -748,8 +1110,22 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
   )
 }
 
-show_weather_modal <- function(lat, lng, start_date, end_date) {
-  daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
+show_weather_modal <- function(lat, lng, start_date, end_date, locality = NULL) {
+  deps <- NULL
+  if (exists("core_data", inherits = TRUE) && !is.null(core_data$deps)) {
+    if (!is.null(locality) && nzchar(locality) && locality != "ALL") {
+      localities <- strsplit(locality, ",", fixed = TRUE)[[1]]
+      deps <- core_data$deps %>% dplyr::filter(locality %in% localities)
+    } else {
+      deps <- core_data$deps
+    }
+  }
+
+  stored_weather <- weather_daily_from_core_data(deps, start_date, end_date)
+  daily_data <- weather_daily_as_api_daily(stored_weather)
+  if (is.null(daily_data)) {
+    daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
+  }
   if (is.null(daily_data)) {
     showNotification("Failed to fetch weather details.", type = "error")
     return()
@@ -757,12 +1133,16 @@ show_weather_modal <- function(lat, lng, start_date, end_date) {
 
   df <- data.frame(
     Date = as.Date(daily_data$time),
-    Condition = sapply(daily_data$weathercode, function(c) get_weather_description(c)$label),
+    Condition = if (!is.null(daily_data$weather_condition)) {
+      daily_data$weather_condition
+    } else {
+      sapply(daily_data$weathercode, function(c) get_weather_description(c)$label)
+    },
     Max_Temp = sprintf("%.1f °C", daily_data$temperature_2m_max),
     Min_Temp = sprintf("%.1f °C", daily_data$temperature_2m_min),
     Rainfall = sprintf("%.1f mm", daily_data$precipitation_sum),
-    Sunrise = sapply(daily_data$sunrise, function(t) format(as.POSIXct(t, format="%Y-%m-%dT%H:%M", tz=weather_actual_timezone()), "%H:%M")),
-    Sunset = sapply(daily_data$sunset, function(t) format(as.POSIXct(t, format="%Y-%m-%dT%H:%M", tz=weather_actual_timezone()), "%H:%M"))
+    Sunrise = sapply(daily_data$sunrise, format_weather_clock_time),
+    Sunset = sapply(daily_data$sunset, format_weather_clock_time)
   )
 
   showModal(modalDialog(
