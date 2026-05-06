@@ -56,7 +56,12 @@ logger::log_info("All required packages loaded.")
 create_directories_if_missing(config$env$dirs)
 
 source("R/functions/weather_functions.R")
-source("R/functions/camtrapdp_functions.R")
+source("R/functions/import/camtrapdp_functions.R")
+source("R/functions/import/core_data_metadata_functions.R")
+source("R/functions/import/core_data_cache_functions.R")
+source("R/functions/import/weather_enrichment_functions.R")
+source("R/functions/import/core_data_build_functions.R")
+source("R/functions/import/trap_data_import_functions.R")
 
 # Load environment variables (dotenv is now available)
 dotenv::load_dot_env("config/.env")
@@ -77,38 +82,10 @@ core_data$period_defaults <- get_default_complete_period_selection(
   core_data$period_groups
 )
 
-trap_data <- NULL
-
-if (isTRUE(config$globals$import_trap_data)) {
-  logger::log_info("global.R, importing WKT trap data...")
-  source("R/functions/wkt_trap_conversion_functions.R")
-
-  trap_data_source_dir <- config$env$dirs$trap_data_source
-  trap_data_files <- config$env$trap_data_files
-
-  trap_data <- convert_wkt_trap_data_to_camtrapdp(
-    raw_trap_data_path = file.path(trap_data_source_dir, trap_data_files$raw_trap_data),
-    trap_locations_path = file.path(trap_data_source_dir, trap_data_files$trap_locations),
-    reference_tables_path = file.path(trap_data_source_dir, trap_data_files$reference_tables),
-    output_dir = config$env$dirs$trap_monitoring_data,
-    first_deployment_days = config$globals$trap_data_first_deployment_days,
-    package_name = "wkt-trap-checks",
-    timezone = config$globals$actual_timezone,
-    period_groups = core_data$period_groups
-  )
-
-  logger::log_info(
-    "global.R, imported WKT trap data: %s deployments, %s observations, %s animal observations",
-    trap_data$summary$deployments,
-    trap_data$summary$observations,
-    trap_data$summary$animal_observations
-  )
-
-  core_data <- mark_core_data_app_updated(core_data, "trapping_data_updated", config = config)
-  save_core_data_cache(core_data, cache_file)
-} else {
-  logger::log_info("global.R, WKT trap data import disabled by config$globals$import_trap_data.")
-}
+trap_data_result <- load_trap_data(config, core_data, cache_file)
+trap_data <- trap_data_result$trap_data
+core_data <- trap_data_result$core_data
+rm(trap_data_result)
 
 source("R/modules/period_selection_module.R")
 source("R/modules/plotting_module.R")

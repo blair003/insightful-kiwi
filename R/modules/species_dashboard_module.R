@@ -176,7 +176,7 @@ species_dashboard_module_server <- function(id,
                                             obs,
                                             deps,
                                             core_data,
-                                            rai_norm_hours = 2000,
+                                            rai_norm_hours = config$globals$rai_norm_hours,
                                             use_net = reactive(config$globals$use_net_data),
                                             initial_rai_detail = NULL) {
   moduleServer(id, function(input, output, session) {
@@ -322,7 +322,7 @@ species_dashboard_module_server <- function(id,
         period_deps,
         rai_groups_for_species,
         vernacular_name,
-        config$globals$rai_norm_hours,
+        rai_norm_hours,
         use_net(),
         cache_context = paste("species_basis", species_name, period_name_label, paste(locality_filter, collapse = ","), sep = "|")
       )
@@ -725,12 +725,11 @@ species_dashboard_module_server <- function(id,
       shared_deps <- intersect(s_deps, k_deps)
 
       near_miss_minutes <- config$globals$kiwi_near_miss_minutes
-      if (is.null(near_miss_minutes) || is.na(near_miss_minutes)) {
-        near_miss_minutes <- 60
-      }
+      has_near_miss_window <- !is.null(near_miss_minutes) && !is.na(near_miss_minutes)
 
       near_miss_ui <- NULL
       if (tolower(species_name) != "apteryx mantelli" &&
+          has_near_miss_window &&
           length(shared_deps) > 0 &&
           all(c("deploymentID", "observationID", "sequenceID", "timestamp") %in% names(sobs)) &&
           all(c("deploymentID", "observationID", "sequenceID", "timestamp") %in% names(kiwi_obs))) {
@@ -849,7 +848,7 @@ species_dashboard_module_server <- function(id,
       deps = core_data$deps,
       species_override = species_name,
       rai_groups = rai_groups_for_species,
-      rai_norm_hours = config$globals$rai_norm_hours,
+      rai_norm_hours = rai_norm_hours,
       use_net = use_net
     )
 

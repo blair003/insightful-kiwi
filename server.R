@@ -407,6 +407,7 @@ server <- function(input, output, session) {
                 obs = filtered_obs_primary,
                 deps = filtered_deps_primary,
                 core_data = core_data,
+                rai_norm_hours = config$globals$rai_norm_hours,
                 use_net = global_use_net,
                 initial_rai_detail = pending_species_rai_detail()
               )
