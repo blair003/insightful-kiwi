@@ -2233,7 +2233,7 @@ create_trap_marker_from_record <- function(trap_record) {
       "Trap kill: <strong>%s</strong><br>",
       "Trap: %s<br>",
       "Line: %s<br>",
-      "Kill window: %s to %s<br>",
+      "Kill window: %s to %s (%s days)<br>",
       "Observation ID: <a href='javascript:void(0);' class='trap-observation-link' data-observationid='%s'>%s</a>",
       "</div>"
     ),
@@ -2242,6 +2242,7 @@ create_trap_marker_from_record <- function(trap_record) {
     trap_record$trap_line,
     format(as.Date(trap_record$prior_check_date), "%Y-%m-%d"),
     format(as.Date(trap_record$timestamp), "%Y-%m-%d"),
+    trap_record$check_interval,
     trap_record$observationID,
     trap_record$observationID
   )

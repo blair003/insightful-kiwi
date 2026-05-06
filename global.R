@@ -103,6 +103,9 @@ if (isTRUE(config$globals$import_trap_data)) {
     trap_data$summary$observations,
     trap_data$summary$animal_observations
   )
+
+  core_data <- mark_core_data_app_updated(core_data, "trapping_data_updated", config = config)
+  save_core_data_cache(core_data, cache_file)
 } else {
   logger::log_info("global.R, WKT trap data import disabled by config$globals$import_trap_data.")
 }
@@ -135,8 +138,12 @@ if (isTRUE(core_data_weather_deferred)) {
     Sys.sleep(60)
     load_core_data(config, refresh_weather = TRUE)
   }, seed = TRUE) %...>% (function(rebuilt) {
+    core_data <<- rebuilt$core_data
+    cache_file <<- rebuilt$cache_file
+    package_id <<- rebuilt$package_id
+
     logger::log_info(
-      "global.R, background weather rebuild complete for data package id %s. Cache saved to %s",
+      "global.R, background weather rebuild complete for data package id %s. Cache saved to %s and global core_data updated.",
       rebuilt$package_id,
       rebuilt$cache_file
     )
@@ -151,7 +158,7 @@ rm(core_data_weather_deferred)
 
 
 # --- Background Caching of favourite and selected species images on Startup ---
-logger::log_info("Attempting to launch background caching process...")
+logger::log_info("Attempting to launch background image caching process...")
 
 image_cache_log_run_id <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
 image_cache_log_file <- image_cache_log_path(config, "image-cache")
@@ -167,11 +174,11 @@ future::future({
     TRUE
   }, error = function(e) {
     msg <- conditionMessage(e)
-    logger::log_error("Background caching process failed: %s", msg)
+    logger::log_error("Background image caching process failed: %s", msg)
     stop(msg)
   })
 }, seed = TRUE) %...>% {
-  logger::log_info("Background caching complete. Details written to %s", image_cache_log_file)
+  logger::log_info("Background image caching complete. Details written to %s", image_cache_log_file)
 } %...!% (function(error) {
   logger::log_error("Background caching process failed: %s", conditionMessage(error))
 })

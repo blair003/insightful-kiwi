@@ -53,7 +53,6 @@ server <- function(input, output, session) {
     "review_sequences_click",
     "density_map_review_sequences_click",
     "global_setup_btn",
-    "rebuild_core_data_from_source_btn",
     "reset_button",
     "info_field_clicked",
     "is_fullscreen",
@@ -95,7 +94,6 @@ server <- function(input, output, session) {
   global_use_net <- reactive({
     isTRUE(session$userData$use_net_data())
   })
-  core_data_rebuild_running <- reactiveVal(FALSE)
 
   observeEvent(input$global_setup_btn, {
     showModal(modalDialog(
@@ -110,13 +108,23 @@ server <- function(input, output, session) {
       tags$small(HTML(get_description("Possible Duplicate Logic"))),
 
       tags$hr(),
-      tags$h3("Rebuild data from source"),
-      tags$p("Delete the current core_data cache file and rebuild it from the source data package."),
-      actionButton(
-        "rebuild_core_data_from_source_btn",
-        "Rebuild data from source",
-        icon = icon("rotate"),
-        class = "btn-warning"
+      tags$h3("Build date"),
+      tags$table(
+        class = "table table-sm",
+        tags$tbody(
+          tags$tr(
+            tags$th(scope = "row", "Core data"),
+            tags$td(format_core_data_build_datetime(core_data$app$core_data_updated, config))
+          ),
+          tags$tr(
+            tags$th(scope = "row", "Core data weather"),
+            tags$td(format_core_data_build_datetime(core_data$app$core_data_weather_updated, config))
+          ),
+          tags$tr(
+            tags$th(scope = "row", "Trapping data"),
+            tags$td(format_core_data_build_datetime(core_data$app$trapping_data_updated, config))
+          )
+        )
       ),
 
       tags$hr(),
@@ -132,51 +140,6 @@ server <- function(input, output, session) {
 
   observeEvent(input$global_use_net_data, {
     session$userData$use_net_data(isTRUE(input$global_use_net_data))
-  }, ignoreInit = TRUE)
-
-  observeEvent(input$rebuild_core_data_from_source_btn, {
-    if (isTRUE(core_data_rebuild_running())) {
-      showNotification("A data rebuild is already running in the background.", type = "warning")
-      return()
-    }
-
-    core_data_rebuild_running(TRUE)
-    shinyjs::disable("rebuild_core_data_from_source_btn")
-    showNotification(
-      "Data rebuild started in the background. You can keep using the app.",
-      type = "message",
-      duration = 5
-    )
-
-    future::future({
-      old_defer <- getOption("insightfulkiwi.defer_weather_on_rate_limit", TRUE)
-      options(insightfulkiwi.defer_weather_on_rate_limit = FALSE)
-      on.exit(options(insightfulkiwi.defer_weather_on_rate_limit = old_defer), add = TRUE)
-
-      load_core_data(config, force_rebuild = TRUE, refresh_weather = TRUE)
-    }, seed = TRUE) %...>% (function(rebuilt) {
-      core_data_rebuild_running(FALSE)
-      shinyjs::enable("rebuild_core_data_from_source_btn")
-      logger::log_info(
-        "server.R, background rebuilt core_data from source for data package id %s and saved %s",
-        rebuilt$package_id,
-        rebuilt$cache_file
-      )
-      showNotification(
-        "Data rebuild finished. New sessions will use the refreshed cache.",
-        type = "message",
-        duration = 8
-      )
-    }) %...!% (function(error) {
-      core_data_rebuild_running(FALSE)
-      shinyjs::enable("rebuild_core_data_from_source_btn")
-      logger::log_error("server.R, failed to rebuild core_data from source: %s", conditionMessage(error))
-      showNotification(
-        paste("Failed to rebuild data from source:", conditionMessage(error)),
-        type = "error",
-        duration = NULL
-      )
-    })
   }, ignoreInit = TRUE)
 
   observeEvent(input$global_share_btn, {
