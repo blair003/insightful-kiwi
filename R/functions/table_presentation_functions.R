@@ -673,10 +673,26 @@ prepare_table_data <- function(data,
     
     # Generate links using sapply
     selected_data$observationID <- sapply(selected_data$observationID, function(id) {
-      sequence_id <- sequence_lookup[[id]]  # Fast lookup for sequenceID
       display_id <- if (truncate_uuid) paste0(substr(id, 1, 8), "...") else id
+
+      if (startsWith(id, "wkt-trap-observation-")) {
+        return(sprintf(
+          "<a href='javascript:void(0);' class='trap-observation-link' data-observationid='%s'>%s</a>",
+          id,
+          display_id
+        ))
+      }
+
+      sequence_id <- if (id %in% names(sequence_lookup)) {
+        sequence_lookup[[id]]  # Fast lookup for sequenceID
+      } else {
+        NA_character_
+      }
       
       if (startsWith(action_type, "edit_sequence")) {
+        if (is.na(sequence_id) || !nzchar(sequence_id)) {
+          return(display_id)
+        }
         sprintf(hyperlink_format, 
                 project_id, sequence_id, id, sequence_id, action_type, display_id)
       } else {
@@ -870,8 +886,8 @@ get_table_name_and_view <- function(table_id) {
 
 get_description <- function(description_name = NULL) {
   possible_duplicate_description <- sprintf("
-      An observation is considered a possible duplicate if it matches the same species, count,
-      and life stage as another observation within the previous %s minutes at the same Location.
+      An observation is considered a possible duplicate if it matches the same species as
+      another observation within the previous %s minutes at the same Location.
       These observations are legitimate source records, but may be excluded from counts and RAI
       calculations depending on the selected data basis.
     ", config$globals$dup_detect_threshold)
@@ -880,7 +896,7 @@ get_description <- function(description_name = NULL) {
     "Possible Duplicate Logic" = possible_duplicate_description,
     "Net Data Basis" = sprintf("
       When net data is shown, InsightfulKiwi excludes observations marked as possible duplicates from
-      count displays and RAI calculations.<br><br>
+      count displays and subsequent RAI calculations.<br><br>
 
       %s<br><br>
 

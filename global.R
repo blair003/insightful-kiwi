@@ -12,8 +12,6 @@ install_if_missing(bootstrap_cran_packages, "cran")
 # Essential libraries we just installed that are needed immediately
 library(logger)
 
-# fs, jsonlite, remotes will be loaded later by the comprehensive lapply call
-
 logger::log_formatter(logger::formatter_sprintf)
 
 

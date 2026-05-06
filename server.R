@@ -48,6 +48,7 @@ server <- function(input, output, session) {
     "pdf_export_view_state",
     "observation_click",
     "observationID_click",
+    "trap_observation_click",
     "review_nav_click",
     "review_sequences_click",
     "density_map_review_sequences_click",
@@ -444,11 +445,9 @@ server <- function(input, output, session) {
     trap_obs <- trap_data$obs %>%
       dplyr::left_join(trap_locations, by = "deploymentID") %>%
       dplyr::select(
+        prior_check_date,
         check_date,
-        closest_period,
-        closest_period_boundary,
-        closest_period_boundary_date,
-        days_from_closest_period_boundary,
+        check_interval,
         trap_code,
         trap_line,
         observationType,
@@ -483,10 +482,6 @@ server <- function(input, output, session) {
       ) %>%
       dplyr::select(
         check_date,
-        closest_period,
-        closest_period_boundary,
-        closest_period_boundary_date,
-        days_from_closest_period_boundary,
         trap_code = locationName,
         trap_line = deploymentGroups,
         deploymentStart,
@@ -1153,7 +1148,8 @@ server <- function(input, output, session) {
         period_start_date = primary_period$start_date, # Pass reactive from period_selection_module
         period_end_date = primary_period$end_date,     # Pass reactive from period_selection_module
         playback_mode = "always",
-        use_net = global_use_net
+        use_net = global_use_net,
+        trap_data = reactive(trap_data)
         # The module will use its own internal input$selected_species and input$enhance_map_details
         # from the UI elements defined by mapping_module_ui in the sidebar.
       )

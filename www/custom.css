@@ -79,6 +79,56 @@
         margin: 0 0 0.45rem;
       }
 
+      .trap-marker-legend-control {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 4px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28);
+        color: #212529;
+        font-size: 12px;
+        line-height: 1.25;
+        padding: 7px 8px;
+      }
+
+      .trap-marker-legend {
+        min-width: 118px;
+      }
+
+      .trap-marker-legend strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .trap-marker-legend-row {
+        align-items: center;
+        display: flex;
+        gap: 5px;
+        margin: 2px 0;
+        white-space: nowrap;
+      }
+
+      .trap-marker-legend-swatch {
+        border: 1px solid rgba(0, 0, 0, 0.28);
+        border-radius: 50%;
+        display: inline-block;
+        flex: 0 0 10px;
+        height: 10px;
+        width: 10px;
+      }
+
+      .trap-marker-legend-swatch-stoat { background: #a50026; }
+      .trap-marker-legend-swatch-weasel { background: #d73027; }
+      .trap-marker-legend-swatch-ferret { background: #fdae61; }
+      .trap-marker-legend-swatch-rat { background: #000000; }
+      .trap-marker-legend-swatch-mouse { background: #999999; }
+      .trap-marker-legend-swatch-cat { background: #762a83; }
+      .trap-marker-legend-swatch-rabbit { background: #1a9850; }
+      .trap-marker-legend-swatch-hedgehog { background: #5ab4ac; }
+      .trap-marker-legend-swatch-possum { background: #2c7bb6; }
+      .trap-marker-legend-swatch-weka { background: #006837; }
+      .trap-marker-legend-swatch-bird { background: #4575b4; }
+      .trap-marker-legend-swatch-mustelid { background: #f46d43; }
+      .trap-marker-legend-swatch-other { background: #8073ac; }
+
       .dashcard-header-row {
         align-items: center;
         display: flex;

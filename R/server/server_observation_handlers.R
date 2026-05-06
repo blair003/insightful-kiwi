@@ -44,6 +44,163 @@
     }
   }
 
+  trap_record_source_id <- function(value) {
+    if (is.na(value) || !nzchar(value)) {
+      return(NA_character_)
+    }
+
+    parts <- strsplit(as.character(value), "\\s*\\|\\s*")[[1]]
+    match <- parts[startsWith(parts, "source_trapdata_id:")]
+    if (length(match) == 0) {
+      return(NA_character_)
+    }
+
+    trimws(sub("source_trapdata_id:", "", match[[1]], fixed = TRUE))
+  }
+
+  trap_detail_table <- function(values) {
+    values <- values[!is.na(values) & nzchar(as.character(values))]
+    if (length(values) == 0) {
+      return(NULL)
+    }
+
+    table_data <- data.frame(
+      Field = names(values),
+      Value = as.character(values),
+      stringsAsFactors = FALSE
+    )
+
+    HTML(
+      knitr::kable(table_data, format = "html", escape = TRUE) %>%
+        kableExtra::kable_styling(
+          full_width = TRUE,
+          bootstrap_options = c("striped", "hover", "condensed", "bordered"),
+          font_size = 12
+        )
+    )
+  }
+
+  read_raw_trap_source_record <- function(source_trapdata_id) {
+    if (is.na(source_trapdata_id) || !nzchar(source_trapdata_id) ||
+        is.null(config$env$dirs$trap_data_source) ||
+        is.null(config$env$trap_data_files$raw_trap_data)) {
+      return(NULL)
+    }
+
+    raw_path <- file.path(
+      config$env$dirs$trap_data_source,
+      config$env$trap_data_files$raw_trap_data
+    )
+    if (!file.exists(raw_path)) {
+      return(NULL)
+    }
+
+    raw_traps <- utils::read.csv(
+      raw_path,
+      stringsAsFactors = FALSE,
+      na.strings = c("", "NA", "NULL"),
+      check.names = FALSE,
+      fileEncoding = "UTF-8-BOM"
+    )
+    raw_traps$trapdata_id <- as.character(raw_traps$trapdata_id)
+    raw_traps[raw_traps$trapdata_id == source_trapdata_id, , drop = FALSE]
+  }
+
+  show_trap_observation_modal <- function(observation_id) {
+    if (is.null(trap_data) ||
+        is.null(trap_data$obs) ||
+        is.null(trap_data$deps) ||
+        !nzchar(observation_id)) {
+      showModal(modalDialog(
+        title = "Trap Record",
+        "Trap data is not available.",
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      return()
+    }
+
+    trap_obs <- trap_data$obs %>%
+      dplyr::filter(observationID == observation_id)
+
+    if (nrow(trap_obs) == 0) {
+      showModal(modalDialog(
+        title = "Trap Record",
+        "No trap record found for this observation ID.",
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      return()
+    }
+
+    trap_obs <- trap_obs[1, , drop = FALSE]
+    trap_dep <- trap_data$deps %>%
+      dplyr::filter(deploymentID == trap_obs$deploymentID[[1]]) %>%
+      dplyr::select(
+        deploymentID,
+        trap_code = locationName,
+        trap_line = deploymentGroups,
+        latitude,
+        longitude,
+        deploymentStart,
+        deploymentEnd
+      )
+
+    source_trapdata_id <- trap_record_source_id(trap_obs$observationComments[[1]])
+    raw_record <- read_raw_trap_source_record(source_trapdata_id)
+
+    converted_values <- c(
+      observationID = trap_obs$observationID,
+      prior_check_date = as.character(as.Date(trap_obs$prior_check_date)),
+      check_date = as.character(as.Date(trap_obs$eventStart)),
+      check_interval = as.character(trap_obs$check_interval),
+      outcome = if ("observationTags" %in% names(trap_obs)) trap_obs$observationTags else NA_character_,
+      scientificName = trap_obs$scientificName,
+      count = as.character(trap_obs$count),
+      behavior = trap_obs$behavior,
+      sex = trap_obs$sex,
+      lifeStage = trap_obs$lifeStage,
+      classifiedBy = trap_obs$classifiedBy,
+      source_trapdata_id = source_trapdata_id
+    )
+
+    deployment_values <- if (nrow(trap_dep) > 0) {
+      unlist(trap_dep[1, ], use.names = TRUE)
+    } else {
+      NULL
+    }
+
+    raw_values <- if (!is.null(raw_record) && nrow(raw_record) > 0) {
+      unlist(raw_record[1, ], use.names = TRUE)
+    } else {
+      NULL
+    }
+
+    showModal(modalDialog(
+      title = tagList(
+        tags$div("Trap Record"),
+        tags$small(sprintf("Obs ID: %s", observation_id))
+      ),
+      tags$h4("Converted trap observation"),
+      trap_detail_table(converted_values),
+      if (!is.null(deployment_values)) {
+        tagList(tags$h4("Trap location/deployment"), trap_detail_table(deployment_values))
+      },
+      if (!is.null(raw_values)) {
+        tagList(tags$h4("Raw source trap-data record"), trap_detail_table(raw_values))
+      },
+      size = "l",
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  }
+
+  observeEvent(input$trap_observation_click, {
+    parts <- strsplit(input$trap_observation_click, "\\|")[[1]]
+    observation_id <- parts[[1]]
+    show_trap_observation_modal(observation_id)
+  })
+
   # Updated create_observation_viewer_output function
   create_observation_viewer_output <- function(observation_id = NULL, action_type) {
    # browser()

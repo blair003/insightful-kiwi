@@ -448,6 +448,8 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     eventID = clean_id(raw_trap_data$trapdata_id, "wkt-trap-event"),
     eventStart = format_camtrap_time(raw_trap_data$check_date),
     eventEnd = format_camtrap_time(raw_trap_data$check_date),
+    prior_check_date = raw_trap_data$previous_check_date,
+    check_interval = as.integer(raw_trap_data$check_date - raw_trap_data$previous_check_date),
     observationLevel = "event",
     observationType = ifelse(raw_trap_data$mapped_kill, "animal", "unknown"),
     cameraSetupType = NA,
@@ -685,60 +687,14 @@ annotate_wkt_trap_periods <- function(trap_data, period_groups) {
     return(NULL)
   }
 
-  period_names <- names(period_groups)
-  period_names <- period_names[period_names != "ALL"]
-  if (length(period_names) == 0) {
-    return(trap_data)
-  }
-
-  boundaries <- do.call(
-    rbind,
-    lapply(period_names, function(period_name) {
-      period <- period_groups[[period_name]]
-      data.frame(
-        closest_period = period_name,
-        closest_period_boundary = c("start", "end"),
-        closest_period_boundary_date = as.Date(c(period$start_date, period$end_date)),
-        stringsAsFactors = FALSE
-      )
-    })
-  )
-
-  closest_boundary <- function(check_date) {
-    if (is.na(check_date)) {
-      return(data.frame(
-        closest_period = NA_character_,
-        closest_period_boundary = NA_character_,
-        closest_period_boundary_date = as.Date(NA),
-        days_from_closest_period_boundary = NA_integer_,
-        stringsAsFactors = FALSE
-      ))
-    }
-
-    day_diffs <- as.integer(check_date - boundaries$closest_period_boundary_date)
-    closest_index <- order(abs(day_diffs), boundaries$closest_period_boundary_date)[[1]]
-
-    data.frame(
-      closest_period = boundaries$closest_period[closest_index],
-      closest_period_boundary = boundaries$closest_period_boundary[closest_index],
-      closest_period_boundary_date = boundaries$closest_period_boundary_date[closest_index],
-      days_from_closest_period_boundary = day_diffs[closest_index],
-      stringsAsFactors = FALSE
-    )
-  }
-
-  annotate_dates <- function(check_dates) {
-    check_dates <- as.Date(check_dates)
-    do.call(rbind, lapply(check_dates, closest_boundary))
-  }
-
   trap_data$deployments$check_date <- as.Date(trap_data$deployments$deploymentEnd)
-  deployment_periods <- annotate_dates(trap_data$deployments$check_date)
-  trap_data$deployments <- cbind(trap_data$deployments, deployment_periods)
 
   trap_data$observations$check_date <- as.Date(trap_data$observations$eventStart)
-  observation_periods <- annotate_dates(trap_data$observations$check_date)
-  trap_data$observations <- cbind(trap_data$observations, observation_periods)
+  if (!"prior_check_date" %in% names(trap_data$observations)) {
+    trap_data$observations$prior_check_date <- as.Date(trap_data$observations$eventStart)
+  } else {
+    trap_data$observations$prior_check_date <- as.Date(trap_data$observations$prior_check_date)
+  }
 
   trap_data$deps <- trap_data$deployments
   trap_data$obs <- trap_data$observations

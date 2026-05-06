@@ -62,6 +62,15 @@
           { priority: 'event' }
         );
       });
+
+      $(document).on('click', '.trap-observation-link', function() {
+        var observationID = $(this).data('observationid') || "";
+        Shiny.setInputValue(
+          'trap_observation_click',
+          observationID + '|' + new Date().getTime(),
+          { priority: 'event' }
+        );
+      });
       
     // Send obsevationID from link back to shiny for determining sequence_id and getting images
 //      $(document).on('click', '.observation-link', function() {
@@ -268,7 +277,7 @@
           }
 
           if (nav === 'observation_map') {
-            return /^observation_map-(selected_species|selected_localities|enhance_map_details)$/.test(id) ||
+            return /^observation_map-(selected_species|selected_localities|enhance_map_details|include_trap_data)$/.test(id) ||
               id === 'primary_period-period_selection';
           }
 
