@@ -38,7 +38,7 @@ get_sequence_media_urls <- function(media) {
 
 update_image_cache <- function(sequence_media_info) {
   tryCatch({
-    local_cache_dir <- file.path(config$env$dirs$cache, "images")
+    local_cache_dir <- get_primary_image_cache_dir(config)
     on_demand_log_file <- file.path(
       config$env$dirs$logs,
       sprintf("image-cache-on-demand-%s.log", format(Sys.Date(), "%Y-%m-%d"))
@@ -301,7 +301,7 @@ show_image_modal <- function(observation_id, ui_elements) {
 
 create_observation_images_ui <- function(sequence_media_info, observation_id, context = "pageview", review_nav = NULL) {
 
-  local_cache_dir <- file.path(config$env$dirs$cache, "images")
+  local_cache_dir <- get_primary_image_cache_dir(config)
   carousel_id <- paste0("carousel_", observation_id) # Unique ID for the carousel container
   #carousel_id <- "observation_image_viewer_carousel"
   
@@ -337,22 +337,27 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
     path_components <- unlist(strsplit(image_info$filePath, "/"))
     hash_dir_name <- path_components[length(path_components) - 1]
     resized_filename <- sub("\\.JPG$", "_resized.JPG", image_info$fileName, ignore.case = TRUE)
-    local_web_dir <- paste0(gsub("^www/", "", local_cache_dir), "/", hash_dir_name, "/")
+    cached_resized_file <- find_cached_image_file(config, hash_dir_name, resized_filename)
+    cached_original_file <- find_cached_image_file(config, hash_dir_name, image_info$fileName)
+    resized_url <- if (!is.na(cached_resized_file)) image_cache_file_url(cached_resized_file) else NA_character_
+    local_url <- if (!is.na(cached_original_file)) image_cache_file_url(cached_original_file) else NA_character_
 
     list(
       local_fs = file.path(local_cache_dir, hash_dir_name, image_info$fileName),
       resized_fs = file.path(local_cache_dir, hash_dir_name, resized_filename),
-      local_url = paste0(local_web_dir, image_info$fileName),
-      resized_url = paste0(local_web_dir, resized_filename),
+      cached_local_fs = cached_original_file,
+      cached_resized_fs = cached_resized_file,
+      local_url = local_url,
+      resized_url = resized_url,
       original_url = image_info$filePath
     )
   })
 
-  resized_fs_paths <- vapply(image_paths_meta, `[[`, character(1), "resized_fs")
-  local_fs_paths <- vapply(image_paths_meta, `[[`, character(1), "local_fs")
+  resized_fs_paths <- vapply(image_paths_meta, `[[`, character(1), "cached_resized_fs")
+  local_fs_paths <- vapply(image_paths_meta, `[[`, character(1), "cached_local_fs")
 
-  cache_hits <- file.exists(resized_fs_paths)
-  local_exists <- file.exists(local_fs_paths)
+  cache_hits <- !is.na(resized_fs_paths) & !is.na(vapply(image_paths_meta, `[[`, character(1), "resized_url"))
+  local_exists <- !is.na(local_fs_paths) & !is.na(vapply(image_paths_meta, `[[`, character(1), "local_url"))
 
   image_sources <- lapply(seq_along(image_paths_meta), function(i) {
     if (cache_hits[i]) {
@@ -565,7 +570,6 @@ get_latest_images <- function(max_images = 40) {
   
   return(web_paths)
 }
-
 
 
 

@@ -193,6 +193,62 @@ get_media_public_flags <- function(media_df, config = NULL) {
 }
 
 
+normalize_cache_file_path <- function(path) {
+  normalizePath(path, winslash = "/", mustWork = FALSE)
+}
+
+
+get_served_image_cache_dir <- function() {
+  normalize_cache_file_path(file.path("www", "cache", "images"))
+}
+
+
+get_configured_image_cache_dir <- function(config) {
+  normalize_cache_file_path(file.path(config$env$dirs$cache, "images"))
+}
+
+
+get_image_cache_dirs <- function(config) {
+  cache_dirs <- c(
+    get_served_image_cache_dir(),
+    get_configured_image_cache_dir(config)
+  )
+
+  unique(cache_dirs[nzchar(cache_dirs)])
+}
+
+
+get_primary_image_cache_dir <- function(config) {
+  get_image_cache_dirs(config)[[1]]
+}
+
+
+image_cache_file_url <- function(file_path) {
+  normalized_file_path <- normalize_cache_file_path(file_path)
+  www_dir <- normalize_cache_file_path("www")
+  www_prefix <- paste0(www_dir, "/")
+
+  if (!startsWith(normalized_file_path, www_prefix)) {
+    return(NA_character_)
+  }
+
+  sub_path <- substring(normalized_file_path, nchar(www_prefix) + 1)
+  gsub("\\\\", "/", sub_path)
+}
+
+
+find_cached_image_file <- function(config, hash_dir_name, file_name) {
+  candidate_paths <- file.path(get_image_cache_dirs(config), hash_dir_name, file_name)
+  existing_paths <- candidate_paths[file.exists(candidate_paths)]
+
+  if (length(existing_paths) == 0) {
+    return(NA_character_)
+  }
+
+  existing_paths[[1]]
+}
+
+
 
 #' Caches favourite and selected species images.
 #'
@@ -206,7 +262,7 @@ get_media_public_flags <- function(media_df, config = NULL) {
 #' @return Invisibly returns NULL. Called for its side-effect of managing cached files.
 
 cache_selected_images <- function(media_df, obs_df, config) {
-  local_cache_dir <- file.path(config$env$dirs$cache, "images")
+  local_cache_dir <- get_primary_image_cache_dir(config)
   favourites_base_dir <- file.path(local_cache_dir, "favourites")
   favourites_manifest_path <- file.path(favourites_base_dir, "_manifest.csv")
   cache_species_classes <- c("target", "interesting")
@@ -280,8 +336,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
                                scientific_name,
                                file_name,
                                source_file_path) {
-    web_path <- sub("^www[/\\\\]", "", cached_file_path)
-    web_path <- gsub("\\\\", "/", web_path)
+    web_path <- image_cache_file_url(cached_file_path)
 
     manifest_rows[[length(manifest_rows) + 1]] <<- data.frame(
       web_path = web_path,
