@@ -63,9 +63,9 @@ dotenv::load_dot_env("config/.env")
 
 
 # Code to check if this data package has been processed before
-data_package <- fromJSON(file.path(config$env$dirs$camtrap_package, "datapackage.json"))
+monitoring_data <- fromJSON(file.path(config$env$dirs$camtrap_package, "datapackage.json"))
 
-package_id <- data_package$id
+package_id <- monitoring_data$id
 
 cache_filename <- paste0("core_data_", package_id, ".RDS")
 
@@ -148,7 +148,7 @@ if (isTRUE(config$globals$import_trap_data)) {
     raw_trap_data_path = file.path(trap_data_source_dir, trap_data_files$raw_trap_data),
     trap_locations_path = file.path(trap_data_source_dir, trap_data_files$trap_locations),
     reference_tables_path = file.path(trap_data_source_dir, trap_data_files$reference_tables),
-    output_dir = config$env$dirs$trap_data_package,
+    output_dir = config$env$dirs$trap_monitoring_data,
     first_deployment_days = config$globals$trap_data_first_deployment_days,
     package_name = "wkt-trap-checks",
     timezone = config$globals$actual_timezone,
@@ -184,10 +184,8 @@ plan(multisession)
 # --- Background Caching of favourite and selected species images on Startup ---
 logger::log_info("Attempting to launch background caching process...")
 
-image_cache_log_file <- file.path(
-  config$env$dirs$logs,
-  sprintf("image-cache-%s.log", format(Sys.Date(), "%Y-%m-%d"))
-)
+image_cache_log_run_id <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+image_cache_log_file <- image_cache_log_path(config, "image-cache")
 
 future::future({
   configure_image_cache_logger(config, image_cache_log_file)

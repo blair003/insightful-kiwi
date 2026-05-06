@@ -93,10 +93,7 @@ filter_possible_duplicates_for_use_net <- function(obs, use_net = NULL) {
 
 configure_image_cache_logger <- function(config, log_file = NULL) {
   if (is.null(log_file)) {
-    log_file <- file.path(
-      config$env$dirs$logs,
-      sprintf("image-cache-%s.log", format(Sys.Date(), "%Y-%m-%d"))
-    )
+    log_file <- image_cache_log_path(config)
   }
 
   log_dir <- dirname(log_file)
@@ -128,7 +125,7 @@ append_image_cache_log <- function(log_file, level, message, ...) {
       sprintf(message, ...)
     )
 
-    cat(line, "\n", file = log_file, append = TRUE)
+    cat(paste0(line, "\n"), file = log_file, append = TRUE)
   }, error = function(e) {
     invisible(NULL)
   })
@@ -159,31 +156,6 @@ get_media_public_flags <- function(media_df, config = NULL) {
       flags = vapply(media_df[[public_column]], cache_media_is_public, logical(1)),
       column = public_column
     ))
-  }
-
-  if (!is.null(config) && "mediaID" %in% names(media_df)) {
-    raw_media_path <- file.path(config$env$dirs$camtrap_package, "media.csv")
-    if (file.exists(raw_media_path)) {
-      raw_media <- tryCatch(
-        utils::read.csv(raw_media_path, stringsAsFactors = FALSE),
-        error = function(e) {
-          logger::log_warn(
-            "Could not read raw media.csv for filePublic lookup: %s",
-            conditionMessage(e)
-          )
-          NULL
-        }
-      )
-
-      if (!is.null(raw_media) && all(c("mediaID", "filePublic") %in% names(raw_media))) {
-        raw_public_lookup <- stats::setNames(raw_media$filePublic, raw_media$mediaID)
-        matched_public <- raw_public_lookup[as.character(media_df$mediaID)]
-        return(list(
-          flags = vapply(matched_public, cache_media_is_public, logical(1)),
-          column = "media.csv:filePublic"
-        ))
-      }
-    }
   }
 
   list(
@@ -246,6 +218,23 @@ find_cached_image_file <- function(config, hash_dir_name, file_name) {
   }
 
   existing_paths[[1]]
+}
+
+
+get_image_cache_log_run_id <- function() {
+  if (exists("image_cache_log_run_id", envir = .GlobalEnv, inherits = FALSE)) {
+    return(get("image_cache_log_run_id", envir = .GlobalEnv))
+  }
+
+  format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+}
+
+
+image_cache_log_path <- function(config, prefix = "image-cache") {
+  file.path(
+    config$env$dirs$logs,
+    sprintf("%s-%s.log", prefix, get_image_cache_log_run_id())
+  )
 }
 
 

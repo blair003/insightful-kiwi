@@ -10,11 +10,15 @@ Do not reinstall R packages, rebuild the container, or modify Docker setup unles
 
 ## Data model
 
-`extdata/` contains the primary camera monitoring source data in Camtrap DP format, which is the primary basis for the application. 
+The performance of this application relies on using the `core_data` global variable as the main data source.
 
-`extdata/trap-data/` contains trapping data used for development and testing. This is also Camtrap DP format, but includes the source files which we run a custom conversion on as part of the application startup to transform to Camtrap DP format.
+Don't write code or functions that ingest data from files in extdata/ directly. If you think you need to, `STOP` and ask first.
+The solution will likely be to update `core_data` to include what we need, if it is missing. Ask before updating core_data.
 
-This data forms the basis of the global `core_data` variable.
+For reference:
+The source for `core_data$deps` is `extdata/deployments.csv`
+The source for `core_data$obs` is `extdata/observations.csv`
+The source for `core_data_media` is `extdata/media.csv`
 
 ## Image cache
 

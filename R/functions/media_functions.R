@@ -39,10 +39,7 @@ get_sequence_media_urls <- function(media) {
 update_image_cache <- function(sequence_media_info) {
   tryCatch({
     local_cache_dir <- get_primary_image_cache_dir(config)
-    on_demand_log_file <- file.path(
-      config$env$dirs$logs,
-      sprintf("image-cache-on-demand-%s.log", format(Sys.Date(), "%Y-%m-%d"))
-    )
+    on_demand_log_file <- image_cache_log_path(config, "image-cache-on-demand")
 
     append_image_cache_log(
       on_demand_log_file,
@@ -307,32 +304,6 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
   
   loading_placeholder <- paste0("carousel_loading_placeholder_", config$globals$image_resize_width_pixels, ".png") # Path to a loading image, www is assumed
   
-  # Start building the carousel HTML with a placeholder for each image
-  carousel_html <- sprintf('<div id="%s" class="slick-carousel">', carousel_id)
-
-  
-  # Define CSS based on context
-  image_css <- if(context == "modal") {
-    "width:100%; height:auto; display:block; margin-left:auto; margin-right:auto;"
-  } else {  # context == "pageview"
-    paste0("width:100%; max-width:", config$globals$image_resize_width_pixels, "px; max-height:100%; height:auto; display:block; margin-left:auto; margin-right:auto;")
-  }
-  
-  # Placeholder initially, actual images will be loaded dynamically
-
-    carousel_html <- paste0(
-      carousel_html, 
-      sprintf('<div><img src="%s" alt="Loading..." class="carousel-image-placeholder" style="%s"/></div>', loading_placeholder, image_css)
-    )
-
-  # Close the carousel container
-  carousel_html <- paste0(carousel_html, "</div>")
-
-  #instructions_html <- "Clickidy click."
-  instructions_html <- "Use the forward/back arrows to cycle through images"
-  complete_html <- paste(carousel_html, instructions_html, sep = "")
-  # Preparing the array of actual image sources (src)
-  
   image_paths_meta <- lapply(sequence_media_info, function(image_info) {
     path_components <- unlist(strsplit(image_info$filePath, "/"))
     hash_dir_name <- path_components[length(path_components) - 1]
@@ -368,8 +339,58 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
       return(image_paths_meta[[i]]$original_url)
     }
   })
+
+  image_sources_cached <- cache_hits | local_exists
+
+  # Define CSS based on context
+  image_css <- if(context == "modal") {
+    "width:100%; height:auto; display:block; margin-left:auto; margin-right:auto;"
+  } else {  # context == "pageview"
+    paste0("width:100%; max-width:", config$globals$image_resize_width_pixels, "px; max-height:100%; height:auto; display:block; margin-left:auto; margin-right:auto;")
+  }
+
+  carousel_slides <- vapply(seq_along(image_sources), function(i) {
+    immediate_src <- if (image_sources_cached[i]) image_sources[[i]] else loading_placeholder
+    deferred_src <- if (!image_sources_cached[i]) {
+      sprintf(' data-src="%s"', htmltools::htmlEscape(image_sources[[i]], attribute = TRUE))
+    } else {
+      ""
+    }
+    image_class <- if (image_sources_cached[i]) "" else ' class="carousel-image-placeholder"'
+    image_alt <- if (image_sources_cached[i]) "Sequence image" else "Image loading"
+
+    sprintf(
+      '<div><img src="%s"%s alt="%s"%s style="%s"/></div>',
+      htmltools::htmlEscape(immediate_src, attribute = TRUE),
+      deferred_src,
+      image_alt,
+      image_class,
+      htmltools::htmlEscape(image_css, attribute = TRUE)
+    )
+  }, character(1))
+
+  if (length(carousel_slides) == 0) {
+    carousel_slides <- sprintf(
+      '<div><img src="%s" alt="Image loading" class="carousel-image-placeholder" style="%s"/></div>',
+      htmltools::htmlEscape(loading_placeholder, attribute = TRUE),
+      htmltools::htmlEscape(image_css, attribute = TRUE)
+    )
+    image_sources <- list(loading_placeholder)
+    image_sources_cached <- TRUE
+  }
+
+  carousel_html <- paste0(
+    sprintf('<div id="%s" class="slick-carousel">', carousel_id),
+    paste(carousel_slides, collapse = ""),
+    "</div>"
+  )
+
+  #instructions_html <- "Clickidy click."
+  instructions_html <- "Use the forward/back arrows to cycle through images"
+  complete_html <- paste(carousel_html, instructions_html, sep = "")
   
   image_sources_js_array <- jsonlite::toJSON(image_sources, auto_unbox = TRUE)
+  image_sources_cached_js_array <- jsonlite::toJSON(as.list(image_sources_cached), auto_unbox = TRUE)
   
   
   review_nav_json <- if (!is.null(review_nav)) jsonlite::toJSON(review_nav, auto_unbox = TRUE) else "null"
@@ -377,151 +398,129 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
   carousel_js <- sprintf(
     "$(document).ready(function(){
         var imageSources = %s;
+        var imageSourcesCached = %s;
         var totalImages = imageSources.length;
-        var loadedImagesCount = 0;
-        var loadedImages = [];
-
-        // Function to preload images and track loading progress
-        function preloadImages(images, callback) {
-            images.forEach(function(src, index) {
-                var img = new Image();
-                img.onload = function() {
-                    loadedImagesCount++;
-                    loadedImages[index] = '<div><img src=\"' + src + '\" alt=\"Loaded image\" style=\"%s\"></div>';
-                    // Check if all images are loaded
-                    if(loadedImagesCount === totalImages) {
-                        callback(loadedImages); // Call the callback function with loaded images
-                    }
-                };
-                img.onerror = function() {
-                    loadedImagesCount++;
-                    loadedImages[index] = '<div><img src=\"%s\" alt=\"Image loading\" class=\"carousel-image-placeholder\" style=\"%s\"></div>';
-                    if(loadedImagesCount === totalImages) {
-                        callback(loadedImages);
-                    }
-                };
-                img.src = src;
-            });
+        var carousel = $('#%s');
+        var reviewNav = %s;
+        var initialSlide = 0;
+        if (reviewNav && reviewNav.initial_slide === 'last') {
+            initialSlide = Math.max(totalImages - 1, 0);
+        } else if (reviewNav && Number.isInteger(reviewNav.initial_slide)) {
+            initialSlide = Math.min(Math.max(reviewNav.initial_slide, 0), Math.max(totalImages - 1, 0));
         }
 
-        // Function to initialize the slider with loaded images
-        function initializeSliderWithImages(loadedImagesHtml) {
-            var carousel = $('#%s');
-            // Remove the initial placeholder
-            carousel.empty(); // Or carousel.slick('slickRemove', 0); if already initialized
+        function refreshCarouselPosition() {
+            if (carousel.hasClass('slick-initialized')) {
+                carousel.slick('setPosition');
+            }
+        }
 
-            // Add loaded images to the carousel and then initialize/slickAdd
-            loadedImagesHtml.forEach(function(imgHtml) {
-                carousel.append(imgHtml); // Assuming slider not initialized
-            });
+        carousel.slick({
+            infinite: false,
+            slidesToShow: 1,
+            initialSlide: initialSlide,
+            adaptiveHeight: true,
+            arrows: true,
+            dots: true,
+            accessibility: true,
+            speed: 0
+        });
 
-            // Initialize or reinitialize the slider
-            var reviewNav = %s;
-            var initialSlide = 0;
-            if (reviewNav && reviewNav.initial_slide === 'last') {
-                initialSlide = Math.max(totalImages - 1, 0);
-            } else if (reviewNav && Number.isInteger(reviewNav.initial_slide)) {
-                initialSlide = Math.min(Math.max(reviewNav.initial_slide, 0), Math.max(totalImages - 1, 0));
+        carousel.find('img').on('load', refreshCarouselPosition);
+
+        setTimeout(refreshCarouselPosition, 250);
+
+        imageSources.forEach(function(src, index) {
+            if (imageSourcesCached[index]) {
+                return;
             }
 
-            carousel.slick({
-                infinite: false,
-                slidesToShow: 1,
-                initialSlide: initialSlide,
-                adaptiveHeight: true,
-                arrows: true,
-                dots: true,
-                accessibility: true,
-                speed: 0
-            });
+            var img = new Image();
+            img.onload = function() {
+                var slideImg = carousel.find('.slick-slide[data-slick-index=\"' + index + '\"] img');
+                if (!slideImg.length) {
+                    slideImg = carousel.find('.slick-slide').not('.slick-cloned').eq(index).find('img');
+                }
 
-            carousel.find('img').on('load', function() {
-                if (carousel.hasClass('slick-initialized')) {
-                    carousel.slick('setPosition');
+                slideImg
+                    .attr('src', src)
+                    .removeAttr('data-src')
+                    .removeClass('carousel-image-placeholder')
+                    .attr('alt', 'Sequence image');
+
+                refreshCarouselPosition();
+            };
+            img.onerror = refreshCarouselPosition;
+            img.src = src;
+        });
+
+        // Setup infinite navigation if in review mode
+        if (%s && %s !== 'null') {
+            carousel.on('edge', function(event, slick, direction) {
+                if (direction === 'left' && reviewNav.current_index < reviewNav.total_sequences) {
+                    Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index + 1, initial_slide: 0}, {priority: 'event'});
+                } else if (direction === 'right' && reviewNav.current_index > 1) {
+                    Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index - 1, initial_slide: 'last'}, {priority: 'event'});
                 }
             });
 
-            setTimeout(function() {
-                if (carousel.hasClass('slick-initialized')) {
-                    carousel.slick('setPosition');
+            var nextWasDisabled = false;
+            var prevWasDisabled = false;
+
+            carousel.find('.slick-next').on('mousedown touchstart', function() {
+                nextWasDisabled = $(this).hasClass('slick-disabled');
+            });
+
+            carousel.find('.slick-prev').on('mousedown touchstart', function() {
+                prevWasDisabled = $(this).hasClass('slick-disabled');
+            });
+
+            // Slick may update the current slide before click handlers run, so
+            // use the arrow state captured before the click to detect edge-only
+            // sequence navigation.
+            carousel.find('.slick-next').on('click', function() {
+                var currentSlide = carousel.slick('slickCurrentSlide');
+                if (nextWasDisabled && currentSlide === totalImages - 1 && reviewNav.current_index < reviewNav.total_sequences) {
+                    Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index + 1, initial_slide: 0}, {priority: 'event'});
                 }
-            }, 250);
+                nextWasDisabled = false;
+            });
 
-            // Setup infinite navigation if in review mode
-            if (%s && %s !== 'null') {
-                carousel.on('edge', function(event, slick, direction) {
-                    if (direction === 'left' && reviewNav.current_index < reviewNav.total_sequences) {
-                        Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index + 1, initial_slide: 0}, {priority: 'event'});
-                    } else if (direction === 'right' && reviewNav.current_index > 1) {
-                        Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index - 1, initial_slide: 'last'}, {priority: 'event'});
-                    }
-                });
+            carousel.find('.slick-prev').on('click', function() {
+                var currentSlide = carousel.slick('slickCurrentSlide');
+                if (prevWasDisabled && currentSlide === 0 && reviewNav.current_index > 1) {
+                    Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index - 1, initial_slide: 'last'}, {priority: 'event'});
+                }
+                prevWasDisabled = false;
+            });
 
-                var nextWasDisabled = false;
-                var prevWasDisabled = false;
-
-                carousel.find('.slick-next').on('mousedown touchstart', function() {
-                    nextWasDisabled = $(this).hasClass('slick-disabled');
-                });
-
-                carousel.find('.slick-prev').on('mousedown touchstart', function() {
-                    prevWasDisabled = $(this).hasClass('slick-disabled');
-                });
-
-                // Slick may update the current slide before click handlers run, so
-                // use the arrow state captured before the click to detect edge-only
-                // sequence navigation.
-                carousel.find('.slick-next').on('click', function() {
-                    var currentSlide = carousel.slick('slickCurrentSlide');
-                    if (nextWasDisabled && currentSlide === totalImages - 1 && reviewNav.current_index < reviewNav.total_sequences) {
-                        Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index + 1, initial_slide: 0}, {priority: 'event'});
-                    }
-                    nextWasDisabled = false;
-                });
-
-                carousel.find('.slick-prev').on('click', function() {
-                    var currentSlide = carousel.slick('slickCurrentSlide');
-                    if (prevWasDisabled && currentSlide === 0 && reviewNav.current_index > 1) {
-                        Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index - 1, initial_slide: 'last'}, {priority: 'event'});
-                    }
-                    prevWasDisabled = false;
-                });
-
-                // Arrow keys for edge detection
-                $(document).on('keydown', function(e) {
-                    var currentSlide = carousel.slick('slickCurrentSlide');
-                    if (e.key === 'ArrowRight' && currentSlide === totalImages - 1 && reviewNav.current_index < reviewNav.total_sequences) {
-                        Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index + 1, initial_slide: 0}, {priority: 'event'});
-                    } else if (e.key === 'ArrowLeft' && currentSlide === 0 && reviewNav.current_index > 1) {
-                        Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index - 1, initial_slide: 'last'}, {priority: 'event'});
-                    }
-                });
-            }
-
-
-            // Optional: Setup keyboard navigation for the slider
-            setupKeyboardNavigation(carousel);
+            // Arrow keys for edge detection
+            $(document).off('keydown.reviewSequenceEdges').on('keydown.reviewSequenceEdges', function(e) {
+                var currentSlide = carousel.slick('slickCurrentSlide');
+                if (e.key === 'ArrowRight' && currentSlide === totalImages - 1 && reviewNav.current_index < reviewNav.total_sequences) {
+                    Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index + 1, initial_slide: 0}, {priority: 'event'});
+                } else if (e.key === 'ArrowLeft' && currentSlide === 0 && reviewNav.current_index > 1) {
+                    Shiny.setInputValue('review_nav_click', {index: reviewNav.current_index - 1, initial_slide: 'last'}, {priority: 'event'});
+                }
+            });
         }
 
-        // Preload images and initialize the slider
-        preloadImages(imageSources, initializeSliderWithImages);
+        setupKeyboardNavigation(carousel);
 
-      function setupKeyboardNavigation(carousel) {
-          $(document).on('keydown', function(e) {
-              if (e.key === 'ArrowLeft') {
-                  e.preventDefault();
-                  carousel.slick('slickPrev');
-              } else if (e.key === 'ArrowRight') {
-                  e.preventDefault();
-                  carousel.slick('slickNext');
-              }
-          });
-      }
+        function setupKeyboardNavigation(carousel) {
+            $(document).off('keydown.reviewSequenceCarousel').on('keydown.reviewSequenceCarousel', function(e) {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    carousel.slick('slickPrev');
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    carousel.slick('slickNext');
+                }
+            });
+        }
     });",
     image_sources_js_array,
-    image_css,
-    loading_placeholder,
-    image_css,
+    image_sources_cached_js_array,
     carousel_id,
     review_nav_json,
     ifelse(is.null(review_nav), "false", "true"),
@@ -570,6 +569,3 @@ get_latest_images <- function(max_images = 40) {
   
   return(web_paths)
 }
-
-
-

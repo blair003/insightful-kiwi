@@ -462,7 +462,7 @@ render_dashboard_animal_observations_total_card <- function(effort_summary) {
   )
 }
 
-render_dashboard_data_package_card <- function() {
+render_dashboard_monitoring_data_card <- function() {
   card(
     card_header(render_dashboard_card_header("rotate", "Data Package")),
     card_body(
@@ -653,7 +653,7 @@ render_dashboard_whole_project_cards <- function(locality = NULL) {
     render_dashboard_camera_hours_card(effort_summary),
     render_dashboard_observations_card(effort_summary),
     render_dashboard_animal_observations_total_card(effort_summary),
-    render_dashboard_data_package_card()
+    render_dashboard_monitoring_data_card()
   )
 }
 

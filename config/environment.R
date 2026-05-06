@@ -32,7 +32,7 @@ config$env <- list(
   # "promises", 
 
 # Add subdirectories dynamically based off root path
-config$env$dirs$trap_data_package <- file.path(config$env$dirs$cache, "trap-data-camtrapdp")
+config$env$dirs$trap_monitoring_data <- file.path(config$env$dirs$cache, "trap-data-camtrapdp")
 config$env$dirs$reports <- file.path(config$env$dirs$cache, "reports")
 config$env$dirs$plots <- file.path(config$env$dirs$cache, "plots")
 config$env$dirs$maps <- file.path(config$env$dirs$cache, "maps")

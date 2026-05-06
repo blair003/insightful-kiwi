@@ -81,29 +81,7 @@
   }
 
   read_raw_trap_source_record <- function(source_trapdata_id) {
-    if (is.na(source_trapdata_id) || !nzchar(source_trapdata_id) ||
-        is.null(config$env$dirs$trap_data_source) ||
-        is.null(config$env$trap_data_files$raw_trap_data)) {
-      return(NULL)
-    }
-
-    raw_path <- file.path(
-      config$env$dirs$trap_data_source,
-      config$env$trap_data_files$raw_trap_data
-    )
-    if (!file.exists(raw_path)) {
-      return(NULL)
-    }
-
-    raw_traps <- utils::read.csv(
-      raw_path,
-      stringsAsFactors = FALSE,
-      na.strings = c("", "NA", "NULL"),
-      check.names = FALSE,
-      fileEncoding = "UTF-8-BOM"
-    )
-    raw_traps$trapdata_id <- as.character(raw_traps$trapdata_id)
-    raw_traps[raw_traps$trapdata_id == source_trapdata_id, , drop = FALSE]
+    NULL
   }
 
   show_trap_observation_modal <- function(observation_id) {
@@ -201,6 +179,60 @@
     show_trap_observation_modal(observation_id)
   })
 
+  get_observation_lookup <- function() {
+    lookup <- session$userData$observation_lookup
+
+    if (is.null(lookup)) {
+      lookup <- stats::setNames(seq_len(nrow(core_data$obs)), as.character(core_data$obs$observationID))
+      session$userData$observation_lookup <- lookup
+    }
+
+    lookup
+  }
+
+  get_media_sequence_lookup <- function() {
+    lookup <- session$userData$media_sequence_lookup
+
+    if (is.null(lookup)) {
+      lookup <- split(seq_len(nrow(core_data$media)), as.character(core_data$media$sequenceID))
+      session$userData$media_sequence_lookup <- lookup
+    }
+
+    lookup
+  }
+
+  get_observation_row_by_id <- function(observation_id) {
+    lookup <- get_observation_lookup()
+    row_index <- lookup[[as.character(observation_id)]]
+
+    if (is.null(row_index) || is.na(row_index)) {
+      return(NULL)
+    }
+
+    core_data$obs[row_index, , drop = FALSE]
+  }
+
+  get_sequence_media_by_id <- function(sequence_id) {
+    lookup <- get_media_sequence_lookup()
+    row_indices <- lookup[[as.character(sequence_id)]]
+
+    if (is.null(row_indices) || length(row_indices) == 0) {
+      return(core_data$media[0, , drop = FALSE])
+    }
+
+    core_data$media[row_indices, , drop = FALSE]
+  }
+
+  create_modal_observation_record_ui <- function(obs_row) {
+    setup_kable_output(
+      table_id = "special_observation_viewer",
+      data = obs_row,
+      table_type = "short",
+      column_spec = NULL,
+      heading_level = NULL
+    )
+  }
+
   # Updated create_observation_viewer_output function
   create_observation_viewer_output <- function(observation_id = NULL, action_type) {
    # browser()
@@ -210,15 +242,10 @@
     view_mode <- action_parts[2]   # "modal" or "pageview" (only relevant for view_sequence)
 
     # Fetch the observation row
-    obs_row <- core_data$obs %>%
-      dplyr::filter(observationID == observation_id)
+    obs_row <- get_observation_row_by_id(observation_id)
 
     if (!is.null(obs_row)) {
-      media <- core_data$media
-
-      # Filter media for the specified sequenceID
-      media_filtered <- media %>%
-        dplyr::filter(sequenceID == obs_row$sequenceID)
+      media_filtered <- get_sequence_media_by_id(obs_row$sequenceID)
 
       sequence_media_info <- get_sequence_media_urls(media_filtered)
 
@@ -227,13 +254,7 @@
         if (view_mode == "modal") {
           # Render for modal
           output$observation_record_table_modal <- renderUI({
-            setup_kable_output(
-              table_id = "special_observation_viewer",
-              data = obs_row,
-              table_type = "short",
-              column_spec = NULL,
-              heading_level = NULL
-            )
+            create_modal_observation_record_ui(obs_row)
           })
         } else if (view_mode == "pageview") {
           # Render for pageview
@@ -264,7 +285,8 @@
 
       return(list(
         sequence_id = obs_row$sequenceID,
-        sequence_media_info = sequence_media_info
+        sequence_media_info = sequence_media_info,
+        observation_row = obs_row
       ))
     }
   }
@@ -316,6 +338,8 @@
         observation_id
       )
 
+      observation_record_ui <- create_modal_observation_record_ui(observation_details$observation_row)
+
       # Show the modal
       showModal(modalDialog(
         title = tagList(
@@ -333,7 +357,7 @@
           )
         ),
         image_output$ui_elements,
-        uiOutput("observation_record_table_modal"),
+        observation_record_ui,
         size = "l",
         easyClose = TRUE,
         footer = nav_footer

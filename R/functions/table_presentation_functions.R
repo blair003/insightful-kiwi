@@ -643,7 +643,7 @@ prepare_table_data <- function(data,
   }
   
   if ("observationID" %in% names(data) && "observationID" %in% fields) {
-    project_id <- data_package$project$id
+    project_id <- monitoring_data$project$id
     truncate_uuid <- TRUE
     #action_type <- "edit_sequence|modal" 
     action_type <- "view_sequence|modal"
