@@ -126,10 +126,14 @@ create_pdf_export_density_map <- function(active_locations,
                                           obs_summary_location,
                                           show_zero = TRUE,
                                           predicted_rai_surface = NULL,
+                                          show_location_markers = TRUE,
+                                          marker_metric = "count",
                                           width = NULL,
                                           height = NULL) {
   max_scale <- 1
   radius_range <- c(10, 50)
+  marker_metric <- if (!is.null(marker_metric) && marker_metric %in% c("count", "rai")) marker_metric else "count"
+  marker_value_label <- if (identical(marker_metric, "rai")) "Line RAI" else "Number of individuals"
 
   if (is.null(active_locations)) {
     active_locations <- data.frame()
@@ -156,23 +160,43 @@ create_pdf_export_density_map <- function(active_locations,
     obs_summary_location$count <- numeric(0)
   }
 
+  if (identical(marker_metric, "rai") && "line_rai" %in% names(obs_summary_location)) {
+    obs_summary_location$marker_value <- ifelse(is.finite(obs_summary_location$line_rai), obs_summary_location$line_rai, 0)
+  } else {
+    obs_summary_location$marker_value <- ifelse(is.finite(obs_summary_location$count), obs_summary_location$count, 0)
+  }
+
+  max_marker_value <- if (nrow(obs_summary_location) > 0) {
+    max(obs_summary_location$marker_value, na.rm = TRUE)
+  } else {
+    NA_real_
+  }
+
+  can_scale_marker_radius <- !is.na(max_marker_value) && max_marker_value > 0
   obs_summary_location <- obs_summary_location %>%
     dplyr::mutate(
       radius = ifelse(
-        count > 0 & !is.na(max_count) & max_count > 0,
-        scales::rescale(count, to = radius_range, from = c(0, max_count)),
+        marker_value > 0 & can_scale_marker_radius,
+        scales::rescale(marker_value, to = radius_range, from = c(0, max_marker_value)),
         radius_range[1]
       )
     )
 
-  pal <- leaflet::colorNumeric(palette = "inferno", domain = obs_summary_location$count)
+  pal_domain <- if (!is.na(max_marker_value) && max_marker_value > 0) c(0, max_marker_value) else obs_summary_location$marker_value
+  pal <- leaflet::colorNumeric(palette = "inferno", domain = pal_domain)
   map <- leaflet::leaflet(width = width, height = height) %>%
     leaflet::addTiles(options = leaflet::tileOptions(crossOrigin = TRUE))
 
   if (!is.null(predicted_rai_surface) && nrow(predicted_rai_surface) > 0) {
+    surface_max <- max(predicted_rai_surface$predicted_rai, na.rm = TRUE)
+    surface_domain <- if (is.finite(surface_max) && surface_max > 0) {
+      c(0, surface_max)
+    } else {
+      c(0, 1)
+    }
     surface_pal <- leaflet::colorNumeric(
       palette = "YlOrRd",
-      domain = predicted_rai_surface$predicted_rai
+      domain = surface_domain
     )
 
     map <- map %>%
@@ -193,44 +217,51 @@ create_pdf_export_density_map <- function(active_locations,
       )
   }
 
-  non_zero_locations <- obs_summary_location %>% dplyr::filter(count > 0)
-  if (nrow(non_zero_locations) > 0) {
-    map <- map %>%
-      leaflet::addCircleMarkers(
-        data = non_zero_locations,
-        lng = ~longitude,
-        lat = ~latitude,
-        radius = ~radius * max_scale,
-        fillColor = ~pal(count),
-        fillOpacity = 0.8,
-        stroke = FALSE
-      )
-  }
+  if (isTRUE(show_location_markers)) {
+    circle_locations <- if (identical(marker_metric, "rai")) {
+      obs_summary_location %>% dplyr::filter(is.finite(marker_value))
+    } else {
+      obs_summary_location %>% dplyr::filter(count > 0)
+    }
 
-  if (show_zero && nrow(obs_summary_location) > 0) {
-    zero_locations <- obs_summary_location %>% dplyr::filter(count == 0)
-    if (nrow(zero_locations) > 0) {
+    if (nrow(circle_locations) > 0) {
       map <- map %>%
-        leaflet::addMarkers(
-          data = zero_locations,
+        leaflet::addCircleMarkers(
+          data = circle_locations,
           lng = ~longitude,
           lat = ~latitude,
-          icon = get_species_icon(species = "none"),
-          popup = ~paste(locationName, "<br>Count: 0")
+          radius = ~radius * max_scale,
+          fillColor = ~pal(marker_value),
+          fillOpacity = 0.8,
+          stroke = FALSE
         )
     }
-  }
 
-  if (!is.na(max_count) && max_count > 0) {
-    map <- map %>%
-      leaflet::addLegend(
-        "bottomright",
-        pal = pal,
-        values = obs_summary_location$count,
-        title = "Number of individuals",
-        labFormat = leaflet::labelFormat(),
-        opacity = 1
-      )
+    if (show_zero && identical(marker_metric, "count") && nrow(obs_summary_location) > 0) {
+      zero_locations <- obs_summary_location %>% dplyr::filter(count == 0)
+      if (nrow(zero_locations) > 0) {
+        map <- map %>%
+          leaflet::addMarkers(
+            data = zero_locations,
+            lng = ~longitude,
+            lat = ~latitude,
+            icon = get_species_icon(species = "none"),
+            popup = ~paste(locationName, "<br>Count: 0")
+          )
+      }
+    }
+
+    if (!is.na(max_marker_value) && max_marker_value > 0) {
+      map <- map %>%
+        leaflet::addLegend(
+          "bottomright",
+          pal = pal,
+          values = obs_summary_location$marker_value,
+          title = marker_value_label,
+          labFormat = leaflet::labelFormat(),
+          opacity = 1
+        )
+    }
   }
 
   if (nrow(active_locations) > 0 &&

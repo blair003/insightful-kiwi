@@ -80,7 +80,9 @@ calculate_distance_between_line_locations <- function(deployments, min_distance_
 
 
 
-
+# Takes known RAI values at camera/site coordinates, draws a buffered boundary
+# around those sites, lays a grid over that boundary, estimates RAI at each grid
+# cell using inverse-distance weighting, and returns polygons ready to plot on a Shiny map.
 create_idw_prediction_surface <- function(location_values,
                                           value_col = "rai",
                                           group_col = "locality",
@@ -106,8 +108,7 @@ create_idw_prediction_surface <- function(location_values,
         is.finite(.data$.surface_value)
       )
 
-    if (nrow(usable_locations) < min_points ||
-        !any(usable_locations$.surface_value > 0, na.rm = TRUE)) {
+    if (nrow(usable_locations) < min_points) {
       return(NULL)
     }
 

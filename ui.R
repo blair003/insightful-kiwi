@@ -219,12 +219,14 @@ ui <- function(request) {
         mapping_module_ui(
           id = "density_playback_map",
           view = "density_options",
-          include_prediction_option = FALSE
+          include_prediction_option = FALSE,
+          include_marker_options = FALSE
         ),
 
         mapping_module_ui(
           id = "density_playback_map",
-          view = "density_playback_controls"
+          view = "density_playback_controls",
+          include_marker_options = TRUE
         )
       ),
       
@@ -263,7 +265,8 @@ ui <- function(request) {
 
         mapping_module_ui(
           id = "observation_map",
-          view = "density_playback_controls"
+          view = "density_playback_controls",
+          include_prediction_option = FALSE
         )
         
       ), # conditionalPanel

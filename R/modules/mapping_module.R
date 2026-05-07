@@ -225,6 +225,48 @@ playback_gap_skip_target <- function(current_time, next_time, playback_end, peri
   NULL
 }
 
+playback_next_season_time <- function(current_time, playback_end, period_groups) {
+  current_time <- as.POSIXct(current_time, tz = playback_actual_timezone())
+  playback_end <- as.POSIXct(playback_end, tz = playback_actual_timezone())
+  periods <- playback_monitoring_periods(period_groups)
+
+  if (is.null(current_time) || is.na(current_time) ||
+      is.null(playback_end) || is.na(playback_end) ||
+      nrow(periods) == 0) {
+    return(playback_end)
+  }
+
+  candidate <- periods %>%
+    dplyr::filter(.data$end > current_time, .data$start <= playback_end) %>%
+    dplyr::slice(1)
+
+  if (nrow(candidate) == 0) {
+    return(playback_end)
+  }
+
+  min(candidate$end[[1]], playback_end)
+}
+
+playback_current_season_start <- function(current_time, period_groups, fallback_start) {
+  current_time <- as.POSIXct(current_time, tz = playback_actual_timezone())
+  fallback_start <- as.POSIXct(fallback_start, tz = playback_actual_timezone())
+  periods <- playback_monitoring_periods(period_groups)
+
+  if (is.null(current_time) || is.na(current_time) || nrow(periods) == 0) {
+    return(fallback_start)
+  }
+
+  candidate <- periods %>%
+    dplyr::filter(.data$start <= current_time, .data$end >= current_time) %>%
+    dplyr::slice(1)
+
+  if (nrow(candidate) == 0) {
+    return(fallback_start)
+  }
+
+  max(candidate$start[[1]], fallback_start)
+}
+
 playback_window_readout <- function(start_time, current_time, step_size, weather_df, view_mode = "single") {
   if (is.null(start_time) || is.null(current_time) || is.na(start_time) || is.na(current_time)) {
     return(NULL)
@@ -255,6 +297,8 @@ mapping_module_ui <- function(id,
                               multiple = TRUE,
                               label = "Species selection:",
                               include_prediction_option = TRUE,
+                              include_marker_options = include_prediction_option,
+                              prediction_cumulative_only = FALSE,
                               map_height = config$globals$leaflet_height) { # Added map_height
   ns <- NS(id)
   
@@ -293,6 +337,22 @@ mapping_module_ui <- function(id,
       )
     )
   } else if (view == "density_options") {
+    prediction_condition <- if (isTRUE(prediction_cumulative_only)) {
+      "input.playback_view_mode === 'cumulative'"
+    } else {
+      "true"
+    }
+    prediction_basis_condition <- if (isTRUE(prediction_cumulative_only)) {
+      "input.playback_view_mode === 'cumulative' && input.show_predicted_rai_surface"
+    } else {
+      "input.show_predicted_rai_surface"
+    }
+    prediction_help_text <- if (isTRUE(prediction_cumulative_only)) {
+      "Predicted surface uses IDW interpolation within the monitored footprint and updates monthly during cumulative playback."
+    } else {
+      "Predicted surface uses IDW interpolation within the monitored footprint."
+    }
+
     return(
       tagList(
         checkboxInput(
@@ -300,15 +360,61 @@ mapping_module_ui <- function(id,
           label = "Exclude possible duplicates",
           value = isTRUE(config$globals$use_net_data)
         ),
-        if (isTRUE(include_prediction_option)) {
+        if (isTRUE(include_prediction_option) || isTRUE(include_marker_options)) {
+          tags$hr()
+        },
+        if (isTRUE(include_marker_options)) {
           checkboxInput(
-            inputId = ns("show_predicted_rai_surface"),
-            label = "Show predicted RAI surface",
-            value = FALSE
+            inputId = ns("show_density_location_markers"),
+            label = "Show camera markers",
+            value = TRUE
+          )
+        },
+        if (isTRUE(include_marker_options)) {
+          conditionalPanel(
+            condition = "input.show_density_location_markers",
+            ns = ns,
+            radioButtons(
+              inputId = ns("density_marker_metric"),
+              label = "Marker value:",
+              choices = c("Counts" = "count", "Line RAI" = "rai"),
+              selected = "count",
+              inline = TRUE
+            )
           )
         },
         if (isTRUE(include_prediction_option)) {
-          tags$small("Predicted surface uses effort-normalised RAI and IDW interpolation within the monitored footprint.")
+          conditionalPanel(
+            condition = prediction_condition,
+            ns = ns,
+            checkboxInput(
+              inputId = ns("show_predicted_rai_surface"),
+              label = "Show predicted RAI surface",
+              value = FALSE
+            )
+          )
+        },
+        if (isTRUE(include_prediction_option)) {
+          conditionalPanel(
+            condition = prediction_basis_condition,
+            ns = ns,
+            radioButtons(
+              inputId = ns("predicted_rai_surface_basis"),
+              label = "Surface basis:",
+              choices = c(
+                "Location-weighted line RAI" = "weighted_line_rai",
+                "Line RAI" = "line_rai"
+              ),
+              selected = "weighted_line_rai"
+            )
+          )
+        },
+        if (isTRUE(include_prediction_option)) {
+          conditionalPanel(
+            condition = prediction_condition,
+            ns = ns,
+            tags$small(prediction_help_text)
+          )
         }
       )
     )
@@ -345,30 +451,6 @@ mapping_module_ui <- function(id,
           class = "playback-reset-row",
           actionButton(ns("reset_btn"), "Reset progression", icon = icon("rotate-left"), class = "btn-outline-danger")
         ),
-        selectInput(
-          inputId = ns("playback_step_size"),
-          label = "Playback increments",
-          choices = c(
-            "Hourly" = "hour",
-            "Daily - Day/Night" = "day_night",
-            "Diel activity" = "diel",
-            "Daily" = "day",
-            "Weekly" = "week",
-            "Monthly" = "month"
-          ),
-          selected = "day"
-        ),
-        checkboxInput(
-          inputId = ns("skip_playback_gaps"),
-          label = "Skip gaps between monitoring seasons",
-          value = TRUE
-        ),
-        radioButtons(
-          inputId = ns("playback_view_mode"),
-          label = "View mode:",
-          choices = c("Single period" = "single", "Cumulative" = "cumulative"),
-          selected = "cumulative"
-        ),
         div(
           class = "playback-speed-control",
           sliderInput(
@@ -380,7 +462,79 @@ mapping_module_ui <- function(id,
             class = "playback-speed-labels",
             tags$span("Faster"), tags$span("Slower")
           )
-        )
+        ),
+        selectInput(
+          inputId = ns("playback_step_size"),
+          label = "Playback increments",
+          choices = c(
+            "Hourly" = "hour",
+            "Daily - Day/Night" = "day_night",
+            "Diel activity" = "diel",
+            "Daily" = "day",
+            "Weekly" = "week",
+            "Monthly" = "month",
+            "Season" = "season"
+          ),
+          selected = "day"
+        ),
+        checkboxInput(
+          inputId = ns("skip_playback_gaps"),
+          label = "Skip gaps in monitoring data",
+          value = TRUE
+        ),
+        if (isTRUE(include_marker_options)) {
+          checkboxInput(
+            inputId = ns("show_density_location_markers"),
+            label = "Show camera markers",
+            value = TRUE
+          )
+        },
+        if (isTRUE(include_marker_options)) {
+          conditionalPanel(
+            condition = "input.show_density_location_markers",
+            ns = ns,
+            radioButtons(
+              inputId = ns("density_marker_metric"),
+              label = "Marker value:",
+              choices = c("Counts" = "count", "Line RAI" = "rai"),
+              selected = "count",
+              inline = TRUE
+            )
+          )
+        },
+        radioButtons(
+          inputId = ns("playback_view_mode"),
+          label = "View mode:",
+          choices = c("Single period" = "single", "Cumulative" = "cumulative"),
+          selected = "cumulative"
+        ),
+        if (isTRUE(include_prediction_option)) {
+          conditionalPanel(
+            condition = "input.playback_view_mode === 'cumulative'",
+            ns = ns,
+            checkboxInput(
+              inputId = ns("show_predicted_rai_surface"),
+              label = "Show predicted RAI surface",
+              value = FALSE
+            )
+          )
+        },
+        if (isTRUE(include_prediction_option)) {
+          conditionalPanel(
+            condition = "input.playback_view_mode === 'cumulative' && input.show_predicted_rai_surface",
+            ns = ns,
+            radioButtons(
+              inputId = ns("predicted_rai_surface_basis"),
+              label = "Surface basis:",
+              choices = c(
+                "Location-weighted line RAI" = "weighted_line_rai",
+                "Line RAI" = "line_rai"
+              ),
+              selected = "weighted_line_rai"
+            ),
+            tags$small("Predicted surface uses IDW interpolation within the monitored footprint and updates monthly during cumulative playback.")
+          )
+        }
       )
     )
   } else if (view == "map") { # This is for the density map
@@ -474,6 +628,9 @@ mapping_module_server <- function(id,
                                   species_override = NULL, # Reactive: for comparative density map
                                   localities_override = NULL, # Reactive: for comparative density map
                                   prediction_surface_override = NULL, # Reactive: for comparative density map
+                                  prediction_surface_basis_override = NULL, # Reactive: for comparative density map
+                                  location_markers_override = NULL, # Reactive: for comparative density map
+                                  marker_metric_override = NULL, # Reactive: for comparative density map
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
                                   playback_mode = c("none", "always"),
@@ -490,6 +647,8 @@ mapping_module_server <- function(id,
     MAP_ID <- ns("map_display") 
     current_bounds <- reactiveVal(NULL) # Unified reactiveVal for map bounds
     needs_fit_bounds <- reactiveVal(FALSE)
+    predicted_rai_surface_cache <- reactiveVal(NULL)
+    last_density_map_update_key <- reactiveVal(NULL)
 
     observeEvent(use_net(), {
       updateCheckboxInput(
@@ -508,6 +667,10 @@ mapping_module_server <- function(id,
     })
 
     show_predicted_rai_surface_selected <- reactive({
+      if (playback_active() && !identical(input$playback_view_mode, "cumulative")) {
+        return(FALSE)
+      }
+
       if (type == "density" &&
           !is.null(prediction_surface_override) &&
           !is.null(prediction_surface_override())) {
@@ -515,6 +678,52 @@ mapping_module_server <- function(id,
       }
 
       isTRUE(input$show_predicted_rai_surface)
+    })
+
+    predicted_rai_surface_basis_selected <- reactive({
+      if (type == "density" &&
+          !is.null(prediction_surface_basis_override) &&
+          !is.null(prediction_surface_basis_override())) {
+        basis <- prediction_surface_basis_override()
+      } else {
+        basis <- input$predicted_rai_surface_basis
+      }
+
+      if (is.null(basis) || !basis %in% c("line_rai", "weighted_line_rai")) {
+        return("line_rai")
+      }
+
+      basis
+    })
+
+    show_density_location_markers_selected <- reactive({
+      if (type == "density" &&
+          !is.null(location_markers_override) &&
+          !is.null(location_markers_override())) {
+        return(isTRUE(location_markers_override()))
+      }
+
+      if (is.null(input$show_density_location_markers)) {
+        return(TRUE)
+      }
+
+      isTRUE(input$show_density_location_markers)
+    })
+
+    density_marker_metric_selected <- reactive({
+      if (type == "density" &&
+          !is.null(marker_metric_override) &&
+          !is.null(marker_metric_override())) {
+        metric <- marker_metric_override()
+      } else {
+        metric <- input$density_marker_metric
+      }
+
+      if (is.null(metric) || !metric %in% c("count", "rai")) {
+        return("count")
+      }
+
+      metric
     })
     
     # --- Common Reactives ---
@@ -791,6 +1000,7 @@ mapping_module_server <- function(id,
           "day" = 86400,
           "week" = 604800,
           "month" = 2592000,
+          "season" = 604800,
           86400
         )
       })
@@ -804,6 +1014,9 @@ mapping_module_server <- function(id,
               next_weather_boundary(playback_period_start(), playback_period_end(), playback_weather_data(), step_size),
               playback_period_end()
             ))
+          }
+          if (identical(step_size, "season")) {
+            return(playback_next_season_time(playback_period_start(), playback_period_end(), playback_period_groups()))
           }
           min(playback_period_start() + playback_step_seconds(), playback_period_end())
         } else {
@@ -874,6 +1087,30 @@ mapping_module_server <- function(id,
         is_playing(FALSE)
       })
 
+      observeEvent(input$show_predicted_rai_surface, {
+        req(playback_active())
+        if (isTRUE(input$show_predicted_rai_surface)) {
+          current_speed <- if (is.null(input$playback_speed)) 1 else as.numeric(input$playback_speed)
+          if (is.finite(current_speed) && current_speed < 2) {
+            updateSliderInput(session, "playback_speed", value = 2)
+          }
+          current_step <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+          if (current_step %in% c("hour", "day_night", "diel", "day")) {
+            updateSelectInput(session, "playback_step_size", selected = "week")
+          }
+        }
+      }, ignoreInit = TRUE)
+
+      observeEvent(input$show_density_location_markers, {
+        req(playback_active())
+        if (!isTRUE(input$show_density_location_markers)) {
+          current_step <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+          if (current_step %in% c("hour", "day_night", "diel", "day")) {
+            updateSelectInput(session, "playback_step_size", selected = "week")
+          }
+        }
+      }, ignoreInit = TRUE)
+
       observeEvent(input$reset_btn, {
         playback_skip_resume_id(playback_skip_resume_id() + 1L)
         playback_gap_notice(NULL)
@@ -916,6 +1153,8 @@ mapping_module_server <- function(id,
         current_val <- playback_as_posix(input$time_slider)
         next_val <- if (step_size %in% c("day_night", "diel")) {
           next_weather_boundary(current_val, playback_period_end(), playback_weather_data(), step_size)
+        } else if (identical(step_size, "season")) {
+          playback_next_season_time(current_val, playback_period_end(), playback_period_groups())
         } else {
           current_val + playback_step_seconds()
         }
@@ -955,6 +1194,9 @@ mapping_module_server <- function(id,
           updateSliderInput(session, "time_slider", value = next_val)
         } else {
           playback_gap_notice(NULL)
+          if (current_val < playback_period_end()) {
+            updateSliderInput(session, "time_slider", value = playback_period_end())
+          }
           is_playing(FALSE)
         }
       }, ignoreInit = TRUE)
@@ -1009,6 +1251,8 @@ mapping_module_server <- function(id,
           start_time_dens <- if (identical(input$playback_view_mode, "single")) {
             if (step_size %in% c("day_night", "diel")) {
               previous_weather_boundary(current_time_dens, playback_period_start(), playback_weather_data(), step_size)
+            } else if (identical(step_size, "season")) {
+              playback_current_season_start(current_time_dens, playback_period_groups(), playback_period_start())
             } else {
               current_time_dens - playback_step_seconds()
             }
@@ -1037,14 +1281,6 @@ mapping_module_server <- function(id,
             dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
         }
         
-        obs_summary_location_dens <- obs_filtered_dens %>%
-          dplyr::group_by(locationID, locationName, locality, longitude, latitude) %>%
-          dplyr::summarise(
-            count = sum(count, na.rm = TRUE),
-            observation_ids = list(unique(observationID)),
-            .groups = "drop"
-          )
-
         active_location_effort_dens <- deps() %>%
           dplyr::filter(locality %in% localities_dens) %>%
           dplyr::group_by(locationID) %>%
@@ -1062,44 +1298,191 @@ mapping_module_server <- function(id,
           dplyr::group_by(locationID) %>%
           dplyr::summarise(
             count = sum(count, na.rm = TRUE),
+            observation_ids = list(unique(observationID)),
             .groups = "drop"
           )
 
-        rai_location_dens <- active_location_effort_dens %>%
+        location_summary_dens <- active_location_effort_dens %>%
           dplyr::left_join(obs_location_counts_dens, by = "locationID") %>%
           dplyr::mutate(
-            count = dplyr::coalesce(.data$count, 0),
-            rai = dplyr::if_else(
-              is.finite(.data$camera_hours) & .data$camera_hours > 0,
-              (.data$count / .data$camera_hours) * config$globals$rai_norm_hours,
+            count = dplyr::coalesce(.data$count, 0)
+          )
+
+        line_rai_summary_dens <- location_summary_dens %>%
+          dplyr::group_by(locality, line) %>%
+          dplyr::summarise(
+            line_count = sum(count, na.rm = TRUE),
+            line_camera_hours = sum(camera_hours, na.rm = TRUE),
+            .groups = "drop"
+          ) %>%
+          dplyr::mutate(
+            line_rai = dplyr::if_else(
+              is.finite(.data$line_camera_hours) & .data$line_camera_hours > 0,
+              (.data$line_count / .data$line_camera_hours) * config$globals$rai_norm_hours,
               NA_real_
             )
           )
 
+        rai_location_dens <- location_summary_dens %>%
+          dplyr::left_join(line_rai_summary_dens, by = c("locality", "line")) %>%
+          dplyr::mutate(
+            location_line_count_share = dplyr::if_else(
+              is.finite(.data$line_count) & .data$line_count > 0,
+              .data$count / .data$line_count,
+              0
+            ),
+            weighted_line_rai = dplyr::if_else(
+              is.finite(.data$line_rai),
+              .data$line_rai * .data$location_line_count_share,
+              NA_real_
+            ),
+            rai = .data$line_rai
+          )
+
+        obs_summary_location_dens <- rai_location_dens
+
         predicted_rai_surface <- NULL
         predicted_rai_surface_message <- NULL
+        predicted_rai_surface_cache_key <- "surface-off"
         if (isTRUE(show_predicted_rai_surface_selected())) {
-          usable_rai_locations <- rai_location_dens %>%
-            dplyr::filter(
-              is.finite(.data$longitude),
-              is.finite(.data$latitude),
-              is.finite(.data$rai)
-            )
-
-          if (nrow(usable_rai_locations) < 3) {
-            predicted_rai_surface_message <- "Predicted RAI surface needs at least three active camera locations with effort data."
-          } else if (!any(usable_rai_locations$rai > 0, na.rm = TRUE)) {
-            predicted_rai_surface_message <- "Predicted RAI surface is not shown because this selection has no positive RAI values."
+          surface_basis <- predicted_rai_surface_basis_selected()
+          surface_basis_label <- if (identical(surface_basis, "weighted_line_rai")) {
+            "location-weighted line RAI"
           } else {
-            predicted_rai_surface <- create_idw_prediction_surface(
-              usable_rai_locations,
-              value_col = "rai",
-              group_col = "locality"
-            )
+            "line RAI"
+          }
+          surface_grid_n <- if (use_playback) 38 else 45
+          surface_time_dens <- current_time_dens
 
-            if (is.null(predicted_rai_surface) || nrow(predicted_rai_surface) == 0) {
-              predicted_rai_surface_message <- "Predicted RAI surface is not available for the current camera layout."
+          if (use_playback) {
+            req(current_time_dens, playback_period_start(), playback_period_end())
+            if (current_time_dens >= playback_period_end()) {
+              surface_time_dens <- playback_period_end()
+            } else {
+              surface_time_dens <- lubridate::floor_date(current_time_dens, unit = "month")
+              if (surface_time_dens < playback_period_start()) {
+                surface_time_dens <- playback_period_start()
+              }
+              surface_time_dens <- as.POSIXct(surface_time_dens, tz = playback_actual_timezone())
             }
+          }
+
+          surface_time_key <- if (use_playback && !is.null(surface_time_dens)) {
+            format(surface_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone())
+          } else {
+            "current-selection"
+          }
+
+          surface_cache_key <- paste(
+            id,
+            if (use_playback) "playback-monthly" else "static",
+            paste(sort(species_dens), collapse = ","),
+            paste(sort(localities_dens), collapse = ","),
+            new_bounds_key,
+            surface_basis,
+            surface_time_key,
+            exclude_possible_duplicates_selected(),
+            sep = "|"
+          )
+          predicted_rai_surface_cache_key <- surface_cache_key
+
+          surface_cache <- predicted_rai_surface_cache()
+          if (!is.null(surface_cache) && identical(surface_cache$key, surface_cache_key)) {
+            predicted_rai_surface <- surface_cache$surface
+            predicted_rai_surface_message <- surface_cache$message
+          } else {
+            surface_rai_locations <- rai_location_dens
+            if (use_playback) {
+              surface_obs_filtered_dens <- obs() %>%
+                dplyr::filter(
+                  scientificName_lower %in% species_dens,
+                  locality %in% localities_dens,
+                  timestamp >= playback_period_start(),
+                  timestamp <= surface_time_dens
+                )
+
+              if (isTRUE(exclude_possible_duplicates_selected()) &&
+                  "possible_duplicate" %in% names(surface_obs_filtered_dens)) {
+                surface_obs_filtered_dens <- surface_obs_filtered_dens %>%
+                  dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
+              }
+
+              surface_obs_location_counts_dens <- surface_obs_filtered_dens %>%
+                dplyr::group_by(locationID) %>%
+                dplyr::summarise(
+                  count = sum(count, na.rm = TRUE),
+                  observation_ids = list(unique(observationID)),
+                  .groups = "drop"
+                )
+
+              surface_location_summary_dens <- active_location_effort_dens %>%
+                dplyr::left_join(surface_obs_location_counts_dens, by = "locationID") %>%
+                dplyr::mutate(count = dplyr::coalesce(.data$count, 0))
+
+              surface_line_rai_summary_dens <- surface_location_summary_dens %>%
+                dplyr::group_by(locality, line) %>%
+                dplyr::summarise(
+                  line_count = sum(count, na.rm = TRUE),
+                  line_camera_hours = sum(camera_hours, na.rm = TRUE),
+                  .groups = "drop"
+                ) %>%
+                dplyr::mutate(
+                  line_rai = dplyr::if_else(
+                    is.finite(.data$line_camera_hours) & .data$line_camera_hours > 0,
+                    (.data$line_count / .data$line_camera_hours) * config$globals$rai_norm_hours,
+                    NA_real_
+                  )
+                )
+
+              surface_rai_locations <- surface_location_summary_dens %>%
+                dplyr::left_join(surface_line_rai_summary_dens, by = c("locality", "line")) %>%
+                dplyr::mutate(
+                  location_line_count_share = dplyr::if_else(
+                    is.finite(.data$line_count) & .data$line_count > 0,
+                    .data$count / .data$line_count,
+                    0
+                  ),
+                  weighted_line_rai = dplyr::if_else(
+                    is.finite(.data$line_rai),
+                    .data$line_rai * .data$location_line_count_share,
+                    NA_real_
+                  ),
+                  rai = .data$line_rai
+                )
+            }
+
+            usable_rai_locations <- surface_rai_locations %>%
+              dplyr::filter(
+                is.finite(.data$longitude),
+                is.finite(.data$latitude),
+                is.finite(.data[[surface_basis]])
+              )
+
+            if (nrow(usable_rai_locations) < 3) {
+              predicted_rai_surface_message <- sprintf(
+                "Predicted RAI surface needs at least three active camera locations with %s data.",
+                surface_basis_label
+              )
+            } else {
+              predicted_rai_surface <- create_idw_prediction_surface(
+                usable_rai_locations,
+                value_col = surface_basis,
+                group_col = "locality",
+                grid_n = surface_grid_n
+              )
+
+              if (is.null(predicted_rai_surface) || nrow(predicted_rai_surface) == 0) {
+                predicted_rai_surface_message <- "Predicted RAI surface is not available for the current camera layout."
+              }
+            }
+
+            predicted_rai_surface_cache(
+              list(
+                key = surface_cache_key,
+                surface = predicted_rai_surface,
+                message = predicted_rai_surface_message
+              )
+            )
           }
         }
         
@@ -1119,11 +1502,24 @@ mapping_module_server <- function(id,
           dplyr::summarise(count = sum(count)) %>%
           dplyr::mutate(locality = "Grand Total")
         
-        absolute_max <- obs_for_scale_dens %>%
-          dplyr::group_by(locationID) %>%
-          dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
-          dplyr::summarise(max_count = max(count, na.rm = TRUE)) %>%
-          dplyr::pull(max_count)
+        max_location_count <- function(observations) {
+          if (is.null(observations) || nrow(observations) == 0) {
+            return(0)
+          }
+
+          counts <- observations %>%
+            dplyr::group_by(locationID) %>%
+            dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+            dplyr::pull(count)
+
+          if (length(counts) == 0 || all(is.na(counts))) {
+            return(0)
+          }
+
+          max(counts, na.rm = TRUE)
+        }
+
+        absolute_max <- max_location_count(obs_for_scale_dens)
 
         if (use_playback) {
           playback_absolute_max <- obs() %>%
@@ -1140,11 +1536,7 @@ mapping_module_server <- function(id,
               dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
           }
 
-          playback_absolute_max <- playback_absolute_max %>%
-            dplyr::group_by(locationID) %>%
-            dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
-            dplyr::summarise(max_count = max(count, na.rm = TRUE)) %>%
-            dplyr::pull(max_count)
+          playback_absolute_max <- max_location_count(playback_absolute_max)
 
           if (!is.na(playback_absolute_max) && !is.infinite(playback_absolute_max)) {
             absolute_max <- playback_absolute_max
@@ -1183,6 +1575,25 @@ mapping_module_server <- function(id,
           obs_filtered = obs_filtered_dens,
           predicted_rai_surface = predicted_rai_surface,
           predicted_rai_surface_message = predicted_rai_surface_message,
+          predicted_rai_surface_basis = predicted_rai_surface_basis_selected(),
+          map_update_key = paste(
+            id,
+            if (use_playback) "playback" else "static",
+            paste(sort(species_dens), collapse = ","),
+            paste(sort(localities_dens), collapse = ","),
+            new_bounds_key,
+            if (is.null(start_time_dens)) "no-start" else format(start_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
+            if (is.null(current_time_dens)) "no-current" else format(current_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
+            exclude_possible_duplicates_selected(),
+            show_density_location_markers_selected(),
+            density_marker_metric_selected(),
+            show_predicted_rai_surface_selected(),
+            predicted_rai_surface_basis_selected(),
+            predicted_rai_surface_cache_key,
+            sep = "|"
+          ),
+          show_location_markers = show_density_location_markers_selected(),
+          marker_metric = density_marker_metric_selected(),
           weather_control = weather_control,
           period_control = period_control,
           skip_notice = render_playback_skip_notice(playback_gap_notice())
@@ -1194,6 +1605,16 @@ mapping_module_server <- function(id,
         req(mapping_data_density())
         logger::log_debug(sprintf("mapping_module_server [density], %s observer updating density map content on %s", id, MAP_ID))
         data_for_map <- mapping_data_density()
+
+        if (!is.null(data_for_map$map_update_key) &&
+            identical(last_density_map_update_key(), data_for_map$map_update_key)) {
+          if (isTRUE(needs_fit_bounds())) {
+            apply_map_fit_bounds()
+            needs_fit_bounds(FALSE)
+          }
+          return()
+        }
+        last_density_map_update_key(data_for_map$map_update_key)
         
         # update_density_map is a function specific to rendering density data.
         # It now targets the unified MAP_ID.
@@ -1205,6 +1626,8 @@ mapping_module_server <- function(id,
           absolute_max = data_for_map$absolute_max,
           predicted_rai_surface = data_for_map$predicted_rai_surface,
           predicted_rai_surface_message = data_for_map$predicted_rai_surface_message,
+          show_location_markers = data_for_map$show_location_markers,
+          marker_metric = data_for_map$marker_metric,
           weather_control_html = data_for_map$weather_control,
           period_control_html = data_for_map$period_control,
           skip_notice_html = data_for_map$skip_notice
@@ -1215,45 +1638,48 @@ mapping_module_server <- function(id,
         }
       })
       
-      output$obs_summary <- renderUI({ # Density-specific summary table
-        data_for_summary <- req(mapping_data_density())
-        data_summary <- data_for_summary$obs_summary_locality_with_total
-        total_row_index <- nrow(data_summary)
-        playback_window <- NULL
-        if (playback_active()) {
-          req(data_for_summary$start_time, data_for_summary$current_time)
-          playback_window <- sprintf(
-            "<div class=\"playback-summary-window\"><strong>Showing window:</strong> %s to %s</div>",
-            playback_format_time(data_for_summary$start_time),
-            playback_format_time(data_for_summary$current_time)
-          )
-        }
-        kable_table <- knitr::kable(data_summary, format = "html", escape = FALSE, col.names = c("Locality", "Count")) %>%
-          kableExtra::kable_styling(
-            bootstrap_options = c("hover", "condensed", "bordered"),
-            full_width = FALSE, position = "center", font_size = 12
-          ) %>%
-          kableExtra::row_spec(total_row_index, bold = TRUE)
-        HTML(paste0(playback_window, kable_table))
-      })
-      outputOptions(output, "obs_summary", suspendWhenHidden = FALSE)
+      if (!playback_active()) {
+        output$obs_summary <- renderUI({ # Density-specific summary table
+          data_for_summary <- req(mapping_data_density())
+          data_summary <- data_for_summary$obs_summary_locality_with_total
+          total_row_index <- nrow(data_summary)
+          kable_table <- knitr::kable(data_summary, format = "html", escape = FALSE, col.names = c("Locality", "Count")) %>%
+            kableExtra::kable_styling(
+              bootstrap_options = c("hover", "condensed", "bordered"),
+              full_width = FALSE, position = "center", font_size = 12
+            ) %>%
+            kableExtra::row_spec(total_row_index, bold = TRUE)
+          HTML(kable_table)
+        })
+        outputOptions(output, "obs_summary", suspendWhenHidden = FALSE)
+      }
 
       output$playback_window_ui <- renderUI({
-        data_for_summary <- req(mapping_data_density())
-        if (!playback_active()) {
-          return(NULL)
+        req(playback_active(), input$time_slider)
+
+        current_time <- playback_as_posix(input$time_slider)
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        view_mode <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+        start_time <- if (identical(view_mode, "single")) {
+          if (step_size %in% c("day_night", "diel")) {
+            previous_weather_boundary(current_time, playback_period_start(), playback_weather_data(), step_size)
+          } else if (identical(step_size, "season")) {
+            playback_current_season_start(current_time, playback_period_groups(), playback_period_start())
+          } else {
+            current_time - playback_step_seconds()
+          }
+        } else {
+          playback_period_start()
         }
 
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
         HTML(playback_window_readout(
-          data_for_summary$start_time,
-          data_for_summary$current_time,
+          start_time,
+          current_time,
           step_size,
           playback_weather_data(),
-          if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+          view_mode
         ))
       })
-      outputOptions(output, "playback_window_ui", suspendWhenHidden = FALSE)
 
       output$playback_data_table <- DT::renderDataTable({
         req(playback_active(), mapping_data_density())
@@ -1286,6 +1712,8 @@ mapping_module_server <- function(id,
           obs_summary_location = data_for_map$obs_summary_location,
           show_zero = TRUE,
           predicted_rai_surface = data_for_map$predicted_rai_surface,
+          show_location_markers = data_for_map$show_location_markers,
+          marker_metric = data_for_map$marker_metric,
           width = width,
           height = height
         )
@@ -1343,6 +1771,9 @@ mapping_module_server <- function(id,
         selected_species = current_selected_species,
         selected_localities = current_selected_localities,
         show_predicted_rai_surface = show_predicted_rai_surface_selected,
+        predicted_rai_surface_basis = predicted_rai_surface_basis_selected,
+        show_density_location_markers = show_density_location_markers_selected,
+        density_marker_metric = density_marker_metric_selected,
         recenter_map = recenter_map_generic # Return the generic recenter function
       ))
       
@@ -1496,6 +1927,7 @@ mapping_module_server <- function(id,
           "day" = 86400,
           "week" = 604800,
           "month" = 2592000,
+          "season" = 604800,
           86400
         )
       })
@@ -1508,6 +1940,13 @@ mapping_module_server <- function(id,
             return(min(
               next_weather_boundary(playback_period_start_obs(), playback_period_end_obs(), playback_weather_data_obs(), step_size),
               playback_period_end_obs()
+            ))
+          }
+          if (identical(step_size, "season")) {
+            return(playback_next_season_time(
+              playback_period_start_obs(),
+              playback_period_end_obs(),
+              playback_period_groups_obs()
             ))
           }
           min(playback_period_start_obs() + playback_step_seconds_obs(), playback_period_end_obs())
@@ -1636,6 +2075,8 @@ mapping_module_server <- function(id,
         current_val <- playback_as_posix(input$time_slider)
         next_val <- if (step_size %in% c("day_night", "diel")) {
           next_weather_boundary(current_val, playback_period_end_obs(), playback_weather_data_obs(), step_size)
+        } else if (identical(step_size, "season")) {
+          playback_next_season_time(current_val, playback_period_end_obs(), playback_period_groups_obs())
         } else {
           current_val + playback_step_seconds_obs()
         }
@@ -1771,6 +2212,8 @@ mapping_module_server <- function(id,
           start_time_obsmap <- if (identical(input$playback_view_mode, "single")) {
             if (step_size %in% c("day_night", "diel")) {
               previous_weather_boundary(current_time_obsmap, playback_period_start_obs(), playback_weather_data_obs(), step_size)
+            } else if (identical(step_size, "season")) {
+              playback_current_season_start(current_time_obsmap, playback_period_groups_obs(), playback_period_start_obs())
             } else {
               current_time_obsmap - playback_step_seconds_obs()
             }
@@ -1901,6 +2344,8 @@ mapping_module_server <- function(id,
               playback_weather_data_obs(),
               step_size
             )
+          } else if (identical(step_size, "season")) {
+            playback_current_season_start(current_time_obsmap, playback_period_groups_obs(), playback_period_start_obs())
           } else {
             current_time_obsmap - playback_step_seconds_obs()
           }
@@ -2122,12 +2567,16 @@ update_density_map <- function(map_id = NULL,
                                absolute_max = NULL,
                                predicted_rai_surface = NULL,
                                predicted_rai_surface_message = NULL,
+                               show_location_markers = TRUE,
+                               marker_metric = "count",
                                weather_control_html = NULL,
                                period_control_html = NULL,
                                skip_notice_html = NULL) {
   #browser()
   max_scale <- 1
   radius_range <- c(10, 50)
+  marker_metric <- if (!is.null(marker_metric) && marker_metric %in% c("count", "rai")) marker_metric else "count"
+  marker_value_label <- if (identical(marker_metric, "rai")) "Line RAI" else "Number of individuals"
 
   # Clear the map
   proxy <- leafletProxy(map_id) %>%
@@ -2191,18 +2640,40 @@ update_density_map <- function(map_id = NULL,
     obs_summary_location <- bind_rows(obs_summary_location, zero_entries)
   }
   
+  if (identical(marker_metric, "rai") && "line_rai" %in% names(obs_summary_location)) {
+    obs_summary_location$marker_value <- ifelse(is.finite(obs_summary_location$line_rai), obs_summary_location$line_rai, 0)
+  } else {
+    obs_summary_location$marker_value <- ifelse(is.finite(obs_summary_location$count), obs_summary_location$count, 0)
+  }
+
+  max_marker_value <- if (nrow(obs_summary_location) > 0) {
+    max(obs_summary_location$marker_value, na.rm = TRUE)
+  } else {
+    NA_real_
+  }
+  if (identical(marker_metric, "count") && !is.null(absolute_max) && absolute_max > 0) {
+    max_marker_value <- max(max_marker_value, absolute_max)
+  }
+
+  can_scale_marker_radius <- !is.na(max_marker_value) && max_marker_value > 0
   obs_summary_location <- obs_summary_location %>%
-    mutate(radius = ifelse(count > 0,
-                           scales::rescale(count, to = radius_range, from = c(0, max_count)),
+    mutate(radius = ifelse(marker_value > 0 & can_scale_marker_radius,
+                           scales::rescale(marker_value, to = radius_range, from = c(0, max_marker_value)),
                            radius_range[1]))
-  
-  pal_domain <- if (!is.na(max_count) && max_count > 0) c(0, max_count) else obs_summary_location$count
+
+  pal_domain <- if (!is.na(max_marker_value) && max_marker_value > 0) c(0, max_marker_value) else obs_summary_location$marker_value
   pal <- colorNumeric(palette = "inferno", domain = pal_domain)
 
   if (!is.null(predicted_rai_surface) && nrow(predicted_rai_surface) > 0) {
+    surface_max <- max(predicted_rai_surface$predicted_rai, na.rm = TRUE)
+    surface_domain <- if (is.finite(surface_max) && surface_max > 0) {
+      c(0, surface_max)
+    } else {
+      c(0, 1)
+    }
     surface_pal <- colorNumeric(
       palette = "YlOrRd",
-      domain = predicted_rai_surface$predicted_rai
+      domain = surface_domain
     )
 
     proxy %>%
@@ -2232,68 +2703,144 @@ update_density_map <- function(map_id = NULL,
       )
   }
 
-  non_zero_locations <- obs_summary_location %>%
-    filter(count > 0)
-  non_zero_locations$popup_content <- character(nrow(non_zero_locations))
+  format_marker_value <- function(value, digits = 1) {
+    if (is.null(value) || length(value) == 0 || !is.finite(value)) {
+      return("N/A")
+    }
 
-  if (nrow(non_zero_locations) > 0) {
-    non_zero_locations$popup_content <- vapply(seq_len(nrow(non_zero_locations)), function(i) {
-      observation_ids <- if ("observation_ids" %in% names(non_zero_locations)) {
-        unlist(non_zero_locations$observation_ids[[i]], use.names = FALSE)
+    format(round(as.numeric(value), digits), big.mark = ",", nsmall = digits, trim = TRUE)
+  }
+
+  rai_norm_hours <- if (exists("config", inherits = TRUE) &&
+                        !is.null(config$globals$rai_norm_hours)) {
+    config$globals$rai_norm_hours
+  } else {
+    NA_real_
+  }
+
+  marker_popup_html <- function(marker_data, include_review_link = TRUE) {
+    marker_field <- function(field, i, default = NA) {
+      if (!field %in% names(marker_data)) {
+        return(default)
+      }
+
+      marker_data[[field]][[i]]
+    }
+
+    vapply(seq_len(nrow(marker_data)), function(i) {
+      observation_ids <- if ("observation_ids" %in% names(marker_data) &&
+                            is.list(marker_data$observation_ids)) {
+        unlist(marker_data$observation_ids[[i]], use.names = FALSE)
       } else {
         character(0)
       }
+      observation_ids <- as.character(observation_ids)
+      observation_ids <- observation_ids[!is.na(observation_ids) & nzchar(observation_ids)]
 
       payload <- list(
-        location_name = non_zero_locations$locationName[[i]],
-        locality = non_zero_locations$locality[[i]],
+        location_name = marker_field("locationName", i, ""),
+        locality = marker_field("locality", i, ""),
         observation_ids = observation_ids
       )
-      payload_json <- jsonlite::toJSON(payload, auto_unbox = TRUE)
-      encoded_payload <- utils::URLencode(payload_json, reserved = TRUE)
-      onclick_js <- sprintf(
-        "Shiny.setInputValue('density_map_review_sequences_click', JSON.parse(decodeURIComponent('%s')), {priority: 'event'}); return false;",
-        encoded_payload
+
+      safe_marker_text <- function(value) {
+        if (is.null(value) || length(value) == 0 || is.na(value)) {
+          return("")
+        }
+
+        htmltools::htmlEscape(as.character(value))
+      }
+
+      line_value <- marker_field("line", i, "")
+      line_text <- if (!is.na(line_value) && nzchar(as.character(line_value))) {
+        paste0("Line ", safe_marker_text(line_value))
+      } else {
+        ""
+      }
+      location_text <- safe_marker_text(marker_field("locationName", i, ""))
+      locality_text <- safe_marker_text(marker_field("locality", i, ""))
+      locality_line_text <- paste(c(locality_text, line_text)[nzchar(c(locality_text, line_text))], collapse = ", ")
+
+      review_link <- ""
+      if (isTRUE(include_review_link) && length(observation_ids) > 0) {
+        payload_json <- jsonlite::toJSON(payload, auto_unbox = TRUE)
+        encoded_payload <- utils::URLencode(payload_json, reserved = TRUE)
+        onclick_js <- sprintf(
+          "Shiny.setInputValue('density_map_review_sequences_click', JSON.parse(decodeURIComponent('%s')), {priority: 'event'}); return false;",
+          encoded_payload
+        )
+        review_link <- sprintf("<br><a href='#' onclick=\"%s\" title='Review Sequences'>Review Sequences</a>", onclick_js)
+      }
+
+      paste0(
+        "<strong>Location: ", location_text, "</strong>",
+        if (nzchar(locality_line_text)) paste0("<br>", locality_line_text) else "",
+        "<br><br><strong>Observations:</strong>",
+        "<br>Location: ", format_marker_value(marker_field("count", i), digits = 0),
+        " (effort: ", format_marker_value(marker_field("camera_hours", i), digits = 1), " hours)",
+        "<br>Line: ", format_marker_value(marker_field("line_count", i), digits = 0),
+        " (effort: ", format_marker_value(marker_field("line_camera_hours", i), digits = 1), " hours)",
+        "<br>Location share of line count: ", format_marker_value(marker_field("location_line_count_share", i) * 100, digits = 1), "%",
+        "<br><br><strong>RAI:</strong>",
+        "<br>Line RAI: ", format_marker_value(marker_field("line_rai", i), digits = 2),
+        " (per ", format_marker_value(rai_norm_hours, digits = 0), " hours)",
+        "<br>Weighted Location-Line RAI: ", format_marker_value(marker_field("weighted_line_rai", i), digits = 2),
+        review_link
       )
-      review_link <- sprintf("<br><a href='#' onclick=\"%s\" title='Review Sequences'>Review Sequences</a>", onclick_js)
-      paste0(non_zero_locations$locationName[[i]], "<br>Count: ", non_zero_locations$count[[i]], review_link)
     }, character(1))
   }
-  
-  # Add markers for non-zero observations
-  proxy %>% 
-    addCircleMarkers(
-      data = non_zero_locations,
-      lng = ~longitude, lat = ~latitude,
-      radius = ~radius * max_scale,
-      fillColor = ~pal(count),
-      fillOpacity = 0.8,
-      stroke = FALSE,
-      popup = ~popup_content
-    )
-  
-  # Add markers for zero observations if show_zero is TRUE
-  if (show_zero) {
-    proxy %>% 
-      addMarkers(
-        data = obs_summary_location %>% filter(count == 0),
-        lng = ~longitude, lat = ~latitude,
-        icon = zero_icon,
-        popup = ~paste(locationName, "<br>Count: 0")
-      )
-  }
-  
-  # Add a legend if there are any non-zero counts
-  if (!is.na(max_count) && max_count > 0) {
-    proxy %>% 
-      addLegend(
-        "bottomright", 
-        pal = pal, 
-        values = obs_summary_location$count, 
-        title = "Number of individuals", 
-        labFormat = labelFormat(), 
-        opacity = 1
-      )
+
+  if (isTRUE(show_location_markers)) {
+    obs_summary_location$popup_content <- marker_popup_html(obs_summary_location, include_review_link = TRUE)
+    obs_summary_location$label_content <- marker_popup_html(obs_summary_location, include_review_link = FALSE)
+
+    circle_locations <- if (identical(marker_metric, "rai")) {
+      obs_summary_location %>% filter(is.finite(marker_value))
+    } else {
+      obs_summary_location %>% filter(count > 0)
+    }
+
+    if (nrow(circle_locations) > 0) {
+      proxy %>%
+        addCircleMarkers(
+          data = circle_locations,
+          lng = ~longitude, lat = ~latitude,
+          radius = ~radius * max_scale,
+          fillColor = ~pal(marker_value),
+          fillOpacity = 0.8,
+          stroke = FALSE,
+          popup = ~popup_content,
+          label = lapply(circle_locations$label_content, htmltools::HTML),
+          labelOptions = labelOptions(direction = "auto", opacity = 0.95)
+        )
+    }
+
+    if (show_zero && identical(marker_metric, "count")) {
+      zero_locations <- obs_summary_location %>% filter(count == 0)
+      if (nrow(zero_locations) > 0) {
+        proxy %>%
+          addMarkers(
+            data = zero_locations,
+            lng = ~longitude, lat = ~latitude,
+            icon = zero_icon,
+            popup = ~popup_content,
+            label = lapply(zero_locations$label_content, htmltools::HTML),
+            labelOptions = labelOptions(direction = "auto", opacity = 0.95)
+          )
+      }
+    }
+
+    if (!is.na(max_marker_value) && max_marker_value > 0) {
+      proxy %>%
+        addLegend(
+          "bottomright",
+          pal = pal,
+          values = obs_summary_location$marker_value,
+          title = marker_value_label,
+          labFormat = labelFormat(),
+          opacity = 1
+        )
+    }
   }
 }
 

@@ -1112,6 +1112,9 @@ server <- function(input, output, session) {
           species_override = density_map_primary$selected_species,
           localities_override = density_map_primary$selected_localities,
           prediction_surface_override = density_map_primary$show_predicted_rai_surface,
+          prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
+          location_markers_override = density_map_primary$show_density_location_markers,
+          marker_metric_override = density_map_primary$density_marker_metric,
           use_net = global_use_net
         )
       }
