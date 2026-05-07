@@ -21,7 +21,7 @@ logs/
 temp/
 www/cache/
 
-# Data (important — keep this out unless needed in image)
+# Data -- we don't want to bake into the image
 extdata/
 data/
 

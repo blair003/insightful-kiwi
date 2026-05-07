@@ -22,11 +22,12 @@ build_core_data_from_source <- function(config) {
 
   core_data$obs <- enhanced_data$obs
   core_data$deps <- enhanced_data$deps
-  core_data$weather_daily <- NULL
+  core_data$weather_daily <- enhanced_data$weather_daily
   core_data$app <- list(
     core_data_updated = as_core_data_build_datetime(Sys.time(), config),
     core_data_weather_updated = empty_core_data_build_datetime(config),
     trapping_data_updated = empty_core_data_build_datetime(config),
+    daylight_classification = "suncalc_v1",
     period_grouping_signature = core_data_period_grouping_signature(config),
     status = list(
       weather_data = list(status = "not_started", required = NA_integer_, available = 0L, missing = NA_integer_)

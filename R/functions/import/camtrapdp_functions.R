@@ -85,7 +85,7 @@ normalise_core_data_timezones <- function(core_data) {
   core_data$media <- force_timestamp_columns_timezone(core_data$media, "timestamp")
   core_data$weather_daily <- force_timestamp_columns_timezone(
     core_data$weather_daily,
-    c("sunrise", "sunset", "matutinal_end", "diurnal_end")
+    c("sunrise", "sunset", "civil_dawn", "civil_dusk", "matutinal_end", "diurnal_end")
   )
 
   if (!is.null(core_data$period_groups)) {
@@ -414,6 +414,8 @@ enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) 
     if (isTRUE(include_weather) &&
         exists("enrich_observations_with_daily_weather", mode = "function", inherits = TRUE)) {
       enrich_observations_with_daily_weather(obs_merged, deps)
+    } else if (exists("add_observation_daylight_classes", mode = "function", inherits = TRUE)) {
+      add_observation_daylight_classes(obs_merged, deps)
     } else if (exists("add_observation_time_classes", mode = "function", inherits = TRUE)) {
       list(obs = add_observation_time_classes(obs_merged, NULL), weather_daily = NULL)
     } else {

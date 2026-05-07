@@ -319,23 +319,86 @@ weather_daily_to_df <- function(daily_data) {
   )
 }
 
+sunlight_times_for_date <- function(date, latitude, longitude) {
+  if (is.na(date) || is.na(latitude) || is.na(longitude)) {
+    return(NULL)
+  }
+
+  suncalc::getSunlightTimes(
+    date = as.Date(date),
+    lat = latitude,
+    lon = longitude,
+    tz = weather_playback_timezone(),
+    keep = c("dawn", "sunrise", "sunset", "dusk")
+  )
+}
+
+civil_twilight_time <- function(date, latitude, longitude, event = c("dawn", "dusk")) {
+  event <- match.arg(event)
+  sunlight_times <- sunlight_times_for_date(date, latitude, longitude)
+  if (is.null(sunlight_times)) {
+    return(as.POSIXct(NA, tz = weather_playback_timezone()))
+  }
+
+  if (identical(event, "dawn")) sunlight_times$dawn[[1]] else sunlight_times$dusk[[1]]
+}
+
+sunrise_sunset_time <- function(date, latitude, longitude, event = c("dawn", "dusk")) {
+  event <- match.arg(event)
+  sunlight_times <- sunlight_times_for_date(date, latitude, longitude)
+  if (is.null(sunlight_times)) {
+    return(as.POSIXct(NA, tz = weather_playback_timezone()))
+  }
+
+  if (identical(event, "dawn")) sunlight_times$sunrise[[1]] else sunlight_times$sunset[[1]]
+}
+
 add_diel_boundaries_to_weather_daily <- function(weather_df) {
   if (is.null(weather_df) || nrow(weather_df) == 0) {
     return(weather_df)
   }
 
   if (!all(c("sunrise", "sunset") %in% names(weather_df))) {
+    if (!"sunrise" %in% names(weather_df)) {
+      weather_df$sunrise <- as.POSIXct(NA, tz = weather_playback_timezone())
+    }
+    if (!"sunset" %in% names(weather_df)) {
+      weather_df$sunset <- as.POSIXct(NA, tz = weather_playback_timezone())
+    }
+    weather_df$civil_dawn <- as.POSIXct(NA, tz = weather_playback_timezone())
+    weather_df$civil_dusk <- as.POSIXct(NA, tz = weather_playback_timezone())
     weather_df$matutinal_end <- as.POSIXct(NA, tz = weather_playback_timezone())
     weather_df$diurnal_end <- as.POSIXct(NA, tz = weather_playback_timezone())
-    return(weather_df)
+    if (!all(c("latitude", "longitude", "date") %in% names(weather_df))) {
+      return(weather_df)
+    }
   }
 
-  daylight <- as.numeric(difftime(weather_df$sunset, weather_df$sunrise, units = "secs"))
-  invalid_daylight <- is.na(daylight) | daylight <= 0
-  daylight[invalid_daylight] <- NA_real_
+  if (!"civil_dawn" %in% names(weather_df)) {
+    weather_df$civil_dawn <- as.POSIXct(NA, tz = weather_playback_timezone())
+  }
+  if (!"civil_dusk" %in% names(weather_df)) {
+    weather_df$civil_dusk <- as.POSIXct(NA, tz = weather_playback_timezone())
+  }
 
-  weather_df$matutinal_end <- weather_df$sunrise + daylight / 3
-  weather_df$diurnal_end <- weather_df$sunrise + 2 * daylight / 3
+  if (all(c("latitude", "longitude", "date") %in% names(weather_df))) {
+    sunlight_times <- suncalc::getSunlightTimes(
+      data = data.frame(
+        date = as.Date(weather_df$date),
+        lat = weather_df$latitude,
+        lon = weather_df$longitude
+      ),
+      tz = weather_playback_timezone(),
+      keep = c("dawn", "sunrise", "sunset", "dusk")
+    )
+    weather_df$sunrise <- sunlight_times$sunrise
+    weather_df$sunset <- sunlight_times$sunset
+    weather_df$civil_dawn <- sunlight_times$dawn
+    weather_df$civil_dusk <- sunlight_times$dusk
+  }
+
+  weather_df$matutinal_end <- weather_df$sunrise
+  weather_df$diurnal_end <- weather_df$sunset
   weather_df
 }
 
@@ -350,7 +413,14 @@ fetch_weather_for_deployments <- function(deployments, start_date, end_date) {
     return(NULL)
   }
 
-  add_diel_boundaries_to_weather_daily(weather_daily_to_df(fetch_weather_data(lat, lng, start_date, end_date)))
+  weather_df <- weather_daily_to_df(fetch_weather_data(lat, lng, start_date, end_date))
+  if (is.null(weather_df) || nrow(weather_df) == 0) {
+    return(NULL)
+  }
+
+  weather_df$latitude <- lat
+  weather_df$longitude <- lng
+  add_diel_boundaries_to_weather_daily(weather_df)
 }
 
 weather_daily_from_core_data <- function(deployments, start_date, end_date) {
@@ -363,8 +433,13 @@ weather_daily_from_core_data <- function(deployments, start_date, end_date) {
   }
 
   weather_daily <- core_data$weather_daily
+  weather_columns <- c(
+    "weathercode", "temperature_2m_max",
+    "temperature_2m_min", "precipitation_sum"
+  )
   if (is.null(weather_daily) || nrow(weather_daily) == 0 ||
-      !all(c("locationID", "date", "sunrise", "sunset") %in% names(weather_daily))) {
+      !all(c("locationID", "date", "sunrise", "sunset") %in% names(weather_daily)) ||
+      !all(weather_columns %in% names(weather_daily))) {
     return(NULL)
   }
 
@@ -383,6 +458,16 @@ weather_daily_from_core_data <- function(deployments, start_date, end_date) {
     return(NULL)
   }
 
+  has_weather_data <- Reduce(
+    `|`,
+    lapply(weather_columns, function(column) !is.na(filtered_weather[[column]]))
+  )
+  filtered_weather <- filtered_weather[has_weather_data, , drop = FALSE]
+
+  if (nrow(filtered_weather) == 0) {
+    return(NULL)
+  }
+
   summarised <- filtered_weather %>%
     dplyr::group_by(date) %>%
     dplyr::summarise(
@@ -392,6 +477,8 @@ weather_daily_from_core_data <- function(deployments, start_date, end_date) {
       precipitation_sum = mean(precipitation_sum, na.rm = TRUE),
       sunrise = as.POSIXct(mean(as.numeric(sunrise), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
       sunset = as.POSIXct(mean(as.numeric(sunset), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
+      civil_dawn = as.POSIXct(mean(as.numeric(civil_dawn), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
+      civil_dusk = as.POSIXct(mean(as.numeric(civil_dusk), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
       .groups = "drop"
     )
 
@@ -400,6 +487,23 @@ weather_daily_from_core_data <- function(deployments, start_date, end_date) {
 
 weather_daily_as_api_daily <- function(weather_df) {
   if (is.null(weather_df) || nrow(weather_df) == 0) {
+    return(NULL)
+  }
+  weather_columns <- c(
+    "weathercode", "temperature_2m_max",
+    "temperature_2m_min", "precipitation_sum"
+  )
+  if (!all(weather_columns %in% names(weather_df))) {
+    return(NULL)
+  }
+
+  has_weather_data <- Reduce(
+    `|`,
+    lapply(weather_columns, function(column) !is.na(weather_df[[column]]))
+  )
+  weather_df <- weather_df[has_weather_data, , drop = FALSE]
+
+  if (nrow(weather_df) == 0) {
     return(NULL)
   }
 
@@ -412,7 +516,9 @@ weather_daily_as_api_daily <- function(weather_df) {
     temperature_2m_min = weather_df$temperature_2m_min,
     precipitation_sum = weather_df$precipitation_sum,
     sunrise = weather_df$sunrise,
-    sunset = weather_df$sunset
+    sunset = weather_df$sunset,
+    civil_dawn = if ("civil_dawn" %in% names(weather_df)) weather_df$civil_dawn else NULL,
+    civil_dusk = if ("civil_dusk" %in% names(weather_df)) weather_df$civil_dusk else NULL
   )
 }
 
@@ -484,17 +590,22 @@ time_of_day_info <- function(weather_df, time_value, mode = "day") {
     return(list(label = "Night", icon = "moon"))
   }
 
-  daylight <- as.numeric(difftime(sunset, sunrise, units = "secs"))
-  matutinal_end <- sunrise + daylight / 3
-  diurnal_end <- sunrise + 2 * daylight / 3
+  civil_dawn <- if ("civil_dawn" %in% names(weather_row)) weather_row$civil_dawn[[1]] else NA
+  civil_dusk <- if ("civil_dusk" %in% names(weather_row)) weather_row$civil_dusk[[1]] else NA
+  if (is.na(civil_dawn) || civil_dawn > sunrise) {
+    civil_dawn <- sunrise
+  }
+  if (is.na(civil_dusk) || civil_dusk < sunset) {
+    civil_dusk <- sunset
+  }
 
-  if (time_value < sunrise || time_value >= sunset) {
+  if (time_value < civil_dawn || time_value >= civil_dusk) {
     return(list(label = "Nocturnal", icon = "moon"))
   }
-  if (time_value < matutinal_end) {
+  if (time_value < sunrise) {
     return(list(label = "Matutinal", icon = c("moon", "arrow-right", "sun")))
   }
-  if (time_value < diurnal_end) {
+  if (time_value < sunset) {
     return(list(label = "Diurnal", icon = "sun"))
   }
   list(label = "Vespertine", icon = c("sun", "arrow-right", "moon"))
@@ -600,12 +711,20 @@ diel_activity_boundaries <- function(weather_df, start_time, end_time) {
       return(NULL)
     }
 
-    daylight <- as.numeric(difftime(sunset, sunrise, units = "secs"))
+    civil_dawn <- if ("civil_dawn" %in% names(weather_df)) weather_df$civil_dawn[[i]] else NA
+    civil_dusk <- if ("civil_dusk" %in% names(weather_df)) weather_df$civil_dusk[[i]] else NA
+    if (is.na(civil_dawn) || civil_dawn > sunrise) {
+      civil_dawn <- sunrise
+    }
+    if (is.na(civil_dusk) || civil_dusk < sunset) {
+      civil_dusk <- sunset
+    }
+
     c(
+      civil_dawn,
       sunrise,
-      sunrise + daylight / 3,
-      sunrise + 2 * daylight / 3,
-      sunset
+      sunset,
+      civil_dusk
     )
   }))
 

@@ -15,7 +15,7 @@ config$env <- list(
     "logger", "shiny", "dplyr", "lubridate", "stringr", "tidyr", "bslib", "remotes",
      "DT", "kableExtra", "leaflet",  "ggplot2",  "scales", "plotly", "httr", "fs",
      "magick", "future", "shinybusy", "htmlwidgets", "shinyjs", "sf",
-     "geosphere", "webshot2",  "jsonlite", "dotenv", "chromote"
+     "geosphere", "suncalc", "webshot2",  "jsonlite", "dotenv", "chromote"
   ),
   
   # List of required GitHub packages

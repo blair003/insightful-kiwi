@@ -979,7 +979,7 @@ column_descriptions <- list(
   ",
 
   "Diel Class" = "
-    Diel activity period for the observation timestamp. Daylight is split into Matutinal, Diurnal, and Vespertine periods; timestamps outside daylight are Nocturnal.
+    Diel activity period for the observation timestamp. Matutinal is civil dawn to sunrise, Diurnal is sunrise to sunset, Vespertine is sunset to civil dusk, and timestamps outside those windows are Nocturnal.
   ",
 
   "Deployments" = "
