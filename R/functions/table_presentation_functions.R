@@ -167,7 +167,6 @@ get_table_specification <- function(table_id = NULL) {
                                             "line", 
                                             "locationName",
                                             "timestamp", 
-                                            "day_night_class",
                                             "diel_class",
                                             config$globals$species_name_type,
                                             "count",
@@ -184,7 +183,6 @@ get_table_specification <- function(table_id = NULL) {
                                             "locationName", 
                                             "period",
                                             "timestamp",
-                                            "day_night_class",
                                             "diel_class",
                                             config$globals$species_name_type,
                                             "count",
@@ -201,7 +199,6 @@ get_table_specification <- function(table_id = NULL) {
                                             "locationName",
                                             "period",
                                             "timestamp",
-                                            "day_night_class",
                                             "diel_class",
                                             config$globals$species_name_type,
                                             "count",
@@ -216,8 +213,9 @@ get_table_specification <- function(table_id = NULL) {
          "observation_viewer" = {
            output_data$title <- "Observations browse"
            output_data$caption <- NULL
-           output_data$fields <- c("locality", "locationName", "timestamp", 
-                                   "count", config$globals$species_name_type, "comments")
+           output_data$fields <- c("locationName", "timestamp",
+                                   "diel_class", "count", "possible_duplicate",
+                                   config$globals$species_name_type)
            
          },
          

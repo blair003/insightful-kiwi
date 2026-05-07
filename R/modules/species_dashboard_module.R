@@ -21,151 +21,466 @@ species_dashboard_period_defaults <- function(core_data) {
   )
 }
 
+species_dashboard_diel_levels <- c("Matutinal", "Diurnal", "Vespertine", "Nocturnal")
+
+species_dashboard_diel_colours <- c(
+  Matutinal = "#f0ad4e",
+  Diurnal = "#2b8cbe",
+  Vespertine = "#d95f0e",
+  Nocturnal = "#4b5563"
+)
+
+species_dashboard_diel_thresholds <- list(
+  insufficient_n = 30,
+  normal_confidence_n = 60,
+  dominant_share = 0.60,
+  crepuscular_share = 0.45,
+  crepuscular_component_share = 0.12,
+  cathemeral_day_night_share = 0.25
+)
+
+species_dashboard_empty_diel_summary <- function(reason = "No data") {
+  data.frame(
+    diel_class = species_dashboard_diel_levels,
+    observations = 0,
+    effort_hours = 0,
+    rate = 0,
+    rate_share = 0,
+    stringsAsFactors = FALSE
+  ) %>%
+    dplyr::mutate(
+      classification = "Insufficient data",
+      meaning = reason,
+      sample_size = 0,
+      confidence = "insufficient",
+      note = reason
+    )
+}
+
+species_dashboard_diel_period_intervals <- function(weather_row) {
+  timezone <- weather_playback_timezone()
+  day_start <- as.POSIXct(as.Date(weather_row$date), tz = timezone)
+  day_end <- day_start + 24 * 60 * 60
+
+  sunrise <- weather_row$sunrise[[1]]
+  sunset <- weather_row$sunset[[1]]
+  civil_dawn <- weather_row$civil_dawn[[1]]
+  civil_dusk <- weather_row$civil_dusk[[1]]
+
+  if (is.na(sunrise) || is.na(sunset) || sunset <= sunrise) {
+    return(NULL)
+  }
+  if (is.na(civil_dawn) || civil_dawn > sunrise) {
+    civil_dawn <- sunrise
+  }
+  if (is.na(civil_dusk) || civil_dusk < sunset) {
+    civil_dusk <- sunset
+  }
+
+  data.frame(
+    diel_class = c("Nocturnal", "Matutinal", "Diurnal", "Vespertine", "Nocturnal"),
+    interval_start = as.POSIXct(c(day_start, civil_dawn, sunrise, sunset, civil_dusk), origin = "1970-01-01", tz = timezone),
+    interval_end = as.POSIXct(c(civil_dawn, sunrise, sunset, civil_dusk, day_end), origin = "1970-01-01", tz = timezone),
+    stringsAsFactors = FALSE
+  )
+}
+
+species_dashboard_diel_effort_hours <- function(deps_data, weather_daily, period_start = NULL, period_end = NULL) {
+  empty_effort <- stats::setNames(rep(0, length(species_dashboard_diel_levels)), species_dashboard_diel_levels)
+  if (is.null(deps_data) || nrow(deps_data) == 0 ||
+      is.null(weather_daily) || nrow(weather_daily) == 0 ||
+      !all(c("locationID", "start", "end") %in% names(deps_data)) ||
+      !all(c("locationID", "date", "sunrise", "sunset", "civil_dawn", "civil_dusk") %in% names(weather_daily))) {
+    return(empty_effort)
+  }
+
+  timezone <- weather_playback_timezone()
+  period_start <- if (is.null(period_start) || is.na(period_start)) {
+    as.POSIXct(NA, tz = timezone)
+  } else {
+    as.POSIXct(period_start, tz = timezone)
+  }
+  period_end <- if (is.null(period_end) || is.na(period_end)) {
+    as.POSIXct(NA, tz = timezone)
+  } else {
+    as.POSIXct(period_end, tz = timezone)
+  }
+
+  effort_hours <- empty_effort
+  weather_daily <- weather_daily %>%
+    dplyr::filter(.data$locationID %in% unique(deps_data$locationID))
+
+  for (dep_index in seq_len(nrow(deps_data))) {
+    deployment <- deps_data[dep_index, ]
+    dep_start <- as.POSIXct(deployment$start[[1]], tz = timezone)
+    dep_end <- as.POSIXct(deployment$end[[1]], tz = timezone)
+
+    if (!is.na(period_start)) {
+      dep_start <- max(dep_start, period_start, na.rm = TRUE)
+    }
+    if (!is.na(period_end)) {
+      dep_end <- min(dep_end, period_end, na.rm = TRUE)
+    }
+    if (is.na(dep_start) || is.na(dep_end) || dep_end <= dep_start) {
+      next
+    }
+
+    deployment_weather <- weather_daily %>%
+      dplyr::filter(
+        .data$locationID == deployment$locationID[[1]],
+        .data$date >= as.Date(dep_start, tz = timezone),
+        .data$date <= as.Date(dep_end, tz = timezone)
+      )
+
+    if (nrow(deployment_weather) == 0) {
+      next
+    }
+
+    for (weather_index in seq_len(nrow(deployment_weather))) {
+      intervals <- species_dashboard_diel_period_intervals(deployment_weather[weather_index, ])
+      if (is.null(intervals) || nrow(intervals) == 0) {
+        next
+      }
+
+      intervals$overlap_start <- pmax(intervals$interval_start, dep_start)
+      intervals$overlap_end <- pmin(intervals$interval_end, dep_end)
+      intervals$hours <- pmax(
+        0,
+        as.numeric(difftime(intervals$overlap_end, intervals$overlap_start, units = "hours"))
+      )
+
+      interval_hours <- tapply(intervals$hours, intervals$diel_class, sum, na.rm = TRUE)
+      effort_hours[names(interval_hours)] <- effort_hours[names(interval_hours)] + interval_hours
+    }
+  }
+
+  effort_hours[species_dashboard_diel_levels]
+}
+
+species_dashboard_classify_diel_activity <- function(rate_share, sample_size) {
+  thresholds <- species_dashboard_diel_thresholds
+
+  if (sample_size < thresholds$insufficient_n) {
+    return(list(
+      classification = "Insufficient data",
+      meaning = "Too few observations",
+      confidence = "insufficient"
+    ))
+  }
+
+  day_share <- rate_share[["Diurnal"]]
+  night_share <- rate_share[["Nocturnal"]]
+  dawn_share <- rate_share[["Matutinal"]]
+  dusk_share <- rate_share[["Vespertine"]]
+  crepuscular_share <- dawn_share + dusk_share
+  confidence <- if (sample_size < thresholds$normal_confidence_n) "low" else "normal"
+
+  if (!is.na(day_share) && day_share >= thresholds$dominant_share) {
+    classification <- "Diurnal"
+    meaning <- "Day-active"
+  } else if (!is.na(night_share) && night_share >= thresholds$dominant_share) {
+    classification <- "Nocturnal"
+    meaning <- "Night-active"
+  } else if (!is.na(crepuscular_share) &&
+             crepuscular_share >= thresholds$crepuscular_share &&
+             dawn_share >= thresholds$crepuscular_component_share &&
+             dusk_share >= thresholds$crepuscular_component_share) {
+    classification <- "Crepuscular"
+    meaning <- "Dawn/dusk-active"
+  } else if (!is.na(day_share) && !is.na(night_share) &&
+             day_share >= thresholds$cathemeral_day_night_share &&
+             night_share >= thresholds$cathemeral_day_night_share) {
+    classification <- "Cathemeral"
+    meaning <- "Active intermittently day and night"
+  } else {
+    classification <- "Arrhythmic"
+    meaning <- "No clear diel rhythm"
+  }
+
+  list(
+    classification = classification,
+    meaning = meaning,
+    confidence = confidence
+  )
+}
+
+species_dashboard_diel_summary <- function(species_obs, deps_data, weather_daily, period_start = NULL, period_end = NULL) {
+  if (is.null(species_obs) || nrow(species_obs) == 0 || !"diel_class" %in% names(species_obs)) {
+    return(species_dashboard_empty_diel_summary("No observations in this selection"))
+  }
+
+  valid_obs <- species_obs %>%
+    dplyr::filter(.data$diel_class %in% species_dashboard_diel_levels)
+  sample_size <- nrow(valid_obs)
+  if (sample_size == 0) {
+    return(species_dashboard_empty_diel_summary("No classified diel observations in this selection"))
+  }
+
+  observation_counts <- table(factor(valid_obs$diel_class, levels = species_dashboard_diel_levels))
+  effort_hours <- species_dashboard_diel_effort_hours(deps_data, weather_daily, period_start, period_end)
+  has_effort <- any(effort_hours > 0, na.rm = TRUE)
+
+  rates <- if (has_effort) {
+    ifelse(effort_hours > 0, as.numeric(observation_counts) / effort_hours, 0)
+  } else {
+    as.numeric(observation_counts)
+  }
+  names(rates) <- species_dashboard_diel_levels
+
+  rate_total <- sum(rates, na.rm = TRUE)
+  rate_share <- if (rate_total > 0) rates / rate_total else stats::setNames(rep(0, length(rates)), names(rates))
+  classification_info <- species_dashboard_classify_diel_activity(rate_share, sample_size)
+  confidence_note <- dplyr::case_when(
+    identical(classification_info$confidence, "insufficient") ~ sprintf(
+      "Fewer than %d observations in this selection.",
+      species_dashboard_diel_thresholds$insufficient_n
+    ),
+    identical(classification_info$confidence, "low") ~ sprintf(
+      "Low confidence: %d observations. Treat this seasonal classification as tentative.",
+      sample_size
+    ),
+    TRUE ~ sprintf(
+      "Based on %d observations and effort-normalized diel rates.",
+      sample_size
+    )
+  )
+
+  if (!has_effort) {
+    confidence_note <- paste(confidence_note, "Deployment-hour normalization was unavailable, so observation share was used.")
+  }
+
+  data.frame(
+    diel_class = species_dashboard_diel_levels,
+    observations = as.integer(observation_counts),
+    effort_hours = as.numeric(effort_hours),
+    rate = as.numeric(rates),
+    rate_share = as.numeric(rate_share),
+    stringsAsFactors = FALSE
+  ) %>%
+    dplyr::mutate(
+      classification = classification_info$classification,
+      meaning = classification_info$meaning,
+      sample_size = sample_size,
+      confidence = classification_info$confidence,
+      note = confidence_note
+    )
+}
+
+species_dashboard_possible_duplicate_queue <- function(species_obs) {
+  if (is.null(species_obs) || nrow(species_obs) == 0 ||
+      !"possible_duplicate" %in% names(species_obs) ||
+      !"observationID" %in% names(species_obs) ||
+      !"timestamp" %in% names(species_obs)) {
+    return(character())
+  }
+
+  location_field <- if ("locationID" %in% names(species_obs)) "locationID" else "locationName"
+  if (!location_field %in% names(species_obs)) {
+    return(character())
+  }
+
+  queue_rows <- list()
+  obs_data <- species_obs %>%
+    dplyr::filter(!is.na(.data$timestamp), nzchar(.data$observationID)) %>%
+    dplyr::mutate(.location_key = as.character(.data[[location_field]])) %>%
+    dplyr::arrange(.data$.location_key, .data$timestamp, .data$observationID)
+
+  if (nrow(obs_data) == 0) {
+    return(character())
+  }
+
+  grouped_obs <- split(obs_data, obs_data$.location_key)
+  for (location_obs in grouped_obs) {
+    original_observation_id <- NA_character_
+
+    for (row_index in seq_len(nrow(location_obs))) {
+      row <- location_obs[row_index, ]
+      is_duplicate <- isTRUE(row$possible_duplicate[[1]])
+
+      if (!is_duplicate) {
+        original_observation_id <- as.character(row$observationID[[1]])
+        next
+      }
+
+      duplicate_time <- row$timestamp[[1]]
+      duplicate_id <- as.character(row$observationID[[1]])
+
+      if (!is.na(original_observation_id) && nzchar(original_observation_id)) {
+        queue_rows <- c(queue_rows, list(data.frame(
+          observationID = original_observation_id,
+          queue_time = duplicate_time,
+          role_order = 1,
+          stringsAsFactors = FALSE
+        )))
+      }
+
+      queue_rows <- c(queue_rows, list(data.frame(
+        observationID = duplicate_id,
+        queue_time = duplicate_time,
+        role_order = 2,
+        stringsAsFactors = FALSE
+      )))
+    }
+  }
+
+  if (length(queue_rows) == 0) {
+    return(character())
+  }
+
+  dplyr::bind_rows(queue_rows) %>%
+    dplyr::arrange(.data$queue_time, .data$role_order, .data$observationID) %>%
+    dplyr::distinct(.data$observationID, .keep_all = TRUE) %>%
+    dplyr::pull(.data$observationID)
+}
+
+species_dashboard_observations_table_data <- function(species_obs) {
+  table_fields <- c(
+    "locality",
+    "line",
+    "locationName",
+    "period",
+    "timestamp",
+    "diel_class",
+    config$globals$species_name_type,
+    "count",
+    "possible_duplicate",
+    "observationID"
+  )
+
+  if (is.null(species_obs) || nrow(species_obs) == 0) {
+    return(data.frame())
+  }
+
+  display_fields <- intersect(table_fields, names(species_obs))
+  if (length(display_fields) == 0) {
+    return(data.frame())
+  }
+
+  table_data <- species_obs %>%
+    dplyr::arrange(dplyr::desc(.data$timestamp)) %>%
+    dplyr::select(dplyr::all_of(display_fields))
+
+  prepare_table_data(
+    table_data,
+    table_id = "observations_browse",
+    fields = names(table_data),
+    column_help = FALSE
+  )$table_data
+}
+
 species_dashboard_module_ui <- function(id) {
   ns <- NS(id)
+
+  species_dashboard_period_ui <- function(prefix, title, value, include_rai = FALSE, include_favourites = FALSE) {
+    nav_panel(
+      title = title,
+      value = value,
+      br(),
+      navset_tab(
+        id = ns(paste0(prefix, "_section_tabs")),
+        nav_panel(
+          "Summary",
+          value = "summary",
+          br(),
+          uiOutput(ns(paste0(prefix, "_metric_cards"))),
+          br(),
+          if (isTRUE(include_rai)) {
+            card(
+              class = "dashboard-plot-card",
+              card_header(tagList(
+                div(
+                  class = "dashboard-card-header-with-controls",
+                  div(
+                    class = "dashboard-card-header-title",
+                    icon("chart-line"),
+                    "RAI history"
+                  ),
+                  div(
+                    class = "dashboard-card-header-controls",
+                    plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot_inline_options")
+                  )
+                )
+              )),
+              div(
+                class = "rai-plot-area-with-info",
+                uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE),
+                plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot")
+              ),
+              uiOutput(ns("overall_rai_plot_count_basis_footer")),
+              full_screen = FALSE
+            )
+          },
+          if (isTRUE(include_favourites)) {
+            uiOutput(ns("overall_favourite_images"))
+          }
+        ),
+        nav_panel(
+          "Behaviour",
+          value = "behaviour",
+          br(),
+          div(class = "dashboard-section-heading", "BEHAVIOURAL ANALYSIS"),
+          layout_column_wrap(
+            width = 1/3,
+            card(
+              card_header("Activity Pattern (Time of Day)"),
+              plotOutput(ns(paste0(prefix, "_activity_plot")), height = "400px"),
+              uiOutput(ns(paste0(prefix, "_activity_plot_count_basis_footer")))
+            ),
+            uiOutput(ns(paste0(prefix, "_diel_activity_card"))),
+            card(
+              card_header("Co-occurrence with Kiwi"),
+              uiOutput(ns(paste0(prefix, "_cooccurrence_ui")))
+            )
+          )
+        ),
+        nav_panel(
+          "Observations",
+          value = "observations",
+          br(),
+          card(
+            class = "species-observations-card",
+            card_header(
+              div(
+                class = "dashboard-card-header-with-controls",
+                div(
+                  class = "dashboard-card-header-title",
+                  icon("table"),
+                  "Animal Observations"
+                ),
+                div(
+                  class = "dashboard-card-header-controls",
+                  uiOutput(ns(paste0(prefix, "_duplicate_review_control")))
+                )
+              )
+            ),
+            DT::DTOutput(ns(paste0(prefix, "_observations_table"))),
+            uiOutput(ns(paste0(prefix, "_observations_table_count_basis_footer")))
+          )
+        ),
+        nav_panel(
+          "Map",
+          value = "map",
+          br(),
+          card(
+            class = "dashboard-plot-card",
+            card_header(uiOutput(ns(paste0("species_density_map_", prefix, "_header")))),
+            mapping_module_ui(id = ns(paste0("species_density_map_", prefix)), view = "map"),
+            full_screen = FALSE
+          )
+        )
+      )
+    )
+  }
+
   tagList(
     uiOutput(ns("dashboard_header")),
 
-    # 3 Tabs
     navset_tab(
       id = ns("dashboard_tabs"),
-
-      # 1. Overall / Combined Tab
-      nav_panel("Overall",
-        value = "overall",
-        br(),
-        uiOutput(ns("overall_metric_cards")),
-        br(),
-        # Add RAI plot specific to this species
-        card(
-          class = "dashboard-plot-card",
-          card_header(tagList(
-            div(
-              class = "dashboard-card-header-with-controls",
-              div(
-                class = "dashboard-card-header-title",
-                icon("chart-line"),
-                "RAI history"
-              ),
-              div(
-                class = "dashboard-card-header-controls",
-                plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot_inline_options")
-              )
-            )
-          )),
-          div(
-            class = "rai-plot-area-with-info",
-            uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE),
-            plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot")
-          ),
-          uiOutput(ns("overall_rai_plot_count_basis_footer")),
-          full_screen = FALSE
-        ),
-        uiOutput(ns("overall_favourite_images")),
-        layout_column_wrap(
-          width = 1/2,
-          card(
-            card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("overall_activity_plot"), height = "400px"),
-            uiOutput(ns("overall_activity_plot_count_basis_footer"))
-          ),
-          card(
-            card_header("Co-occurrence with Kiwi"),
-            uiOutput(ns("overall_cooccurrence_ui"))
-          )
-        ),
-        br(),
-        card(
-          class = "dashboard-plot-card",
-          card_header(uiOutput(ns("species_density_map_overall_header"))),
-          mapping_module_ui(id = ns("species_density_map_overall"), view = "map"),
-          full_screen = FALSE
-        )
-      ),
-
-      # 2. Prior Period Tab
-      nav_panel(
-        title = textOutput(ns("current_period_name"), inline = TRUE),
-        value = "current_period",
-        br(),
-        uiOutput(ns("current_metric_cards")),
-        br(),
-        layout_column_wrap(
-          width = 1/2,
-          card(
-            card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("current_activity_plot"), height = "400px"),
-            uiOutput(ns("current_activity_plot_count_basis_footer"))
-          ),
-          card(
-            card_header("Co-occurrence with Kiwi"),
-            uiOutput(ns("current_cooccurrence_ui"))
-          )
-        ),
-        br(),
-        card(
-          class = "dashboard-plot-card",
-          card_header(uiOutput(ns("species_density_map_current_header"))),
-          mapping_module_ui(id = ns("species_density_map_current"), view = "map"),
-          full_screen = FALSE
-        )
-      ),
-
-      # 3. Prior Period Tab
-      nav_panel(
-        title = textOutput(ns("prior_period_name"), inline = TRUE),
-        value = "prior_period",
-        br(),
-        uiOutput(ns("prior_metric_cards")),
-        br(),
-        layout_column_wrap(
-          width = 1/2,
-          card(
-            card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("prior_activity_plot"), height = "400px"),
-            uiOutput(ns("prior_activity_plot_count_basis_footer"))
-          ),
-          card(
-            card_header("Co-occurrence with Kiwi"),
-            uiOutput(ns("prior_cooccurrence_ui"))
-          )
-        ),
-        br(),
-        card(
-          class = "dashboard-plot-card",
-          card_header(uiOutput(ns("species_density_map_prior_header"))),
-          mapping_module_ui(id = ns("species_density_map_prior"), view = "map"),
-          full_screen = FALSE
-        )
-      ),
-
-      # 4. Last Year Tab
-      nav_panel(
-        title = textOutput(ns("last_year_period_name"), inline = TRUE),
-        value = "last_year_period",
-        br(),
-        uiOutput(ns("last_year_metric_cards")),
-        br(),
-        layout_column_wrap(
-          width = 1/2,
-          card(
-            card_header("Activity Pattern (Time of Day)"),
-            plotOutput(ns("last_year_activity_plot"), height = "400px"),
-            uiOutput(ns("last_year_activity_plot_count_basis_footer"))
-          ),
-          card(
-            card_header("Co-occurrence with Kiwi"),
-            uiOutput(ns("last_year_cooccurrence_ui"))
-          )
-        ),
-        br(),
-        card(
-          class = "dashboard-plot-card",
-          card_header(uiOutput(ns("species_density_map_last_year_header"))),
-          mapping_module_ui(id = ns("species_density_map_last_year"), view = "map"),
-          full_screen = FALSE
-        )
-      )
+      species_dashboard_period_ui("overall", "Overall", "overall", include_rai = TRUE, include_favourites = TRUE),
+      species_dashboard_period_ui("current", textOutput(ns("current_period_name"), inline = TRUE), "current_period"),
+      species_dashboard_period_ui("prior", textOutput(ns("prior_period_name"), inline = TRUE), "prior_period"),
+      species_dashboard_period_ui("last_year", textOutput(ns("last_year_period_name"), inline = TRUE), "last_year_period")
     )
   )
 }
@@ -245,6 +560,10 @@ species_dashboard_module_server <- function(id,
     output$current_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
     output$prior_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
     output$last_year_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$overall_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
+    output$current_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
+    output$prior_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
+    output$last_year_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
     output$species_density_map_overall_header <- renderUI({ render_species_density_map_header() })
     output$species_density_map_current_header <- renderUI({ render_species_density_map_header() })
     output$species_density_map_prior_header <- renderUI({ render_species_density_map_header() })
@@ -477,6 +796,233 @@ species_dashboard_module_server <- function(id,
       session$onFlushed(function() {
         show_species_rai_detail_token(initial_rai_detail)
       }, once = TRUE)
+    }
+
+    diel_info_link <- function() {
+      tags$a(
+        href = "#",
+        class = "dashcard-header-info-link",
+        title = "Diel activity classification",
+        onclick = sprintf("Shiny.setInputValue('%s', true, {priority: 'event'}); return false;", ns("species_diel_info_clicked")),
+        icon("circle-info")
+      )
+    }
+
+    render_diel_card_header <- function() {
+      div(
+        class = "dashcard-header-row",
+        tags$span(tagList(icon("clock"), "Diel Activity"), class = "dashcard-header-title"),
+        diel_info_link()
+      )
+    }
+
+    render_diel_distribution_bar <- function(summary_data) {
+      segments <- lapply(seq_len(nrow(summary_data)), function(i) {
+        row <- summary_data[i, ]
+        share <- row$rate_share
+        width <- if (is.na(share) || share <= 0) 0 else share * 100
+        tags$div(
+          class = "diel-activity-bar-segment",
+          style = sprintf(
+            "width: %.4f%%; background-color: %s;",
+            width,
+            species_dashboard_diel_colours[[row$diel_class]]
+          ),
+          title = sprintf(
+            "%s: %.1f%% of effort-normalized rate",
+            row$diel_class,
+            share * 100
+          )
+        )
+      })
+
+      div(class = "diel-activity-bar", segments)
+    }
+
+    render_diel_legend <- function(summary_data) {
+      div(
+        class = "diel-activity-legend",
+        lapply(seq_len(nrow(summary_data)), function(i) {
+          row <- summary_data[i, ]
+          div(
+            class = "diel-activity-legend-item",
+            tags$span(
+              class = "diel-activity-legend-swatch",
+              style = sprintf("background-color: %s;", species_dashboard_diel_colours[[row$diel_class]])
+            ),
+            tags$span(row$diel_class),
+            tags$span(sprintf("%.0f%%", row$rate_share * 100), class = "diel-activity-legend-value")
+          )
+        })
+      )
+    }
+
+    render_diel_activity_card <- function(summary_data) {
+      if (is.null(summary_data) || nrow(summary_data) == 0) {
+        summary_data <- species_dashboard_empty_diel_summary()
+      }
+
+      classification <- summary_data$classification[[1]]
+      meaning <- summary_data$meaning[[1]]
+      sample_size <- summary_data$sample_size[[1]]
+      confidence <- summary_data$confidence[[1]]
+      note <- summary_data$note[[1]]
+      count_label <- if (isTRUE(use_net())) "net observations" else "observations"
+      state_class <- dplyr::case_when(
+        identical(confidence, "insufficient") ~ "diel-activity-state-insufficient",
+        identical(confidence, "low") ~ "diel-activity-state-low",
+        TRUE ~ "diel-activity-state-normal"
+      )
+
+      card(
+        card_header(render_diel_card_header()),
+        card_body(
+          div(
+            class = paste("diel-activity-card", state_class),
+            div(classification, class = "dashcard-output diel-activity-classification"),
+            div(meaning, class = "dashcard-period"),
+            div(sprintf("%s %s", format_dash_number(sample_size), count_label), class = "dashcard-period"),
+            render_diel_distribution_bar(summary_data),
+            render_diel_legend(summary_data),
+            div(note, class = "diel-activity-note")
+          )
+        ),
+        render_count_basis_footer(use_net())
+      )
+    }
+
+    observeEvent(input$species_diel_info_clicked, {
+      thresholds <- species_dashboard_diel_thresholds
+      showModal(modalDialog(
+        title = "Diel activity classification",
+        tags$p(
+          "This card classifies the selected species for the current dashboard selection. Observation counts use the same count basis as the dashboard: net observations when net data is enabled."
+        ),
+        tags$h5("Diel Periods"),
+        tags$table(
+          class = "table table-sm table-striped",
+          tags$tbody(
+            tags$tr(tags$th("Matutinal"), tags$td("Civil dawn to sunrise.")),
+            tags$tr(tags$th("Diurnal"), tags$td("Sunrise to sunset.")),
+            tags$tr(tags$th("Vespertine"), tags$td("Sunset to civil dusk.")),
+            tags$tr(tags$th("Nocturnal"), tags$td("Civil dusk to civil dawn."))
+          )
+        ),
+        tags$h5("Overall Classes"),
+        tags$table(
+          class = "table table-sm table-striped",
+          tags$tbody(
+            tags$tr(tags$th("Diurnal"), tags$td("Day-active.")),
+            tags$tr(tags$th("Nocturnal"), tags$td("Night-active.")),
+            tags$tr(tags$th("Crepuscular"), tags$td("Dawn/dusk-active.")),
+            tags$tr(tags$th("Cathemeral"), tags$td("Active intermittently day and night.")),
+            tags$tr(tags$th("Arrhythmic"), tags$td("Enough observations, but no clear diel rhythm."))
+          )
+        ),
+        tags$h5("Classification Rules"),
+        tags$p(
+          "The card estimates deployed camera hours in each diel period from deployment start/end times and per-location sunrise, sunset, civil dawn, and civil dusk. It then compares observations per deployed hour across the four diel periods."
+        ),
+        tags$ul(
+          tags$li(sprintf("Fewer than %d observations: Insufficient data.", thresholds$insufficient_n)),
+          tags$li(sprintf("%d to %d observations: classification is shown with low confidence.", thresholds$insufficient_n, thresholds$normal_confidence_n - 1)),
+          tags$li(sprintf("Diurnal or Nocturnal: that rate share is at least %.0f%%.", thresholds$dominant_share * 100)),
+          tags$li(sprintf("Crepuscular: dawn plus dusk rate share is at least %.0f%%, with both dawn and dusk represented.", thresholds$crepuscular_share * 100)),
+          tags$li(sprintf("Cathemeral: both day and night rate shares are at least %.0f%%.", thresholds$cathemeral_day_night_share * 100)),
+          tags$li("Arrhythmic: the sample is sufficient, but none of the above patterns is dominant.")
+        ),
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        size = "l"
+      ))
+    })
+
+    render_species_observations_table_note <- function() {
+      if (isTRUE(use_net())) {
+        return(card_footer(
+          class = "dashcard-count-basis-footer species-observations-note",
+          tags$span("All observations shown, including possible duplicates excluded from net metrics."),
+          tags$a(
+            href = "#",
+            class = "dashcard-count-basis-info",
+            title = "Count basis",
+            onclick = "Shiny.setInputValue('info_field_clicked', 'Net Data Basis', {priority: 'event'}); return false;",
+            icon("circle-info")
+          )
+        ))
+      }
+
+      card_footer(
+        class = "species-observations-note",
+        tags$span("All observations shown, including possible duplicates.")
+      )
+    }
+
+    render_duplicate_review_control <- function(species_obs) {
+      duplicate_count <- if (!is.null(species_obs) && nrow(species_obs) > 0 && "possible_duplicate" %in% names(species_obs)) {
+        sum(!is.na(species_obs$possible_duplicate) & species_obs$possible_duplicate, na.rm = TRUE)
+      } else {
+        0
+      }
+      review_ids <- species_dashboard_possible_duplicate_queue(species_obs)
+
+      if (length(review_ids) == 0) {
+        return(tags$button(
+          type = "button",
+          class = "btn btn-sm btn-outline-secondary",
+          disabled = "disabled",
+          title = "No possible duplicates in this selection",
+          icon("clone"),
+          " Review possible duplicates"
+        ))
+      }
+
+      onclick_payload <- jsonlite::toJSON(
+        list(observation_ids = review_ids),
+        auto_unbox = TRUE
+      )
+      onclick_js <- sprintf(
+        "Shiny.setInputValue('review_sequences_click', %s, {priority: 'event'}); return false;",
+        onclick_payload
+      )
+
+      tags$div(
+        class = "species-duplicate-review-control",
+        tags$a(
+          href = "#",
+          class = "btn btn-sm btn-outline-secondary",
+          title = "Review possible duplicate sequences",
+          onclick = onclick_js,
+          icon("clone"),
+          " Review possible duplicates"
+        ),
+        tags$span(
+          sprintf("%s possible duplicate observations", format_dash_number(duplicate_count)),
+          class = "species-duplicate-review-count"
+        )
+      )
+    }
+
+    render_species_observations_table <- function(species_obs) {
+      table_data <- species_dashboard_observations_table_data(species_obs)
+      table_options <- list(
+        pageLength = 25,
+        searching = TRUE,
+        lengthChange = TRUE,
+        scrollX = TRUE
+      )
+      if ("Timestamp" %in% names(table_data)) {
+        table_options$order <- list(list(match("Timestamp", names(table_data)) - 1, "desc"))
+      }
+
+      DT::datatable(
+        table_data,
+        escape = FALSE,
+        filter = "top",
+        options = table_options,
+        class = "display",
+        rownames = FALSE
+      )
     }
 
     # Dashboard Header
@@ -756,7 +1302,19 @@ species_dashboard_module_server <- function(id,
     output$overall_metric_cards <- renderUI({ render_metric_cards(overall_sobs(), overall_deps(), "ALL") }) %>%
       bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), "ALL")
     output$overall_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(overall_sobs(), use_net())) })
+    output$overall_diel_activity_card <- renderUI({
+      render_diel_activity_card(
+        species_dashboard_diel_summary(
+          filter_possible_duplicates_for_use_net(overall_sobs(), use_net()),
+          overall_deps(),
+          core_data$weather_daily
+        )
+      )
+    }) %>%
+      bindCache(species_name, locality_filter_token(), use_net(), "ALL", "diel_activity_card")
     output$overall_cooccurrence_ui <- renderUI({ generate_cooccurrence(overall_sobs(), overall_obs()) })
+    output$overall_duplicate_review_control <- renderUI({ render_duplicate_review_control(overall_sobs()) })
+    output$overall_observations_table <- DT::renderDT({ render_species_observations_table(overall_sobs()) })
 
     period_defaults <- species_dashboard_period_defaults(core_data)
 
@@ -775,9 +1333,18 @@ species_dashboard_module_server <- function(id,
     # Track loaded map tabs for lazy loading
     loaded_dashboard_tabs <- reactiveVal(character())
 
-    observeEvent(input$dashboard_tabs, {
+    observe({
       req(input$dashboard_tabs)
       current_tab <- input$dashboard_tabs
+      section_tab <- switch(
+        current_tab,
+        overall = input$overall_section_tabs,
+        current_period = input$current_section_tabs,
+        prior_period = input$prior_section_tabs,
+        last_year_period = input$last_year_section_tabs,
+        NULL
+      )
+      req(identical(section_tab, "map"))
 
       if (!(current_tab %in% loaded_dashboard_tabs())) {
 
@@ -831,7 +1398,7 @@ species_dashboard_module_server <- function(id,
         loaded_dashboard_tabs(c(loaded_dashboard_tabs(), current_tab))
         logger::log_debug(sprintf("species_dashboard_module_server, lazily loaded map for tab %s", current_tab))
       }
-    }, ignoreNULL = FALSE, ignoreInit = FALSE)
+    })
 
     # 2. CURRENT PERIOD
     current_period_data <- period_selection_module_server("current_period", period_groups = core_data$period_groups, selected = period_defaults$current_period)
@@ -850,7 +1417,21 @@ species_dashboard_module_server <- function(id,
     output$current_metric_cards <- renderUI({ render_metric_cards(current_sobs(), current_deps(), current_period_data$period_name()) }) %>%
       bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), current_period_data$period_name())
     output$current_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(current_sobs(), use_net())) })
+    output$current_diel_activity_card <- renderUI({
+      render_diel_activity_card(
+        species_dashboard_diel_summary(
+          filter_possible_duplicates_for_use_net(current_sobs(), use_net()),
+          current_deps(),
+          core_data$weather_daily,
+          current_period_data$start_date(),
+          current_period_data$end_date()
+        )
+      )
+    }) %>%
+      bindCache(species_name, locality_filter_token(), use_net(), current_period_data$period_name(), "diel_activity_card")
     output$current_cooccurrence_ui <- renderUI({ generate_cooccurrence(current_sobs(), current_obs()) })
+    output$current_duplicate_review_control <- renderUI({ render_duplicate_review_control(current_sobs()) })
+    output$current_observations_table <- DT::renderDT({ render_species_observations_table(current_sobs()) })
     output$current_period_name <- renderText({ current_period_data$period_name() })
 
     # 3. PRIOR PERIOD
@@ -870,7 +1451,21 @@ species_dashboard_module_server <- function(id,
     output$prior_metric_cards <- renderUI({ render_metric_cards(prior_sobs(), prior_deps(), prior_period_data$period_name()) }) %>%
       bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), prior_period_data$period_name())
     output$prior_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(prior_sobs(), use_net())) })
+    output$prior_diel_activity_card <- renderUI({
+      render_diel_activity_card(
+        species_dashboard_diel_summary(
+          filter_possible_duplicates_for_use_net(prior_sobs(), use_net()),
+          prior_deps(),
+          core_data$weather_daily,
+          prior_period_data$start_date(),
+          prior_period_data$end_date()
+        )
+      )
+    }) %>%
+      bindCache(species_name, locality_filter_token(), use_net(), prior_period_data$period_name(), "diel_activity_card")
     output$prior_cooccurrence_ui <- renderUI({ generate_cooccurrence(prior_sobs(), prior_obs()) })
+    output$prior_duplicate_review_control <- renderUI({ render_duplicate_review_control(prior_sobs()) })
+    output$prior_observations_table <- DT::renderDT({ render_species_observations_table(prior_sobs()) })
     output$prior_period_name <- renderText({ prior_period_data$period_name() })
 
     # 4. LAST YEAR
@@ -888,7 +1483,21 @@ species_dashboard_module_server <- function(id,
     output$last_year_metric_cards <- renderUI({ render_metric_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name()) }) %>%
       bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), last_year_period_data$period_name())
     output$last_year_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(ly_sobs(), use_net())) })
+    output$last_year_diel_activity_card <- renderUI({
+      render_diel_activity_card(
+        species_dashboard_diel_summary(
+          filter_possible_duplicates_for_use_net(ly_sobs(), use_net()),
+          ly_deps(),
+          core_data$weather_daily,
+          last_year_period_data$start_date(),
+          last_year_period_data$end_date()
+        )
+      )
+    }) %>%
+      bindCache(species_name, locality_filter_token(), use_net(), last_year_period_data$period_name(), "diel_activity_card")
     output$last_year_cooccurrence_ui <- renderUI({ generate_cooccurrence(ly_sobs(), ly_obs()) })
+    output$last_year_duplicate_review_control <- renderUI({ render_duplicate_review_control(ly_sobs()) })
+    output$last_year_observations_table <- DT::renderDT({ render_species_observations_table(ly_sobs()) })
     output$last_year_period_name <- renderText({ last_year_period_data$period_name() })
 
   })
