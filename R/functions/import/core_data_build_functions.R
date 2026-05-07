@@ -9,7 +9,8 @@ build_core_data_from_source <- function(config) {
   core_data$period_groups <- create_period_groups(
     core_data$deps,
     config$globals$period_grouping,
-    config$globals$hemisphere
+    config$globals$hemisphere,
+    include_years = isTRUE(config$globals$period_grouping_include_years)
   )
 
   enhanced_data <- enhance_core_data(
@@ -26,6 +27,7 @@ build_core_data_from_source <- function(config) {
     core_data_updated = as_core_data_build_datetime(Sys.time(), config),
     core_data_weather_updated = empty_core_data_build_datetime(config),
     trapping_data_updated = empty_core_data_build_datetime(config),
+    period_grouping_signature = core_data_period_grouping_signature(config),
     status = list(
       weather_data = list(status = "not_started", required = NA_integer_, available = 0L, missing = NA_integer_)
     )
@@ -62,6 +64,15 @@ load_core_data <- function(config, force_rebuild = FALSE, refresh_weather = FALS
     )
     core_data <- readRDS(cache_file)
     core_data <- upgrade_cached_core_data(core_data, cache_file)
+    core_data <- ensure_core_data_app_metadata(core_data, config)
+    if (!identical(core_data$app$period_grouping_signature, core_data_period_grouping_signature(config))) {
+      logger::log_info(
+        "core_data_build_functions.R, period grouping config changed for data package id %s, rebuilding core_data",
+        package_id
+      )
+      core_data <- build_core_data_from_source(config)
+      save_core_data_cache(core_data, cache_file)
+    }
   } else {
     logger::log_info(
       "core_data_build_functions.R, cache miss for data package id %s, processing data...",

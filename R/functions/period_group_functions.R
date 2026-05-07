@@ -5,6 +5,15 @@ period_names_without_all <- function(period_groups) {
 
 find_matching_prior_year_period <- function(period_name, period_groups) {
   period_names <- period_names_without_all(period_groups)
+  if (grepl("^\\d{4}$", period_name)) {
+    matching_period <- as.character(as.integer(period_name) - 1)
+    if (matching_period %in% period_names) {
+      return(matching_period)
+    }
+
+    return(NA_character_)
+  }
+
   period_match <- regexec("^(.+)\\s+(\\d{4})$", period_name)
   period_parts <- regmatches(period_name, period_match)[[1]]
 
@@ -48,14 +57,17 @@ summarise_period_annotation_completeness <- function(deps, period_groups) {
   period_names <- period_names_without_all(period_groups)
 
   lapply(period_names, function(period_name) {
-    period_deps <- if ("period" %in% names(deps)) {
+    period_info <- period_groups[[period_name]]
+    period_uses_canonical_assignment <- is.null(period_info$assign_period) ||
+      isTRUE(period_info$assign_period)
+
+    period_deps <- if ("period" %in% names(deps) && period_uses_canonical_assignment) {
       deps %>% dplyr::filter(as.character(period) == period_name)
     } else {
-      period <- period_groups[[period_name]]
       deps %>%
         dplyr::filter(
-          start <= as.Date(period$end_date),
-          end >= as.Date(period$start_date)
+          start <= as.Date(.env$period_info$end_date),
+          end >= as.Date(.env$period_info$start_date)
         )
     }
 

@@ -45,9 +45,14 @@ config$globals <- list(
   # To calculate seasons
   hemisphere = "south",
   
-  # We group data into time periods then calculate and summarise for that time period 
-  # Only calculated_seasons currently exists as a period_grouping method
+  # We group data into time periods then calculate and summarise for that time period.
+  # Options: "calculated_seasons", "year"
   period_grouping = "calculated_seasons",
+
+  # When period_grouping is "calculated_seasons", also add selectable year
+  # periods to period_selection. The canonical deployment period remains the
+  # calculated season.
+  period_grouping_include_years = TRUE,
   
   # Which period_grouping to use as default for primary and comparative 
   # We create core_data$period_groups as a list, with each item having a description, 

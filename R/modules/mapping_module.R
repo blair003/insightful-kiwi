@@ -76,6 +76,155 @@ playback_format_time <- function(value) {
   format(as.POSIXct(value, tz = playback_actual_timezone()), "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone())
 }
 
+playback_format_date <- function(value) {
+  format(as.Date(value, tz = playback_actual_timezone()), "%d %b %Y")
+}
+
+playback_monitoring_periods <- function(period_groups) {
+  if (is.null(period_groups) || length(period_groups) == 0) {
+    return(data.frame())
+  }
+
+  period_names <- names(period_groups)
+  period_names <- period_names[period_names != "ALL"]
+  if (length(period_names) == 0) {
+    return(data.frame())
+  }
+
+  periods <- lapply(period_names, function(period_name) {
+    period <- period_groups[[period_name]]
+    if (is.null(period$start_date) || is.null(period$end_date)) {
+      return(NULL)
+    }
+    if (!is.null(period$assign_period) && !isTRUE(period$assign_period)) {
+      return(NULL)
+    }
+
+    data.frame(
+      name = period_name,
+      start = as.POSIXct(as.Date(period$start_date), tz = playback_actual_timezone()),
+      end = as.POSIXct(as.Date(period$end_date) + 1, tz = playback_actual_timezone()) - 1,
+      stringsAsFactors = FALSE
+    )
+  })
+
+  periods <- Filter(Negate(is.null), periods)
+  if (length(periods) == 0) {
+    return(data.frame())
+  }
+
+  dplyr::bind_rows(periods) %>%
+    dplyr::filter(!is.na(start), !is.na(end)) %>%
+    dplyr::arrange(start, end)
+}
+
+playback_period_status <- function(current_time, period_groups) {
+  current_time <- as.POSIXct(current_time, tz = playback_actual_timezone())
+  periods <- playback_monitoring_periods(period_groups)
+
+  if (is.null(current_time) || is.na(current_time) || nrow(periods) == 0) {
+    return(list(
+      in_period = FALSE,
+      label = "No cameras deployed",
+      detail = "No monitoring seasons available",
+      next_start = NULL,
+      next_name = NULL
+    ))
+  }
+
+  current_period <- periods %>%
+    dplyr::filter(start <= current_time, end >= current_time) %>%
+    dplyr::slice(1)
+
+  next_period <- periods %>%
+    dplyr::filter(start > current_time) %>%
+    dplyr::slice(1)
+
+  if (nrow(current_period) > 0) {
+    return(list(
+      in_period = TRUE,
+      label = current_period$name[[1]],
+      detail = sprintf(
+        "%s to %s",
+        playback_format_date(current_period$start[[1]]),
+        playback_format_date(current_period$end[[1]])
+      ),
+      current_end = current_period$end[[1]],
+      next_start = if (nrow(next_period) > 0) next_period$start[[1]] else NULL,
+      next_name = if (nrow(next_period) > 0) next_period$name[[1]] else NULL
+    ))
+  }
+
+  list(
+    in_period = FALSE,
+    label = "No cameras deployed",
+    detail = if (nrow(next_period) > 0) {
+      sprintf("Next: %s from %s", next_period$name[[1]], playback_format_date(next_period$start[[1]]))
+    } else {
+      "Outside monitoring seasons"
+    },
+    next_start = if (nrow(next_period) > 0) next_period$start[[1]] else NULL,
+    next_name = if (nrow(next_period) > 0) next_period$name[[1]] else NULL
+  )
+}
+
+render_playback_period_control <- function(period_status) {
+  if (is.null(period_status)) {
+    return(NULL)
+  }
+
+  state_class <- if (isTRUE(period_status$in_period)) "is-active" else "is-gap"
+  sprintf(
+    "<div class='map-season-badge %s'><span>%s</span><small>%s</small></div>",
+    state_class,
+    weather_html_escape(period_status$label),
+    weather_html_escape(period_status$detail)
+  )
+}
+
+render_playback_skip_notice <- function(skip_notice) {
+  if (is.null(skip_notice) || is.null(skip_notice$message)) {
+    return(NULL)
+  }
+
+  sprintf(
+    "<div class='map-playback-skip-badge'><strong>%s</strong><small>%s</small></div>",
+    weather_html_escape(skip_notice$message),
+    weather_html_escape("Playback resumes in 3 seconds")
+  )
+}
+
+playback_gap_skip_target <- function(current_time, next_time, playback_end, period_groups) {
+  status <- playback_period_status(current_time, period_groups)
+  if (is.null(status$next_start) || is.na(status$next_start)) {
+    return(NULL)
+  }
+
+  next_start <- as.POSIXct(status$next_start, tz = playback_actual_timezone())
+  if (next_start > playback_end) {
+    return(NULL)
+  }
+
+  if (!isTRUE(status$in_period) && next_start > current_time) {
+    return(list(
+      target = next_start,
+      next_name = status$next_name
+    ))
+  }
+
+  if (isTRUE(status$in_period) &&
+      !is.null(status$current_end) &&
+      next_time > status$current_end &&
+      next_start > status$current_end) {
+    return(list(
+      target = next_start,
+      next_name = status$next_name
+    ))
+  }
+
+  NULL
+}
+
 playback_window_readout <- function(start_time, current_time, step_size, weather_df, view_mode = "single") {
   if (is.null(start_time) || is.null(current_time) || is.na(start_time) || is.na(current_time)) {
     return(NULL)
@@ -197,6 +346,11 @@ mapping_module_ui <- function(id,
             "Monthly" = "month"
           ),
           selected = "day"
+        ),
+        checkboxInput(
+          inputId = ns("skip_playback_gaps"),
+          label = "Skip gaps between monitoring seasons",
+          value = TRUE
         ),
         radioButtons(
           inputId = ns("playback_view_mode"),
@@ -497,9 +651,23 @@ mapping_module_server <- function(id,
     # --- Density Map Specific Logic ---
     if (type == "density") {
       is_playing <- reactiveVal(FALSE)
+      playback_gap_notice <- reactiveVal(NULL)
+      playback_skip_resume_id <- reactiveVal(0L)
 
       playback_active <- reactive({
         identical(playback_mode, "always")
+      })
+
+      skip_playback_gaps <- reactive({
+        isTRUE(input$skip_playback_gaps)
+      })
+
+      playback_period_groups <- reactive({
+        if (exists("core_data", inherits = TRUE) && !is.null(core_data$period_groups)) {
+          return(core_data$period_groups)
+        }
+
+        NULL
       })
 
       floor_posix_hour <- function(value) {
@@ -679,17 +847,23 @@ mapping_module_server <- function(id,
       })
 
       observeEvent(input$pause_btn, {
+        playback_skip_resume_id(playback_skip_resume_id() + 1L)
+        playback_gap_notice(NULL)
         is_playing(FALSE)
       })
 
       observeEvent(input$reset_btn, {
+        playback_skip_resume_id(playback_skip_resume_id() + 1L)
+        playback_gap_notice(NULL)
         is_playing(FALSE)
         reset_playback_slider()
       })
 
       observeEvent(list(input$playback_step_size, input$playback_view_mode), {
         if (playback_active()) {
+          playback_skip_resume_id(playback_skip_resume_id() + 1L)
           is_playing(FALSE)
+          playback_gap_notice(NULL)
           reset_playback_slider()
         }
       }, ignoreInit = TRUE)
@@ -698,6 +872,8 @@ mapping_module_server <- function(id,
         if (identical(playback_mode, "none") &&
             (!identical(session$rootScope()$input$nav, "density_map") ||
              !identical(session$rootScope()$input$density_map_tabs, sub("^.*_", "", id)))) {
+          playback_skip_resume_id(playback_skip_resume_id() + 1L)
+          playback_gap_notice(NULL)
           is_playing(FALSE)
         }
       }, ignoreInit = TRUE)
@@ -706,6 +882,8 @@ mapping_module_server <- function(id,
         if (identical(playback_mode, "always") &&
             (!identical(session$rootScope()$input$nav, "density_playback_map") ||
              !is.null(input$density_playback_tabs) && !identical(input$density_playback_tabs, "map"))) {
+          playback_skip_resume_id(playback_skip_resume_id() + 1L)
+          playback_gap_notice(NULL)
           is_playing(FALSE)
         }
       }, ignoreInit = TRUE)
@@ -719,9 +897,42 @@ mapping_module_server <- function(id,
         } else {
           current_val + playback_step_seconds()
         }
+
+        skip_target <- if (skip_playback_gaps()) {
+          playback_gap_skip_target(current_val, next_val, playback_period_end(), playback_period_groups())
+        } else {
+          NULL
+        }
+
+        if (!is.null(skip_target)) {
+          is_playing(FALSE)
+          playback_gap_notice(list(
+            message = sprintf(
+              "Skipping to %s",
+              if (!is.null(skip_target$next_name) && !is.na(skip_target$next_name)) {
+                skip_target$next_name
+              } else {
+                "next monitoring season"
+              }
+            )
+          ))
+          resume_id <- playback_skip_resume_id() + 1L
+          playback_skip_resume_id(resume_id)
+          shinyjs::delay(3000, {
+            req(playback_active())
+            req(identical(playback_skip_resume_id(), resume_id))
+            updateSliderInput(session, "time_slider", value = skip_target$target)
+            playback_gap_notice(NULL)
+            is_playing(TRUE)
+          })
+          return()
+        }
+
         if (next_val <= playback_period_end()) {
+          playback_gap_notice(NULL)
           updateSliderInput(session, "time_slider", value = next_val)
         } else {
+          playback_gap_notice(NULL)
           is_playing(FALSE)
         }
       }, ignoreInit = TRUE)
@@ -876,6 +1087,12 @@ mapping_module_server <- function(id,
           NULL
         }
 
+        period_control <- if (use_playback) {
+          render_playback_period_control(playback_period_status(current_time_dens, playback_period_groups()))
+        } else {
+          NULL
+        }
+
         list(
           active_locations = active_locations_dens,
           obs_summary_location = obs_summary_location_dens,
@@ -884,7 +1101,9 @@ mapping_module_server <- function(id,
           current_time = current_time_dens,
           absolute_max = absolute_max,
           obs_filtered = obs_filtered_dens,
-          weather_control = weather_control
+          weather_control = weather_control,
+          period_control = period_control,
+          skip_notice = render_playback_skip_notice(playback_gap_notice())
         )
       })
       
@@ -902,7 +1121,9 @@ mapping_module_server <- function(id,
           obs_summary_location = data_for_map$obs_summary_location,
           show_zero = TRUE,
           absolute_max = data_for_map$absolute_max,
-          weather_control_html = data_for_map$weather_control
+          weather_control_html = data_for_map$weather_control,
+          period_control_html = data_for_map$period_control,
+          skip_notice_html = data_for_map$skip_notice
         )
         if (isTRUE(needs_fit_bounds())) {
           apply_map_fit_bounds()
@@ -1055,6 +1276,7 @@ mapping_module_server <- function(id,
       })
       
       observation_map_warning_content <- reactiveVal(NULL) # Specific to observation map
+      playback_gap_notice_obs <- reactiveVal(NULL)
 
       current_trap_data <- reactive({
         if (is.null(trap_data)) {
@@ -1110,6 +1332,18 @@ mapping_module_server <- function(id,
 
       playback_active_obs <- reactive({
         identical(playback_mode, "always")
+      })
+
+      skip_playback_gaps_obs <- reactive({
+        isTRUE(input$skip_playback_gaps)
+      })
+
+      playback_period_groups_obs <- reactive({
+        if (exists("core_data", inherits = TRUE) && !is.null(core_data$period_groups)) {
+          return(core_data$period_groups)
+        }
+
+        NULL
       })
 
       playback_observation_bounds_obs <- reactive({
@@ -1213,6 +1447,7 @@ mapping_module_server <- function(id,
       })
 
       is_playing_obs <- reactiveVal(FALSE)
+      playback_skip_resume_id_obs <- reactiveVal(0L)
 
       set_playback_button_state_obs <- function(playing) {
         if (!playback_active_obs()) {
@@ -1256,17 +1491,23 @@ mapping_module_server <- function(id,
       })
 
       observeEvent(input$pause_btn, {
+        playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
+        playback_gap_notice_obs(NULL)
         is_playing_obs(FALSE)
       })
 
       observeEvent(input$reset_btn, {
+        playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
+        playback_gap_notice_obs(NULL)
         is_playing_obs(FALSE)
         reset_playback_slider_obs()
       })
 
       observeEvent(list(input$playback_step_size, input$playback_view_mode), {
         if (playback_active_obs()) {
+          playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
           is_playing_obs(FALSE)
+          playback_gap_notice_obs(NULL)
           reset_playback_slider_obs()
         }
       }, ignoreInit = TRUE)
@@ -1274,6 +1515,8 @@ mapping_module_server <- function(id,
       observeEvent(list(session$rootScope()$input$nav, input$observation_map_tabs), {
         if (!identical(session$rootScope()$input$nav, "observation_map") ||
             !is.null(input$observation_map_tabs) && !identical(input$observation_map_tabs, ns("map_tab"))) {
+          playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
+          playback_gap_notice_obs(NULL)
           is_playing_obs(FALSE)
         }
       }, ignoreInit = TRUE)
@@ -1310,9 +1553,42 @@ mapping_module_server <- function(id,
         } else {
           current_val + playback_step_seconds_obs()
         }
+
+        skip_target <- if (skip_playback_gaps_obs()) {
+          playback_gap_skip_target(current_val, next_val, playback_period_end_obs(), playback_period_groups_obs())
+        } else {
+          NULL
+        }
+
+        if (!is.null(skip_target)) {
+          is_playing_obs(FALSE)
+          playback_gap_notice_obs(list(
+            message = sprintf(
+              "Skipping to %s",
+              if (!is.null(skip_target$next_name) && !is.na(skip_target$next_name)) {
+                skip_target$next_name
+              } else {
+                "next monitoring season"
+              }
+            )
+          ))
+          resume_id <- playback_skip_resume_id_obs() + 1L
+          playback_skip_resume_id_obs(resume_id)
+          shinyjs::delay(3000, {
+            req(playback_active_obs())
+            req(identical(playback_skip_resume_id_obs(), resume_id))
+            updateSliderInput(session, "time_slider", value = skip_target$target)
+            playback_gap_notice_obs(NULL)
+            is_playing_obs(TRUE)
+          })
+          return()
+        }
+
         if (next_val <= playback_period_end_obs()) {
+          playback_gap_notice_obs(NULL)
           updateSliderInput(session, "time_slider", value = next_val)
         } else {
+          playback_gap_notice_obs(NULL)
           is_playing_obs(FALSE)
         }
       }, ignoreInit = TRUE)
@@ -1500,6 +1776,12 @@ mapping_module_server <- function(id,
           NULL
         }
 
+        period_control <- if (playback_active_obs()) {
+          render_playback_period_control(playback_period_status(current_time_obsmap, playback_period_groups_obs()))
+        } else {
+          NULL
+        }
+
         list(
           observations_for_table = observations_for_table,
           cumulative_observations_for_table = cumulative_observations_for_table,
@@ -1511,7 +1793,9 @@ mapping_module_server <- function(id,
           trap_legend = NULL,
           start_time = start_time_obsmap,
           current_time = current_time_obsmap,
-          weather_control = weather_control
+          weather_control = weather_control,
+          period_control = period_control,
+          skip_notice = render_playback_skip_notice(playback_gap_notice_obs())
         )
       })
 
@@ -1589,6 +1873,8 @@ mapping_module_server <- function(id,
           MAP_ID,
           active_locs,
           weather_control_html = processed_data_val$weather_control,
+          period_control_html = processed_data_val$period_control,
+          skip_notice_html = processed_data_val$skip_notice,
           trap_legend_html = processed_data_val$trap_legend
         ) 
         
@@ -1748,7 +2034,9 @@ update_density_map <- function(map_id = NULL,
                                obs_summary_location = NULL, 
                                show_zero = TRUE,
                                absolute_max = NULL,
-                               weather_control_html = NULL) {
+                               weather_control_html = NULL,
+                               period_control_html = NULL,
+                               skip_notice_html = NULL) {
   #browser()
   max_scale <- 1
   radius_range <- c(10, 50)
@@ -1764,6 +2052,22 @@ update_density_map <- function(map_id = NULL,
       html = weather_control_html,
       position = "topright",
       className = "map-weather-control"
+    )
+  }
+
+  if (!is.null(period_control_html)) {
+    proxy <- proxy %>% addControl(
+      html = period_control_html,
+      position = "topright",
+      className = "map-season-control"
+    )
+  }
+
+  if (!is.null(skip_notice_html)) {
+    proxy <- proxy %>% addControl(
+      html = skip_notice_html,
+      position = "topleft",
+      className = "map-playback-skip-control"
     )
   }
   
@@ -2306,6 +2610,8 @@ update_map <- function(all_marker_data_with_warnings,
                        map_id,
                        active_locations,
                        weather_control_html = NULL,
+                       period_control_html = NULL,
+                       skip_notice_html = NULL,
                        trap_legend_html = NULL) {
   
   proxy <- leafletProxy(map_id) %>% 
@@ -2318,6 +2624,22 @@ update_map <- function(all_marker_data_with_warnings,
       html = weather_control_html,
       position = "topright",
       className = "map-weather-control"
+    )
+  }
+
+  if (!is.null(period_control_html)) {
+    proxy <- proxy %>% addControl(
+      html = period_control_html,
+      position = "topright",
+      className = "map-season-control"
+    )
+  }
+
+  if (!is.null(skip_notice_html)) {
+    proxy <- proxy %>% addControl(
+      html = skip_notice_html,
+      position = "topleft",
+      className = "map-playback-skip-control"
     )
   }
 

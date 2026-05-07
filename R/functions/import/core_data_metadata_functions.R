@@ -22,6 +22,23 @@ empty_core_data_build_datetime <- function(config = NULL) {
   )
 }
 
+core_data_period_grouping_signature <- function(config = NULL) {
+  if (is.null(config) || is.null(config$globals)) {
+    return(list(
+      period_grouping = NULL,
+      period_grouping_include_years = FALSE,
+      hemisphere = NULL
+    ))
+  }
+
+  globals <- config$globals
+  list(
+    period_grouping = globals$period_grouping,
+    period_grouping_include_years = isTRUE(globals$period_grouping_include_years),
+    hemisphere = globals$hemisphere
+  )
+}
+
 ensure_core_data_app_metadata <- function(core_data, config = NULL) {
   if (is.null(core_data$app)) {
     core_data$app <- list()

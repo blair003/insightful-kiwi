@@ -185,14 +185,22 @@ process_camtrapdp_package <- function() {
 
 create_period_groups <- function(deps,
                                  period_grouping_type = NULL,
-                                 hemisphere = NULL) {
+                                 hemisphere = NULL,
+                                 include_years = FALSE) {
   tryCatch({
   #  browser()
     period_groups <- NULL
 
     if (period_grouping_type == "calculated_seasons") {
       logger::log_debug("Creating period groups for calculated_seasons")
-      period_groups <- create_seasons_available_list(deps, hemisphere)
+      period_groups <- create_seasons_available_list(
+        deps,
+        hemisphere,
+        include_years = include_years
+      )
+    } else if (period_grouping_type == "year") {
+      logger::log_debug("Creating period groups for year")
+      period_groups <- create_years_available_list(deps)
     } else {
       # Placeholder for other grouping types in the future
       logger::log_warn("Unhandled period grouping type:", period_grouping_type)
@@ -255,6 +263,9 @@ enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) 
   deps <- tryCatch({
     # Filter out the "ALL" entry, if it exists
     filtered_periods <- period_groups[!names(period_groups) %in% "ALL"]
+    filtered_periods <- Filter(function(period) {
+      is.null(period$assign_period) || isTRUE(period$assign_period)
+    }, filtered_periods)
     period_levels <- names(filtered_periods)
 
     # Determine period for a given date
@@ -573,8 +584,75 @@ get_season <- function(month, hemisphere) {
 
 # Assume get_season is defined and config$globals$hemisphere is set correctly
 
-create_seasons_available_list <- function(deps, hemisphere) {
+create_years_available_list <- function(deps) {
+  display_timezone <- if (!is.null(config$globals$actual_timezone) &&
+                          nzchar(config$globals$actual_timezone)) {
+    config$globals$actual_timezone
+  } else {
+    config$globals$timezone
+  }
+
+  deps_dates <- deps %>%
+    dplyr::mutate(
+      start_date = as.Date(start),
+      end_date = as.Date(end)
+    )
+
+  all_start <- min(deps_dates$start_date, na.rm = TRUE)
+  all_end <- max(deps_dates$end_date, na.rm = TRUE)
+  available_years <- seq(lubridate::year(all_start), lubridate::year(all_end))
+
+  years <- tibble::tibble(
+    period_name = as.character(available_years),
+    start_date = as.Date(paste0(available_years, "-01-01")),
+    end_date = as.Date(paste0(available_years, "-12-31")),
+    period_type = "year",
+    assign_period = TRUE
+  ) %>%
+    dplyr::mutate(
+      start_date = pmax(start_date, all_start),
+      end_date = pmin(end_date, all_end)
+    ) %>%
+    dplyr::filter(start_date <= end_date) %>%
+    dplyr::mutate(
+      start_date = as.POSIXct(paste(start_date, "00:00"), tz = display_timezone),
+      end_date = as.POSIXct(paste(end_date, "23:59:59"), tz = display_timezone)
+    )
+
+  all_entry <- tibble::tibble(
+    period_name = "ALL",
+    start_date = as.POSIXct(paste(all_start, "00:00"), tz = display_timezone),
+    end_date = as.POSIXct(paste(all_end, "23:59:59"), tz = display_timezone),
+    period_type = "all",
+    assign_period = FALSE
+  )
+
+  period_rows_to_list(dplyr::bind_rows(years, all_entry))
+}
+
+period_rows_to_list <- function(period_rows) {
+  all_entry <- period_rows[period_rows$period_name == "ALL", , drop = FALSE]
+  period_rows <- period_rows[period_rows$period_name != "ALL", , drop = FALSE]
+  period_rows <- period_rows %>%
+    dplyr::arrange(dplyr::desc(start_date), period_type, period_name)
+
+  period_list <- split(
+    period_rows[c("start_date", "end_date", "period_type", "assign_period")],
+    factor(period_rows$period_name, levels = period_rows$period_name)
+  )
+
+  if (nrow(all_entry) > 0) {
+    period_list[["ALL"]] <- all_entry[c(
+      "start_date", "end_date", "period_type", "assign_period"
+    )]
+  }
+
+  period_list
+}
+
+create_seasons_available_list <- function(deps, hemisphere, include_years = FALSE) {
 #  browser()
+  source_deps <- deps
   display_timezone <- if (!is.null(config$globals$actual_timezone) &&
                           nzchar(config$globals$actual_timezone)) {
     config$globals$actual_timezone
@@ -597,46 +675,51 @@ create_seasons_available_list <- function(deps, hemisphere) {
       # Create a unique identifier for each season within its year
       season_year = paste(season, year),
       start_date = as.POSIXct(paste(start_date, "00:00"), tz = display_timezone),
-      end_date = as.POSIXct(paste(end_date, "23:59:59"), tz = display_timezone)
+      end_date = as.POSIXct(paste(end_date, "23:59:59"), tz = display_timezone),
+      period_type = "calculated_season",
+      assign_period = TRUE
     ) %>%
-    group_by(season_year, year) %>%
+    group_by(season_year, year, period_type, assign_period) %>%
     summarise(
       # Find the earliest start date and the latest end date for each season_year group
       start_date = min(start_date),
       end_date = max(end_date),
       .groups = 'drop'
     ) %>%
-    ungroup()
+    ungroup() %>%
+    dplyr::rename(period_name = season_year)
 
   # Adding 'ALL' entry after arranging, ensuring it comes last
   all_start <- min(deps$start_date)
   all_end <- max(deps$end_date)
   deps <- bind_rows(deps, tibble(
-    season_year = "ALL",
+    period_name = "ALL",
     year = year(all_start),  # Assign infinity to ensure 'ALL' sorts last
     start_date = all_start,
-    end_date = all_end
+    end_date = all_end,
+    period_type = "all",
+    assign_period = FALSE
   ))
-  # Convert to list format, ensuring order is maintained
-  seasons_list <- split(deps[c("start_date", "end_date")], deps$season_year)
-  #browser()
-  # Remove "ALL" temporarily for sorting
-  all_entry <- seasons_list[["ALL"]]
-  seasons_list[["ALL"]] <- NULL
 
-  # Extract start dates for sorting
-  start_dates <- sapply(seasons_list, function(x) x$start_date)
+  if (isTRUE(include_years)) {
+    year_periods <- create_years_available_list(source_deps)
+    year_rows <- dplyr::bind_rows(lapply(names(year_periods), function(period_name) {
+      period <- year_periods[[period_name]]
+      data.frame(
+        period_name = period_name,
+        year = lubridate::year(period$start_date),
+        start_date = period$start_date,
+        end_date = period$end_date,
+        period_type = period$period_type,
+        assign_period = FALSE,
+        stringsAsFactors = FALSE
+      )
+    }))
+    year_rows <- year_rows[year_rows$period_name != "ALL", , drop = FALSE]
+    deps <- dplyr::bind_rows(deps, year_rows)
+  }
 
-  # Order the list by start dates
-  ordered_indices <- order(desc(start_dates))
-
-  # Apply the ordering to the list
-  ordered_seasons_list <- seasons_list[ordered_indices]
-
-  # Append "ALL" back to the ordered list
-  ordered_seasons_list[["ALL"]] <- all_entry
-
-  return(ordered_seasons_list)
+  period_rows_to_list(deps)
 }
 
 
