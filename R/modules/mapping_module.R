@@ -254,6 +254,7 @@ mapping_module_ui <- function(id,
                               selected = NULL,
                               multiple = TRUE,
                               label = "Species selection:",
+                              include_prediction_option = TRUE,
                               map_height = config$globals$leaflet_height) { # Added map_height
   ns <- NS(id)
   
@@ -298,7 +299,17 @@ mapping_module_ui <- function(id,
           inputId = ns("exclude_possible_duplicates"),
           label = "Exclude possible duplicates",
           value = isTRUE(config$globals$use_net_data)
-        )
+        ),
+        if (isTRUE(include_prediction_option)) {
+          checkboxInput(
+            inputId = ns("show_predicted_rai_surface"),
+            label = "Show predicted RAI surface",
+            value = FALSE
+          )
+        },
+        if (isTRUE(include_prediction_option)) {
+          tags$small("Predicted surface uses effort-normalised RAI and IDW interpolation within the monitored footprint.")
+        }
       )
     )
   } else if (view == "select_observation_map_options") { # New view for observation map specific options
@@ -462,6 +473,7 @@ mapping_module_server <- function(id,
                                   deps = NULL, # Reactive: deps filtered by period
                                   species_override = NULL, # Reactive: for comparative density map
                                   localities_override = NULL, # Reactive: for comparative density map
+                                  prediction_surface_override = NULL, # Reactive: for comparative density map
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
                                   playback_mode = c("none", "always"),
@@ -493,6 +505,16 @@ mapping_module_server <- function(id,
       }
 
       isTRUE(input$exclude_possible_duplicates)
+    })
+
+    show_predicted_rai_surface_selected <- reactive({
+      if (type == "density" &&
+          !is.null(prediction_surface_override) &&
+          !is.null(prediction_surface_override())) {
+        return(isTRUE(prediction_surface_override()))
+      }
+
+      isTRUE(input$show_predicted_rai_surface)
     })
     
     # --- Common Reactives ---
@@ -1022,6 +1044,64 @@ mapping_module_server <- function(id,
             observation_ids = list(unique(observationID)),
             .groups = "drop"
           )
+
+        active_location_effort_dens <- deps() %>%
+          dplyr::filter(locality %in% localities_dens) %>%
+          dplyr::group_by(locationID) %>%
+          dplyr::summarise(
+            locationName = dplyr::first(locationName),
+            locality = dplyr::first(locality),
+            line = dplyr::first(line),
+            longitude = dplyr::first(longitude),
+            latitude = dplyr::first(latitude),
+            camera_hours = sum(camera_hours, na.rm = TRUE),
+            .groups = "drop"
+          )
+
+        obs_location_counts_dens <- obs_filtered_dens %>%
+          dplyr::group_by(locationID) %>%
+          dplyr::summarise(
+            count = sum(count, na.rm = TRUE),
+            .groups = "drop"
+          )
+
+        rai_location_dens <- active_location_effort_dens %>%
+          dplyr::left_join(obs_location_counts_dens, by = "locationID") %>%
+          dplyr::mutate(
+            count = dplyr::coalesce(.data$count, 0),
+            rai = dplyr::if_else(
+              is.finite(.data$camera_hours) & .data$camera_hours > 0,
+              (.data$count / .data$camera_hours) * config$globals$rai_norm_hours,
+              NA_real_
+            )
+          )
+
+        predicted_rai_surface <- NULL
+        predicted_rai_surface_message <- NULL
+        if (isTRUE(show_predicted_rai_surface_selected())) {
+          usable_rai_locations <- rai_location_dens %>%
+            dplyr::filter(
+              is.finite(.data$longitude),
+              is.finite(.data$latitude),
+              is.finite(.data$rai)
+            )
+
+          if (nrow(usable_rai_locations) < 3) {
+            predicted_rai_surface_message <- "Predicted RAI surface needs at least three active camera locations with effort data."
+          } else if (!any(usable_rai_locations$rai > 0, na.rm = TRUE)) {
+            predicted_rai_surface_message <- "Predicted RAI surface is not shown because this selection has no positive RAI values."
+          } else {
+            predicted_rai_surface <- create_idw_prediction_surface(
+              usable_rai_locations,
+              value_col = "rai",
+              group_col = "locality"
+            )
+
+            if (is.null(predicted_rai_surface) || nrow(predicted_rai_surface) == 0) {
+              predicted_rai_surface_message <- "Predicted RAI surface is not available for the current camera layout."
+            }
+          }
+        }
         
         obs_summary_locality_dens <- active_locations_dens %>%
           dplyr::select(locality) %>%
@@ -1101,6 +1181,8 @@ mapping_module_server <- function(id,
           current_time = current_time_dens,
           absolute_max = absolute_max,
           obs_filtered = obs_filtered_dens,
+          predicted_rai_surface = predicted_rai_surface,
+          predicted_rai_surface_message = predicted_rai_surface_message,
           weather_control = weather_control,
           period_control = period_control,
           skip_notice = render_playback_skip_notice(playback_gap_notice())
@@ -1121,6 +1203,8 @@ mapping_module_server <- function(id,
           obs_summary_location = data_for_map$obs_summary_location,
           show_zero = TRUE,
           absolute_max = data_for_map$absolute_max,
+          predicted_rai_surface = data_for_map$predicted_rai_surface,
+          predicted_rai_surface_message = data_for_map$predicted_rai_surface_message,
           weather_control_html = data_for_map$weather_control,
           period_control_html = data_for_map$period_control,
           skip_notice_html = data_for_map$skip_notice
@@ -1201,6 +1285,7 @@ mapping_module_server <- function(id,
           active_locations = data_for_map$active_locations,
           obs_summary_location = data_for_map$obs_summary_location,
           show_zero = TRUE,
+          predicted_rai_surface = data_for_map$predicted_rai_surface,
           width = width,
           height = height
         )
@@ -1257,6 +1342,7 @@ mapping_module_server <- function(id,
       return(list(
         selected_species = current_selected_species,
         selected_localities = current_selected_localities,
+        show_predicted_rai_surface = show_predicted_rai_surface_selected,
         recenter_map = recenter_map_generic # Return the generic recenter function
       ))
       
@@ -2034,6 +2120,8 @@ update_density_map <- function(map_id = NULL,
                                obs_summary_location = NULL, 
                                show_zero = TRUE,
                                absolute_max = NULL,
+                               predicted_rai_surface = NULL,
+                               predicted_rai_surface_message = NULL,
                                weather_control_html = NULL,
                                period_control_html = NULL,
                                skip_notice_html = NULL) {
@@ -2110,6 +2198,39 @@ update_density_map <- function(map_id = NULL,
   
   pal_domain <- if (!is.na(max_count) && max_count > 0) c(0, max_count) else obs_summary_location$count
   pal <- colorNumeric(palette = "inferno", domain = pal_domain)
+
+  if (!is.null(predicted_rai_surface) && nrow(predicted_rai_surface) > 0) {
+    surface_pal <- colorNumeric(
+      palette = "YlOrRd",
+      domain = predicted_rai_surface$predicted_rai
+    )
+
+    proxy %>%
+      addPolygons(
+        data = predicted_rai_surface,
+        fillColor = ~surface_pal(predicted_rai),
+        fillOpacity = 0.42,
+        stroke = FALSE,
+        smoothFactor = 0,
+        label = ~sprintf("%s predicted RAI: %0.2f", locality, predicted_rai),
+        group = "Predicted RAI surface"
+      ) %>%
+      addLegend(
+        "bottomleft",
+        pal = surface_pal,
+        values = predicted_rai_surface$predicted_rai,
+        title = "Predicted RAI",
+        labFormat = labelFormat(),
+        opacity = 0.8
+      )
+  } else if (!is.null(predicted_rai_surface_message) && nzchar(predicted_rai_surface_message)) {
+    proxy %>%
+      addControl(
+        html = sprintf("<strong>Predicted RAI surface unavailable</strong><br><small>%s</small>", predicted_rai_surface_message),
+        position = "topleft",
+        className = "map-prediction-message-control"
+      )
+  }
 
   non_zero_locations <- obs_summary_location %>%
     filter(count > 0)

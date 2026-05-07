@@ -81,6 +81,154 @@ calculate_distance_between_line_locations <- function(deployments, min_distance_
 
 
 
+create_idw_prediction_surface <- function(location_values,
+                                          value_col = "rai",
+                                          group_col = "locality",
+                                          min_points = 3,
+                                          idp = 2,
+                                          grid_n = 45,
+                                          max_cells = 1800,
+                                          buffer_m = NULL) {
+  required_cols <- c("longitude", "latitude", value_col)
+  if (is.null(location_values) ||
+      nrow(location_values) == 0 ||
+      !all(required_cols %in% names(location_values))) {
+    return(NULL)
+  }
+
+  create_surface_for_group <- function(group_data, group_name) {
+    values <- suppressWarnings(as.numeric(group_data[[value_col]]))
+    usable_locations <- group_data %>%
+      dplyr::mutate(.surface_value = values) %>%
+      dplyr::filter(
+        is.finite(.data$longitude),
+        is.finite(.data$latitude),
+        is.finite(.data$.surface_value)
+      )
+
+    if (nrow(usable_locations) < min_points ||
+        !any(usable_locations$.surface_value > 0, na.rm = TRUE)) {
+      return(NULL)
+    }
+
+    points_sf <- sf::st_as_sf(
+      usable_locations,
+      coords = c("longitude", "latitude"),
+      crs = 4326,
+      remove = FALSE
+    ) %>%
+      sf::st_transform(3857)
+
+    point_coords <- sf::st_coordinates(points_sf)
+    distinct_point_count <- nrow(unique(round(point_coords, digits = 2)))
+    if (distinct_point_count < min_points) {
+      return(NULL)
+    }
+
+    distance_matrix <- as.matrix(stats::dist(point_coords))
+    distance_matrix[distance_matrix == 0] <- NA_real_
+    nearest_distance <- suppressWarnings(apply(distance_matrix, 1, min, na.rm = TRUE))
+    nearest_distance <- nearest_distance[is.finite(nearest_distance)]
+    inferred_buffer_m <- if (length(nearest_distance) > 0) {
+      max(stats::median(nearest_distance, na.rm = TRUE) * 0.75, 50)
+    } else {
+      100
+    }
+    footprint_buffer_m <- if (is.null(buffer_m)) inferred_buffer_m else buffer_m
+
+    footprint <- points_sf %>%
+      sf::st_geometry() %>%
+      sf::st_union() %>%
+      sf::st_convex_hull() %>%
+      sf::st_buffer(dist = footprint_buffer_m)
+
+    if (length(footprint) == 0 || any(sf::st_is_empty(footprint))) {
+      return(NULL)
+    }
+
+    footprint_bbox <- sf::st_bbox(footprint)
+    width_m <- as.numeric(footprint_bbox[["xmax"]] - footprint_bbox[["xmin"]])
+    height_m <- as.numeric(footprint_bbox[["ymax"]] - footprint_bbox[["ymin"]])
+    extent_m <- max(width_m, height_m)
+    if (!is.finite(extent_m) || extent_m <= 0) {
+      return(NULL)
+    }
+
+    cell_size_m <- max(extent_m / grid_n, 25)
+    estimated_cells <- (width_m / cell_size_m) * (height_m / cell_size_m)
+    if (is.finite(estimated_cells) && estimated_cells > max_cells) {
+      cell_size_m <- cell_size_m * sqrt(estimated_cells / max_cells)
+    }
+
+    grid <- sf::st_make_grid(
+      footprint,
+      cellsize = cell_size_m,
+      what = "polygons",
+      square = TRUE
+    )
+    if (length(grid) == 0) {
+      return(NULL)
+    }
+
+    grid_sf <- sf::st_sf(
+      locality = as.character(group_name),
+      geometry = grid
+    )
+    grid_centres <- suppressWarnings(sf::st_centroid(grid_sf))
+    inside_footprint <- lengths(sf::st_within(grid_centres, footprint)) > 0
+    grid_sf <- grid_sf[inside_footprint, ]
+    grid_centres <- grid_centres[inside_footprint, ]
+
+    if (nrow(grid_sf) == 0) {
+      return(NULL)
+    }
+
+    centre_coords <- sf::st_coordinates(grid_centres)
+    point_values <- points_sf$.surface_value
+    predictions <- vapply(seq_len(nrow(centre_coords)), function(i) {
+      distances <- sqrt((point_coords[, 1] - centre_coords[i, 1])^2 +
+                          (point_coords[, 2] - centre_coords[i, 2])^2)
+      coincident <- distances == 0
+      if (any(coincident)) {
+        return(mean(point_values[coincident], na.rm = TRUE))
+      }
+
+      weights <- 1 / (distances ^ idp)
+      sum(weights * point_values, na.rm = TRUE) / sum(weights, na.rm = TRUE)
+    }, numeric(1))
+
+    grid_sf$predicted_rai <- predictions
+    grid_sf <- grid_sf %>%
+      dplyr::filter(is.finite(.data$predicted_rai)) %>%
+      sf::st_transform(4326)
+
+    if (nrow(grid_sf) == 0) {
+      return(NULL)
+    }
+
+    grid_sf[, c("locality", "predicted_rai", "geometry")]
+  }
+
+  grouped_locations <- if (!is.null(group_col) && group_col %in% names(location_values)) {
+    split(location_values, location_values[[group_col]], drop = TRUE)
+  } else {
+    list("Selected area" = location_values)
+  }
+
+  surfaces <- Filter(
+    Negate(is.null),
+    Map(create_surface_for_group, grouped_locations, names(grouped_locations))
+  )
+
+  if (length(surfaces) == 0) {
+    return(NULL)
+  }
+
+  do.call(rbind, surfaces)
+}
+
+
+
 create_density_map <- function(obs, deps, species, show_zero = TRUE) {
 
   max_scale <- 1

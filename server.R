@@ -1111,6 +1111,7 @@ server <- function(input, output, session) {
           deps = filtered_deps_comparative,
           species_override = density_map_primary$selected_species,
           localities_override = density_map_primary$selected_localities,
+          prediction_surface_override = density_map_primary$show_predicted_rai_surface,
           use_net = global_use_net
         )
       }

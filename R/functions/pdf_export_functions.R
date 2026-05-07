@@ -122,7 +122,12 @@ pdf_export_www_url <- function(path) {
   sub(paste0("^", www_root, "/"), "", normalized_path)
 }
 
-create_pdf_export_density_map <- function(active_locations, obs_summary_location, show_zero = TRUE, width = NULL, height = NULL) {
+create_pdf_export_density_map <- function(active_locations,
+                                          obs_summary_location,
+                                          show_zero = TRUE,
+                                          predicted_rai_surface = NULL,
+                                          width = NULL,
+                                          height = NULL) {
   max_scale <- 1
   radius_range <- c(10, 50)
 
@@ -163,6 +168,30 @@ create_pdf_export_density_map <- function(active_locations, obs_summary_location
   pal <- leaflet::colorNumeric(palette = "inferno", domain = obs_summary_location$count)
   map <- leaflet::leaflet(width = width, height = height) %>%
     leaflet::addTiles(options = leaflet::tileOptions(crossOrigin = TRUE))
+
+  if (!is.null(predicted_rai_surface) && nrow(predicted_rai_surface) > 0) {
+    surface_pal <- leaflet::colorNumeric(
+      palette = "YlOrRd",
+      domain = predicted_rai_surface$predicted_rai
+    )
+
+    map <- map %>%
+      leaflet::addPolygons(
+        data = predicted_rai_surface,
+        fillColor = ~surface_pal(predicted_rai),
+        fillOpacity = 0.42,
+        stroke = FALSE,
+        smoothFactor = 0
+      ) %>%
+      leaflet::addLegend(
+        "bottomleft",
+        pal = surface_pal,
+        values = predicted_rai_surface$predicted_rai,
+        title = "Predicted RAI",
+        labFormat = leaflet::labelFormat(),
+        opacity = 0.8
+      )
+  }
 
   non_zero_locations <- obs_summary_location %>% dplyr::filter(count > 0)
   if (nrow(non_zero_locations) > 0) {

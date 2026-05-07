@@ -218,7 +218,8 @@ ui <- function(request) {
 
         mapping_module_ui(
           id = "density_playback_map",
-          view = "density_options"
+          view = "density_options",
+          include_prediction_option = FALSE
         ),
 
         mapping_module_ui(
