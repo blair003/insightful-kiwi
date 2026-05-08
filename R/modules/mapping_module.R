@@ -1,7 +1,10 @@
 # R/modules/mapping_module.R
 
-playback_timeline_ui <- function(ns, min, max, value, step) {
-  timezone <- playback_actual_timezone()
+playback_timeline_ui <- function(ns, points, value, step_size = "day") {
+  point_count <- length(points)
+  selected_index <- playback_index_for_time(points, value)
+  slider_id <- ns("time_slider")
+  slider_labels <- playback_slider_labels(points, step_size)
 
   div(
     class = "playback-timeline",
@@ -15,16 +18,58 @@ playback_timeline_ui <- function(ns, min, max, value, step) {
     div(
       class = "playback-slider",
       sliderInput(
-        inputId = ns("time_slider"),
+        inputId = slider_id,
         label = "Time progression",
-        min = min,
-        max = max,
-        value = value,
-        step = step,
+        min = 1,
+        max = point_count,
+        value = selected_index,
+        step = 1,
         width = "100%",
         ticks = FALSE,
-        timezone = timezone
-      )
+        sep = ""
+      ),
+      tags$script(HTML(sprintf(
+        "(function() {
+          var sliderId = %s;
+          var labels = %s;
+          var attempts = 0;
+          var bound = false;
+          function labelFor(value) {
+            var index = Math.round(Number(value)) - 1;
+            return labels[index] || String(value);
+          }
+          function updateVisibleLabel(el) {
+            if (!el || !window.jQuery) return;
+            var $el = window.jQuery(el);
+            var slider = $el.data('ionRangeSlider');
+            var value = slider && slider.result ? slider.result.from : el.value;
+            $el.closest('.shiny-input-container').find('.irs-single').text(labelFor(value));
+          }
+          function applyPlaybackLabels() {
+            var el = document.getElementById(sliderId);
+            var slider = el && window.jQuery ? window.jQuery(el).data('ionRangeSlider') : null;
+            if (!slider) {
+              if (attempts++ < 40) window.setTimeout(applyPlaybackLabels, 50);
+              return;
+            }
+            slider.update({
+              prettify: function(value) {
+                return labelFor(value);
+              }
+            });
+            if (!bound) {
+              bound = true;
+              window.jQuery(el).on('input change', function() { updateVisibleLabel(el); });
+            }
+            updateVisibleLabel(el);
+            window.setTimeout(function() { updateVisibleLabel(el); }, 0);
+            window.setTimeout(function() { updateVisibleLabel(el); }, 100);
+          }
+          applyPlaybackLabels();
+        })();",
+        jsonlite::toJSON(slider_id, auto_unbox = TRUE),
+        jsonlite::toJSON(slider_labels, auto_unbox = TRUE)
+      )))
     )
   )
 }
@@ -43,8 +88,232 @@ playback_actual_timezone <- function() {
   "Pacific/Auckland"
 }
 
-playback_as_posix <- function(value) {
+playback_as_posix <- function(value, points = NULL) {
+  if (!is.null(points)) {
+    return(playback_selected_time(value, points))
+  }
+
   as.POSIXct(value, tz = playback_actual_timezone())
+}
+
+playback_selected_index <- function(value, point_count) {
+  if (is.null(value) || length(value) == 0 || is.na(value)) {
+    return(1L)
+  }
+
+  max(1L, min(point_count, as.integer(round(as.numeric(value)))))
+}
+
+playback_selected_time <- function(value, points) {
+  if (is.null(points) || length(points) == 0) {
+    return(as.POSIXct(NA_real_, origin = "1970-01-01", tz = playback_actual_timezone()))
+  }
+
+  points[[playback_selected_index(value, length(points))]]
+}
+
+playback_index_for_time <- function(points, value) {
+  if (is.null(points) || length(points) == 0) {
+    return(1L)
+  }
+
+  value <- as.POSIXct(value, tz = playback_actual_timezone())
+  if (is.null(value) || length(value) == 0 || is.na(value)) {
+    return(1L)
+  }
+
+  which.min(abs(as.numeric(points) - as.numeric(value)))
+}
+
+playback_slider_labels <- function(points, step_size) {
+  timezone <- playback_actual_timezone()
+  format_string <- if (step_size %in% c("day", "week", "month", "season")) {
+    "%Y-%m-%d"
+  } else {
+    "%Y-%m-%d %H:%M"
+  }
+
+  format(as.POSIXct(points, tz = timezone), format_string, tz = timezone)
+}
+
+playback_update_slider <- function(session, input_id, points, value) {
+  updateSliderInput(session, input_id, value = playback_index_for_time(points, value))
+}
+
+playback_date_midnight <- function(date_value) {
+  timezone <- playback_actual_timezone()
+  as.POSIXct(
+    paste(format(as.Date(date_value), "%Y-%m-%d"), "00:00:00"),
+    tz = timezone
+  )
+}
+
+playback_date_end <- function(date_value) {
+  timezone <- playback_actual_timezone()
+  as.POSIXct(
+    paste(format(as.Date(date_value), "%Y-%m-%d"), "23:59:59"),
+    tz = timezone
+  )
+}
+
+playback_day_start <- function(value, fallback_start = NULL) {
+  timezone <- playback_actual_timezone()
+  value <- as.POSIXct(value, tz = playback_actual_timezone())
+  if (is.null(value) || is.na(value)) {
+    return(fallback_start)
+  }
+
+  day_start <- as.POSIXct(
+    paste(format(value, "%Y-%m-%d", tz = timezone), "00:00:00"),
+    tz = timezone
+  )
+
+  day_start
+}
+
+playback_day_end <- function(value, playback_end = NULL) {
+  timezone <- playback_actual_timezone()
+  value <- as.POSIXct(value, tz = playback_actual_timezone())
+  if (is.null(value) || is.na(value)) {
+    return(playback_end)
+  }
+
+  day_end <- as.POSIXct(
+    paste(format(value, "%Y-%m-%d", tz = timezone), "23:59:59"),
+    tz = timezone
+  )
+  if (!is.null(playback_end) && !is.na(playback_end)) {
+    day_end <- min(day_end, as.POSIXct(playback_end, tz = playback_actual_timezone()))
+  }
+
+  day_end
+}
+
+playback_next_day_end <- function(current_time, playback_end) {
+  timezone <- playback_actual_timezone()
+  current_time <- as.POSIXct(current_time, tz = playback_actual_timezone())
+  current_day_end <- playback_day_end(current_time, playback_end)
+  if (!is.null(current_day_end) && !is.na(current_day_end) && current_time < current_day_end) {
+    return(current_day_end)
+  }
+
+  current_date <- as.Date(format(current_time, "%Y-%m-%d", tz = timezone))
+  playback_day_end(playback_date_midnight(current_date + 1), playback_end)
+}
+
+playback_next_step_time <- function(current_time, playback_end, step_size, weather_df = NULL, period_groups = NULL) {
+  current_time <- as.POSIXct(current_time, tz = playback_actual_timezone())
+  playback_end <- as.POSIXct(playback_end, tz = playback_actual_timezone())
+
+  if (step_size %in% c("day_night", "diel")) {
+    return(next_weather_boundary(current_time, playback_end, weather_df, step_size))
+  }
+
+  if (identical(step_size, "season")) {
+    return(playback_next_season_time(current_time, playback_end, period_groups))
+  }
+
+  if (identical(step_size, "day")) {
+    return(playback_next_day_end(current_time, playback_end))
+  }
+
+  current_time + switch(step_size,
+    "hour" = 3600,
+    "week" = 604800,
+    "month" = 2592000,
+    86400
+  )
+}
+
+playback_time_points <- function(start_time, end_time, step_size, view_mode = "cumulative",
+                                 weather_df = NULL, period_groups = NULL) {
+  start_time <- as.POSIXct(start_time, tz = playback_actual_timezone())
+  end_time <- as.POSIXct(end_time, tz = playback_actual_timezone())
+
+  if (is.null(start_time) || is.null(end_time) || is.na(start_time) || is.na(end_time) || end_time < start_time) {
+    return(start_time)
+  }
+
+  if (step_size %in% c("day_night", "diel")) {
+    boundaries <- playback_weather_boundaries(step_size, weather_df, start_time, end_time)
+    points <- boundaries[boundaries > start_time & boundaries <= end_time]
+    if (!identical(view_mode, "single")) {
+      points <- c(start_time, points)
+    }
+    if (length(points) == 0) {
+      points <- end_time
+    }
+    return(sort(unique(as.POSIXct(points, origin = "1970-01-01", tz = playback_actual_timezone()))))
+  }
+
+  if (step_size %in% c("week", "month")) {
+    step_seconds <- if (identical(step_size, "week")) 604800 else 2592000
+    first_end <- min(start_time + step_seconds - 1, end_time)
+    points <- if (identical(view_mode, "single")) {
+      first_end
+    } else {
+      c(start_time, first_end)
+    }
+
+    repeat {
+      next_time <- tail(points, 1) + step_seconds
+      if (is.null(next_time) || is.na(next_time) || next_time > end_time || next_time <= tail(points, 1)) {
+        break
+      }
+      points <- c(points, next_time)
+      if (length(points) > 20000) {
+        break
+      }
+    }
+
+    points <- points[!is.na(points) & points <= end_time]
+    return(sort(unique(as.POSIXct(points, origin = "1970-01-01", tz = playback_actual_timezone()))))
+  }
+
+  points <- if (identical(view_mode, "single")) {
+    playback_next_step_time(start_time, end_time, step_size, weather_df, period_groups)
+  } else {
+    start_time
+  }
+
+  repeat {
+    next_time <- playback_next_step_time(tail(points, 1), end_time, step_size, weather_df, period_groups)
+    if (is.null(next_time) || is.na(next_time) || next_time > end_time || next_time <= tail(points, 1)) {
+      break
+    }
+    points <- c(points, next_time)
+    if (length(points) > 20000) {
+      break
+    }
+  }
+
+  points <- points[!is.na(points) & points <= end_time]
+  if (length(points) == 0) {
+    points <- end_time
+  }
+
+  sort(unique(as.POSIXct(points, origin = "1970-01-01", tz = playback_actual_timezone())))
+}
+
+playback_effective_current_time <- function(value, step_size, playback_end = NULL, points = NULL) {
+  value <- playback_as_posix(value, points)
+  if (identical(step_size, "day")) {
+    return(playback_day_end(value, playback_end))
+  }
+
+  value
+}
+
+playback_single_window_start <- function(current_time, playback_start, step_size, step_seconds) {
+  if (identical(step_size, "day")) {
+    return(playback_day_start(current_time, playback_start))
+  }
+
+  if (step_size %in% c("week", "month")) {
+    return(max(current_time - step_seconds + 1, playback_start))
+  }
+
+  current_time - step_seconds
 }
 
 playback_window_midpoint <- function(start_time, current_time) {
@@ -102,8 +371,8 @@ playback_monitoring_periods <- function(period_groups) {
 
     data.frame(
       name = period_name,
-      start = as.POSIXct(as.Date(period$start_date), tz = playback_actual_timezone()),
-      end = as.POSIXct(as.Date(period$end_date) + 1, tz = playback_actual_timezone()) - 1,
+      start = playback_date_midnight(period$start_date),
+      end = playback_date_end(period$end_date),
       stringsAsFactors = FALSE
     )
   })
@@ -468,8 +737,8 @@ mapping_module_ui <- function(id,
           label = "Playback increments",
           choices = c(
             "Hourly" = "hour",
-            "Daily - Day/Night" = "day_night",
             "Diel activity" = "diel",
+            "Daily - Day/Night" = "day_night",
             "Daily" = "day",
             "Weekly" = "week",
             "Monthly" = "month",
@@ -563,6 +832,12 @@ mapping_module_ui <- function(id,
             h3("Observations data in current window"),
             DT::dataTableOutput(ns("playback_data_table")),
             value = "data"
+          ),
+          nav_panel(
+            "Cumulative Data",
+            h3("Cumulative observations"),
+            DT::dataTableOutput(ns("playback_cumulative_data_table")),
+            value = "cumulative_data"
           )
         )
       )
@@ -938,13 +1213,13 @@ mapping_module_server <- function(id,
         obs_data <- obs()
 
         fallback_start <- if (is.function(period_start_date)) {
-          as.POSIXct(period_start_date(), tz = playback_actual_timezone())
+          playback_date_midnight(period_start_date())
         } else {
           suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
 
         fallback_end <- if (is.function(period_end_date)) {
-          as.POSIXct(as.Date(period_end_date()) + 1, tz = playback_actual_timezone()) - 1
+          playback_date_end(period_end_date())
         } else {
           suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
@@ -1018,25 +1293,42 @@ mapping_module_server <- function(id,
           if (identical(step_size, "season")) {
             return(playback_next_season_time(playback_period_start(), playback_period_end(), playback_period_groups()))
           }
+          if (identical(step_size, "day")) {
+            return(playback_day_end(playback_period_start(), playback_period_end()))
+          }
           min(playback_period_start() + playback_step_seconds(), playback_period_end())
         } else {
           playback_period_start()
         }
       })
 
-      reset_playback_slider <- function() {
+      playback_points <- reactive({
         req(playback_period_start(), playback_period_end())
-        updateSliderInput(session, "time_slider", value = playback_initial_value())
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        view_mode <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+        playback_time_points(
+          playback_period_start(),
+          playback_period_end(),
+          step_size,
+          view_mode,
+          playback_weather_data(),
+          playback_period_groups()
+        )
+      })
+
+      reset_playback_slider <- function() {
+        req(playback_points())
+        playback_update_slider(session, "time_slider", playback_points(), playback_initial_value())
       }
 
       output$playback_slider_ui <- renderUI({
-        req(playback_active(), playback_period_start(), playback_period_end())
+        req(playback_active(), playback_points())
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
         playback_timeline_ui(
           ns = ns,
-          min = playback_period_start(),
-          max = playback_period_end(),
+          points = playback_points(),
           value = playback_initial_value(),
-          step = playback_step_seconds()
+          step_size = step_size
         )
       })
 
@@ -1127,6 +1419,30 @@ mapping_module_server <- function(id,
         }
       }, ignoreInit = TRUE)
 
+      observe({
+        req(playback_active())
+        if (identical(input$playback_view_mode, "single")) {
+          shiny::showTab(
+            inputId = "density_playback_tabs",
+            target = "cumulative_data",
+            session = session
+          )
+        } else {
+          if (identical(input$density_playback_tabs, "cumulative_data")) {
+            updateTabsetPanel(
+              session,
+              "density_playback_tabs",
+              selected = "data"
+            )
+          }
+          shiny::hideTab(
+            inputId = "density_playback_tabs",
+            target = "cumulative_data",
+            session = session
+          )
+        }
+      })
+
       observeEvent(list(session$rootScope()$input$nav, session$rootScope()$input$density_map_tabs), {
         if (identical(playback_mode, "none") &&
             (!identical(session$rootScope()$input$nav, "density_map") ||
@@ -1148,15 +1464,14 @@ mapping_module_server <- function(id,
       }, ignoreInit = TRUE)
 
       observeEvent(input$playback_tick, {
-        req(is_playing(), playback_active(), input$time_slider)
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        current_val <- playback_as_posix(input$time_slider)
-        next_val <- if (step_size %in% c("day_night", "diel")) {
-          next_weather_boundary(current_val, playback_period_end(), playback_weather_data(), step_size)
-        } else if (identical(step_size, "season")) {
-          playback_next_season_time(current_val, playback_period_end(), playback_period_groups())
+        req(is_playing(), playback_active(), input$time_slider, playback_points())
+        current_index <- playback_selected_index(input$time_slider, length(playback_points()))
+        current_val <- playback_selected_time(current_index, playback_points())
+        next_index <- current_index + 1L
+        next_val <- if (next_index <= length(playback_points())) {
+          playback_selected_time(next_index, playback_points())
         } else {
-          current_val + playback_step_seconds()
+          playback_period_end() + 1
         }
 
         skip_target <- if (skip_playback_gaps()) {
@@ -1182,7 +1497,7 @@ mapping_module_server <- function(id,
           shinyjs::delay(3000, {
             req(playback_active())
             req(identical(playback_skip_resume_id(), resume_id))
-            updateSliderInput(session, "time_slider", value = skip_target$target)
+            playback_update_slider(session, "time_slider", playback_points(), skip_target$target)
             playback_gap_notice(NULL)
             is_playing(TRUE)
           })
@@ -1191,11 +1506,11 @@ mapping_module_server <- function(id,
 
         if (next_val <= playback_period_end()) {
           playback_gap_notice(NULL)
-          updateSliderInput(session, "time_slider", value = next_val)
+          playback_update_slider(session, "time_slider", playback_points(), next_val)
         } else {
           playback_gap_notice(NULL)
           if (current_val < playback_period_end()) {
-            updateSliderInput(session, "time_slider", value = playback_period_end())
+            playback_update_slider(session, "time_slider", playback_points(), playback_period_end())
           }
           is_playing(FALSE)
         }
@@ -1245,20 +1560,37 @@ mapping_module_server <- function(id,
 
         start_time_dens <- NULL
         current_time_dens <- NULL
+        obs_cumulative_dens <- obs_filtered_dens
         if (use_playback) {
           step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-          current_time_dens <- playback_as_posix(input$time_slider)
+          current_time_dens <- playback_effective_current_time(
+            input$time_slider,
+            step_size,
+            playback_period_end(),
+            playback_points()
+          )
           start_time_dens <- if (identical(input$playback_view_mode, "single")) {
             if (step_size %in% c("day_night", "diel")) {
               previous_weather_boundary(current_time_dens, playback_period_start(), playback_weather_data(), step_size)
             } else if (identical(step_size, "season")) {
               playback_current_season_start(current_time_dens, playback_period_groups(), playback_period_start())
             } else {
-              current_time_dens - playback_step_seconds()
+              playback_single_window_start(
+                current_time_dens,
+                playback_period_start(),
+                step_size,
+                playback_step_seconds()
+              )
             }
           } else {
             playback_period_start()
           }
+
+          obs_cumulative_dens <- obs_cumulative_dens %>%
+            dplyr::filter(
+              timestamp >= playback_period_start(),
+              timestamp <= current_time_dens
+            )
 
           obs_filtered_dens <- obs_filtered_dens %>%
             dplyr::filter(
@@ -1276,6 +1608,8 @@ mapping_module_server <- function(id,
         if (isTRUE(exclude_possible_duplicates_selected()) &&
             "possible_duplicate" %in% names(obs_filtered_dens)) {
           obs_filtered_dens <- obs_filtered_dens %>%
+            dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
+          obs_cumulative_dens <- obs_cumulative_dens %>%
             dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
           obs_for_scale_dens <- obs_for_scale_dens %>%
             dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
@@ -1573,6 +1907,7 @@ mapping_module_server <- function(id,
           current_time = current_time_dens,
           absolute_max = absolute_max,
           obs_filtered = obs_filtered_dens,
+          obs_cumulative = obs_cumulative_dens,
           predicted_rai_surface = predicted_rai_surface,
           predicted_rai_surface_message = predicted_rai_surface_message,
           predicted_rai_surface_basis = predicted_rai_surface_basis_selected(),
@@ -1657,8 +1992,13 @@ mapping_module_server <- function(id,
       output$playback_window_ui <- renderUI({
         req(playback_active(), input$time_slider)
 
-        current_time <- playback_as_posix(input$time_slider)
         step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        current_time <- playback_effective_current_time(
+          input$time_slider,
+          step_size,
+          playback_period_end(),
+          playback_points()
+        )
         view_mode <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
         start_time <- if (identical(view_mode, "single")) {
           if (step_size %in% c("day_night", "diel")) {
@@ -1666,7 +2006,12 @@ mapping_module_server <- function(id,
           } else if (identical(step_size, "season")) {
             playback_current_season_start(current_time, playback_period_groups(), playback_period_start())
           } else {
-            current_time - playback_step_seconds()
+            playback_single_window_start(
+              current_time,
+              playback_period_start(),
+              step_size,
+              playback_step_seconds()
+            )
           }
         } else {
           playback_period_start()
@@ -1683,10 +2028,25 @@ mapping_module_server <- function(id,
 
       output$playback_data_table <- DT::renderDataTable({
         req(playback_active(), mapping_data_density())
-        table_data <- mapping_data_density()$obs_filtered
-
         table_data <- prepare_spec_table_data(
+          mapping_data_density()$obs_filtered,
+          table_id = "observationmap_observations_browse",
+          column_help = FALSE
+        )$table_data
+
+        DT::datatable(
           table_data,
+          escape = FALSE,
+          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
+          class = 'display',
+          rownames = FALSE
+        )
+      })
+
+      output$playback_cumulative_data_table <- DT::renderDataTable({
+        req(playback_active(), mapping_data_density())
+        table_data <- prepare_spec_table_data(
+          mapping_data_density()$obs_cumulative,
           table_id = "observationmap_observations_browse",
           column_help = FALSE
         )$table_data
@@ -1867,13 +2227,13 @@ mapping_module_server <- function(id,
         obs_data <- obs()
 
         fallback_start <- if (is.function(period_start_date)) {
-          as.POSIXct(period_start_date(), tz = playback_actual_timezone())
+          playback_date_midnight(period_start_date())
         } else {
           suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
 
         fallback_end <- if (is.function(period_end_date)) {
-          as.POSIXct(as.Date(period_end_date()) + 1, tz = playback_actual_timezone()) - 1
+          playback_date_end(period_end_date())
         } else {
           suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
         }
@@ -1949,25 +2309,42 @@ mapping_module_server <- function(id,
               playback_period_groups_obs()
             ))
           }
+          if (identical(step_size, "day")) {
+            return(playback_day_end(playback_period_start_obs(), playback_period_end_obs()))
+          }
           min(playback_period_start_obs() + playback_step_seconds_obs(), playback_period_end_obs())
         } else {
           playback_period_start_obs()
         }
       })
 
-      reset_playback_slider_obs <- function() {
+      playback_points_obs <- reactive({
         req(playback_period_start_obs(), playback_period_end_obs())
-        updateSliderInput(session, "time_slider", value = playback_initial_value_obs())
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        view_mode <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+        playback_time_points(
+          playback_period_start_obs(),
+          playback_period_end_obs(),
+          step_size,
+          view_mode,
+          playback_weather_data_obs(),
+          playback_period_groups_obs()
+        )
+      })
+
+      reset_playback_slider_obs <- function() {
+        req(playback_points_obs())
+        playback_update_slider(session, "time_slider", playback_points_obs(), playback_initial_value_obs())
       }
 
       output$playback_slider_ui <- renderUI({
-        req(playback_active_obs(), playback_period_start_obs(), playback_period_end_obs())
+        req(playback_active_obs(), playback_points_obs())
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
         playback_timeline_ui(
           ns = ns,
-          min = playback_period_start_obs(),
-          max = playback_period_end_obs(),
+          points = playback_points_obs(),
           value = playback_initial_value_obs(),
-          step = playback_step_seconds_obs()
+          step_size = step_size
         )
       })
 
@@ -2070,15 +2447,14 @@ mapping_module_server <- function(id,
       })
 
       observeEvent(input$playback_tick, {
-        req(is_playing_obs(), playback_active_obs(), input$time_slider)
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        current_val <- playback_as_posix(input$time_slider)
-        next_val <- if (step_size %in% c("day_night", "diel")) {
-          next_weather_boundary(current_val, playback_period_end_obs(), playback_weather_data_obs(), step_size)
-        } else if (identical(step_size, "season")) {
-          playback_next_season_time(current_val, playback_period_end_obs(), playback_period_groups_obs())
+        req(is_playing_obs(), playback_active_obs(), input$time_slider, playback_points_obs())
+        current_index <- playback_selected_index(input$time_slider, length(playback_points_obs()))
+        current_val <- playback_selected_time(current_index, playback_points_obs())
+        next_index <- current_index + 1L
+        next_val <- if (next_index <= length(playback_points_obs())) {
+          playback_selected_time(next_index, playback_points_obs())
         } else {
-          current_val + playback_step_seconds_obs()
+          playback_period_end_obs() + 1
         }
 
         skip_target <- if (skip_playback_gaps_obs()) {
@@ -2104,7 +2480,7 @@ mapping_module_server <- function(id,
           shinyjs::delay(3000, {
             req(playback_active_obs())
             req(identical(playback_skip_resume_id_obs(), resume_id))
-            updateSliderInput(session, "time_slider", value = skip_target$target)
+            playback_update_slider(session, "time_slider", playback_points_obs(), skip_target$target)
             playback_gap_notice_obs(NULL)
             is_playing_obs(TRUE)
           })
@@ -2113,7 +2489,7 @@ mapping_module_server <- function(id,
 
         if (next_val <= playback_period_end_obs()) {
           playback_gap_notice_obs(NULL)
-          updateSliderInput(session, "time_slider", value = next_val)
+          playback_update_slider(session, "time_slider", playback_points_obs(), next_val)
         } else {
           playback_gap_notice_obs(NULL)
           is_playing_obs(FALSE)
@@ -2208,14 +2584,24 @@ mapping_module_server <- function(id,
         current_time_obsmap <- NULL
         if (playback_active_obs()) {
           step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-          current_time_obsmap <- playback_as_posix(input$time_slider)
+          current_time_obsmap <- playback_effective_current_time(
+            input$time_slider,
+            step_size,
+            playback_period_end_obs(),
+            playback_points_obs()
+          )
           start_time_obsmap <- if (identical(input$playback_view_mode, "single")) {
             if (step_size %in% c("day_night", "diel")) {
               previous_weather_boundary(current_time_obsmap, playback_period_start_obs(), playback_weather_data_obs(), step_size)
             } else if (identical(step_size, "season")) {
               playback_current_season_start(current_time_obsmap, playback_period_groups_obs(), playback_period_start_obs())
             } else {
-              current_time_obsmap - playback_step_seconds_obs()
+              playback_single_window_start(
+                current_time_obsmap,
+                playback_period_start_obs(),
+                step_size,
+                playback_step_seconds_obs()
+              )
             }
           } else {
             playback_period_start_obs()
@@ -2335,7 +2721,12 @@ mapping_module_server <- function(id,
 
         req(input$time_slider)
         step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        current_time_obsmap <- playback_as_posix(input$time_slider)
+        current_time_obsmap <- playback_effective_current_time(
+          input$time_slider,
+          step_size,
+          playback_period_end_obs(),
+          playback_points_obs()
+        )
         start_time_obsmap <- if (identical(input$playback_view_mode, "single")) {
           if (step_size %in% c("day_night", "diel")) {
             previous_weather_boundary(
@@ -2347,7 +2738,12 @@ mapping_module_server <- function(id,
           } else if (identical(step_size, "season")) {
             playback_current_season_start(current_time_obsmap, playback_period_groups_obs(), playback_period_start_obs())
           } else {
-            current_time_obsmap - playback_step_seconds_obs()
+            playback_single_window_start(
+              current_time_obsmap,
+              playback_period_start_obs(),
+              step_size,
+              playback_step_seconds_obs()
+            )
           }
         } else {
           playback_period_start_obs()
