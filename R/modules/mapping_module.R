@@ -869,6 +869,16 @@ mapping_module_ui <- function(id,
             value = ns("data_tab")
           ),
           nav_panel(
+            "Export",
+            h3("Export observations shown on the map"),
+            p(
+              "This table contains the export fields for observations in the current playback window."
+            ),
+            downloadButton(ns("download_observation_map_export"), "Download CSV"),
+            DT::dataTableOutput(ns("observation_export_table")),
+            value = ns("export_tab")
+          ),
+          nav_panel(
             "Cumulative Data",
             h3("Browse cumulative observations"),
             p(
@@ -878,18 +888,6 @@ mapping_module_ui <- function(id,
             value = ns("cumulative_data_tab")
           )
         )
-      )
-    )
-  } else if (view == "summary") { # Generic summary output, used by density map
-    return(
-      tagList(
-        uiOutput(ns("obs_summary"))
-      )
-    )
-  } else if (view == "observation_map_sidebar_summary") { # Specific summary for observation map sidebar
-    return(
-      tagList(
-        uiOutput(ns("observation_map_sidebar_summary_content"))
       )
     )
   }
@@ -1820,22 +1818,6 @@ mapping_module_server <- function(id,
           }
         }
         
-        obs_summary_locality_dens <- active_locations_dens %>%
-          dplyr::select(locality) %>%
-          dplyr::distinct() %>%
-          dplyr::left_join(
-            obs_filtered_dens %>%
-              dplyr::group_by(locality) %>%
-              dplyr::summarise(count = sum(count), .groups = "drop"),
-            by = "locality"
-          ) %>%
-          dplyr::mutate(count = ifelse(is.na(count), 0, count)) %>%
-          dplyr::arrange(locality)
-        
-        grand_total_dens <- obs_summary_locality_dens %>%
-          dplyr::summarise(count = sum(count)) %>%
-          dplyr::mutate(locality = "Grand Total")
-        
         max_location_count <- function(observations) {
           if (is.null(observations) || nrow(observations) == 0) {
             return(0)
@@ -1902,7 +1884,6 @@ mapping_module_server <- function(id,
         list(
           active_locations = active_locations_dens,
           obs_summary_location = obs_summary_location_dens,
-          obs_summary_locality_with_total = dplyr::bind_rows(obs_summary_locality_dens, grand_total_dens),
           start_time = start_time_dens,
           current_time = current_time_dens,
           absolute_max = absolute_max,
@@ -1973,22 +1954,6 @@ mapping_module_server <- function(id,
         }
       })
       
-      if (!playback_active()) {
-        output$obs_summary <- renderUI({ # Density-specific summary table
-          data_for_summary <- req(mapping_data_density())
-          data_summary <- data_for_summary$obs_summary_locality_with_total
-          total_row_index <- nrow(data_summary)
-          kable_table <- knitr::kable(data_summary, format = "html", escape = FALSE, col.names = c("Locality", "Count")) %>%
-            kableExtra::kable_styling(
-              bootstrap_options = c("hover", "condensed", "bordered"),
-              full_width = FALSE, position = "center", font_size = 12
-            ) %>%
-            kableExtra::row_spec(total_row_index, bold = TRUE)
-          HTML(kable_table)
-        })
-        outputOptions(output, "obs_summary", suspendWhenHidden = FALSE)
-      }
-
       output$playback_window_ui <- renderUI({
         req(playback_active(), input$time_slider)
 
@@ -2672,13 +2637,6 @@ mapping_module_server <- function(id,
         observations_for_table <- dplyr::bind_rows(obs_filtered_obsmap, trap_obs_filtered)
         cumulative_observations_for_table <- dplyr::bind_rows(obs_cumulative_table, trap_cumulative_table)
 
-        obs_summary_for_sidebar <- observations_for_table %>%
-          dplyr::group_by(!!sym(config$globals$species_name_type), species_class, species_rank) %>%
-          dplyr::summarise(Count = sum(count, na.rm = TRUE), .groups = 'drop') %>%
-          dplyr::rename(Species = !!sym(config$globals$species_name_type)) %>%
-          dplyr::arrange(species_rank) %>%
-          dplyr::select(Species, Count)
-        
         weather_control <- if (playback_active_obs()) {
           step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
           view_mode_obsmap <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
@@ -2700,11 +2658,8 @@ mapping_module_server <- function(id,
         list(
           observations_for_table = observations_for_table,
           cumulative_observations_for_table = cumulative_observations_for_table,
-          obs_summary_for_sidebar = obs_summary_for_sidebar,
           prepared_markers = prepared_markers_list,
           active_locations = active_locations_obsmap,
-          no_obs_locations_count = nrow(no_obs_locations_obsmap),
-          trap_observations_count = nrow(trap_obs_filtered),
           trap_legend = NULL,
           start_time = start_time_obsmap,
           current_time = current_time_obsmap,
@@ -2865,6 +2820,69 @@ mapping_module_server <- function(id,
         table_data
       }
 
+      prepare_observation_map_export <- function(observation_rows) {
+        if (is.null(observation_rows) || nrow(observation_rows) == 0) {
+          return(data.frame(
+            Location = character(),
+            Latitude = numeric(),
+            Longitude = numeric(),
+            Species = character(),
+            Count = numeric(),
+            Timestamp = character(),
+            prior_check_date = character(),
+            check_interval = integer(),
+            `Data Source` = character(),
+            check.names = FALSE
+          ))
+        }
+
+        species_column <- config$globals$species_name_type
+        if (!species_column %in% names(observation_rows)) {
+          species_column <- if ("scientificName" %in% names(observation_rows)) {
+            "scientificName"
+          } else {
+            "scientificName_lower"
+          }
+        }
+
+        source_rows <- if ("observation_source" %in% names(observation_rows)) {
+          !is.na(observation_rows$observation_source) &
+            observation_rows$observation_source == "trapping"
+        } else {
+          rep(FALSE, nrow(observation_rows))
+        }
+
+        timestamp_values <- as.character(observation_rows$timestamp)
+        if ("check_date" %in% names(observation_rows) && any(source_rows, na.rm = TRUE)) {
+          timestamp_values[source_rows] <- as.character(as.Date(observation_rows$check_date[source_rows]))
+        }
+
+        prior_check_values <- if ("prior_check_date" %in% names(observation_rows)) {
+          as.character(as.Date(observation_rows$prior_check_date))
+        } else {
+          rep(NA_character_, nrow(observation_rows))
+        }
+
+        check_interval_values <- if ("check_interval" %in% names(observation_rows)) {
+          suppressWarnings(as.integer(observation_rows$check_interval))
+        } else {
+          rep(NA_integer_, nrow(observation_rows))
+        }
+
+        data.frame(
+          Location = observation_rows$locationName,
+          Latitude = observation_rows$latitude,
+          Longitude = observation_rows$longitude,
+          Species = observation_rows[[species_column]],
+          Count = observation_rows$count,
+          Timestamp = timestamp_values,
+          prior_check_date = prior_check_values,
+          check_interval = check_interval_values,
+          `Data Source` = ifelse(source_rows, "trapping", "monitoring"),
+          check.names = FALSE
+        )
+      }
+
       output$observation_data_table <- DT::renderDataTable({
         processed_data <- req(observation_map_processed_data())
         table_data <- prepare_observation_map_table(processed_data$observations_for_table)
@@ -2875,6 +2893,30 @@ mapping_module_server <- function(id,
         )
       })
 
+      output$observation_export_table <- DT::renderDataTable({
+        processed_data <- req(observation_map_processed_data())
+        export_data <- prepare_observation_map_export(processed_data$observations_for_table)
+
+        DT::datatable(
+          export_data,
+          escape = TRUE,
+          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE),
+          class = 'display',
+          rownames = FALSE
+        )
+      })
+
+      output$download_observation_map_export <- downloadHandler(
+        filename = function() {
+          paste0("observation-map-export-", format(Sys.Date(), "%Y-%m-%d"), ".csv")
+        },
+        content = function(file) {
+          processed_data <- req(observation_map_processed_data())
+          export_data <- prepare_observation_map_export(processed_data$observations_for_table)
+          utils::write.csv(export_data, file, row.names = FALSE, na = "")
+        }
+      )
+
       output$observation_cumulative_data_table <- DT::renderDataTable({
         processed_data <- req(observation_map_processed_data())
         table_data <- prepare_observation_map_table(processed_data$cumulative_observations_for_table)
@@ -2883,45 +2925,6 @@ mapping_module_server <- function(id,
                        options = list( pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc')) ),
                        class = 'display', rownames = FALSE
         )
-      })
-      
-      output$observation_map_sidebar_summary_content <- renderUI({
-        req(observation_map_processed_data())
-        data_summary <- observation_map_processed_data()
-        title <- "<strong>OBSERVATIONS SUMMARY</strong>"
-        start_d <- if (is.function(period_start_date)) {
-          as.Date(period_start_date())
-        } else {
-          suppressWarnings(min(as.Date(obs()$timestamp), na.rm = TRUE))
-        }
-        end_d <- if (is.function(period_end_date)) {
-          as.Date(period_end_date())
-        } else {
-          suppressWarnings(max(as.Date(obs()$timestamp), na.rm = TRUE))
-        }
-        req(start_d, end_d)
-        formatted_start_date <- paste0("<strong>", format(start_d, "%d %b %Y (%a)"), "</strong>")
-        formatted_end_date <- paste0("<strong>", format(end_d, "%d %b %Y (%a)"), "</strong>")
-        date_table_df <- data.frame(Label = c("Start:", "End:"), Date = c(formatted_start_date, formatted_end_date))
-        header <- knitr::kable(date_table_df, format = "html", col.names = NULL, escape = FALSE) %>%
-          kableExtra::kable_styling(bootstrap_options = c("condensed"), full_width = FALSE, font_size=11)
-        
-        
-        kable_summary_table <- knitr::kable(data_summary$obs_summary_for_sidebar, format = "html", col.names = c("Species", "Count")) %>%
-          kableExtra::kable_styling(full_width = FALSE, bootstrap_options = c("hover", "bordered", "responsive", "condensed"), font_size = 12)
-        trap_footer <- if (isTRUE(include_trap_data_selected())) {
-          paste0("<br><small>Trap kills shown: <strong>", data_summary$trap_observations_count, "</strong></small>")
-        } else {
-          ""
-        }
-        footer <- paste0(
-          "<div><small>Locations with no selected species: <strong>",
-          data_summary$no_obs_locations_count,
-          "</strong></small>",
-          trap_footer,
-          "</div>"
-        )
-        HTML(paste0(title, header, kable_summary_table, footer))
       })
 
       output$playback_window_ui <- renderUI({

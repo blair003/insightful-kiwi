@@ -134,6 +134,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
                                                package_name = "wkt-trap-checks",
                                                timezone = "UTC",
                                                period_groups = NULL,
+                                               kill_prior_check_override_days = NULL,
                                                species_map = wkt_trap_default_species_map()) {
   read_csv <- function(path) {
     utils::read.csv(
@@ -243,6 +244,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
         sprintf("- deployments: %s", summary$deployments),
         sprintf("- observations: %s", summary$observations),
         sprintf("- animal_observations: %s", summary$animal_observations),
+        sprintf("- prior_check_overrides: %s", summary$prior_check_overrides),
         sprintf("- first_checks_without_prior: %s", summary$first_checks_without_prior),
         sprintf("- dropped_first_checks: %s", summary$dropped_first_checks),
         sprintf("- dropped_missing_coordinate_records: %s", summary$dropped_missing_coordinate_records),
@@ -355,6 +357,19 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   trap_locations <- read_csv(trap_locations_path)
   reference_tables <- read_csv(reference_tables_path)
   source_trap_record_count <- nrow(raw_trap_data)
+
+  if (!is.null(kill_prior_check_override_days)) {
+    if (!is.numeric(kill_prior_check_override_days) ||
+        length(kill_prior_check_override_days) != 1 ||
+        is.na(kill_prior_check_override_days) ||
+        kill_prior_check_override_days <= 0) {
+      stop(
+        "kill_prior_check_override_days must be a single positive number or NULL.",
+        call. = FALSE
+      )
+    }
+    kill_prior_check_override_days <- as.integer(kill_prior_check_override_days)
+  }
 
   required_columns(
     raw_trap_data,
@@ -536,6 +551,34 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   )
 
   raw_trap_data$mapped_kill <- raw_trap_data$kill == 1 & !is.na(raw_trap_data$scientificName)
+  raw_trap_data$original_check_interval <- as.integer(
+    raw_trap_data$check_date - raw_trap_data$previous_check_date
+  )
+  raw_trap_data$effective_previous_check_date <- raw_trap_data$previous_check_date
+  raw_trap_data$prior_check_override_applied <- FALSE
+  raw_trap_data$prior_check_override_note <- NA_character_
+
+  if (!is.null(kill_prior_check_override_days)) {
+    override_prior_check <- raw_trap_data$mapped_kill &
+      !is.na(raw_trap_data$original_check_interval) &
+      raw_trap_data$original_check_interval > kill_prior_check_override_days
+
+    raw_trap_data$effective_previous_check_date[override_prior_check] <-
+      raw_trap_data$check_date[override_prior_check] - kill_prior_check_override_days
+    raw_trap_data$prior_check_override_applied[override_prior_check] <- TRUE
+
+    raw_trap_data$prior_check_override_note[override_prior_check] <- paste0(
+      "prior_check_override:kill interval capped from ",
+      as.character(raw_trap_data$previous_check_date[override_prior_check]),
+      " to ",
+      as.character(raw_trap_data$effective_previous_check_date[override_prior_check]),
+      " (source_interval_days:",
+      raw_trap_data$original_check_interval[override_prior_check],
+      "; max_days:",
+      kill_prior_check_override_days,
+      ")"
+    )
+  }
   raw_trap_data$lifeStage <- ifelse(
     grepl("juvenile", raw_trap_data$description, ignore.case = TRUE),
     "juvenile",
@@ -554,9 +597,9 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     eventID = clean_id(raw_trap_data$trapdata_id, "wkt-trap-event"),
     eventStart = format_camtrap_time(raw_trap_data$check_date),
     eventEnd = format_camtrap_time(raw_trap_data$check_date),
-    prior_check_date = raw_trap_data$previous_check_date,
-    check_interval = as.integer(raw_trap_data$check_date - raw_trap_data$previous_check_date),
-    interval_days = as.integer(raw_trap_data$check_date - raw_trap_data$previous_check_date),
+    prior_check_date = raw_trap_data$effective_previous_check_date,
+    check_interval = as.integer(raw_trap_data$check_date - raw_trap_data$effective_previous_check_date),
+    interval_days = as.integer(raw_trap_data$check_date - raw_trap_data$effective_previous_check_date),
     observationLevel = "event",
     observationType = ifelse(raw_trap_data$mapped_kill, "animal", NA_character_),
     cameraSetupType = NA,
@@ -595,16 +638,18 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
       USE.NAMES = FALSE
     ),
     observationComments = mapply(
-      function(trapdata_id, baitstatus, bait_outcome_id) {
+      function(trapdata_id, baitstatus, bait_outcome_id, prior_check_override_note) {
         build_tags(c(
           paste0("source_trapdata_id:", trapdata_id),
           paste0("baitstatus:", baitstatus),
-          paste0("bait_outcome_id:", bait_outcome_id)
+          paste0("bait_outcome_id:", bait_outcome_id),
+          prior_check_override_note
         ))
       },
       raw_trap_data$trapdata_id,
       raw_trap_data$baitstatus,
       raw_trap_data$bait_outcome_id,
+      raw_trap_data$prior_check_override_note,
       USE.NAMES = FALSE
     ),
     stringsAsFactors = FALSE
@@ -823,6 +868,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     deployments = nrow(deployments),
     observations = nrow(observations),
     animal_observations = sum(observations$observationType == "animal", na.rm = TRUE),
+    prior_check_overrides = sum(raw_trap_data$prior_check_override_applied, na.rm = TRUE),
     oldest_trap_check_date = as.character(oldest_trap_check_date),
     newest_trap_check_date = as.character(newest_trap_check_date),
     trap_data_period_days = trap_data_period_days,

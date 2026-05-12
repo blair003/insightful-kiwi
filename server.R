@@ -333,15 +333,14 @@ server <- function(input, output, session) {
   primary_period <- period_selection_module_server(
     id = "primary_period",
     period_groups = core_data$period_groups,
-    summary_output_ids = c("summary_output_reporting", 
-                           "summary_output_density_map", 
-                           "summary_output_explorer_map"),
+    summary_output_ids = "summary_output_reporting",
     selected = core_data$period_defaults$primary_period
   )
 
   comparative_period <- period_selection_module_server(
     id = "comparative_period", 
     period_groups = core_data$period_groups,
+    summary_output_ids = character(0),
     selected = core_data$period_defaults$comparative_period
   )
 
@@ -1078,10 +1077,52 @@ server <- function(input, output, session) {
     paste(selected_species_heading(species), "at", selected_localities_heading(localities))
   }
 
+  density_map_period_readout <- function() {
+    current_tab <- input$density_map_tabs
+    period <- if (identical(current_tab, "comparative")) {
+      comparative_period
+    } else {
+      primary_period
+    }
+
+    req(period$start_date(), period$end_date())
+
+    timezone <- if (exists("playback_actual_timezone", mode = "function", inherits = TRUE)) {
+      playback_actual_timezone()
+    } else if (!is.null(config$globals$actual_timezone) && nzchar(config$globals$actual_timezone)) {
+      config$globals$actual_timezone
+    } else {
+      "Pacific/Auckland"
+    }
+
+    start_time <- as.POSIXct(
+      paste(format(as.Date(period$start_date()), "%Y-%m-%d"), "00:00:00"),
+      tz = timezone
+    )
+    end_time <- as.POSIXct(
+      paste(format(as.Date(period$end_date()), "%Y-%m-%d"), "23:59:59"),
+      tz = timezone
+    )
+
+    div(
+      class = "playback-window-readout",
+      strong("Current window:"),
+      paste(
+        format(start_time, "%Y-%m-%d %H:%M:%S", tz = timezone),
+        "to",
+        format(end_time, "%Y-%m-%d %H:%M:%S", tz = timezone)
+      ),
+      tags$span(timezone)
+    )
+  }
+
   output$density_map_selection_heading <- renderUI({
     species <- input[["density_map_primary-selected_species"]]
     localities <- input[["density_map_primary-selected_localities"]]
-    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
+    tagList(
+      div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities)),
+      density_map_period_readout()
+    )
   })
 
   output$observation_map_selection_heading <- renderUI({

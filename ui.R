@@ -172,22 +172,6 @@ ui <- function(request) {
       ), # conditionalPanel
       
       conditionalPanel(
-        condition = "input.nav === 'density_map' && input.density_map_tabs === 'primary'",
-
-        period_selection_module_ui(
-          id = "primary_period", 
-          view = "summary", 
-          summary_output_id = "summary_output_density_map"
-        )
-      ),
-      
-      conditionalPanel(
-        condition = "input.nav === 'density_map' && input.density_map_tabs === 'comparative'",
-        
-        period_selection_module_ui(id = "comparative_period", view = "summary")
-      ),
-
-      conditionalPanel(
         condition = "input.nav === 'density_playback_map'",
 
         period_selection_module_ui(

@@ -19,6 +19,7 @@ load_trap_data <- function(config, core_data, cache_file) {
     reference_tables_path = file.path(trap_data_source_dir, trap_data_files$reference_tables),
     output_dir = config$env$dirs$trap_monitoring_data,
     first_deployment_days = config$globals$trap_data_first_deployment_days,
+    kill_prior_check_override_days = config$globals$trap_data_kill_prior_check_override_days,
     include_missing_coordinates = TRUE,
     package_name = "wkt-trap-checks",
     timezone = config$globals$actual_timezone,

@@ -26,6 +26,7 @@ config$globals <- list(
   # Import converted WKT trap check data as global trap_data on startup.
   import_trap_data = TRUE,
   trap_data_first_deployment_days = NULL,
+  trap_data_kill_prior_check_override_days = 90,
   
   # Google analytics code, read in from config/.env
   ga_tag = Sys.getenv("GA_TAG"),
