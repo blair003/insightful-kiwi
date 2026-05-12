@@ -112,8 +112,8 @@ wkt_trap_default_species_map <- function() {
 #' Convert WKT trap check data to a Camtrap DP-style package.
 #'
 #' Each unique trap/check date becomes a deployment interval from the previous
-#' check date to the current check date. First checks are omitted by default
-#' because their start date is unknown; set first_deployment_days to seed them.
+#' check date for the same trap_id to the current check date. First checks are
+#' retained with missing interval dates unless first_deployment_days is supplied.
 #'
 #' @return A list containing deployments, observations, media, datapackage and a
 #'   conversion summary. If output_dir is supplied, the package files are written.
@@ -122,7 +122,14 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
                                                reference_tables_path,
                                                output_dir = NULL,
                                                first_deployment_days = NULL,
-                                               include_missing_coordinates = FALSE,
+                                               include_missing_coordinates = TRUE,
+                                               log_file = file.path(
+                                                 "logs",
+                                                 sprintf(
+                                                   "wkt-trap-data-import-%s.log",
+                                                   format(Sys.Date(), "%Y-%m-%d")
+                                                 )
+                                               ),
                                                package_id = NULL,
                                                package_name = "wkt-trap-checks",
                                                timezone = "UTC",
@@ -187,6 +194,104 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
       return(NA_character_)
     }
     paste(values, collapse = " | ")
+  }
+
+  trap_check_behavior <- function(mapped_kill, bait_outcome_id) {
+    bait_outcome_id <- as.character(bait_outcome_id)
+    ifelse(
+      mapped_kill,
+      "killed",
+      ifelse(bait_outcome_id %in% c("1", "3"), "rebaited", "checked_empty")
+    )
+  }
+
+  clean_column_name <- function(x, prefix = NULL) {
+    x <- gsub("[^A-Za-z0-9]+", "_", as.character(x))
+    x <- gsub("(^_+|_+$)", "", x)
+    x <- ifelse(nzchar(x), x, "unknown")
+    if (!is.null(prefix)) {
+      x <- paste(prefix, x, sep = "_")
+    }
+    x
+  }
+
+  coalesce_character <- function(primary, fallback) {
+    primary <- as.character(primary)
+    fallback <- as.character(fallback)
+    use_fallback <- is.na(primary) | !nzchar(trimws(primary))
+    primary[use_fallback] <- fallback[use_fallback]
+    primary
+  }
+
+  write_import_log <- function(summary, missing_coordinate_traps, first_interval_starts) {
+    if (is.null(log_file) || is.na(log_file) || !nzchar(log_file)) {
+      return(invisible(NULL))
+    }
+
+    tryCatch({
+      log_dir <- dirname(log_file)
+      if (!dir.exists(log_dir)) {
+        dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+      }
+
+      lines <- c(
+        sprintf("WKT trap data import - %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+        "",
+        "Import summary:",
+        sprintf("- source_trap_records: %s", summary$source_trap_records),
+        sprintf("- converted_trap_records: %s", summary$converted_trap_records),
+        sprintf("- deployments: %s", summary$deployments),
+        sprintf("- observations: %s", summary$observations),
+        sprintf("- animal_observations: %s", summary$animal_observations),
+        sprintf("- first_checks_without_prior: %s", summary$first_checks_without_prior),
+        sprintf("- dropped_first_checks: %s", summary$dropped_first_checks),
+        sprintf("- dropped_missing_coordinate_records: %s", summary$dropped_missing_coordinate_records),
+        sprintf("- traps_with_deployments: %s", summary$traps_with_deployments),
+        "",
+        "Exceptions:"
+      )
+
+      if (length(missing_coordinate_traps) > 0) {
+        lines <- c(
+          lines,
+          "- trap_codes without coordinates:",
+          paste0("  - ", sort(unique(missing_coordinate_traps)))
+        )
+      } else {
+        lines <- c(lines, "- trap_codes without coordinates: none")
+      }
+
+      unmapped <- summary$unmapped_kill_outcome_ids
+      if (length(unmapped) > 0) {
+        lines <- c(
+          lines,
+          "- unmapped kill outcome_ids:",
+          paste0("  - ", unmapped)
+        )
+      } else {
+        lines <- c(lines, "- unmapped kill outcome_ids: none")
+      }
+
+      lines <- c(lines, "", "First deploymentStart with interval_days by trap_code:")
+      if (nrow(first_interval_starts) > 0) {
+        lines <- c(
+          lines,
+          sprintf(
+            "- %s: %s",
+            first_interval_starts$trap_code,
+            first_interval_starts$first_deploymentStart
+          )
+        )
+      } else {
+        lines <- c(lines, "- none")
+      }
+
+      cat(paste0(lines, collapse = "\n"), "\n\n", file = log_file, append = TRUE)
+    }, error = function(e) {
+      invisible(NULL)
+    })
+
+    invisible(NULL)
   }
 
   json_escape <- function(x) {
@@ -302,6 +407,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   if ("longitude_trap" %in% names(raw_trap_data)) {
     raw_trap_data$longitude <- raw_trap_data$longitude_trap
   }
+  raw_trap_data$trap_code <- coalesce_character(raw_trap_data$code, raw_trap_data$trap_id)
 
   raw_trap_data <- merge(
     raw_trap_data,
@@ -313,6 +419,12 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   raw_trap_data <- merge(raw_trap_data, species_map, by = "outcome_id", all.x = TRUE)
 
   pre_coordinate_filter_count <- nrow(raw_trap_data)
+  missing_coordinate_traps <- unique(raw_trap_data$trap_code[
+    is.na(raw_trap_data$latitude) | is.na(raw_trap_data$longitude)
+  ])
+  missing_coordinate_traps <- missing_coordinate_traps[
+    !is.na(missing_coordinate_traps) & nzchar(missing_coordinate_traps)
+  ]
   if (!include_missing_coordinates) {
     raw_trap_data <- raw_trap_data[
       !is.na(raw_trap_data$latitude) & !is.na(raw_trap_data$longitude),
@@ -351,19 +463,8 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
       check_events$check_date[first_indices] - as.integer(first_deployment_days)
   }
 
-  dropped_first_checks <- sum(is.na(check_events$previous_check_date))
-  check_events <- check_events[!is.na(check_events$previous_check_date), ]
-
-  if (nrow(check_events) == 0) {
-    stop(
-      paste(
-        "No deployment intervals could be created.",
-        "Each deployment needs a previous check date; set first_deployment_days",
-        "if you want to seed the first check for each trap."
-      ),
-      call. = FALSE
-    )
-  }
+  first_checks_without_prior <- sum(is.na(check_events$previous_check_date))
+  dropped_first_checks <- 0
   check_events$deploymentID <- clean_id(
     paste(check_events$trap_id, format(check_events$check_date, "%Y%m%d"), sep = "-"),
     "wkt-trap-deployment"
@@ -380,21 +481,26 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     !duplicated(raw_trap_data$deploymentID),
     c(
       "deploymentID", "trap_id", "code", "line_id", "trap_number", "project_id",
-      "trap_type_id", "latitude", "longitude", "check_date", "previous_check_date"
+      "trap_type_id", "latitude", "longitude", "check_date", "previous_check_date",
+      "trap_code"
     )
   ]
+  deployment_source$interval_days <- as.integer(
+    deployment_source$check_date - deployment_source$previous_check_date
+  )
 
   deployments <- data.frame(
     deploymentID = deployment_source$deploymentID,
-    locationID = clean_id(deployment_source$trap_id, "wkt-trap-location"),
-    locationName = deployment_source$code,
+    locationID = clean_id(deployment_source$trap_code, "wkt-trap-location"),
+    locationName = deployment_source$trap_code,
     latitude = deployment_source$latitude,
     longitude = deployment_source$longitude,
     coordinateUncertainty = NA,
     deploymentStart = format_camtrap_time(deployment_source$previous_check_date),
     deploymentEnd = format_camtrap_time(deployment_source$check_date),
+    interval_days = deployment_source$interval_days,
     setupBy = NA,
-    cameraID = deployment_source$code,
+    cameraID = deployment_source$trap_code,
     cameraModel = "predator trap",
     cameraDelay = NA,
     cameraHeight = NA,
@@ -450,14 +556,15 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     eventEnd = format_camtrap_time(raw_trap_data$check_date),
     prior_check_date = raw_trap_data$previous_check_date,
     check_interval = as.integer(raw_trap_data$check_date - raw_trap_data$previous_check_date),
+    interval_days = as.integer(raw_trap_data$check_date - raw_trap_data$previous_check_date),
     observationLevel = "event",
-    observationType = ifelse(raw_trap_data$mapped_kill, "animal", "unknown"),
+    observationType = ifelse(raw_trap_data$mapped_kill, "animal", NA_character_),
     cameraSetupType = NA,
     scientificName = ifelse(raw_trap_data$mapped_kill, raw_trap_data$scientificName, NA),
     count = ifelse(raw_trap_data$mapped_kill, 1, NA),
     lifeStage = raw_trap_data$lifeStage,
     sex = raw_trap_data$sex,
-    behavior = ifelse(raw_trap_data$mapped_kill, "killed", NA),
+    behavior = trap_check_behavior(raw_trap_data$mapped_kill, raw_trap_data$bait_outcome_id),
     individualID = NA,
     individualPositionRadius = NA,
     individualPositionAngle = NA,
@@ -518,6 +625,79 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     stringsAsFactors = FALSE
   )
 
+  trap_summary <- deployment_source[
+    !duplicated(deployment_source$trap_id),
+    c("trap_id", "trap_code", "line_id", "trap_number", "latitude", "longitude")
+  ]
+  trap_summary <- trap_summary[order(trap_summary$trap_id), ]
+  trap_summary$earliest_deploymentStart <- vapply(trap_summary$trap_id, function(trap_id) {
+    starts <- deployments$deploymentStart[
+      deployment_source$trap_id[match(deployments$deploymentID, deployment_source$deploymentID)] == trap_id &
+        !is.na(deployments$deploymentStart)
+    ]
+    if (length(starts) == 0) {
+      return(NA_character_)
+    }
+    min(starts)
+  }, character(1))
+  trap_summary$latest_deploymentEnd <- vapply(trap_summary$trap_id, function(trap_id) {
+    ends <- deployments$deploymentEnd[
+      deployment_source$trap_id[match(deployments$deploymentID, deployment_source$deploymentID)] == trap_id &
+        !is.na(deployments$deploymentEnd)
+    ]
+    if (length(ends) == 0) {
+      return(NA_character_)
+    }
+    max(ends)
+  }, character(1))
+  trap_summary$times_checked <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
+    sum(deployment_source$trap_id == trap_id)
+  }, numeric(1)))
+  trap_summary$average_interval_days <- vapply(trap_summary$trap_id, function(trap_id) {
+    intervals <- deployment_source$interval_days[deployment_source$trap_id == trap_id]
+    intervals <- intervals[!is.na(intervals)]
+    if (length(intervals) == 0) {
+      return(NA_real_)
+    }
+    round(mean(intervals), 1)
+  }, numeric(1))
+  trap_summary$total_kills <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
+    sum(
+      raw_trap_data$trap_id == trap_id &
+        raw_trap_data$mapped_kill,
+      na.rm = TRUE
+    )
+  }, numeric(1)))
+  mustelid_names <- c(
+    "Mustelidae",
+    "Mustela erminea",
+    "Mustela nivalis",
+    "Mustela putorius furo"
+  )
+  trap_summary$total_kills_mustelids <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
+    sum(
+      raw_trap_data$trap_id == trap_id &
+        raw_trap_data$mapped_kill &
+        raw_trap_data$scientificName %in% mustelid_names,
+      na.rm = TRUE
+    )
+  }, numeric(1)))
+
+  kill_species <- sort(unique(stats::na.omit(raw_trap_data$scientificName[
+    raw_trap_data$mapped_kill
+  ])))
+  for (scientific_name in kill_species) {
+    column_name <- clean_column_name(scientific_name, "kills")
+    trap_summary[[column_name]] <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
+      sum(
+        raw_trap_data$trap_id == trap_id &
+          raw_trap_data$mapped_kill &
+          raw_trap_data$scientificName == scientific_name,
+        na.rm = TRUE
+      )
+    }, numeric(1)))
+  }
+
   taxonomic_source <- species_map[
     species_map$scientificName %in% unique(stats::na.omit(observations$scientificName)),
   ]
@@ -555,6 +735,17 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     package_id <- clean_id(format(Sys.time(), "%Y%m%d%H%M%S"), "wkt-trap-package")
   }
 
+  temporal_start_dates <- as.Date(deployment_source$previous_check_date)
+  temporal_start_dates <- temporal_start_dates[!is.na(temporal_start_dates)]
+  temporal_start <- if (length(temporal_start_dates) > 0) {
+    as.character(min(temporal_start_dates))
+  } else {
+    NA_character_
+  }
+  oldest_trap_check_date <- min(as.Date(deployment_source$check_date), na.rm = TRUE)
+  newest_trap_check_date <- max(as.Date(deployment_source$check_date), na.rm = TRUE)
+  trap_data_period_days <- as.integer(newest_trap_check_date - oldest_trap_check_date)
+
   datapackage <- list(
     profile = "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/camtrap-dp-profile.json",
     name = package_name,
@@ -583,7 +774,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     ),
     spatial = list(type = "Polygon", coordinates = spatial_coords),
     temporal = list(
-      start = as.character(min(as.Date(deployment_source$previous_check_date))),
+      start = temporal_start,
       end = as.character(max(as.Date(deployment_source$check_date)))
     ),
     taxonomic = taxonomic,
@@ -614,6 +805,14 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
         mediatype = "text/csv",
         encoding = "utf-8",
         schema = "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/observations-table-schema.json"
+      ),
+      list(
+        name = "trap_summary",
+        path = "trap_summary.csv",
+        profile = "tabular-data-resource",
+        format = "csv",
+        mediatype = "text/csv",
+        encoding = "utf-8"
       )
     )
   )
@@ -623,7 +822,11 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     converted_trap_records = nrow(raw_trap_data),
     deployments = nrow(deployments),
     observations = nrow(observations),
-    animal_observations = sum(observations$observationType == "animal"),
+    animal_observations = sum(observations$observationType == "animal", na.rm = TRUE),
+    oldest_trap_check_date = as.character(oldest_trap_check_date),
+    newest_trap_check_date = as.character(newest_trap_check_date),
+    trap_data_period_days = trap_data_period_days,
+    first_checks_without_prior = first_checks_without_prior,
     dropped_first_checks = dropped_first_checks,
     dropped_missing_coordinate_records = dropped_missing_coordinate_records,
     traps_with_deployments = length(unique(deployment_source$trap_id)),
@@ -641,16 +844,37 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     deployments = deployments,
     observations = observations,
     media = media,
+    trap_summary = trap_summary,
     taxonomic = taxonomic,
     datapackage = datapackage,
     summary = summary
   )
+
+  interval_deployments <- deployments[!is.na(deployments$interval_days), ]
+  if (nrow(interval_deployments) > 0) {
+    first_interval_starts <- stats::aggregate(
+      deploymentStart ~ locationName,
+      data = interval_deployments,
+      FUN = min
+    )
+    names(first_interval_starts) <- c("trap_code", "first_deploymentStart")
+    first_interval_starts <- first_interval_starts[order(first_interval_starts$trap_code), ]
+  } else {
+    first_interval_starts <- data.frame(
+      trap_code = character(),
+      first_deploymentStart = character(),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  write_import_log(summary, missing_coordinate_traps, first_interval_starts)
 
   if (!is.null(period_groups)) {
     result <- annotate_wkt_trap_periods(result, period_groups)
     deployments <- result$deployments
     observations <- result$observations
     media <- result$media
+    trap_summary <- result$trap_summary
   }
 
   if (!is.null(output_dir)) {
@@ -661,6 +885,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     utils::write.csv(deployments, file.path(output_dir, "deployments.csv"), row.names = FALSE, na = "")
     utils::write.csv(media, file.path(output_dir, "media.csv"), row.names = FALSE, na = "")
     utils::write.csv(observations, file.path(output_dir, "observations.csv"), row.names = FALSE, na = "")
+    utils::write.csv(trap_summary, file.path(output_dir, "trap_summary.csv"), row.names = FALSE, na = "")
 
     datapackage_path <- file.path(output_dir, "datapackage.json")
     if (requireNamespace("jsonlite", quietly = TRUE)) {

@@ -104,7 +104,8 @@ plan(multisession)
 
 if (isTRUE(core_data_weather_deferred)) {
   logger::log_warn(
-    "global.R, weather enrichment is incomplete or deferred. Loading app now and completing core_data weather cache in the background."
+    "global.R, weather enrichment is incomplete or deferred. 
+    Loading app now and completing core_data weather cache in the background."
   )
 
   future::future({
@@ -120,7 +121,8 @@ if (isTRUE(core_data_weather_deferred)) {
     package_id <<- rebuilt$package_id
 
     logger::log_info(
-      "global.R, background weather rebuild complete for data package id %s. Cache saved to %s and global core_data updated.",
+      "global.R, background weather rebuild complete for data package id %s. 
+      Cache saved to %s and global core_data updated.",
       rebuilt$package_id,
       rebuilt$cache_file
     )

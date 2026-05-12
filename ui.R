@@ -460,9 +460,14 @@ ui <- function(request) {
                   value = "trap_deps"
                 ),
                 nav_panel(
+                  "Trap summary",
+                  DT::dataTableOutput("trapdata_summary_browse"),
+                  value = "trap_summary"
+                ),
+                nav_panel(
                   "Conversion summary",
                   DT::dataTableOutput("trapdata_conversion_summary"),
-                  value = "trap_summary"
+                  value = "conversion_summary"
                 )
               )
             )

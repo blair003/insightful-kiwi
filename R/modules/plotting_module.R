@@ -529,7 +529,9 @@ plotting_module_server <- function(id,
           title = title,
           x = "Period",
           y = "RAI",
-          colour = "Species"
+          colour = "Species",
+          caption = "Error bars represent standard error of the mean. 
+                    If more than one Species is shown, points and error bars are jittered horizontally for visibility."
         ) +
         scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.18))) +
         scale_colour_brewer(palette = "Dark2") +

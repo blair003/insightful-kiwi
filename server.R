@@ -444,10 +444,11 @@ server <- function(input, output, session) {
 
   trap_table_options <- function(order = list(list(0, "desc"))) {
     list(
-      pageLength = 25,
+      pageLength = 10,
+      lengthMenu = c(10, 25, 50, 100),
       scrollX = TRUE,
       order = order,
-      dom = "tip"
+      dom = "lfrtip"
     )
   }
 
@@ -499,7 +500,11 @@ server <- function(input, output, session) {
 
     trap_deps <- trap_data$deps %>%
       dplyr::mutate(
-        interval_days = as.integer(as.Date(deploymentEnd) - as.Date(deploymentStart))
+        interval_days = if ("interval_days" %in% names(.)) {
+          interval_days
+        } else {
+          as.integer(as.Date(deploymentEnd) - as.Date(deploymentStart))
+        }
       ) %>%
       dplyr::select(
         check_date,
@@ -519,6 +524,26 @@ server <- function(input, output, session) {
       rownames = FALSE,
       filter = "top",
       options = trap_table_options()
+    )
+  })
+
+  output$trapdata_summary_browse <- DT::renderDataTable({
+    req(!is.null(trap_data))
+
+    if (!is.null(trap_data$trap_summary)) {
+      trap_summary <- trap_data$trap_summary
+    } else {
+      trap_summary <- data.frame(
+        message = "Trap summary is not available for this import.",
+        stringsAsFactors = FALSE
+      )
+    }
+
+    DT::datatable(
+      trap_summary,
+      rownames = FALSE,
+      filter = "top",
+      options = trap_table_options(order = list(list(0, "asc")))
     )
   })
 
