@@ -23,7 +23,8 @@ load_trap_data <- function(config, core_data, cache_file) {
     include_missing_coordinates = TRUE,
     package_name = "wkt-trap-checks",
     timezone = config$globals$actual_timezone,
-    period_groups = core_data$period_groups
+    period_groups = core_data$period_groups,
+    monitoring_deployments = core_data$deps
   )
 
   logger::log_info(

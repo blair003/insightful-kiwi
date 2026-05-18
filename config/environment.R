@@ -39,8 +39,8 @@ config$env$dirs$maps <- file.path(config$env$dirs$cache, "maps")
 config$env$dirs$media <- file.path(config$env$dirs$cache, "media")
 
 config$env$trap_data_files <- list(
-  raw_trap_data = "raw-trap-data.csv",
-  trap_locations = "raw-data-traps-including-coords.csv",
+  raw_trap_data = "trap-data.csv",
+  trap_locations = "traps.csv",
   reference_tables = "reference-tables.csv"
 )
 

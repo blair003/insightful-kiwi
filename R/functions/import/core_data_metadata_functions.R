@@ -39,6 +39,14 @@ core_data_period_grouping_signature <- function(config = NULL) {
   )
 }
 
+core_data_species_consolidation_signature <- function(config = NULL) {
+  if (is.null(config) || is.null(config$globals)) {
+    return(NULL)
+  }
+
+  config$globals$spp_consol_defs
+}
+
 ensure_core_data_app_metadata <- function(core_data, config = NULL) {
   if (is.null(core_data$app)) {
     core_data$app <- list()

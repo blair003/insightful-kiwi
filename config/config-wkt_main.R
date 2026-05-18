@@ -26,7 +26,7 @@ config$globals <- list(
   # Import converted WKT trap check data as global trap_data on startup.
   import_trap_data = TRUE,
   trap_data_first_deployment_days = NULL,
-  trap_data_kill_prior_check_override_days = 90,
+  trap_data_kill_prior_check_override_days = 120,
   
   # Google analytics code, read in from config/.env
   ga_tag = Sys.getenv("GA_TAG"),
@@ -147,6 +147,20 @@ config$globals <- list(
       new_taxonRank = "class",
       new_taxon_order = "",
       new_taxon_family = ""
+    ),
+
+    # Keep Agouti and trapping data labels consistent for Mustela nivalis.
+    # "Least weasel" is the broader common name; WKT uses "weasel" operationally.
+    "Mustela nivalis" = list(
+      old_scientificName = c("Mustela nivalis"),
+      new_vernacularNames.eng = "weasel",
+      new_vernacularNames.nld = "Wezel",
+
+      # Used in observations and taxonomic
+      new_taxonID = "https://www.checklistbank.org/dataset/COL2023/taxon/44QY4",
+      new_taxonRank = "species",
+      new_taxon_order = "Carnivora",
+      new_taxon_family = "Mustelidae"
     ),
     
     # Combine Felis and Felis catus into Felis catus

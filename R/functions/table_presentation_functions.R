@@ -453,7 +453,9 @@ setup_table_output <- function(output,
                                table_id = NULL,
                                data = NULL,
                                table_type = NULL,
-                               table_order = list()) {
+                               table_order = list(),
+                               render_when = NULL,
+                               cache_prepared_data = FALSE) {
   
   # Common options for all table_type's
   common_options <- list(
@@ -499,17 +501,29 @@ setup_table_output <- function(output,
     HTML(paste0('<h3>', table_spec$title, '</h3>'))
   })
   
+  prepared_output_data <- NULL
 
   output[[table_id]] <- DT::renderDataTable({
+    if (!is.null(render_when)) {
+      req(isTRUE(render_when()))
+    }
+
     logger::log_debug(
       sprintf("setup_table_output() is rendering %s output for %s\n", 
               table_type, table_id)
     )
     
-    output_data <- prepare_table_data(data, 
-                                      table_id,
-                                      fields = table_spec$fields,
-                                      column_help = TRUE)
+    if (isTRUE(cache_prepared_data) && !is.null(prepared_output_data)) {
+      output_data <- prepared_output_data
+    } else {
+      output_data <- prepare_table_data(data, 
+                                        table_id,
+                                        fields = table_spec$fields,
+                                        column_help = TRUE)
+      if (isTRUE(cache_prepared_data)) {
+        prepared_output_data <<- output_data
+      }
+    }
     
     datatable(
       output_data$table_data,

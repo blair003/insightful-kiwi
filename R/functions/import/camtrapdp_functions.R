@@ -485,22 +485,20 @@ read_camtrapdp <- function() {
 # scientificName, vernacularNames.eng and taxonID of the matching observations
 
 consol_spp_obs <- function(obs, spp_consol_defs) {
-  # Convert scientificName in obs to lowercase
-  obs$scientificName <- tolower(obs$scientificName)
+  scientific_names_lower <- tolower(obs$scientificName)
 
   for (species in names(spp_consol_defs)) {
     def <- spp_consol_defs[[species]]
 
-    # Convert species and old scientific names to lowercase for comparison
-    species_lower <- tolower(species)
     old_sci_names_lower <- tolower(def$old_scientificName)
 
     # Identify indices where scientificName matches any of the old_scientificName entries
-    idx_sci <- which(obs$scientificName %in% old_sci_names_lower)
+    idx_sci <- which(scientific_names_lower %in% old_sci_names_lower)
 
     # If there are matching indices, update fields
     if (length(idx_sci) > 0) {
-      obs$scientificName[idx_sci] <- species_lower
+      obs$scientificName[idx_sci] <- species
+      scientific_names_lower[idx_sci] <- tolower(species)
       if (!is.null(def$new_vernacularNames.eng)) obs$`vernacularNames.eng`[idx_sci] <- def$new_vernacularNames.eng
       if (!is.null(def$new_vernacularNames.nld)) obs$`vernacularNames.nld`[idx_sci] <- def$new_vernacularNames.nld
       if (!is.null(def$new_taxonID)) obs$taxonID[idx_sci] <- def$new_taxonID

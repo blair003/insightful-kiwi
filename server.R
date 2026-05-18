@@ -432,14 +432,24 @@ server <- function(input, output, session) {
                      table_id = "rawdata_deployments_browse", 
                      data = core_data$deps,
                      table_type = "paged",
-                     table_order = list(list(4, 'asc'))) 
+                     table_order = list(list(4, 'asc')),
+                     render_when = function() {
+                       identical(input$nav, "raw_data") &&
+                         identical(input$raw_data_tabs, "deps")
+                     },
+                     cache_prepared_data = TRUE) 
   
   
   setup_table_output(output, 
                      table_id = "rawdata_observations_browse", 
                      data = core_data$obs,
                      table_type = "paged",
-                     table_order = list(list(4, 'asc'))) 
+                     table_order = list(list(4, 'asc')),
+                     render_when = function() {
+                       identical(input$nav, "raw_data") &&
+                         identical(input$raw_data_tabs, "obs")
+                     },
+                     cache_prepared_data = TRUE) 
 
   trap_table_options <- function(order = list(list(0, "desc"))) {
     list(
@@ -459,6 +469,10 @@ server <- function(input, output, session) {
         deploymentID,
         trap_code = locationName,
         trap_line = deploymentGroups,
+        dplyr::any_of(c(
+          "locality",
+          "nearest_monitoring_locationName"
+        )),
         latitude,
         longitude
       )
@@ -469,7 +483,16 @@ server <- function(input, output, session) {
         prior_check_date,
         check_date,
         check_interval,
+        dplyr::any_of(c(
+          "source_prior_check_date",
+          "source_interval_days",
+          "prior_check_override_applied"
+        )),
         trap_code,
+        dplyr::any_of(c(
+          "locality",
+          "nearest_monitoring_locationName"
+        )),
         trap_line,
         observationType,
         scientificName,
@@ -508,6 +531,12 @@ server <- function(input, output, session) {
       dplyr::select(
         check_date,
         trap_code = locationName,
+        dplyr::any_of(c(
+          "locality",
+          "locality_match_type",
+          "locality_distance_km",
+          "nearest_monitoring_locationName"
+        )),
         trap_line = deploymentGroups,
         deploymentStart,
         deploymentEnd,

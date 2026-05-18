@@ -690,6 +690,17 @@ mapping_module_ui <- function(id,
   } else if (view == "select_observation_map_options") { # New view for observation map specific options
     trap_data_available <- exists("trap_data", inherits = TRUE) &&
       !is.null(get("trap_data", inherits = TRUE))
+    trap_distance_max <- 1
+    if (isTRUE(trap_data_available)) {
+      trap_data_value <- get("trap_data", inherits = TRUE)
+      if (!is.null(trap_data_value$deps) && "locality_distance_km" %in% names(trap_data_value$deps)) {
+        distances <- suppressWarnings(as.numeric(trap_data_value$deps$locality_distance_km))
+        distances <- distances[is.finite(distances)]
+        if (length(distances) > 0) {
+          trap_distance_max <- max(1, ceiling(max(distances, na.rm = TRUE)))
+        }
+      }
+    }
 
     return(
       tagList(
@@ -707,6 +718,20 @@ mapping_module_ui <- function(id,
             inputId = ns("include_trap_data"),
             label = "Include trapping data",
             value = FALSE
+          )
+        },
+        if (isTRUE(trap_data_available)) {
+          conditionalPanel(
+            condition = "input.include_trap_data",
+            ns = ns,
+            sliderInput(
+              inputId = ns("trap_locality_distance_km"),
+              label = "Include traps within km of selected localities",
+              min = 0,
+              max = trap_distance_max,
+              value = min(1, trap_distance_max),
+              step = 0.25
+            )
           )
         }
       )
@@ -2139,6 +2164,14 @@ mapping_module_server <- function(id,
         isTRUE(input$include_trap_data) && !is.null(current_trap_data())
       })
 
+      trap_locality_distance_km_selected <- reactive({
+        value <- suppressWarnings(as.numeric(input$trap_locality_distance_km))
+        if (is.na(value) || value < 0) {
+          return(1)
+        }
+        value
+      })
+
       floor_posix_hour_obs <- function(value) {
         value <- as.POSIXct(value, tz = playback_actual_timezone())
         as.POSIXct(
@@ -2488,7 +2521,9 @@ mapping_module_server <- function(id,
             current_trap_data(),
             start_date,
             end_date,
-            species_to_map
+            species_to_map,
+            localities_to_map,
+            trap_locality_distance_km_selected()
           )
         } else {
           dplyr::tibble()
@@ -3488,7 +3523,9 @@ get_trap_kill_icon <- function(description) {
 prepare_trap_observations_for_map <- function(trap_data_value,
                                               start_date,
                                               end_date,
-                                              selected_species) {
+                                              selected_species,
+                                              selected_localities = NULL,
+                                              max_locality_distance_km = 1) {
   if (is.null(trap_data_value) ||
       is.null(trap_data_value$obs) ||
       is.null(trap_data_value$deps) ||
@@ -3500,6 +3537,41 @@ prepare_trap_observations_for_map <- function(trap_data_value,
   trap_deps <- trap_data_value$deps
 
   if (!all(c("deploymentID", "latitude", "longitude", "locationName") %in% names(trap_deps))) {
+    return(dplyr::tibble())
+  }
+
+  if (!is.null(selected_localities) &&
+      length(selected_localities) > 0 &&
+      all(c("locality", "locality_match_type", "locality_distance_km") %in% names(trap_deps))) {
+    max_locality_distance_km <- suppressWarnings(as.numeric(max_locality_distance_km))
+    if (is.na(max_locality_distance_km) || max_locality_distance_km < 0) {
+      max_locality_distance_km <- 1
+    }
+
+    trap_deps <- trap_deps %>%
+      dplyr::filter(
+        .data$locality %in% selected_localities,
+        .data$locality_match_type == "within" |
+          suppressWarnings(as.numeric(.data$locality_distance_km)) <= max_locality_distance_km
+      )
+  } else if (!is.null(selected_localities) && length(selected_localities) > 0) {
+    return(dplyr::tibble())
+  }
+
+  if (nrow(trap_deps) == 0) {
+    return(dplyr::tibble())
+  }
+
+  eligible_deployment_ids <- unique(as.character(trap_deps$deploymentID))
+  trap_obs <- trap_obs %>%
+    dplyr::filter(
+      .data$deploymentID %in% eligible_deployment_ids,
+      .data$observationType == "animal",
+      !is.na(.data$scientificName),
+      tolower(.data$scientificName) %in% selected_species
+    )
+
+  if (nrow(trap_obs) == 0) {
     return(dplyr::tibble())
   }
 
@@ -3530,9 +3602,6 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       trap_kill_type = outcome
     ) %>%
     dplyr::filter(
-      observationType == "animal",
-      !is.na(scientificName_lower),
-      scientificName_lower %in% selected_species,
       prior_check_date <= as.Date(end_date),
       check_date >= as.Date(start_date)
     ) %>%
@@ -3546,7 +3615,10 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           longitude,
           trap_line = deploymentGroups,
           line = suppressWarnings(as.integer(gsub("[^0-9]+", "", deploymentGroups))),
-          locality = "Trap network"
+          locality = if ("locality" %in% names(.)) locality else NA_character_,
+          locality_match_type = if ("locality_match_type" %in% names(.)) locality_match_type else NA_character_,
+          locality_distance_km = if ("locality_distance_km" %in% names(.)) locality_distance_km else NA_real_,
+          nearest_monitoring_locationName = if ("nearest_monitoring_locationName" %in% names(.)) nearest_monitoring_locationName else NA_character_
         ),
       by = "deploymentID"
     )
@@ -3597,6 +3669,35 @@ create_trap_marker_from_record <- function(trap_record) {
 
   trap_record$longitude <- trap_record$longitude + long_offset
   trap_record$latitude <- trap_record$latitude + lat_offset
+  locality_text <- if ("locality" %in% names(trap_record) &&
+      !is.na(trap_record$locality) &&
+      nzchar(as.character(trap_record$locality))) {
+    if ("locality_match_type" %in% names(trap_record) &&
+        identical(as.character(trap_record$locality_match_type), "nearest") &&
+        "locality_distance_km" %in% names(trap_record) &&
+        is.finite(as.numeric(trap_record$locality_distance_km))) {
+      nearest_location_text <- if ("nearest_monitoring_locationName" %in% names(trap_record) &&
+          !is.na(trap_record$nearest_monitoring_locationName) &&
+          nzchar(as.character(trap_record$nearest_monitoring_locationName))) {
+        sprintf(
+          " from %s",
+          trap_record$nearest_monitoring_locationName
+        )
+      } else {
+        ""
+      }
+      sprintf(
+        "Locality: %s (nearest, %s km%s)<br>",
+        trap_record$locality,
+        trap_record$locality_distance_km,
+        nearest_location_text
+      )
+    } else {
+      sprintf("Locality: %s<br>", trap_record$locality)
+    }
+  } else {
+    ""
+  }
 
   popup_content <- sprintf(
     paste0(
@@ -3604,6 +3705,7 @@ create_trap_marker_from_record <- function(trap_record) {
       "Trap kill: <strong>%s</strong><br>",
       "Trap: %s<br>",
       "Line: %s<br>",
+      "%s",
       "Kill window: %s to %s (%s days)<br>",
       "Observation ID: <a href='javascript:void(0);' class='trap-observation-link' data-observationid='%s'>%s</a>",
       "</div>"
@@ -3611,6 +3713,7 @@ create_trap_marker_from_record <- function(trap_record) {
     trap_record$trap_kill_type,
     trap_record$locationName,
     trap_record$trap_line,
+    locality_text,
     format(as.Date(trap_record$prior_check_date), "%Y-%m-%d"),
     format(as.Date(trap_record$timestamp), "%Y-%m-%d"),
     trap_record$check_interval,
