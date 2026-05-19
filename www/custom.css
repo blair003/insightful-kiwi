@@ -508,6 +508,46 @@
         width: 100%;
       }
 
+      .dashboard-classifier-card .dashcard-output {
+        line-height: 1.05;
+      }
+
+      .dashboard-classifier-top-label {
+        color: #212529;
+        font-weight: 700;
+      }
+
+      .dashboard-classifier-contributors {
+        display: grid;
+        gap: 0.18rem;
+        margin-top: 0.55rem;
+        width: 100%;
+      }
+
+      .dashboard-classifier-contributor {
+        align-items: baseline;
+        display: grid;
+        font-size: 0.76rem;
+        gap: 0.45rem;
+        grid-template-columns: minmax(0, 1fr) auto;
+        line-height: 1.15;
+        text-align: left;
+      }
+
+      .dashboard-classifier-name {
+        color: #495057;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .dashboard-classifier-percent {
+        color: #212529;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
       .dashcard-comparison {
         align-items: center;
         display: flex;

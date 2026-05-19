@@ -78,6 +78,19 @@ config$globals <- list(
   # TRUE shows dashboard weather separately for each locality when localities are
   # not combined. FALSE shows one weather summary for the selected network.
   dashboard_weather_by_locality = FALSE,
+
+  # Assumptions used by the dashboard estimate of volunteer time required to
+  # operate the project for the selected period/locality.
+  dashboard_volunteer_hours = list(
+    deployment_setup_minutes = 30,
+    deployment_retrieval_minutes = 25,
+    data_check_upload_minutes_per_deployment = 15,
+    annotation_seconds_per_observation = 12
+  ),
+
+  # Optional override for classifier labels shown on the dashboard. Names should
+  # match classifiedBy values; values should be short display labels.
+  dashboard_classifier_display_names = list(),
   
   # Show RAI calculations based on net individuals count (excluding duplicates)
   use_net_data = TRUE,

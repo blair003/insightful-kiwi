@@ -206,7 +206,9 @@ dashboard_animal_detections_metric <- function(locality = NULL, period_name = NU
   )
 }
 
-render_dashboard_info_link <- function(detail_token, input_id = "dashboard_rai_details_clicked") {
+render_dashboard_info_link <- function(detail_token,
+                                       input_id = "dashboard_rai_details_clicked",
+                                       title = "Show RAI calculation basis") {
   if (is.null(detail_token)) {
     return(NULL)
   }
@@ -214,7 +216,7 @@ render_dashboard_info_link <- function(detail_token, input_id = "dashboard_rai_d
   tags$a(
     href = "#",
     class = "dashcard-info-link",
-    title = "Show RAI calculation basis",
+    title = title,
     onclick = sprintf(
       "Shiny.setInputValue('%s', %s, {priority: 'event'}); return false;",
       input_id,
@@ -396,6 +398,419 @@ summarise_dashboard_effort <- function(locality = NULL, period_name = NULL) {
     unclassified_unknown_count = unclassified_unknown_count,
     observations_count = observations_count
   )
+}
+
+
+dashboard_config_global <- function(name, default = NULL) {
+  if (exists("config", inherits = TRUE) && !is.null(config$globals[[name]])) {
+    return(config$globals[[name]])
+  }
+
+  default
+}
+
+dashboard_numeric_assumption <- function(value, default) {
+  if (is.null(value) || length(value) == 0) {
+    return(default)
+  }
+
+  numeric_value <- suppressWarnings(as.numeric(value[[1]]))
+  if (is.na(numeric_value) || numeric_value < 0) {
+    return(default)
+  }
+
+  numeric_value
+}
+
+dashboard_volunteer_hour_assumptions <- function() {
+  settings <- dashboard_config_global("dashboard_volunteer_hours", list())
+
+  list(
+    deployment_setup_minutes = dashboard_numeric_assumption(
+      settings$deployment_setup_minutes,
+      30
+    ),
+    deployment_retrieval_minutes = dashboard_numeric_assumption(
+      settings$deployment_retrieval_minutes,
+      20
+    ),
+    data_check_upload_minutes_per_deployment = dashboard_numeric_assumption(
+      settings$data_check_upload_minutes_per_deployment,
+      20
+    ),
+    annotation_seconds_per_observation = dashboard_numeric_assumption(
+      settings$annotation_seconds_per_observation,
+      15
+    )
+  )
+}
+
+estimate_dashboard_volunteer_hours <- function(effort_summary,
+                                               assumptions = dashboard_volunteer_hour_assumptions()) {
+  deployments_count <- if (is.null(effort_summary$deployments_count)) {
+    0
+  } else {
+    effort_summary$deployments_count
+  }
+  observations_count <- if (is.null(effort_summary$observations_count)) {
+    0
+  } else {
+    effort_summary$observations_count
+  }
+
+  setup_hours <- deployments_count * assumptions$deployment_setup_minutes / 60
+  retrieval_hours <- deployments_count * assumptions$deployment_retrieval_minutes / 60
+  data_check_upload_hours <- deployments_count * assumptions$data_check_upload_minutes_per_deployment / 60
+  annotation_hours <- observations_count * assumptions$annotation_seconds_per_observation / 3600
+  field_work_hours <- setup_hours + retrieval_hours
+  data_annotation_hours <- data_check_upload_hours + annotation_hours
+
+  list(
+    assumptions = assumptions,
+    deployments_count = deployments_count,
+    observations_count = observations_count,
+    setup_hours = setup_hours,
+    retrieval_hours = retrieval_hours,
+    field_work_hours = field_work_hours,
+    data_check_upload_hours = data_check_upload_hours,
+    annotation_hours = annotation_hours,
+    data_annotation_hours = data_annotation_hours,
+    total_hours = field_work_hours + data_annotation_hours
+  )
+}
+
+dashboard_selection_detail_token <- function(locality = NULL, period_name = NULL) {
+  locality_token <- if (is.null(locality) || length(locality) == 0) {
+    "ALL"
+  } else {
+    paste(as.character(locality), collapse = ",")
+  }
+  period_token <- if (is.null(period_name) || length(period_name) == 0 || is.na(period_name[[1]])) {
+    "ALL"
+  } else {
+    as.character(period_name[[1]])
+  }
+
+  paste(locality_token, period_token, sep = "|")
+}
+
+parse_dashboard_selection_detail_token <- function(detail_token) {
+  if (is.null(detail_token) || length(detail_token) == 0) {
+    return(list(locality = NULL, period_name = NULL))
+  }
+
+  detail_token <- as.character(detail_token[[1]])
+  detail_parts <- strsplit(detail_token, "\\|", fixed = FALSE)[[1]]
+  locality <- if (length(detail_parts) > 0 && detail_parts[[1]] != "ALL") {
+    strsplit(detail_parts[[1]], ",", fixed = TRUE)[[1]]
+  } else {
+    NULL
+  }
+  period_name <- if (length(detail_parts) > 1 && detail_parts[[2]] != "ALL") {
+    detail_parts[[2]]
+  } else {
+    NULL
+  }
+
+  list(locality = locality, period_name = period_name)
+}
+
+format_dashboard_hours <- function(hours, digits = 1) {
+  paste0(format_dash_number(hours, digits), "h")
+}
+
+render_dashboard_volunteer_hours_card <- function(effort_summary,
+                                                  detail_token = NULL,
+                                                  detail_input_id = "dashboard_volunteer_hours_details_clicked") {
+  volunteer_hours <- estimate_dashboard_volunteer_hours(effort_summary)
+
+  card(
+    card_header(render_dashboard_card_header("hands-helping", "Volunteer Hours")),
+    card_body(
+      div(
+        class = "dashcard-metric-state dashcard-metric-state-plain",
+        div(
+          class = "dashcard-card-action",
+          render_dashboard_info_link(
+            detail_token,
+            detail_input_id,
+            title = "Show volunteer hours estimate"
+          )
+        ),
+        div(format_dash_number(volunteer_hours$total_hours, 1), class = "dashcard-output"),
+        div("estimated volunteer hours", class = "dashcard-period"),
+        div(
+          sprintf(
+            "%s field + %s data",
+            format_dashboard_hours(volunteer_hours$field_work_hours),
+            format_dashboard_hours(volunteer_hours$data_annotation_hours)
+          ),
+          class = "dashcard-period"
+        )
+      )
+    ),
+    full_screen = FALSE
+  )
+}
+
+dashboard_classifier_display_mapping <- function() {
+  mapping <- dashboard_config_global("dashboard_classifier_display_names", list())
+  if (is.null(mapping) || length(mapping) == 0) {
+    return(character())
+  }
+
+  unlist(mapping, use.names = TRUE)
+}
+
+dashboard_title_word <- function(value) {
+  value <- as.character(value)
+  if (!nzchar(value)) {
+    return(value)
+  }
+
+  paste0(toupper(substr(value, 1, 1)), tolower(substr(value, 2, nchar(value))))
+}
+
+dashboard_classifier_looks_like_model <- function(value) {
+  grepl(
+    "\\b(v[0-9]+|model|detector|classifier|agouti|mega|yolo|ai|ml)\\b|[0-9]",
+    value,
+    ignore.case = TRUE
+  )
+}
+
+format_dashboard_classifier_label <- function(classified_by) {
+  raw_value <- trimws(as.character(classified_by))
+  if (is.na(raw_value) || !nzchar(raw_value)) {
+    return("Unrecorded")
+  }
+
+  display_mapping <- dashboard_classifier_display_mapping()
+  if (raw_value %in% names(display_mapping)) {
+    return(as.character(display_mapping[[raw_value]]))
+  }
+
+  if (dashboard_classifier_looks_like_model(raw_value)) {
+    return(raw_value)
+  }
+
+  login_value <- sub("@.*$", "", raw_value)
+  name_parts <- unlist(strsplit(login_value, "[[:space:]_.-]+", perl = TRUE))
+  name_parts <- name_parts[nzchar(name_parts)]
+
+  if (length(name_parts) >= 2) {
+    first_name <- dashboard_title_word(name_parts[[1]])
+    last_initial <- toupper(substr(name_parts[[length(name_parts)]], 1, 1))
+    return(paste0(first_name, " ", last_initial, "."))
+  }
+
+  raw_value
+}
+
+summarise_dashboard_classifiers <- function(locality = NULL, period_name = NULL) {
+  period_obs <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
+    period <- core_data$period_groups[[period_name]]
+    filter_obs(core_data$obs, period$start_date, period$end_date)
+  } else {
+    core_data$obs
+  }
+  if (!is.null(locality)) {
+    period_obs <- period_obs %>% dplyr::filter(.data$locality %in% !!locality)
+  }
+
+  if (nrow(period_obs) == 0 || !"classifiedBy" %in% names(period_obs)) {
+    return(list(total_observations = 0, classifiers = data.frame()))
+  }
+
+  classifier_rows <- period_obs %>%
+    dplyr::mutate(
+      classifier_raw = dplyr::if_else(
+        is.na(.data$classifiedBy) | !nzchar(trimws(as.character(.data$classifiedBy))),
+        "Unrecorded",
+        trimws(as.character(.data$classifiedBy))
+      ),
+      classifier_label = vapply(
+        .data$classifier_raw,
+        format_dashboard_classifier_label,
+        character(1)
+      )
+    ) %>%
+    dplyr::count(.data$classifier_label, name = "observations") %>%
+    dplyr::mutate(
+      percent = (.data$observations / sum(.data$observations)) * 100
+    ) %>%
+    dplyr::arrange(dplyr::desc(.data$observations), .data$classifier_label)
+
+  list(
+    total_observations = sum(classifier_rows$observations),
+    classifiers = as.data.frame(classifier_rows, stringsAsFactors = FALSE)
+  )
+}
+
+format_dashboard_percent <- function(value, digits = 1) {
+  if (is.na(value)) {
+    return("N/A")
+  }
+
+  paste0(format_dash_number(value, digits), "%")
+}
+
+render_dashboard_classifier_card <- function(classifier_summary,
+                                             detail_input_id = "dashboard_classifier_info_clicked") {
+  classifier_rows <- classifier_summary$classifiers
+  info_link <- render_dashboard_info_link(
+    "classified_by_info",
+    detail_input_id,
+    title = "About classifiedBy"
+  )
+
+  if (is.null(classifier_rows) || nrow(classifier_rows) == 0) {
+    return(card(
+      card_header(render_dashboard_card_header("user-check", "Classified By")),
+      card_body(
+        div(
+          class = "dashcard-metric-state dashcard-metric-state-plain",
+          div(class = "dashcard-card-action", info_link),
+          div("N/A", class = "dashcard-output"),
+          div("No classified observations", class = "dashcard-period")
+        )
+      ),
+      full_screen = FALSE
+    ))
+  }
+
+  top_classifier <- classifier_rows[1, , drop = FALSE]
+  contributor_rows <- classifier_rows[-1, , drop = FALSE]
+  contributor_limit <- dashboard_numeric_assumption(
+    dashboard_config_global("dashboard_classifier_contributor_limit", 4),
+    4
+  )
+  contributor_limit <- max(0, as.integer(contributor_limit))
+  if (nrow(contributor_rows) > contributor_limit) {
+    remaining_rows <- contributor_rows[(contributor_limit + 1):nrow(contributor_rows), , drop = FALSE]
+    contributor_rows <- contributor_rows[seq_len(contributor_limit), , drop = FALSE]
+    contributor_rows <- rbind(
+      contributor_rows,
+      data.frame(
+        classifier_label = sprintf("%d others", nrow(remaining_rows)),
+        observations = sum(remaining_rows$observations),
+        percent = sum(remaining_rows$percent),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+
+  card(
+    card_header(render_dashboard_card_header("user-check", "Classified By")),
+    card_body(
+      div(
+        class = "dashcard-metric-state dashcard-metric-state-plain dashboard-classifier-card",
+        div(class = "dashcard-card-action", info_link),
+        div(format_dashboard_percent(top_classifier$percent[[1]]), class = "dashcard-output"),
+        div(top_classifier$classifier_label[[1]], class = "dashcard-period dashboard-classifier-top-label"),
+        div(
+          sprintf("%s classified observations", format(classifier_summary$total_observations, big.mark = ",")),
+          class = "dashcard-period"
+        ),
+        if (nrow(contributor_rows) > 0) {
+          div(
+            class = "dashboard-classifier-contributors",
+            lapply(seq_len(nrow(contributor_rows)), function(row_index) {
+              row <- contributor_rows[row_index, , drop = FALSE]
+              div(
+                class = "dashboard-classifier-contributor",
+                tags$span(row$classifier_label[[1]], class = "dashboard-classifier-name"),
+                tags$span(format_dashboard_percent(row$percent[[1]]), class = "dashboard-classifier-percent")
+              )
+            })
+          )
+        }
+      )
+    ),
+    full_screen = FALSE
+  )
+}
+
+dashboard_detail_table_row <- function(label, value) {
+  tags$tr(
+    tags$th(scope = "row", label),
+    tags$td(value)
+  )
+}
+
+show_dashboard_volunteer_hours_modal <- function(locality = NULL, period_name = NULL) {
+  effort_summary <- summarise_dashboard_effort(locality = locality, period_name = period_name)
+  volunteer_hours <- estimate_dashboard_volunteer_hours(effort_summary)
+  assumptions <- volunteer_hours$assumptions
+
+  showModal(modalDialog(
+    title = "Estimated Volunteer Hours",
+    tags$p(
+      sprintf(
+        "%s, %s.",
+        effort_summary$period_label,
+        locality_scope_label(locality)
+      )
+    ),
+    tags$table(
+      class = "table table-sm dashboard-detail-table",
+      tags$tbody(
+        dashboard_detail_table_row("Total", format_dashboard_hours(volunteer_hours$total_hours)),
+        dashboard_detail_table_row("Field work", format_dashboard_hours(volunteer_hours$field_work_hours)),
+        dashboard_detail_table_row("Deployment setup", sprintf(
+          "%s deployments x %s min = %s",
+          format(volunteer_hours$deployments_count, big.mark = ","),
+          format_dash_number(assumptions$deployment_setup_minutes),
+          format_dashboard_hours(volunteer_hours$setup_hours)
+        )),
+        dashboard_detail_table_row("Deployment retrieval", sprintf(
+          "%s deployments x %s min = %s",
+          format(volunteer_hours$deployments_count, big.mark = ","),
+          format_dash_number(assumptions$deployment_retrieval_minutes),
+          format_dashboard_hours(volunteer_hours$retrieval_hours)
+        )),
+        dashboard_detail_table_row("Data and annotation", format_dashboard_hours(volunteer_hours$data_annotation_hours)),
+        dashboard_detail_table_row("Camera data check and upload", sprintf(
+          "%s deployments x %s min = %s",
+          format(volunteer_hours$deployments_count, big.mark = ","),
+          format_dash_number(assumptions$data_check_upload_minutes_per_deployment),
+          format_dashboard_hours(volunteer_hours$data_check_upload_hours)
+        )),
+        dashboard_detail_table_row("Annotations", sprintf(
+          "%s observations x %s sec = %s",
+          format(volunteer_hours$observations_count, big.mark = ","),
+          format_dash_number(assumptions$annotation_seconds_per_observation),
+          format_dashboard_hours(volunteer_hours$annotation_hours)
+        ))
+      )
+    ),
+    tags$p(
+      class = "text-muted",
+        "This is a calculated estimate of the hours required for the ongoing core 
+        operation of the camera monitoring network. 
+        
+        It excludes the initial planning, development, and setup phases, as well as 
+        ongoing reporting and analysis of observations and related activities such as 
+        community engagement."
+     
+    ),
+    easyClose = TRUE,
+    footer = modalButton("Close")
+  ))
+}
+
+show_dashboard_classifier_info_modal <- function() {
+  showModal(modalDialog(
+    title = "Classified By",
+    tags$p(
+      "Classified by is the primary classifier recorded on each observation in the selected dashboard period and locality."
+    ),
+    tags$p(
+      "Percentages do not factor in validation checks or confirmations."
+    ),
+    easyClose = TRUE,
+    footer = modalButton("Close")
+  ))
 }
 
 render_dashboard_period_dates_card <- function(effort_summary, title = "Season Dates") {
@@ -627,14 +1042,29 @@ render_dashboard_favourites_hero <- function(max_images = 30,
   )
 }
 
-render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
+render_dashboard_effort_cards <- function(locality = NULL,
+                                          period_name = NULL,
+                                          volunteer_detail_input_id = "dashboard_volunteer_hours_details_clicked",
+                                          classifier_info_input_id = "dashboard_classifier_info_clicked") {
   animal_metric <- dashboard_animal_detections_metric(locality = locality, period_name = period_name)
   effort_summary <- summarise_dashboard_effort(locality = locality, period_name = period_name)
+  classifier_summary <- summarise_dashboard_classifiers(locality = locality, period_name = period_name)
+  detail_token <- dashboard_selection_detail_token(locality = locality, period_name = period_name)
+
   layout_column_wrap(
     width = "180px",
     render_dashboard_period_dates_card(effort_summary),
     render_dashboard_camera_hours_card(effort_summary),
+    render_dashboard_volunteer_hours_card(
+      effort_summary,
+      detail_token = detail_token,
+      detail_input_id = volunteer_detail_input_id
+    ),
     render_dashboard_observations_card(effort_summary),
+    render_dashboard_classifier_card(
+      classifier_summary,
+      detail_input_id = classifier_info_input_id
+    ),
     card(
       card_header(render_dashboard_card_header("paw", "Animal Observations")),
       card_body(render_dashboard_comparison_body(animal_metric, use_state_background = FALSE)),
@@ -644,14 +1074,27 @@ render_dashboard_effort_cards <- function(locality = NULL, period_name = NULL) {
   )
 }
 
-render_dashboard_whole_project_cards <- function(locality = NULL) {
+render_dashboard_whole_project_cards <- function(locality = NULL,
+                                                 volunteer_detail_input_id = "dashboard_volunteer_hours_details_clicked",
+                                                 classifier_info_input_id = "dashboard_classifier_info_clicked") {
   effort_summary <- summarise_dashboard_effort(locality = locality)
+  classifier_summary <- summarise_dashboard_classifiers(locality = locality)
+  detail_token <- dashboard_selection_detail_token(locality = locality)
 
   layout_column_wrap(
     width = "180px",
     render_dashboard_period_dates_card(effort_summary, title = "Project Dates"),
     render_dashboard_camera_hours_card(effort_summary),
+    render_dashboard_volunteer_hours_card(
+      effort_summary,
+      detail_token = detail_token,
+      detail_input_id = volunteer_detail_input_id
+    ),
     render_dashboard_observations_card(effort_summary),
+    render_dashboard_classifier_card(
+      classifier_summary,
+      detail_input_id = classifier_info_input_id
+    ),
     render_dashboard_animal_observations_total_card(effort_summary),
     render_dashboard_monitoring_data_card()
   )

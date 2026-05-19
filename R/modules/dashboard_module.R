@@ -112,7 +112,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput(ns("main_dashboard_current_period_cards")),
               uiOutput(ns("main_dashboard_current_period_favourite_images")),
-              div(class = "dashboard-section-heading dashboard-current-period-heading", "EFFORT"),
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "PROJECT WORK"),
               uiOutput(ns("main_dashboard_current_period_effort_cards")),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
               uiOutput(ns("main_dashboard_current_period_weather_cards"))
@@ -127,7 +127,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput(ns("main_dashboard_prior_period_cards")),
               uiOutput(ns("main_dashboard_prior_period_favourite_images")),
-              div(class = "dashboard-section-heading dashboard-current-period-heading", "EFFORT"),
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "PROJECT WORK"),
               uiOutput(ns("main_dashboard_prior_period_effort_cards")),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
               uiOutput(ns("main_dashboard_prior_period_weather_cards"))
@@ -142,7 +142,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput(ns("main_dashboard_last_year_period_cards")),
               uiOutput(ns("main_dashboard_last_year_period_favourite_images")),
-              div(class = "dashboard-section-heading dashboard-current-period-heading", "EFFORT"),
+              div(class = "dashboard-section-heading dashboard-current-period-heading", "PROJECT WORK"),
               uiOutput(ns("main_dashboard_last_year_period_effort_cards")),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
               uiOutput(ns("main_dashboard_last_year_period_weather_cards"))
@@ -238,7 +238,11 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
     })
 
     output$whole_project_cards <- renderUI({
-      render_dashboard_whole_project_cards(dashboard_selected_localities())
+      render_dashboard_whole_project_cards(
+        dashboard_selected_localities(),
+        volunteer_detail_input_id = session$ns("dashboard_volunteer_hours_details_clicked"),
+        classifier_info_input_id = session$ns("dashboard_classifier_info_clicked")
+      )
     }) %>%
       bindCache(paste(dashboard_selected_localities(), collapse = "|"), use_net())
 
@@ -287,13 +291,23 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       selected_localities <- dashboard_selected_localities()
 
       if (isTRUE(combine_localities)) {
-        return(render_dashboard_effort_cards(selected_localities, period_name))
+        return(render_dashboard_effort_cards(
+          selected_localities,
+          period_name,
+          volunteer_detail_input_id = session$ns("dashboard_volunteer_hours_details_clicked"),
+          classifier_info_input_id = session$ns("dashboard_classifier_info_clicked")
+        ))
       }
 
       tagList(lapply(selected_localities, function(locality) {
         tagList(
           div(class = "dashboard-locality-heading", locality_display_name(locality)),
-          render_dashboard_effort_cards(locality, period_name)
+          render_dashboard_effort_cards(
+            locality,
+            period_name,
+            volunteer_detail_input_id = session$ns("dashboard_volunteer_hours_details_clicked"),
+            classifier_info_input_id = session$ns("dashboard_classifier_info_clicked")
+          )
         )
       }))
     }
@@ -388,6 +402,15 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
     observeEvent(input$dashboard_weather_details_clicked, {
       token <- input$dashboard_weather_details_clicked
       show_weather_modal(token$lat, token$lng, token$start_date, token$end_date, token$locality)
+    })
+
+    observeEvent(input$dashboard_volunteer_hours_details_clicked, {
+      token <- parse_dashboard_selection_detail_token(input$dashboard_volunteer_hours_details_clicked)
+      show_dashboard_volunteer_hours_modal(token$locality, token$period_name)
+    })
+
+    observeEvent(input$dashboard_classifier_info_clicked, {
+      show_dashboard_classifier_info_modal()
     })
 
     plotting_module_server(
