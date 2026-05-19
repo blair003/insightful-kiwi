@@ -3627,8 +3627,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
 }
 
 align_trap_observation_types <- function(trap_observations, observation_template) {
-  if (is.null(trap_observations) || nrow(trap_observations) == 0 ||
-      is.null(observation_template) || nrow(observation_template) == 0) {
+  if (is.null(trap_observations) || is.null(observation_template)) {
     return(trap_observations)
   }
 
