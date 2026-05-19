@@ -659,16 +659,18 @@ prepare_table_data <- function(data,
     #action_type <- "edit_sequence|modal" 
     action_type <- "view_sequence|modal"
     project_id <- if (startsWith(action_type, "edit_sequence")) core_data$id else NULL
+    needs_sequence_id <- startsWith(action_type, "edit_sequence")
     
-    # Pre-fetch observation-to-sequence mappings to avoid repeated filtering
-    observation_to_sequence <- core_data$obs %>%
-      select(observationID, sequenceID) %>%
-      distinct() %>%
-      filter(observationID %in% selected_data$observationID)
-    
-    # Convert to a named vector for fast lookup
-    sequence_lookup <- setNames(observation_to_sequence$sequenceID, 
-                                observation_to_sequence$observationID)
+    sequence_lookup <- NULL
+    if (needs_sequence_id) {
+      observation_to_sequence <- core_data$obs %>%
+        select(observationID, sequenceID) %>%
+        distinct() %>%
+        filter(observationID %in% selected_data$observationID)
+
+      sequence_lookup <- setNames(observation_to_sequence$sequenceID,
+                                  observation_to_sequence$observationID)
+    }
     
     # Define the hyperlink format based on action_type
     hyperlink_format <- if (startsWith(action_type, "edit_sequence")) {
@@ -683,8 +685,7 @@ prepare_table_data <- function(data,
       stop("Invalid action_type specified.")
     }
     
-    # Generate links using sapply
-    selected_data$observationID <- sapply(selected_data$observationID, function(id) {
+    selected_data$observationID <- vapply(selected_data$observationID, function(id) {
       display_id <- if (truncate_uuid) paste0(substr(id, 1, 8), "...") else id
 
       if (startsWith(id, "wkt-trap-observation-")) {
@@ -695,13 +696,13 @@ prepare_table_data <- function(data,
         ))
       }
 
-      sequence_id <- if (id %in% names(sequence_lookup)) {
-        sequence_lookup[[id]]  # Fast lookup for sequenceID
-      } else {
-        NA_character_
-      }
-      
       if (startsWith(action_type, "edit_sequence")) {
+        sequence_id <- if (id %in% names(sequence_lookup)) {
+          sequence_lookup[[id]]
+        } else {
+          NA_character_
+        }
+
         if (is.na(sequence_id) || !nzchar(sequence_id)) {
           return(display_id)
         }
@@ -710,7 +711,7 @@ prepare_table_data <- function(data,
       } else {
         sprintf(hyperlink_format, id, action_type, display_id)
       }
-    })
+    }, character(1))
   }
   
   output_data$table_data <- format_fieldnames(selected_data)

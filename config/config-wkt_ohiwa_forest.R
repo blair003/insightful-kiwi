@@ -52,7 +52,7 @@ config$globals <- list(
   # When period_grouping is "calculated_seasons", also add selectable year
   # periods to period_selection. The canonical deployment period remains the
   # calculated season.
-  period_grouping_include_years = TRUE,
+  period_grouping_include_years = FALSE,
   
   # Which period_grouping to use as default for primary and comparative 
   # We create core_data$period_groups as a list, with each item having a description, 

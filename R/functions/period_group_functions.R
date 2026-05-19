@@ -1,6 +1,15 @@
-period_names_without_all <- function(period_groups) {
+period_names_without_all <- function(period_groups, assignable_only = TRUE) {
   period_names <- names(period_groups)
-  period_names[period_names != "ALL"]
+  period_names <- period_names[period_names != "ALL"]
+
+  if (isTRUE(assignable_only)) {
+    period_names <- period_names[vapply(period_names, function(period_name) {
+      period_info <- period_groups[[period_name]]
+      is.null(period_info$assign_period) || isTRUE(period_info$assign_period)
+    }, logical(1))]
+  }
+
+  period_names
 }
 
 find_matching_prior_year_period <- function(period_name, period_groups) {
@@ -40,6 +49,7 @@ get_period_index <- function(period_groups, period_name) {
 }
 
 is_deployment_annotation_complete <- function(deps) {
+  max_normal_unclassified_count <- 2L
   completed_count <- rowSums(
     data.frame(
       animal = deps$animal_detections_count,
@@ -50,7 +60,8 @@ is_deployment_annotation_complete <- function(deps) {
   )
   unclassified_count <- dplyr::coalesce(deps$unclassified_detections_count, 0)
 
-  completed_count > unclassified_count
+  completed_count > unclassified_count |
+    unclassified_count <= max_normal_unclassified_count
 }
 
 summarise_period_annotation_completeness <- function(deps, period_groups) {

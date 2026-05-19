@@ -25,6 +25,7 @@ period_selection_module_ui <- function(id,
                                            choices = NULL, 
                                            selected = NULL, 
                                            label = NULL, 
+                                           multiple = FALSE,
                                            summary_output_id = NULL) {
   
   ns <- NS(id)
@@ -40,7 +41,8 @@ period_selection_module_ui <- function(id,
         label = if (!is.null(label)) { tagList(icon("calendar"), label) } else { NULL },
         choices = choices,
         selected = selected,
-        selectize = FALSE
+        multiple = multiple,
+        selectize = multiple
       )
     )
   } else if (view == "summary") {
@@ -99,31 +101,49 @@ period_selection_module_server <- function(id,
     start_date <- reactiveVal(NULL)
     end_date <- reactiveVal(NULL)
     period_name <- reactiveVal(NULL)
+    period_names <- reactiveVal(NULL)
 
-    initial_period_name <- if (!is.null(selected) && selected %in% names(period_groups)) {
-      selected
+    valid_selected_periods <- function(period_selection) {
+      selected_periods <- as.character(period_selection)
+      selected_periods <- selected_periods[selected_periods %in% names(period_groups)]
+
+      if (length(selected_periods) == 0) {
+        selected_periods <- names(period_groups)[[1]]
+      }
+
+      selected_periods
+    }
+
+    set_selected_periods <- function(selected_periods) {
+      selected_periods <- valid_selected_periods(selected_periods)
+      selected_groups <- period_groups[selected_periods]
+
+      start_date(min(do.call(c, lapply(selected_groups, `[[`, "start_date")), na.rm = TRUE))
+      end_date(max(do.call(c, lapply(selected_groups, `[[`, "end_date")), na.rm = TRUE))
+      period_names(selected_periods)
+      period_name(paste(selected_periods, collapse = ", "))
+    }
+
+    initial_period_name <- if (!is.null(selected) && any(selected %in% names(period_groups))) {
+      selected[selected %in% names(period_groups)]
     } else {
       names(period_groups)[[1]]
     }
     
-    start_date(period_groups[[initial_period_name]]$start_date)
-    end_date(period_groups[[initial_period_name]]$end_date)
-    period_name(initial_period_name)
+    set_selected_periods(initial_period_name)
     
     observeEvent(input$period_selection, {
-      logger::log_info(sprintf("period_selection_module_server() period_selection changing for %s, new period is %s", 
-                               module_namespace, input$period_selection))
+      logger::log_info(sprintf("period_selection_module_server() period_selection changing for %s, new period is %s",
+                               module_namespace, paste(input$period_selection, collapse = ", ")))
       
-      if (input$period_selection %in% names(period_groups)) {
-        start_date(period_groups[[input$period_selection]]$start_date)
-        end_date(period_groups[[input$period_selection]]$end_date)
-        period_name(input$period_selection)
+      if (any(input$period_selection %in% names(period_groups))) {
+        set_selected_periods(input$period_selection)
         
         # Trigger Google Analytics event when the selection changes
         runjs(sprintf("gtag('event', 'select', {
           'event_category': %s,
           'event_label': %s
-        });", jsonlite::toJSON(id, auto_unbox = TRUE), jsonlite::toJSON(input$period_selection, auto_unbox = TRUE)))
+        });", jsonlite::toJSON(id, auto_unbox = TRUE), jsonlite::toJSON(paste(input$period_selection, collapse = ", "), auto_unbox = TRUE)))
       }
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
     
@@ -167,7 +187,8 @@ period_selection_module_server <- function(id,
     return(list(
       start_date = start_date,
       end_date = end_date,
-      period_name = period_name 
+      period_name = period_name,
+      period_names = period_names
     ))
   })
 }

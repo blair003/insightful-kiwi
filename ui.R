@@ -1,6 +1,8 @@
 # ui.R
 
 ui <- function(request) {
+  season_choices <- period_names_without_all(core_data$period_groups)
+
   tagList(
   useShinyjs(), 
   
@@ -69,15 +71,27 @@ ui <- function(request) {
       id = "global_sidebar",
       
       conditionalPanel(
-        condition = "['reporting', 'observation_map'].includes(input.nav) || 
-        (input.nav === 'density_map' && input.density_map_tabs === 'primary')",
+        condition = "input.nav === 'reporting'",
 
         period_selection_module_ui(
           id = "primary_period",
           view = "select",
-          choices = names(core_data$period_groups),
+          choices = season_choices,
           selected = core_data$period_defaults$primary_period,
           label = "Primary season:"
+        )
+      ),
+
+      conditionalPanel(
+        condition = "input.nav === 'density_map' && input.density_map_tabs === 'primary'",
+
+        period_selection_module_ui(
+          id = "density_map_period",
+          view = "select",
+          choices = season_choices,
+          selected = core_data$period_defaults$primary_period,
+          label = "Season selection:",
+          multiple = TRUE
         )
       ),
       
@@ -87,9 +101,10 @@ ui <- function(request) {
         period_selection_module_ui(
           "comparative_period",
           view = "select",
-          choices = names(core_data$period_groups),
+          choices = season_choices,
           selected = core_data$period_defaults$comparative_period,
-          label = "Comparative season:"
+          label = "Season selection:",
+          multiple = TRUE
         )
       ),
       
@@ -177,9 +192,10 @@ ui <- function(request) {
         period_selection_module_ui(
           id = "playback_period",
           view = "select",
-          choices = names(core_data$period_groups),
+          choices = season_choices,
           selected = core_data$period_defaults$primary_period,
-          label = "Starting season:"
+          label = "Season selection:",
+          multiple = TRUE
         ),
 
         mapping_module_ui(
@@ -219,6 +235,15 @@ ui <- function(request) {
       # Global sidebar conditional content for Observation Map
       conditionalPanel(
         condition = "input.nav === 'observation_map'",
+
+        period_selection_module_ui(
+          id = "observation_map_period",
+          view = "select",
+          choices = season_choices,
+          selected = core_data$period_defaults$primary_period,
+          label = "Season selection:",
+          multiple = TRUE
+        ),
         
         # Call module UI for species selection
         mapping_module_ui(

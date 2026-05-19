@@ -337,6 +337,13 @@ server <- function(input, output, session) {
     selected = core_data$period_defaults$primary_period
   )
 
+  density_map_period <- period_selection_module_server(
+    id = "density_map_period",
+    period_groups = core_data$period_groups,
+    summary_output_ids = character(0),
+    selected = core_data$period_defaults$primary_period
+  )
+
   comparative_period <- period_selection_module_server(
     id = "comparative_period", 
     period_groups = core_data$period_groups,
@@ -344,21 +351,74 @@ server <- function(input, output, session) {
     selected = core_data$period_defaults$comparative_period
   )
 
-  # Reactive filtering of deps and obs for primary and comparative periods
+  observation_map_period <- period_selection_module_server(
+    id = "observation_map_period",
+    period_groups = core_data$period_groups,
+    summary_output_ids = character(0),
+    selected = core_data$period_defaults$primary_period
+  )
+
+  # Reactive filtering of deps and obs for primary/reporting and map periods
   filtered_deps_primary <- reactive({
     filter_deps(core_data$deps, primary_period$start_date(), primary_period$end_date())
-  })
-  
-  filtered_deps_comparative <- reactive({
-    filter_deps(core_data$deps, comparative_period$start_date(), comparative_period$end_date())
   })
   
   filtered_obs_primary <- reactive({
     filter_obs(core_data$obs, primary_period$start_date(), primary_period$end_date())
   })
+
+  filtered_deps_density_map <- reactive({
+    filter_deps_by_period_names(
+      core_data$deps,
+      density_map_period$period_names(),
+      density_map_period$start_date(),
+      density_map_period$end_date()
+    )
+  })
+
+  filtered_obs_density_map <- reactive({
+    filter_obs_by_period_names(
+      core_data$obs,
+      density_map_period$period_names(),
+      density_map_period$start_date(),
+      density_map_period$end_date()
+    )
+  })
+  
+  filtered_deps_comparative <- reactive({
+    filter_deps_by_period_names(
+      core_data$deps,
+      comparative_period$period_names(),
+      comparative_period$start_date(),
+      comparative_period$end_date()
+    )
+  })
   
   filtered_obs_comparative <- reactive({
-    filter_obs(core_data$obs, comparative_period$start_date(), comparative_period$end_date())
+    filter_obs_by_period_names(
+      core_data$obs,
+      comparative_period$period_names(),
+      comparative_period$start_date(),
+      comparative_period$end_date()
+    )
+  })
+
+  filtered_deps_observation_map <- reactive({
+    filter_deps_by_period_names(
+      core_data$deps,
+      observation_map_period$period_names(),
+      observation_map_period$start_date(),
+      observation_map_period$end_date()
+    )
+  })
+
+  filtered_obs_observation_map <- reactive({
+    filter_obs_by_period_names(
+      core_data$obs,
+      observation_map_period$period_names(),
+      observation_map_period$start_date(),
+      observation_map_period$end_date()
+    )
   })
   
   dashboard_state <- dashboard_module_server("dashboard", core_data = core_data, config = config, use_net = global_use_net)
@@ -778,7 +838,7 @@ server <- function(input, output, session) {
         season_selection_text <- generate_season_selection_text(
           primary_period$start_date(),
           primary_period$end_date(),
-          primary_period$selected()$season
+          primary_period$period_name()
         )
         
         combined_text <- paste(package_date_text, "<br><br>", season_selection_text)
@@ -1072,7 +1132,7 @@ server <- function(input, output, session) {
   
   # Used for the tab names
   output$primary_season_name <- renderText({
-    primary_period$period_name()
+    density_map_period$period_name()
   })
   
   output$comparative_season_name <- renderText({
@@ -1111,7 +1171,7 @@ server <- function(input, output, session) {
     period <- if (identical(current_tab, "comparative")) {
       comparative_period
     } else {
-      primary_period
+      density_map_period
     }
 
     req(period$start_date(), period$end_date())
@@ -1177,10 +1237,10 @@ server <- function(input, output, session) {
         density_map_primary <<- mapping_module_server(
           id = "density_map_primary",
           type = "density",
-          obs = filtered_obs_primary,
-          deps = filtered_deps_primary,
-          period_start_date = primary_period$start_date,
-          period_end_date = primary_period$end_date,
+          obs = filtered_obs_density_map,
+          deps = filtered_deps_density_map,
+          period_start_date = density_map_period$start_date,
+          period_end_date = density_map_period$end_date,
           use_net = global_use_net
         )
       } else if (current_tab == "comparative") {
@@ -1190,10 +1250,10 @@ server <- function(input, output, session) {
           density_map_primary <<- mapping_module_server(
             id = "density_map_primary",
             type = "density",
-            obs = filtered_obs_primary,
-            deps = filtered_deps_primary,
-            period_start_date = primary_period$start_date,
-            period_end_date = primary_period$end_date,
+            obs = filtered_obs_density_map,
+            deps = filtered_deps_density_map,
+            period_start_date = density_map_period$start_date,
+            period_end_date = density_map_period$end_date,
             use_net = global_use_net
           )
           loaded_density_tabs(c(loaded_density_tabs(), "primary"))
@@ -1238,6 +1298,24 @@ server <- function(input, output, session) {
     selected = core_data$period_defaults$primary_period
   )
 
+  filtered_deps_playback_map <- reactive({
+    filter_deps_by_period_names(
+      core_data$deps,
+      playback_period$period_names(),
+      playback_period$start_date(),
+      playback_period$end_date()
+    )
+  })
+
+  filtered_obs_playback_map <- reactive({
+    filter_obs_by_period_names(
+      core_data$obs,
+      playback_period$period_names(),
+      playback_period$start_date(),
+      playback_period$end_date()
+    )
+  })
+
   density_playback_map_loaded <- reactiveVal(FALSE)
 
   observeEvent(input$nav, {
@@ -1246,8 +1324,8 @@ server <- function(input, output, session) {
       mapping_module_server(
         id = "density_playback_map",
         type = "density",
-        obs = reactive(core_data$obs),
-        deps = reactive(core_data$deps),
+        obs = filtered_obs_playback_map,
+        deps = filtered_deps_playback_map,
         period_start_date = playback_period$start_date,
         period_end_date = playback_period$end_date,
         playback_mode = "always",
@@ -1268,10 +1346,10 @@ server <- function(input, output, session) {
       observation_map <<- mapping_module_server(
         id = "observation_map",
         type = "observation",
-        obs = filtered_obs_primary,
-        deps = filtered_deps_primary,
-        period_start_date = primary_period$start_date, # Pass reactive from period_selection_module
-        period_end_date = primary_period$end_date,     # Pass reactive from period_selection_module
+        obs = filtered_obs_observation_map,
+        deps = filtered_deps_observation_map,
+        period_start_date = observation_map_period$start_date,
+        period_end_date = observation_map_period$end_date,
         playback_mode = "always",
         use_net = global_use_net,
         trap_data = reactive(trap_data)
