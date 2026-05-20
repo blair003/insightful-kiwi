@@ -427,7 +427,7 @@ plotting_module_server <- function(id,
 
       build_metric_row <- function(period_name, rai_group_name, locality_filter = NULL) {
         period <- core_data$period_groups[[period_name]]
-        period_obs <- filter_obs(obs, period$start_date, period$end_date)
+        period_obs <- filter_detection_obs(filter_obs(obs, period$start_date, period$end_date))
         period_deps <- filter_deps(deps, period$start_date, period$end_date)
 
         if (!is.null(locality_filter)) {

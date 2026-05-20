@@ -71,7 +71,7 @@ activity_patterns_module_server <- function(id,
         activity_patterns_map <<- mapping_module_server(
           id = "activity_patterns_map",
           type = "observation",
-          obs = reactive({ core_data$obs }),
+          obs = reactive({ filter_detection_obs(core_data$obs) }),
           deps = reactive({ core_data$deps }),
           enable_map_outputs = FALSE
         )
@@ -92,7 +92,7 @@ activity_patterns_module_server <- function(id,
       species <- tolower(activity_patterns_map$selected_species())
       localities <- activity_patterns_map$selected_localities()
 
-      obs <- core_data$obs %>%
+      obs <- filter_detection_obs(core_data$obs) %>%
         dplyr::filter(tolower(scientificName) %in% species, locality %in% localities)
 
       if (isTRUE(input$exclude_possible_duplicates)) {

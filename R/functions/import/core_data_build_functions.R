@@ -28,6 +28,7 @@ build_core_data_from_source <- function(config) {
     core_data_weather_updated = empty_core_data_build_datetime(config),
     trapping_data_updated = empty_core_data_build_datetime(config),
     daylight_classification = "suncalc_v1",
+    observation_model_version = core_data_observation_model_version(),
     period_grouping_signature = core_data_period_grouping_signature(config),
     species_consolidation_signature = core_data_species_consolidation_signature(config),
     status = list(
@@ -67,7 +68,8 @@ load_core_data <- function(config, force_rebuild = FALSE, refresh_weather = FALS
     core_data <- readRDS(cache_file)
     core_data <- upgrade_cached_core_data(core_data, cache_file)
     core_data <- ensure_core_data_app_metadata(core_data, config)
-    if (!identical(core_data$app$period_grouping_signature, core_data_period_grouping_signature(config)) ||
+    if (!identical(core_data$app$observation_model_version, core_data_observation_model_version()) ||
+        !identical(core_data$app$period_grouping_signature, core_data_period_grouping_signature(config)) ||
         !identical(core_data$app$species_consolidation_signature, core_data_species_consolidation_signature(config))) {
       logger::log_info(
         "core_data_build_functions.R, core data config changed for data package id %s, rebuilding core_data",

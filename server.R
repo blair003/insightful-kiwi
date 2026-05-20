@@ -123,7 +123,8 @@ server <- function(input, output, session) {
           tags$tr(
             tags$th(scope = "row", "Trapping data"),
             tags$td(format_core_data_build_datetime(core_data$app$trapping_data_updated, config))
-          )
+          ),
+          render_dashboard_data_package_settings_rows(core_data)
         )
       ),
 
@@ -364,7 +365,7 @@ server <- function(input, output, session) {
   })
   
   filtered_obs_primary <- reactive({
-    filter_obs(core_data$obs, primary_period$start_date(), primary_period$end_date())
+    filter_detection_obs(filter_obs(core_data$obs, primary_period$start_date(), primary_period$end_date()))
   })
 
   filtered_deps_density_map <- reactive({
@@ -377,12 +378,12 @@ server <- function(input, output, session) {
   })
 
   filtered_obs_density_map <- reactive({
-    filter_obs_by_period_names(
+    filter_detection_obs(filter_obs_by_period_names(
       core_data$obs,
       density_map_period$period_names(),
       density_map_period$start_date(),
       density_map_period$end_date()
-    )
+    ))
   })
   
   filtered_deps_comparative <- reactive({
@@ -395,12 +396,12 @@ server <- function(input, output, session) {
   })
   
   filtered_obs_comparative <- reactive({
-    filter_obs_by_period_names(
+    filter_detection_obs(filter_obs_by_period_names(
       core_data$obs,
       comparative_period$period_names(),
       comparative_period$start_date(),
       comparative_period$end_date()
-    )
+    ))
   })
 
   filtered_deps_observation_map <- reactive({
@@ -413,12 +414,12 @@ server <- function(input, output, session) {
   })
 
   filtered_obs_observation_map <- reactive({
-    filter_obs_by_period_names(
+    filter_detection_obs(filter_obs_by_period_names(
       core_data$obs,
       observation_map_period$period_names(),
       observation_map_period$start_date(),
       observation_map_period$end_date()
-    )
+    ))
   })
   
   dashboard_state <- dashboard_module_server("dashboard", core_data = core_data, config = config, use_net = global_use_net)
@@ -433,7 +434,7 @@ server <- function(input, output, session) {
   plotting_module_server(
     id = "spp_obs_plot_visualisations",
     type = NULL,
-    obs = core_data$obs,
+    obs = filter_detection_obs(core_data$obs),
     deps = dashboard_plot_deps,
     species_override = NULL
   )
@@ -1308,12 +1309,12 @@ server <- function(input, output, session) {
   })
 
   filtered_obs_playback_map <- reactive({
-    filter_obs_by_period_names(
+    filter_detection_obs(filter_obs_by_period_names(
       core_data$obs,
       playback_period$period_names(),
       playback_period$start_date(),
       playback_period$end_date()
-    )
+    ))
   })
 
   density_playback_map_loaded <- reactiveVal(FALSE)
@@ -1407,12 +1408,12 @@ server <- function(input, output, session) {
     }
 
     if (!is.null(period_name) && period_name == "ALL") {
-      filtered_obs <- core_data$obs
+      filtered_obs <- filter_detection_obs(core_data$obs)
     } else if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
       period <- core_data$period_groups[[period_name]]
 
       # Filter obs
-      filtered_obs <- filter_obs(core_data$obs, period$start_date, period$end_date)
+      filtered_obs <- filter_detection_obs(filter_obs(core_data$obs, period$start_date, period$end_date))
     } else {
       filtered_obs <- NULL
     }

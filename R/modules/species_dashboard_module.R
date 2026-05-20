@@ -614,7 +614,7 @@ species_dashboard_module_server <- function(id,
     })
 
     period_metric_for_basis <- function(period_name_label, locality_filter) {
-      period_obs <- core_data$obs
+      period_obs <- filter_detection_obs(core_data$obs)
       period_deps <- core_data$deps
       start_date <- NA
       end_date <- NA
@@ -1290,7 +1290,7 @@ species_dashboard_module_server <- function(id,
 
     # 1. OVERALL
     overall_obs <- reactive({
-      filter_dashboard_obs(core_data$obs)
+      filter_dashboard_obs(filter_detection_obs(core_data$obs))
     })
     overall_deps <- reactive({
       filter_dashboard_deps(core_data$deps)
@@ -1322,7 +1322,7 @@ species_dashboard_module_server <- function(id,
     plotting_module_server(
       id = "overall_rai_plot",
       type = NULL,
-      obs = core_data$obs,
+      obs = filter_detection_obs(core_data$obs),
       deps = core_data$deps,
       species_override = species_name,
       rai_groups = rai_groups_for_species,

@@ -99,6 +99,18 @@ normalise_core_data_timezones <- function(core_data) {
 
 
 # Define the function that processes the camtrapdp package
+core_data_detection_observation_types <- function() {
+  c("animal", "human")
+}
+
+filter_detection_obs <- function(obs) {
+  if (is.null(obs) || !("observationType" %in% names(obs))) {
+    return(obs)
+  }
+
+  obs %>% dplyr::filter(.data$observationType %in% core_data_detection_observation_types())
+}
+
 process_camtrapdp_package <- function() {
  # browser()
   tryCatch({
@@ -351,10 +363,7 @@ enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) 
   # Processing observations and joining with deployments
   obs_merged <- tryCatch({
     obs %>%
-      dplyr::filter(
-        deploymentID %in% deps$deploymentID,
-        observationType %in% c("animal", "human")
-      ) %>%
+      dplyr::filter(deploymentID %in% deps$deploymentID) %>%
 
       # Remove fields we never need
       dplyr::select(
@@ -397,11 +406,12 @@ enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) 
 
       # Mark possible duplicates within groups
       dplyr::mutate(
-        possible_duplicate = difftime(
-          timestamp,
-          lag(timestamp, default = first(timestamp)),
-          units = "mins"
-        ) <= config$globals$dup_detect_threshold & dplyr::row_number() > 1
+        possible_duplicate = .data$observationType %in% core_data_detection_observation_types() &
+          difftime(
+            timestamp,
+            lag(timestamp, default = first(timestamp)),
+            units = "mins"
+          ) <= config$globals$dup_detect_threshold & dplyr::row_number() > 1
       ) %>%
       dplyr::ungroup()
   }, error = function(e) {
@@ -788,6 +798,9 @@ create_species_list <- function(obs, taxonomic = NULL) {
   build_species_list <- function(species, nametype) {
     setNames(species, sapply(species, get_species_name, nametype = nametype, taxonomic = taxonomic))
   }
+
+  obs <- filter_detection_obs(obs)
+  obs <- obs[!is.na(obs$scientificName) & nzchar(as.character(obs$scientificName)), , drop = FALSE]
 
   # Get observed species in lowercase
   observed_species <- unique(tolower(obs$scientificName))

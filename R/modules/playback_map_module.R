@@ -90,7 +90,7 @@ playback_map_module_server <- function(id, core_data, playback_period) {
       if (isTRUE(input$limit_season)) {
           as.POSIXct(playback_period$end_date())
       } else {
-          as.POSIXct(max(core_data$obs$timestamp, na.rm = TRUE))
+          as.POSIXct(max(filter_detection_obs(core_data$obs)$timestamp, na.rm = TRUE))
       }
     })
 
@@ -204,7 +204,7 @@ playback_map_module_server <- function(id, core_data, playback_period) {
         dplyr::distinct(locationID, locality, .keep_all = TRUE)
 
       # Filter observations based on selected time window and filters
-      obs_filtered <- core_data$obs %>%
+      obs_filtered <- filter_detection_obs(core_data$obs) %>%
         dplyr::filter(
           scientificName_lower %in% species_to_map,
           locality %in% localities_to_map,
@@ -238,7 +238,7 @@ playback_map_module_server <- function(id, core_data, playback_period) {
         dplyr::summarise(count = sum(count)) %>%
         dplyr::mutate(locality = "Grand Total")
 
-      absolute_max <- core_data$obs %>%
+      absolute_max <- filter_detection_obs(core_data$obs) %>%
         dplyr::filter(
           scientificName_lower %in% species_to_map,
           locality %in% localities_to_map,

@@ -540,6 +540,8 @@ generate_spp_summary <- function(obs, deps, rai_norm_hours) {
 }
 
 generate_rai_group_summary <- function(obs, deployment_data, rai_groups, rai_norm_hours) {
+  obs <- filter_detection_obs(obs)
+
   rai_result <- calculate_rai(
     obs = obs,
     deps = deployment_data,
@@ -637,6 +639,8 @@ trim_rai_metric_cache <- function() {
 }
 
 generate_rai_group_network_metric <- function(obs, deps, rai_groups, rai_group, rai_norm_hours, use_net = TRUE) {
+  obs <- filter_detection_obs(obs)
+
   empty_metric <- list(
     value = NA_real_,
     se = NA_real_,
@@ -797,6 +801,8 @@ generate_rai_group_network_metric_cached <- function(obs,
                                                      rai_norm_hours,
                                                      use_net = TRUE,
                                                      cache_context = NULL) {
+  obs <- filter_detection_obs(obs)
+
   cache_key <- rai_metric_cache_key(
     obs = obs,
     deps = deps,
@@ -839,6 +845,8 @@ generate_rai_group_period_comparison <- function(obs,
                                                  use_net = TRUE,
                                                  current_period_index = 1,
                                                  lower_is_better = TRUE) {
+  obs <- filter_detection_obs(obs)
+
   period_names <- names(period_groups)
   period_names <- period_names[period_names != "ALL"]
 

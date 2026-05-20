@@ -47,6 +47,10 @@ core_data_species_consolidation_signature <- function(config = NULL) {
   config$globals$spp_consol_defs
 }
 
+core_data_observation_model_version <- function() {
+  "all_observation_types_v1"
+}
+
 ensure_core_data_app_metadata <- function(core_data, config = NULL) {
   if (is.null(core_data$app)) {
     core_data$app <- list()

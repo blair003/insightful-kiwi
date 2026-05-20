@@ -100,7 +100,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading", "LATEST IMAGES"),
               uiOutput(ns("dashboard_favourites_hero")),
               div(class = "dashboard-section-heading", "WHOLE PROJECT"),
-              uiOutput(ns("whole_project_cards"))
+              uiOutput(ns("whole_project_sections"))
             )
           ),
 
@@ -112,8 +112,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput(ns("main_dashboard_current_period_cards")),
               uiOutput(ns("main_dashboard_current_period_favourite_images")),
-              div(class = "dashboard-section-heading dashboard-current-period-heading", "PROJECT WORK"),
-              uiOutput(ns("main_dashboard_current_period_effort_cards")),
+              uiOutput(ns("main_dashboard_current_period_project_work_sections")),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
               uiOutput(ns("main_dashboard_current_period_weather_cards"))
             )
@@ -127,8 +126,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput(ns("main_dashboard_prior_period_cards")),
               uiOutput(ns("main_dashboard_prior_period_favourite_images")),
-              div(class = "dashboard-section-heading dashboard-current-period-heading", "PROJECT WORK"),
-              uiOutput(ns("main_dashboard_prior_period_effort_cards")),
+              uiOutput(ns("main_dashboard_prior_period_project_work_sections")),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
               uiOutput(ns("main_dashboard_prior_period_weather_cards"))
             )
@@ -142,8 +140,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
               div(class = "dashboard-section-heading dashboard-current-period-heading", "RAI Snapshot"),
               uiOutput(ns("main_dashboard_last_year_period_cards")),
               uiOutput(ns("main_dashboard_last_year_period_favourite_images")),
-              div(class = "dashboard-section-heading dashboard-current-period-heading", "PROJECT WORK"),
-              uiOutput(ns("main_dashboard_last_year_period_effort_cards")),
+              uiOutput(ns("main_dashboard_last_year_period_project_work_sections")),
               div(class = "dashboard-section-heading dashboard-current-period-heading", "Weather"),
               uiOutput(ns("main_dashboard_last_year_period_weather_cards"))
             )
@@ -237,8 +234,8 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       render_dashboard_favourites_hero()
     })
 
-    output$whole_project_cards <- renderUI({
-      render_dashboard_whole_project_cards(
+    output$whole_project_sections <- renderUI({
+      render_dashboard_whole_project_sections(
         dashboard_selected_localities(),
         volunteer_detail_input_id = session$ns("dashboard_volunteer_hours_details_clicked"),
         classifier_info_input_id = session$ns("dashboard_classifier_info_clicked")
@@ -286,12 +283,12 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       )
     }
 
-    render_tab_effort_cards <- function(period_name) {
+    render_tab_project_work_sections <- function(period_name) {
       combine_localities <- dashboard_combine_localities()
       selected_localities <- dashboard_selected_localities()
 
       if (isTRUE(combine_localities)) {
-        return(render_dashboard_effort_cards(
+        return(render_dashboard_period_project_work_sections(
           selected_localities,
           period_name,
           volunteer_detail_input_id = session$ns("dashboard_volunteer_hours_details_clicked"),
@@ -302,7 +299,7 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       tagList(lapply(selected_localities, function(locality) {
         tagList(
           div(class = "dashboard-locality-heading", locality_display_name(locality)),
-          render_dashboard_effort_cards(
+          render_dashboard_period_project_work_sections(
             locality,
             period_name,
             volunteer_detail_input_id = session$ns("dashboard_volunteer_hours_details_clicked"),
@@ -364,11 +361,11 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       render_tab_favourite_images(main_dashboard_last_year_period$period_name(), "main_dashboard_last_year_period_favourites_slider")
     })
 
-    output$main_dashboard_current_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_current_period$period_name()) }) %>%
+    output$main_dashboard_current_period_project_work_sections <- renderUI({ render_tab_project_work_sections(main_dashboard_current_period$period_name()) }) %>%
       bindCache(paste(dashboard_selected_localities(), collapse = "|"), dashboard_combine_localities(), main_dashboard_current_period$period_name(), use_net())
-    output$main_dashboard_prior_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_prior_period$period_name()) }) %>%
+    output$main_dashboard_prior_period_project_work_sections <- renderUI({ render_tab_project_work_sections(main_dashboard_prior_period$period_name()) }) %>%
       bindCache(paste(dashboard_selected_localities(), collapse = "|"), dashboard_combine_localities(), main_dashboard_prior_period$period_name(), use_net())
-    output$main_dashboard_last_year_period_effort_cards <- renderUI({ render_tab_effort_cards(main_dashboard_last_year_period$period_name()) }) %>%
+    output$main_dashboard_last_year_period_project_work_sections <- renderUI({ render_tab_project_work_sections(main_dashboard_last_year_period$period_name()) }) %>%
       bindCache(paste(dashboard_selected_localities(), collapse = "|"), dashboard_combine_localities(), main_dashboard_last_year_period$period_name(), use_net())
 
     output$main_dashboard_current_period_weather_cards <- renderUI({ render_tab_weather(main_dashboard_current_period$period_name()) })
@@ -416,7 +413,7 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
     plotting_module_server(
       id = "dashboard_rai_plot",
       type = NULL,
-      obs = core_data$obs,
+      obs = filter_detection_obs(core_data$obs),
       deps = dashboard_plot_deps,
       species_override = NULL,
       rai_groups = config$globals$rai_groups,

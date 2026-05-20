@@ -512,6 +512,11 @@
         line-height: 1.05;
       }
 
+      .dashboard-classifier-primary-name {
+        font-size: 1.12rem;
+        overflow-wrap: anywhere;
+      }
+
       .dashboard-classifier-top-label {
         color: #212529;
         font-weight: 700;
