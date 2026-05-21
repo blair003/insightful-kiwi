@@ -726,7 +726,7 @@ mapping_module_ui <- function(id,
             ns = ns,
             checkboxInput(
               inputId = ns("show_trap_blank_checks"),
-              label = "Show trap checks with no selected-species kill",
+              label = "Show trap check counters",
               value = TRUE
             ),
             checkboxInput(
@@ -4228,29 +4228,39 @@ format_trap_date_range <- function(first_date, last_date, span_days) {
 }
 
 trap_metrics_popup_html <- function(trap_record, selected_species_label = "selected species") {
+  trap_name <- htmltools::htmlEscape(safe_marker_value(trap_record$locationName, "This trap"))
+  check_count <- format_trap_metric_number(trap_record$trap_checks)
+  span_days <- format_trap_metric_number(trap_record$check_span_days)
+  avg_days <- format_trap_metric_number(trap_record$mean_check_interval_days, 1)
+  selected_kills <- format_trap_metric_number(trap_record$selected_species_kill_count)
+  any_kills <- format_trap_metric_number(trap_record$any_species_kill_count)
+  selected_label <- htmltools::htmlEscape(selected_species_label)
+  date_range <- htmltools::htmlEscape(format_trap_date_range(
+    trap_record$first_check,
+    trap_record$last_check,
+    trap_record$check_span_days
+  ))
+
   paste0(
-    "Trap checks: <strong>", format_trap_metric_number(trap_record$trap_checks), "</strong><br>",
-    "Date range: ", htmltools::htmlEscape(format_trap_date_range(
-      trap_record$first_check,
-      trap_record$last_check,
-      trap_record$check_span_days
-    )), "<br>",
-    "Mean / median check interval: ",
-    format_trap_metric_number(trap_record$mean_check_interval_days, 1),
-    " / ",
-    format_trap_metric_number(trap_record$median_check_interval_days, 1),
-    " days<br>",
-    "Any-species kills: ",
-    format_trap_metric_number(trap_record$any_species_kill_count),
-    " (", format_trap_metric_number(trap_record$any_species_kill_checks), " checks; ",
-    format_trap_metric_rate(trap_record$kills_per_check_any_species), " kills/check)<br>",
-    "", htmltools::htmlEscape(str_to_title(selected_species_label)), " kills: ",
-    format_trap_metric_number(trap_record$selected_species_kill_count),
-    " (", format_trap_metric_number(trap_record$selected_species_kill_checks), " checks; ",
-    format_trap_metric_rate(trap_record$kills_per_check_selected_species), " kills/check)<br>",
-    "No-kill checks: ", format_trap_metric_number(trap_record$no_kill_checks), "<br>",
-    "No selected-species kill checks: ",
-    format_trap_metric_number(trap_record$no_selected_species_kill_checks)
+    "<p class='trap-popup-summary'><strong>", trap_name, "</strong> was checked <strong>",
+    check_count, " times</strong> in the <strong>", span_days,
+    " day period</strong> (", date_range, "), which is every <strong>",
+    avg_days, " days</strong> on average. There ",
+    ifelse(identical(as.character(trap_record$selected_species_kill_count), "1"), "was", "were"),
+    " <strong>", selected_kills, " ", selected_label,
+    ifelse(identical(as.character(trap_record$selected_species_kill_count), "1"), " kill", " kills"),
+    "</strong> recorded during that time, and <strong>", any_kills,
+    ifelse(identical(as.character(trap_record$any_species_kill_count), "1"), " kill", " kills"),
+    "</strong> in total.</p>",
+    "<div class='trap-popup-metrics'>",
+    "Selected species kills/check: <strong>",
+    format_trap_metric_rate(trap_record$kills_per_check_selected_species), "</strong><br>",
+    "Any species kills/check: <strong>",
+    format_trap_metric_rate(trap_record$kills_per_check_any_species), "</strong><br>",
+    "No-kill checks: <strong>", format_trap_metric_number(trap_record$no_kill_checks), "</strong><br>",
+    "No selected-species kill checks: <strong>",
+    format_trap_metric_number(trap_record$no_selected_species_kill_checks), "</strong>",
+    "</div>"
   )
 }
 
