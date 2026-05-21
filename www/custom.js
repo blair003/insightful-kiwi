@@ -277,7 +277,7 @@
           }
 
           if (nav === 'observation_map') {
-            return /^observation_map-(selected_species|selected_localities|enhance_map_details|include_trap_data)$/.test(id) ||
+            return /^observation_map-(selected_species|selected_localities|enhance_map_details|include_trap_data|show_trap_blank_checks|show_trap_unchecked_locations|trap_locality_distance_km)$/.test(id) ||
               id === 'primary_period-period_selection';
           }
 

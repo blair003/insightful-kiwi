@@ -126,19 +126,65 @@
         width: 10px;
       }
 
-      .trap-marker-legend-swatch-stoat { background: #a50026; }
-      .trap-marker-legend-swatch-weasel { background: #d73027; }
-      .trap-marker-legend-swatch-ferret { background: #fdae61; }
+      .trap-marker-legend-swatch-check { background: #e0f2fe; border-color: #0284c7; }
+      .trap-marker-legend-swatch-stoat { background: #b91c1c; }
+      .trap-marker-legend-swatch-weasel { background: #8b5e34; }
+      .trap-marker-legend-swatch-ferret { background: #f97316; }
       .trap-marker-legend-swatch-rat { background: #000000; }
-      .trap-marker-legend-swatch-mouse { background: #999999; }
-      .trap-marker-legend-swatch-cat { background: #762a83; }
-      .trap-marker-legend-swatch-rabbit { background: #1a9850; }
-      .trap-marker-legend-swatch-hedgehog { background: #5ab4ac; }
-      .trap-marker-legend-swatch-possum { background: #2c7bb6; }
-      .trap-marker-legend-swatch-weka { background: #006837; }
-      .trap-marker-legend-swatch-bird { background: #4575b4; }
-      .trap-marker-legend-swatch-mustelid { background: #f46d43; }
+      .trap-marker-legend-swatch-mouse { background: #737373; }
+      .trap-marker-legend-swatch-cat { background: #7c3aed; }
+      .trap-marker-legend-swatch-rabbit { background: #16a34a; }
+      .trap-marker-legend-swatch-hedgehog { background: #0f766e; }
+      .trap-marker-legend-swatch-possum { background: #2563eb; }
+      .trap-marker-legend-swatch-weka { background: #15803d; }
+      .trap-marker-legend-swatch-bird { background: #0284c7; }
+      .trap-marker-legend-swatch-mustelid { background: #dc2626; }
       .trap-marker-legend-swatch-other { background: #8073ac; }
+
+      .map-legend-circle {
+        border: 2px solid rgba(0, 0, 0, 0.45);
+        border-radius: 50%;
+        display: inline-block;
+        flex: 0 0 12px;
+        height: 12px;
+        width: 12px;
+      }
+
+      .map-legend-monitoring {
+        background: rgba(185, 28, 28, 0.72);
+      }
+
+      .map-legend-trap-check {
+        background: #e0f2fe;
+        border-color: #7dd3fc;
+        border-style: dashed;
+      }
+
+      .observation-summary-count-label,
+      .trap-kill-count-label,
+      .trap-check-count-label {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        color: #ffffff;
+        font-weight: 700;
+        line-height: 1;
+        padding: 1px 4px;
+        text-align: center;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+      }
+
+      .observation-summary-count-label,
+      .trap-kill-count-label {
+        background: rgba(17, 24, 39, 0.72);
+        border-radius: 999px;
+      }
+
+      .trap-check-count-label {
+        color: rgba(7, 89, 133, 0.72);
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+      }
 
       .dashcard-header-row {
         align-items: center;

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="rabbit monitoring observation marker">
+  <circle cx="32" cy="32" r="29" fill="#dcfce7" stroke="#16a34a" stroke-width="4"/>
+  <g fill="#16a34a" stroke="none">
+    <ellipse cx="31" cy="40" rx="15" ry="9"/><circle cx="44" cy="33" r="7"/><path d="M42 27 L38 12 M47 27 L51 12" fill="none" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <rect x="19" y="5" width="26" height="15" rx="7" fill="#ffffff" stroke="#16a34a" stroke-width="2"/>
+  <text x="32" y="17" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="#16a34a">RB</text>
+</svg>
