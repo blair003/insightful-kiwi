@@ -731,7 +731,7 @@ mapping_module_ui <- function(id,
             ),
             checkboxInput(
               inputId = ns("show_trap_unchecked_locations"),
-              label = "Show trap locations with no checks",
+              label = "Show unchecked traps",
               value = FALSE
             ),
             sliderInput(
