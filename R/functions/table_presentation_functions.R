@@ -688,7 +688,7 @@ prepare_table_data <- function(data,
     selected_data$observationID <- vapply(selected_data$observationID, function(id) {
       display_id <- if (truncate_uuid) paste0(substr(id, 1, 8), "...") else id
 
-      if (startsWith(id, "wkt-trap-observation-")) {
+      if (startsWith(id, "wkt-trap-observation-") || startsWith(id, "trap-unchecked-")) {
         return(sprintf(
           "<a href='javascript:void(0);' class='trap-observation-link' data-observationid='%s'>%s</a>",
           id,

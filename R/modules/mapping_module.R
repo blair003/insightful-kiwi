@@ -2735,7 +2735,7 @@ mapping_module_server <- function(id,
                 ),
                 check_span_days = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  as.integer(as.Date(current_time_obsmap) - as.Date(playback_period_start_obs())) + 1L,
+                  pmax(as.integer(as.Date(current_time_obsmap) - as.Date(playback_period_start_obs())), 0L),
                   .data$check_span_days
                 )
               )
@@ -2787,7 +2787,7 @@ mapping_module_server <- function(id,
                 ),
                 check_span_days = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  as.integer(as.Date(current_time_obsmap) - as.Date(start_time_obsmap)) + 1L,
+                  pmax(as.integer(as.Date(current_time_obsmap) - as.Date(start_time_obsmap)), 0L),
                   .data$check_span_days
                 )
               )
@@ -4081,7 +4081,11 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       dplyr::group_by(.data$locationID) %>%
       dplyr::summarise(
         trap_checks = dplyr::n_distinct(.data$deploymentID),
-        first_check = min(.data$check_date, na.rm = TRUE),
+        first_check = {
+          values <- dplyr::coalesce(.data$prior_check_date, .data$check_date)
+          values <- values[!is.na(values)]
+          if (length(values) == 0) as.Date(NA) else min(values)
+        },
         last_check = max(.data$check_date, na.rm = TRUE),
         mean_check_interval_days = mean(.data$check_interval_metric, na.rm = TRUE),
         median_check_interval_days = stats::median(.data$check_interval_metric, na.rm = TRUE),
@@ -4097,7 +4101,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         .groups = "drop"
       ) %>%
       dplyr::mutate(
-        check_span_days = as.integer(.data$last_check - .data$first_check) + 1L,
+        check_span_days = pmax(as.integer(.data$last_check - .data$first_check), 0L),
         no_kill_checks = pmax(.data$trap_checks - .data$any_species_kill_checks, 0L),
         no_selected_species_kill_checks = pmax(.data$trap_checks - .data$selected_species_kill_checks, 0L),
         kills_per_check_any_species = dplyr::if_else(
@@ -4339,7 +4343,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           trap_checks = 0L,
           first_check = as.Date(start_date),
           last_check = as.Date(end_date),
-          check_span_days = as.integer(as.Date(end_date) - as.Date(start_date)) + 1L,
+          check_span_days = pmax(as.integer(as.Date(end_date) - as.Date(start_date)), 0L),
           mean_check_interval_days = NA_real_,
           median_check_interval_days = NA_real_,
           trap_days = 0,
@@ -4552,7 +4556,7 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
     first_check <- as.Date(trap_record$first_check)
     last_check <- as.Date(trap_record$last_check)
     coverage_days <- if (!is.na(first_check) && !is.na(last_check)) {
-      as.numeric(last_check - first_check) + 1
+      pmax(as.numeric(last_check - first_check), 0)
     } else {
       NA_real_
     }
@@ -4718,7 +4722,7 @@ summarise_visible_trap_metrics <- function(trap_observations) {
     dplyr::mutate(
       check_span_days = dplyr::if_else(
         !is.na(.data$first_check) & !is.na(.data$last_check),
-        as.integer(.data$last_check - .data$first_check) + 1L,
+        pmax(as.integer(.data$last_check - .data$first_check), 0L),
         NA_integer_
       ),
       no_kill_checks = pmax(.data$trap_checks - .data$any_species_kill_checks, 0L),
