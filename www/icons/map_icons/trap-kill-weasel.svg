@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="weasel trap kill badge marker">
-  <path d="M32 4 L52 13 V30 C52 43 44 54 32 60 C20 54 12 43 12 30 V13 Z" fill="#111111"/>
-  <path d="M32 9 L47 16 V30 C47 39 41 48 32 53 C23 48 17 39 17 30 V16 Z" fill="#8b5e34"/>
-  <path d="M22 43 L42 23 M42 43 L22 23" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.92"/>
-  <circle cx="32" cy="32" r="13" fill="#ffffff" stroke="#111111" stroke-width="2"/>
-  <text x="32" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#111111">W</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Trap kill W">
+  <path d="M32 3 L54 12 V29 C54 43 45 55 32 61 C19 55 10 43 10 29 V12 Z" fill="#111827"/>
+  <path d="M32 8 L49 15 V29 C49 40 42 50 32 55 C22 50 15 40 15 29 V15 Z" fill="#8b5e34"/>
+  <path d="M22 20 L42 40 M42 20 L22 40" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity="0.55"/>
+  <circle cx="32" cy="32" r="17" fill="#facc15" stroke="#111827" stroke-width="4"/>
+  <circle cx="32" cy="32" r="12" fill="#fde68a" opacity="0.95"/>
+  <text x="32" y="39" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="900" fill="#111827">W</text>
 </svg>
