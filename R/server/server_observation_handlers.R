@@ -84,7 +84,89 @@
     NULL
   }
 
+  parse_trap_check_date_for_modal <- function(value) {
+    value <- as.character(value)
+    value[is.na(value) | !nzchar(value)] <- NA_character_
+    as.Date(substr(value, 1, 10))
+  }
+
+  show_unchecked_trap_modal <- function(location_id) {
+    if (is.null(trap_data) ||
+        is.null(trap_data$obs) ||
+        is.null(trap_data$deps) ||
+        !nzchar(location_id)) {
+      showModal(modalDialog(
+        title = "Trap Record",
+        "Trap data is not available.",
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      return()
+    }
+
+    trap_deps <- trap_data$deps %>%
+      dplyr::filter(as.character(locationID) == as.character(location_id))
+
+    if (nrow(trap_deps) == 0) {
+      showModal(modalDialog(
+        title = "Unchecked Trap",
+        "No trap location found for this record.",
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      return()
+    }
+
+    deployment_ids <- unique(as.character(trap_deps$deploymentID))
+    check_dates <- trap_data$obs %>%
+      dplyr::filter(as.character(deploymentID) %in% deployment_ids) %>%
+      dplyr::mutate(check_date = parse_trap_check_date_for_modal(.data$eventStart)) %>%
+      dplyr::filter(!is.na(.data$check_date)) %>%
+      dplyr::distinct(.data$check_date) %>%
+      dplyr::arrange(dplyr::desc(.data$check_date)) %>%
+      dplyr::pull(.data$check_date)
+
+    deployment_values <- trap_deps %>%
+      dplyr::slice(1) %>%
+      dplyr::transmute(
+        locationID,
+        trap_code = locationName,
+        trap_line = deploymentGroups,
+        locality = if ("locality" %in% names(.)) locality else NA_character_,
+        latitude,
+        longitude
+      ) %>%
+      unlist(use.names = TRUE)
+
+    check_values <- c(
+      status = "No trap check in the selected Observation Map window",
+      most_recent_check = if (length(check_dates) > 0) as.character(max(check_dates)) else NA_character_,
+      known_check_dates = if (length(check_dates) > 0) paste(as.character(sort(check_dates)), collapse = ", ") else NA_character_
+    )
+
+    showModal(modalDialog(
+      title = tagList(
+        tags$div("Unchecked Trap"),
+        tags$small(sprintf("Location ID: %s", location_id))
+      ),
+      tags$h4("Trap location"),
+      trap_detail_table(deployment_values),
+      tags$h4("Trap check history"),
+      trap_detail_table(check_values),
+      size = "l",
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  }
+
   show_trap_observation_modal <- function(observation_id) {
+    observation_id <- as.character(observation_id)
+    if (isTRUE(startsWith(observation_id, "trap-unchecked-"))) {
+      location_id <- sub("^trap-unchecked-", "", observation_id)
+      show_unchecked_trap_modal(location_id)
+      return()
+    }
+
     if (is.null(trap_data) ||
         is.null(trap_data$obs) ||
         is.null(trap_data$deps) ||

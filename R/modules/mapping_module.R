@@ -729,7 +729,7 @@ mapping_module_ui <- function(id,
               checkboxInput(
                 inputId = ns("show_trap_blank_checks"),
                 label = "Show trap check counters",
-                value = TRUE
+                value = FALSE
               ),
               checkboxInput(
                 inputId = ns("show_trap_unchecked_locations"),
@@ -2833,18 +2833,7 @@ mapping_module_server <- function(id,
         }
         
         # config$globals$species_name_type is assumed to be defined elsewhere
-        trap_obs_table <- if (nrow(trap_obs_filtered) > 0 && "trap_marker_type" %in% names(trap_obs_filtered)) {
-          trap_obs_filtered %>% dplyr::filter(.data$trap_marker_type != "unchecked")
-        } else {
-          trap_obs_filtered
-        }
-        trap_cumulative_table <- if (nrow(trap_cumulative_table) > 0 && "trap_marker_type" %in% names(trap_cumulative_table)) {
-          trap_cumulative_table %>% dplyr::filter(.data$trap_marker_type != "unchecked")
-        } else {
-          trap_cumulative_table
-        }
-
-        observations_for_table <- dplyr::bind_rows(obs_filtered_obsmap, trap_obs_table)
+        observations_for_table <- dplyr::bind_rows(obs_filtered_obsmap, trap_obs_filtered)
         cumulative_observations_for_table <- dplyr::bind_rows(obs_cumulative_table, trap_cumulative_table)
 
         weather_control <- if (playback_active_obs()) {
@@ -4096,6 +4085,11 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         last_check = max(.data$check_date, na.rm = TRUE),
         mean_check_interval_days = mean(.data$check_interval_metric, na.rm = TRUE),
         median_check_interval_days = stats::median(.data$check_interval_metric, na.rm = TRUE),
+        trap_days = {
+          values <- .data$check_interval_metric[!duplicated(.data$deploymentID)]
+          values <- values[!is.na(values) & is.finite(values) & values > 0]
+          if (length(values) == 0) NA_real_ else sum(values)
+        },
         any_species_kill_checks = dplyr::n_distinct(.data$deploymentID[.data$source_kill_flag]),
         any_species_kill_count = sum(.data$source_count, na.rm = TRUE),
         selected_species_kill_checks = dplyr::n_distinct(.data$deploymentID[.data$selected_species_kill_flag]),
@@ -4115,6 +4109,16 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           .data$trap_checks > 0,
           .data$selected_species_kill_count / .data$trap_checks,
           NA_real_
+        ),
+        kills_per_100_trap_days_any_species = dplyr::if_else(
+          .data$trap_days > 0,
+          100 * .data$any_species_kill_count / .data$trap_days,
+          NA_real_
+        ),
+        kills_per_100_trap_days_selected_species = dplyr::if_else(
+          .data$trap_days > 0,
+          100 * .data$selected_species_kill_count / .data$trap_days,
+          NA_real_
         )
       )
   } else {
@@ -4126,6 +4130,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       check_span_days = integer(),
       mean_check_interval_days = numeric(),
       median_check_interval_days = numeric(),
+      trap_days = numeric(),
       any_species_kill_checks = integer(),
       any_species_kill_count = numeric(),
       selected_species_kill_checks = integer(),
@@ -4133,7 +4138,9 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       no_kill_checks = integer(),
       no_selected_species_kill_checks = integer(),
       kills_per_check_any_species = numeric(),
-      kills_per_check_selected_species = numeric()
+      kills_per_check_selected_species = numeric(),
+      kills_per_100_trap_days_any_species = numeric(),
+      kills_per_100_trap_days_selected_species = numeric()
     )
   }
 
@@ -4195,11 +4202,19 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       dplyr::ungroup() %>%
       add_trap_source_fields() %>%
       dplyr::mutate(
+        source_species_label = dplyr::if_else(
+          .data$source_kill_flag &
+            !is.na(.data$source_scientificName) &
+            nzchar(as.character(.data$source_scientificName)),
+          as.character(.data$source_scientificName),
+          NA_character_
+        ),
         observationType = "blank",
-        scientificName = "Trap check - no selected species kill",
-        count = 0,
+        scientificName = .data$source_species_label,
+        count = dplyr::if_else(.data$source_kill_flag, .data$source_count, 0),
         behavior = "trap_checked_no_selected_species_kill"
-      )
+      ) %>%
+      dplyr::select(-source_species_label)
   }
 
   trap_obs <- dplyr::bind_rows(selected_kills, blank_checks)
@@ -4219,14 +4234,16 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         outcome_id = extract_trap_tag_value(observationTags, "outcome_id"),
         trap_marker_type = dplyr::if_else(.data$observationType == "blank", "check", "kill"),
         scientificName_lower = dplyr::if_else(
-          .data$trap_marker_type == "check",
+          .data$trap_marker_type == "check" & !.data$source_kill_flag,
           "trap check - no selected species kill",
           tolower(.data$scientificName)
         ),
-        `vernacularNames.eng` = dplyr::if_else(
-          .data$trap_marker_type == "check",
-          "No selected-species kill",
-          trap_marker_label(outcome)
+        source_kill_label = trap_marker_label(dplyr::coalesce(outcome, .data$scientificName)),
+        `vernacularNames.eng` = dplyr::case_when(
+          .data$trap_marker_type == "check" & .data$source_kill_flag ~ .data$source_kill_label,
+          .data$trap_marker_type == "check" ~
+            "No kill",
+          TRUE ~ .data$source_kill_label
         ),
         species_class = dplyr::if_else(
           .data$trap_marker_type == "check",
@@ -4243,12 +4260,15 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         day_night_class = NA_character_,
         diel_class = NA_character_,
         classificationConfidence = NA_real_,
-        trap_kill_type = dplyr::if_else(
-          .data$trap_marker_type == "check",
-          "No selected-species kill",
-          dplyr::coalesce(outcome, .data$scientificName)
+        trap_kill_type = dplyr::case_when(
+          .data$trap_marker_type == "check" & .data$source_kill_flag ~
+            dplyr::coalesce(outcome, .data$scientificName),
+          .data$trap_marker_type == "check" ~
+            "No kill",
+          TRUE ~ dplyr::coalesce(outcome, .data$scientificName)
         )
       ) %>%
+      dplyr::select(-source_kill_label) %>%
       dplyr::filter(
         .data$trap_marker_type %in% c("kill", "check"),
         .data$display_start_time <= as.POSIXct(as.Date(end_date) + 1, tz = playback_actual_timezone()) - 1,
@@ -4262,6 +4282,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
 
   if (isTRUE(include_unchecked_locations)) {
     unchecked_locations <- trap_deployment_fields %>%
+      dplyr::filter(!as.character(.data$locationID) %in% checked_location_ids) %>%
       dplyr::distinct(
         .data$locationID,
         .data$locationName,
@@ -4321,6 +4342,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           check_span_days = as.integer(as.Date(end_date) - as.Date(start_date)) + 1L,
           mean_check_interval_days = NA_real_,
           median_check_interval_days = NA_real_,
+          trap_days = 0,
           any_species_kill_checks = 0L,
           any_species_kill_count = 0,
           selected_species_kill_checks = 0L,
@@ -4329,6 +4351,8 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           no_selected_species_kill_checks = 0L,
           kills_per_check_any_species = NA_real_,
           kills_per_check_selected_species = NA_real_,
+          kills_per_100_trap_days_any_species = NA_real_,
+          kills_per_100_trap_days_selected_species = NA_real_,
           last_actual_check = as.Date(NA),
           locationID,
           locationName,
@@ -4523,6 +4547,37 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
     trap_record$last_check,
     trap_record$check_span_days
   ))
+  coverage_days <- suppressWarnings(as.numeric(trap_record$check_span_days))
+  if (is.na(coverage_days) || !is.finite(coverage_days)) {
+    first_check <- as.Date(trap_record$first_check)
+    last_check <- as.Date(trap_record$last_check)
+    coverage_days <- if (!is.na(first_check) && !is.na(last_check)) {
+      as.numeric(last_check - first_check) + 1
+    } else {
+      NA_real_
+    }
+  }
+  trap_days <- suppressWarnings(as.numeric(trap_record$trap_days))
+  show_trap_day_rates <- !is.na(coverage_days) && is.finite(coverage_days) && coverage_days >= 100 &&
+    !is.na(trap_days) && is.finite(trap_days) && trap_days >= 100
+
+  trap_day_rates_html <- if (isTRUE(show_trap_day_rates)) {
+    paste0(
+      "<div class='trap-popup-metrics'>",
+      selected_label, " kills / 100 trap-days: <strong>",
+      format_trap_metric_rate(trap_record$kills_per_100_trap_days_selected_species), "</strong><br>",
+      "Total kills / 100 trap-days: <strong>",
+      format_trap_metric_rate(trap_record$kills_per_100_trap_days_any_species), "</strong>",
+      "</div>"
+    )
+  } else {
+    paste0(
+      "<div class='trap-popup-metrics'>",
+      "Kills / 100 trap-days: <strong>not shown</strong><br>",
+      "<small>Requires at least 100 days of trap coverage.</small>",
+      "</div>"
+    )
+  }
 
   if (is.na(check_count_value) || check_count_value == 0) {
     last_actual_check <- if ("last_actual_check" %in% names(trap_record)) {
@@ -4545,14 +4600,7 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
     "</strong><br>Average interval: <strong>", avg_days,
     " days</strong><br>", selected_label, " kills: <strong>", selected_kills,
     "</strong><br>Total kills: <strong>", any_kills, "</strong></p>",
-    "<div class='trap-popup-metrics'>",
-    "Selected kills/check: <strong>",
-    format_trap_metric_rate(trap_record$kills_per_check_selected_species), "</strong><br>",
-    "Total kills/check: <strong>",
-    format_trap_metric_rate(trap_record$kills_per_check_any_species), "</strong><br>",
-    "Checks without selected-species kill: <strong>",
-    format_trap_metric_number(trap_record$no_selected_species_kill_checks), "</strong>",
-    "</div>"
+    trap_day_rates_html
   )
 }
 
@@ -4655,6 +4703,12 @@ summarise_visible_trap_metrics <- function(trap_observations) {
         values <- .data$check_interval_metric[!is.na(.data$check_interval_metric)]
         if (length(values) == 0) NA_real_ else stats::median(values)
       },
+      trap_days = {
+        check_rows <- !is.na(.data$deploymentID) & !duplicated(.data$deploymentID)
+        values <- .data$check_interval_metric[check_rows]
+        values <- values[!is.na(values) & is.finite(values) & values > 0]
+        if (length(values) == 0) NA_real_ else sum(values)
+      },
       any_species_kill_checks = dplyr::n_distinct(.data$deploymentID[.data$source_kill_flag]),
       any_species_kill_count = sum(.data$source_any_species_kill_count, na.rm = TRUE),
       selected_species_kill_checks = dplyr::n_distinct(.data$deploymentID[.data$source_selected_species_kill_flag]),
@@ -4677,6 +4731,16 @@ summarise_visible_trap_metrics <- function(trap_observations) {
       kills_per_check_selected_species = dplyr::if_else(
         .data$trap_checks > 0,
         .data$selected_species_kill_count / .data$trap_checks,
+        NA_real_
+      ),
+      kills_per_100_trap_days_any_species = dplyr::if_else(
+        .data$trap_days > 0,
+        100 * .data$any_species_kill_count / .data$trap_days,
+        NA_real_
+      ),
+      kills_per_100_trap_days_selected_species = dplyr::if_else(
+        .data$trap_days > 0,
+        100 * .data$selected_species_kill_count / .data$trap_days,
         NA_real_
       ),
       kills = .data$selected_species_kill_count
@@ -4725,6 +4789,7 @@ create_trap_unchecked_summary <- function(trap_observations) {
       check_span_days = dplyr::first(.data$check_span_days),
       mean_check_interval_days = NA_real_,
       median_check_interval_days = NA_real_,
+      trap_days = 0,
       any_species_kill_checks = 0L,
       any_species_kill_count = 0,
       selected_species_kill_checks = 0L,
@@ -4733,6 +4798,8 @@ create_trap_unchecked_summary <- function(trap_observations) {
       no_selected_species_kill_checks = 0L,
       kills_per_check_any_species = NA_real_,
       kills_per_check_selected_species = NA_real_,
+      kills_per_100_trap_days_any_species = NA_real_,
+      kills_per_100_trap_days_selected_species = NA_real_,
       kills = 0L,
       last_actual_check = dplyr::first(.data$last_actual_check),
       .groups = "drop"
@@ -4747,6 +4814,7 @@ trap_metric_columns <- function() {
     "check_span_days",
     "mean_check_interval_days",
     "median_check_interval_days",
+    "trap_days",
     "any_species_kill_checks",
     "any_species_kill_count",
     "selected_species_kill_checks",
@@ -4754,7 +4822,9 @@ trap_metric_columns <- function() {
     "no_kill_checks",
     "no_selected_species_kill_checks",
     "kills_per_check_any_species",
-    "kills_per_check_selected_species"
+    "kills_per_check_selected_species",
+    "kills_per_100_trap_days_any_species",
+    "kills_per_100_trap_days_selected_species"
   )
 }
 
@@ -4766,8 +4836,19 @@ create_trap_kill_summary <- function(trap_observations) {
     return(dplyr::tibble())
   }
 
-  metric_summary <- summarise_visible_trap_metrics(trap_observations) %>%
-    dplyr::select(locationID, dplyr::all_of(trap_metric_columns()))
+  metric_columns <- trap_metric_columns()
+  available_metric_columns <- intersect(metric_columns, names(kill_rows))
+  metric_summary <- if (length(available_metric_columns) == length(metric_columns)) {
+    kill_rows %>%
+      dplyr::group_by(.data$locationID) %>%
+      dplyr::summarise(
+        dplyr::across(dplyr::all_of(metric_columns), dplyr::first),
+        .groups = "drop"
+      )
+  } else {
+    summarise_visible_trap_metrics(trap_observations) %>%
+      dplyr::select(locationID, dplyr::all_of(metric_columns))
+  }
 
   kill_rows %>%
     dplyr::group_by(.data$locationID, .data$locationName, .data$scientificName_lower) %>%
