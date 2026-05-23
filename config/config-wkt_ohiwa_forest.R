@@ -70,6 +70,16 @@ config$globals <- list(
   # Near-miss window for species dashboard Kiwi co-occurrence checks, in minutes
   kiwi_near_miss_minutes = 60,
 
+  # Thresholds used by the species dashboard diel activity classification card.
+  species_dashboard_diel_thresholds = list(
+    insufficient_n = 30,
+    normal_confidence_n = 60,
+    dominant_share = 0.60,
+    crepuscular_share = 0.45,
+    crepuscular_component_share = 0.12,
+    cathemeral_day_night_share = 0.25
+  ),
+
   # TRUE shows dashboard weather separately for each locality when localities are
   # not combined. FALSE shows one weather summary for the selected network.
   dashboard_weather_by_locality = FALSE,

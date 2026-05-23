@@ -9,7 +9,7 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL, pe
     metric_deps <- metric_deps %>% dplyr::filter(.data$locality %in% !!locality)
   }
 
-  current_period_index <- core_data$period_defaults$primary_period_index
+  current_period_index <- core_data$app$period_defaults$primary_period_index
   if (!is.null(period_name)) {
     period_names <- names(core_data$period_groups)
     period_names <- period_names[period_names != "ALL"]
@@ -148,8 +148,8 @@ dashboard_animal_detections_metric <- function(locality = NULL, period_name = NU
     current_period <- period_name
     current_period_index <- match(period_name, period_names)
   } else {
-    current_period <- core_data$period_defaults$primary_period
-    current_period_index <- core_data$period_defaults$primary_period_index
+    current_period <- core_data$app$period_defaults$primary_period
+    current_period_index <- core_data$app$period_defaults$primary_period_index
   }
 
   prior_period <- if (!is.na(current_period_index) && current_period_index < length(period_names)) {

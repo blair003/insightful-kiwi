@@ -1,6 +1,6 @@
 species_dashboard_period_defaults <- function(core_data) {
   period_names <- period_names_without_all(core_data$period_groups)
-  current_period <- core_data$period_defaults$primary_period
+  current_period <- core_data$app$period_defaults$primary_period
   current_period_index <- match(current_period, period_names)
 
   prior_period <- if (!is.na(current_period_index) && current_period_index < length(period_names)) {
@@ -11,7 +11,7 @@ species_dashboard_period_defaults <- function(core_data) {
 
   last_year_period <- find_matching_prior_year_period(current_period, core_data$period_groups)
   if (is.na(last_year_period)) {
-    last_year_period <- core_data$period_defaults$comparative_period
+    last_year_period <- core_data$app$period_defaults$comparative_period
   }
 
   list(
@@ -30,14 +30,14 @@ species_dashboard_diel_colours <- c(
   Nocturnal = "#4b5563"
 )
 
-species_dashboard_diel_thresholds <- list(
-  insufficient_n = 30,
-  normal_confidence_n = 60,
-  dominant_share = 0.60,
-  crepuscular_share = 0.45,
-  crepuscular_component_share = 0.12,
-  cathemeral_day_night_share = 0.25
-)
+species_dashboard_diel_thresholds <- function(core_data = NULL) {
+  thresholds <- core_data$app$diel_thresholds
+  if (is.null(thresholds) && exists("config", inherits = TRUE)) {
+    thresholds <- core_data_diel_thresholds(get("config", inherits = TRUE))
+  }
+
+  normalise_species_dashboard_diel_thresholds(thresholds)
+}
 
 species_dashboard_empty_diel_summary <- function(reason = "No data") {
   data.frame(
@@ -157,8 +157,7 @@ species_dashboard_diel_effort_hours <- function(deps_data, environment_daily, pe
   effort_hours[species_dashboard_diel_levels]
 }
 
-species_dashboard_classify_diel_activity <- function(rate_share, sample_size) {
-  thresholds <- species_dashboard_diel_thresholds
+species_dashboard_classify_diel_activity <- function(rate_share, sample_size, thresholds = species_dashboard_diel_thresholds()) {
 
   if (sample_size < thresholds$insufficient_n) {
     return(list(
@@ -204,7 +203,7 @@ species_dashboard_classify_diel_activity <- function(rate_share, sample_size) {
   )
 }
 
-species_dashboard_diel_summary <- function(species_obs, deps_data, environment_daily, period_start = NULL, period_end = NULL) {
+species_dashboard_diel_summary <- function(species_obs, deps_data, environment_daily, period_start = NULL, period_end = NULL, thresholds = species_dashboard_diel_thresholds()) {
   if (is.null(species_obs) || nrow(species_obs) == 0 || !"diel_class" %in% names(species_obs)) {
     return(species_dashboard_empty_diel_summary("No observations in this selection"))
   }
@@ -229,11 +228,11 @@ species_dashboard_diel_summary <- function(species_obs, deps_data, environment_d
 
   rate_total <- sum(rates, na.rm = TRUE)
   rate_share <- if (rate_total > 0) rates / rate_total else stats::setNames(rep(0, length(rates)), names(rates))
-  classification_info <- species_dashboard_classify_diel_activity(rate_share, sample_size)
+  classification_info <- species_dashboard_classify_diel_activity(rate_share, sample_size, thresholds)
   confidence_note <- dplyr::case_when(
     identical(classification_info$confidence, "insufficient") ~ sprintf(
       "Fewer than %d observations in this selection.",
-      species_dashboard_diel_thresholds$insufficient_n
+      thresholds$insufficient_n
     ),
     identical(classification_info$confidence, "low") ~ sprintf(
       "Low confidence: %d observations. Treat this seasonal classification as tentative.",
@@ -496,6 +495,7 @@ species_dashboard_module_server <- function(id,
                                             initial_rai_detail = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+    diel_threshold_config <- species_dashboard_diel_thresholds(core_data)
 
     selected_localities <- reactive({
       localities <- input[["overall_rai_plot-selected_localities"]]
@@ -892,7 +892,7 @@ species_dashboard_module_server <- function(id,
     }
 
     observeEvent(input$species_diel_info_clicked, {
-      thresholds <- species_dashboard_diel_thresholds
+      thresholds <- diel_threshold_config
       showModal(modalDialog(
         title = "Diel activity classification",
         tags$p(
@@ -1307,7 +1307,8 @@ species_dashboard_module_server <- function(id,
         species_dashboard_diel_summary(
           filter_possible_duplicates_for_use_net(overall_sobs(), use_net()),
           overall_deps(),
-          core_data$environment_daily
+          core_data$environment_daily,
+          thresholds = diel_threshold_config
         )
       )
     }) %>%
@@ -1424,7 +1425,8 @@ species_dashboard_module_server <- function(id,
           current_deps(),
           core_data$environment_daily,
           current_period_data$start_date(),
-          current_period_data$end_date()
+          current_period_data$end_date(),
+          thresholds = diel_threshold_config
         )
       )
     }) %>%
@@ -1458,7 +1460,8 @@ species_dashboard_module_server <- function(id,
           prior_deps(),
           core_data$environment_daily,
           prior_period_data$start_date(),
-          prior_period_data$end_date()
+          prior_period_data$end_date(),
+          thresholds = diel_threshold_config
         )
       )
     }) %>%
@@ -1490,7 +1493,8 @@ species_dashboard_module_server <- function(id,
           ly_deps(),
           core_data$environment_daily,
           last_year_period_data$start_date(),
-          last_year_period_data$end_date()
+          last_year_period_data$end_date(),
+          thresholds = diel_threshold_config
         )
       )
     }) %>%

@@ -77,7 +77,7 @@ ui <- function(request) {
           id = "primary_period",
           view = "select",
           choices = season_choices,
-          selected = core_data$period_defaults$primary_period,
+          selected = core_data$app$period_defaults$primary_period,
           label = "Primary season:"
         )
       ),
@@ -89,7 +89,7 @@ ui <- function(request) {
           id = "density_map_period",
           view = "select",
           choices = season_choices,
-          selected = core_data$period_defaults$primary_period,
+          selected = core_data$app$period_defaults$primary_period,
           label = "Season selection:",
           multiple = TRUE
         )
@@ -102,7 +102,7 @@ ui <- function(request) {
           "comparative_period",
           view = "select",
           choices = season_choices,
-          selected = core_data$period_defaults$comparative_period,
+          selected = core_data$app$period_defaults$comparative_period,
           label = "Season selection:",
           multiple = TRUE
         )
@@ -114,11 +114,11 @@ ui <- function(request) {
         plotting_module_ui(
           id = "spp_obs_plot_visualisations",
           view = "select_species",
-          choices = core_data$spp_classes,
+          choices = core_data$app$spp_classes,
           selected = c(
-            core_data$spp_classes[[1]][1],
-            core_data$spp_classes[[1]][2],
-            core_data$spp_classes[[1]][3]
+            core_data$app$spp_classes[[1]][1],
+            core_data$app$spp_classes[[1]][2],
+            core_data$app$spp_classes[[1]][3]
           )
         ),
         plotting_module_ui(
@@ -136,11 +136,11 @@ ui <- function(request) {
       activity_patterns_module_ui(
         id = "activity_patterns",
         view = "sidebar",
-        species_choices = core_data$spp_classes,
+        species_choices = core_data$app$spp_classes,
         selected_species = c(
-          core_data$spp_classes[[1]][1],
-          core_data$spp_classes[[1]][2],
-          core_data$spp_classes[[1]][3]
+          core_data$app$spp_classes[[1]][1],
+          core_data$app$spp_classes[[1]][2],
+          core_data$app$spp_classes[[1]][3]
         ),
         locality_choices = unique(core_data$deps$locality),
         selected_localities = unique(core_data$deps$locality)
@@ -165,11 +165,11 @@ ui <- function(request) {
         mapping_module_ui(
           id = "density_map_primary",
           view = "select_species",
-          choices = core_data$spp_classes,
+          choices = core_data$app$spp_classes,
           selected = c(
-            core_data$spp_classes[[1]][1],  # First species from the first list
-            core_data$spp_classes[[1]][2],  # Second species from the first list
-            core_data$spp_classes[[1]][3]  # Third species from the first list
+            core_data$app$spp_classes[[1]][1],  # First species from the first list
+            core_data$app$spp_classes[[1]][2],  # Second species from the first list
+            core_data$app$spp_classes[[1]][3]  # Third species from the first list
           )
         ),
         
@@ -193,7 +193,7 @@ ui <- function(request) {
           id = "playback_period",
           view = "select",
           choices = season_choices,
-          selected = core_data$period_defaults$primary_period,
+          selected = core_data$app$period_defaults$primary_period,
           label = "Season selection:",
           multiple = TRUE
         ),
@@ -201,11 +201,11 @@ ui <- function(request) {
         mapping_module_ui(
           id = "density_playback_map",
           view = "select_species",
-          choices = core_data$spp_classes,
+          choices = core_data$app$spp_classes,
           selected = c(
-            core_data$spp_classes[[1]][1],
-            core_data$spp_classes[[1]][2],
-            core_data$spp_classes[[1]][3]
+            core_data$app$spp_classes[[1]][1],
+            core_data$app$spp_classes[[1]][2],
+            core_data$app$spp_classes[[1]][3]
           )
         ),
 
@@ -240,7 +240,7 @@ ui <- function(request) {
           id = "observation_map_period",
           view = "select",
           choices = season_choices,
-          selected = core_data$period_defaults$primary_period,
+          selected = core_data$app$period_defaults$primary_period,
           label = "Season selection:",
           multiple = TRUE
         ),
@@ -249,11 +249,11 @@ ui <- function(request) {
         mapping_module_ui(
           id = "observation_map", # Must match the server and main layout ID
           view = "select_species",
-          choices = core_data$spp_classes, # Pass choices
+          choices = core_data$app$spp_classes, # Pass choices
           selected = c( # Default selected
-            core_data$spp_classes[[1]][1],  # First species from the first list
-            core_data$spp_classes[[1]][2],  # Second species from the first list
-            core_data$spp_classes[[1]][3]  # Third species from the first list
+            core_data$app$spp_classes[[1]][1],  # First species from the first list
+            core_data$app$spp_classes[[1]][2],  # Second species from the first list
+            core_data$app$spp_classes[[1]][3]  # Third species from the first list
           ),
           label = "Species selection:"
         ),

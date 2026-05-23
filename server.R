@@ -335,28 +335,28 @@ server <- function(input, output, session) {
     id = "primary_period",
     period_groups = core_data$period_groups,
     summary_output_ids = "summary_output_reporting",
-    selected = core_data$period_defaults$primary_period
+    selected = core_data$app$period_defaults$primary_period
   )
 
   density_map_period <- period_selection_module_server(
     id = "density_map_period",
     period_groups = core_data$period_groups,
     summary_output_ids = character(0),
-    selected = core_data$period_defaults$primary_period
+    selected = core_data$app$period_defaults$primary_period
   )
 
   comparative_period <- period_selection_module_server(
     id = "comparative_period", 
     period_groups = core_data$period_groups,
     summary_output_ids = character(0),
-    selected = core_data$period_defaults$comparative_period
+    selected = core_data$app$period_defaults$comparative_period
   )
 
   observation_map_period <- period_selection_module_server(
     id = "observation_map_period",
     period_groups = core_data$period_groups,
     summary_output_ids = character(0),
-    selected = core_data$period_defaults$primary_period
+    selected = core_data$app$period_defaults$primary_period
   )
 
   # Reactive filtering of deps and obs for primary/reporting and map periods
@@ -426,7 +426,7 @@ server <- function(input, output, session) {
 
   dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
   dashboard_plot_periods <- dashboard_plot_periods[
-    seq(core_data$period_defaults$primary_period_index, length(dashboard_plot_periods))
+    seq(core_data$app$period_defaults$primary_period_index, length(dashboard_plot_periods))
   ]
   dashboard_plot_deps <- core_data$deps %>%
     dplyr::filter(as.character(period) %in% dashboard_plot_periods)
@@ -453,8 +453,8 @@ server <- function(input, output, session) {
 
         # Find the full scientific and vernacular names
         found <- FALSE
-        for (group_name in names(core_data$spp_classes)) {
-          species_in_group <- core_data$spp_classes[[group_name]]
+        for (group_name in names(core_data$app$spp_classes)) {
+          species_in_group <- core_data$app$spp_classes[[group_name]]
           for (s_name in names(species_in_group)) {
             s_sci_name <- species_in_group[[s_name]]
             if (make.names(s_sci_name) == sci_name_make_names) {
@@ -1149,7 +1149,7 @@ server <- function(input, output, session) {
   }
 
   selected_species_heading <- function(species) {
-    species_choices <- unlist(unname(core_data$spp_classes), use.names = TRUE)
+    species_choices <- unlist(unname(core_data$app$spp_classes), use.names = TRUE)
 
     if (is.null(species) || length(species) == 0) {
       species <- unname(species_choices)
@@ -1296,7 +1296,7 @@ server <- function(input, output, session) {
   playback_period <- period_selection_module_server(
     id = "playback_period",
     period_groups = core_data$period_groups,
-    selected = core_data$period_defaults$primary_period
+    selected = core_data$app$period_defaults$primary_period
   )
 
   filtered_deps_playback_map <- reactive({

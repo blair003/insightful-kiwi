@@ -78,7 +78,7 @@ core_data_weather_deferred <- local({
 
 # These modules are required for UI and server. Dependent on core_data$period_groups
 source("R/functions/period_group_functions.R")
-core_data$period_defaults <- get_default_complete_period_selection(
+core_data$app$period_defaults <- get_default_complete_period_selection(
   core_data$deps,
   core_data$period_groups
 )

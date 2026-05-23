@@ -11,7 +11,7 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
             id = ns("main_dashboard_current_period"),
             view = "select",
             choices = names(core_data$period_groups),
-            selected = core_data$period_defaults$primary_period,
+            selected = core_data$app$period_defaults$primary_period,
             label = "Current season:"
           )
         ),
@@ -156,7 +156,7 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
   moduleServer(id, function(input, output, session) {
     dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
     dashboard_plot_periods <- dashboard_plot_periods[
-      seq(core_data$period_defaults$primary_period_index, length(dashboard_plot_periods))
+      seq(core_data$app$period_defaults$primary_period_index, length(dashboard_plot_periods))
     ]
     dashboard_plot_deps <- core_data$deps %>%
       dplyr::filter(as.character(period) %in% dashboard_plot_periods)

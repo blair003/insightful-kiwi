@@ -1166,8 +1166,6 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     name = datapackage$name,
     deps = deployments,
     obs = observations,
-    deployments = deployments,
-    observations = observations,
     media = media,
     trap_summary = trap_summary,
     taxonomic = taxonomic,
@@ -1196,8 +1194,8 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
 
   if (!is.null(period_groups)) {
     result <- annotate_wkt_trap_periods(result, period_groups)
-    deployments <- result$deployments
-    observations <- result$observations
+    deployments <- result$deps
+    observations <- result$obs
     media <- result$media
     trap_summary <- result$trap_summary
   }
@@ -1237,18 +1235,14 @@ annotate_wkt_trap_periods <- function(trap_data, period_groups) {
     return(NULL)
   }
 
-  trap_data$deployments$check_date <- as.Date(trap_data$deployments$deploymentEnd)
+  trap_data$deps$check_date <- as.Date(trap_data$deps$deploymentEnd)
 
-  trap_data$observations$check_date <- as.Date(trap_data$observations$eventStart)
-  if (!"prior_check_date" %in% names(trap_data$observations)) {
-    trap_data$observations$prior_check_date <- as.Date(trap_data$observations$eventStart)
+  trap_data$obs$check_date <- as.Date(trap_data$obs$eventStart)
+  if (!"prior_check_date" %in% names(trap_data$obs)) {
+    trap_data$obs$prior_check_date <- as.Date(trap_data$obs$eventStart)
   } else {
-    trap_data$observations$prior_check_date <- as.Date(trap_data$observations$prior_check_date)
+    trap_data$obs$prior_check_date <- as.Date(trap_data$obs$prior_check_date)
   }
-
-  trap_data$deps <- trap_data$deployments
-  trap_data$obs <- trap_data$observations
-  trap_data$period_groups <- period_groups
 
   trap_data
 }

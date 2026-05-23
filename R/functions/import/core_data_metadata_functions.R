@@ -51,6 +51,38 @@ core_data_observation_model_version <- function() {
   "all_observation_types_v1"
 }
 
+default_species_dashboard_diel_thresholds <- function() {
+  list(
+    insufficient_n = 30,
+    normal_confidence_n = 60,
+    dominant_share = 0.60,
+    crepuscular_share = 0.45,
+    crepuscular_component_share = 0.12,
+    cathemeral_day_night_share = 0.25
+  )
+}
+
+normalise_species_dashboard_diel_thresholds <- function(thresholds = NULL) {
+  defaults <- default_species_dashboard_diel_thresholds()
+  if (is.null(thresholds)) {
+    return(defaults)
+  }
+
+  resolved <- defaults
+  for (threshold_name in intersect(names(thresholds), names(defaults))) {
+    threshold_value <- suppressWarnings(as.numeric(thresholds[[threshold_name]]))
+    if (!is.na(threshold_value)) {
+      resolved[[threshold_name]] <- threshold_value
+    }
+  }
+
+  resolved
+}
+
+core_data_diel_thresholds <- function(config = NULL) {
+  normalise_species_dashboard_diel_thresholds(config$globals$species_dashboard_diel_thresholds)
+}
+
 ensure_core_data_app_metadata <- function(core_data, config = NULL) {
   if (is.null(core_data$app)) {
     core_data$app <- list()

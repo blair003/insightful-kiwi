@@ -31,13 +31,14 @@ build_core_data_from_source <- function(config) {
     observation_model_version = core_data_observation_model_version(),
     period_grouping_signature = core_data_period_grouping_signature(config),
     species_consolidation_signature = core_data_species_consolidation_signature(config),
+    diel_thresholds = core_data_diel_thresholds(config),
     status = list(
       weather_data = list(status = "not_started", required = NA_integer_, available = 0L, missing = NA_integer_)
     )
   )
   core_data <- normalise_core_data_timezones(core_data)
 
-  core_data$spp_classes <- create_species_list(core_data$obs, core_data$taxonomic)
+  core_data$app$spp_classes <- create_species_list(core_data$obs, core_data$taxonomic)
   core_data
 }
 
