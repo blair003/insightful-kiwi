@@ -83,8 +83,8 @@ normalise_core_data_timezones <- function(core_data) {
   core_data$deps <- force_timestamp_columns_timezone(core_data$deps, c("start", "end"))
   core_data$obs <- force_timestamp_columns_timezone(core_data$obs, "timestamp")
   core_data$media <- force_timestamp_columns_timezone(core_data$media, "timestamp")
-  core_data$weather_daily <- force_timestamp_columns_timezone(
-    core_data$weather_daily,
+  core_data$environment_daily <- force_timestamp_columns_timezone(
+    core_data$environment_daily,
     c("sunrise", "sunset", "civil_dawn", "civil_dusk", "matutinal_end", "diurnal_end")
   )
 
@@ -420,32 +420,48 @@ enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) 
   })
 
 
-  weather_enrichment <- tryCatch({
-    if (isTRUE(include_weather) &&
-        exists("enrich_observations_with_daily_weather", mode = "function", inherits = TRUE)) {
-      enrich_observations_with_daily_weather(obs_merged, deps)
-    } else if (exists("add_observation_daylight_classes", mode = "function", inherits = TRUE)) {
+  daylight_enrichment <- tryCatch({
+    if (exists("add_observation_daylight_classes", mode = "function", inherits = TRUE)) {
       add_observation_daylight_classes(obs_merged, deps)
     } else if (exists("add_observation_time_classes", mode = "function", inherits = TRUE)) {
-      list(obs = add_observation_time_classes(obs_merged, NULL), weather_daily = NULL)
+      list(obs = add_observation_time_classes(obs_merged, NULL), environment_daily = NULL)
     } else {
-      list(obs = obs_merged, weather_daily = NULL)
+      list(obs = obs_merged, environment_daily = NULL)
     }
   }, error = function(e) {
     logger::log_warn(
       "Unable to add observation daylight/diel classifications in enhance_core_data: %s",
       conditionMessage(e)
     )
-    list(obs = obs_merged, weather_daily = NULL)
+    list(obs = obs_merged, environment_daily = NULL)
+  })
+
+  obs_merged <- daylight_enrichment$obs
+  daily_data <- daylight_enrichment$environment_daily
+
+  weather_enrichment <- tryCatch({
+    if (isTRUE(include_weather) &&
+        exists("enrich_observations_with_daily_weather", mode = "function", inherits = TRUE)) {
+      enrich_observations_with_daily_weather(obs_merged, deps, daily_data)
+    } else {
+      list(obs = obs_merged, environment_daily = daily_data)
+    }
+  }, error = function(e) {
+    logger::log_warn(
+      "Unable to add observation weather fields in enhance_core_data: %s",
+      conditionMessage(e)
+    )
+    list(obs = obs_merged, environment_daily = daily_data)
   })
 
   obs_merged <- weather_enrichment$obs
+  daily_data <- weather_enrichment$environment_daily
 
 
   return(list(
     deps = deps,
     obs = obs_merged,
-    weather_daily = weather_enrichment$weather_daily
+    environment_daily = daily_data
   ))
 }
 
@@ -463,8 +479,8 @@ read_camtrapdp <- function() {
     problems <- readr::problems(data)
 
     if (nrow(problems) > 0) {
-      logger::log_warn(paste0("PROBLEM in ", dataset_name, ":"))
-      logger::log_warn(paste0(capture.output(print(problems)), collapse = "\n"))
+      logger::log_warn("PROBLEM in %s:", dataset_name)
+      logger::log_warn("%s", paste0(capture.output(print(problems)), collapse = "\n"))
     }
   }
 
@@ -481,7 +497,7 @@ read_camtrapdp <- function() {
 
   }, warning = function(w) {
     # Log the warning message using logger::log_warn
-    logger::log_warn(paste0("WARNING: ", conditionMessage(w)))
+    logger::log_warn("WARNING: %s", conditionMessage(w))
     # Prevents  warning from being printed to the console again
     invokeRestart("muffleWarning")
   })

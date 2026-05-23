@@ -298,7 +298,7 @@ fetch_weather_data <- function(lat, lng, start_date, end_date) {
   return(NULL)
 }
 
-weather_daily_to_df <- function(daily_data) {
+environment_daily_to_df <- function(daily_data) {
   if (is.null(daily_data) || is.null(daily_data$time) || length(daily_data$time) == 0) {
     return(NULL)
   }
@@ -319,89 +319,6 @@ weather_daily_to_df <- function(daily_data) {
   )
 }
 
-sunlight_times_for_date <- function(date, latitude, longitude) {
-  if (is.na(date) || is.na(latitude) || is.na(longitude)) {
-    return(NULL)
-  }
-
-  suncalc::getSunlightTimes(
-    date = as.Date(date),
-    lat = latitude,
-    lon = longitude,
-    tz = weather_playback_timezone(),
-    keep = c("dawn", "sunrise", "sunset", "dusk")
-  )
-}
-
-civil_twilight_time <- function(date, latitude, longitude, event = c("dawn", "dusk")) {
-  event <- match.arg(event)
-  sunlight_times <- sunlight_times_for_date(date, latitude, longitude)
-  if (is.null(sunlight_times)) {
-    return(as.POSIXct(NA, tz = weather_playback_timezone()))
-  }
-
-  if (identical(event, "dawn")) sunlight_times$dawn[[1]] else sunlight_times$dusk[[1]]
-}
-
-sunrise_sunset_time <- function(date, latitude, longitude, event = c("dawn", "dusk")) {
-  event <- match.arg(event)
-  sunlight_times <- sunlight_times_for_date(date, latitude, longitude)
-  if (is.null(sunlight_times)) {
-    return(as.POSIXct(NA, tz = weather_playback_timezone()))
-  }
-
-  if (identical(event, "dawn")) sunlight_times$sunrise[[1]] else sunlight_times$sunset[[1]]
-}
-
-add_diel_boundaries_to_weather_daily <- function(weather_df) {
-  if (is.null(weather_df) || nrow(weather_df) == 0) {
-    return(weather_df)
-  }
-
-  if (!all(c("sunrise", "sunset") %in% names(weather_df))) {
-    if (!"sunrise" %in% names(weather_df)) {
-      weather_df$sunrise <- as.POSIXct(NA, tz = weather_playback_timezone())
-    }
-    if (!"sunset" %in% names(weather_df)) {
-      weather_df$sunset <- as.POSIXct(NA, tz = weather_playback_timezone())
-    }
-    weather_df$civil_dawn <- as.POSIXct(NA, tz = weather_playback_timezone())
-    weather_df$civil_dusk <- as.POSIXct(NA, tz = weather_playback_timezone())
-    weather_df$matutinal_end <- as.POSIXct(NA, tz = weather_playback_timezone())
-    weather_df$diurnal_end <- as.POSIXct(NA, tz = weather_playback_timezone())
-    if (!all(c("latitude", "longitude", "date") %in% names(weather_df))) {
-      return(weather_df)
-    }
-  }
-
-  if (!"civil_dawn" %in% names(weather_df)) {
-    weather_df$civil_dawn <- as.POSIXct(NA, tz = weather_playback_timezone())
-  }
-  if (!"civil_dusk" %in% names(weather_df)) {
-    weather_df$civil_dusk <- as.POSIXct(NA, tz = weather_playback_timezone())
-  }
-
-  if (all(c("latitude", "longitude", "date") %in% names(weather_df))) {
-    sunlight_times <- suncalc::getSunlightTimes(
-      data = data.frame(
-        date = as.Date(weather_df$date),
-        lat = weather_df$latitude,
-        lon = weather_df$longitude
-      ),
-      tz = weather_playback_timezone(),
-      keep = c("dawn", "sunrise", "sunset", "dusk")
-    )
-    weather_df$sunrise <- sunlight_times$sunrise
-    weather_df$sunset <- sunlight_times$sunset
-    weather_df$civil_dawn <- sunlight_times$dawn
-    weather_df$civil_dusk <- sunlight_times$dusk
-  }
-
-  weather_df$matutinal_end <- weather_df$sunrise
-  weather_df$diurnal_end <- weather_df$sunset
-  weather_df
-}
-
 fetch_weather_for_deployments <- function(deployments, start_date, end_date) {
   if (is.null(deployments) || nrow(deployments) == 0) {
     return(NULL)
@@ -413,33 +330,33 @@ fetch_weather_for_deployments <- function(deployments, start_date, end_date) {
     return(NULL)
   }
 
-  weather_df <- weather_daily_to_df(fetch_weather_data(lat, lng, start_date, end_date))
+  weather_df <- environment_daily_to_df(fetch_weather_data(lat, lng, start_date, end_date))
   if (is.null(weather_df) || nrow(weather_df) == 0) {
     return(NULL)
   }
 
   weather_df$latitude <- lat
   weather_df$longitude <- lng
-  add_diel_boundaries_to_weather_daily(weather_df)
+  add_daylight_boundaries_to_daily(weather_df)
 }
 
-weather_daily_from_core_data <- function(deployments, start_date, end_date) {
+environment_daily_from_core_data <- function(deployments, start_date, end_date) {
   if (!exists("core_data", inherits = TRUE) ||
-      is.null(core_data$weather_daily) ||
+      is.null(core_data$environment_daily) ||
       is.null(deployments) ||
       nrow(deployments) == 0 ||
       !"locationID" %in% names(deployments)) {
     return(NULL)
   }
 
-  weather_daily <- core_data$weather_daily
+  environment_daily <- core_data$environment_daily
   weather_columns <- c(
     "weathercode", "temperature_2m_max",
     "temperature_2m_min", "precipitation_sum"
   )
-  if (is.null(weather_daily) || nrow(weather_daily) == 0 ||
-      !all(c("locationID", "date", "sunrise", "sunset") %in% names(weather_daily)) ||
-      !all(weather_columns %in% names(weather_daily))) {
+  if (is.null(environment_daily) || nrow(environment_daily) == 0 ||
+      !all(c("locationID", "date", "sunrise", "sunset") %in% names(environment_daily)) ||
+      !all(weather_columns %in% names(environment_daily))) {
     return(NULL)
   }
 
@@ -447,7 +364,7 @@ weather_daily_from_core_data <- function(deployments, start_date, end_date) {
   start_date <- as.Date(start_date, tz = weather_playback_timezone())
   end_date <- as.Date(end_date, tz = weather_playback_timezone())
 
-  filtered_weather <- weather_daily %>%
+  filtered_weather <- environment_daily %>%
     dplyr::filter(
       locationID %in% location_ids,
       date >= start_date,
@@ -482,10 +399,10 @@ weather_daily_from_core_data <- function(deployments, start_date, end_date) {
       .groups = "drop"
     )
 
-  add_diel_boundaries_to_weather_daily(summarised)
+  add_daylight_boundaries_to_daily(summarised)
 }
 
-weather_daily_as_api_daily <- function(weather_df) {
+environment_daily_as_api_daily <- function(weather_df) {
   if (is.null(weather_df) || nrow(weather_df) == 0) {
     return(NULL)
   }
@@ -533,7 +450,7 @@ format_weather_clock_time <- function(value) {
 }
 
 playback_weather_for_deployments <- function(deployments, start_date, end_date) {
-  stored_weather <- weather_daily_from_core_data(deployments, start_date, end_date)
+  stored_weather <- environment_daily_from_core_data(deployments, start_date, end_date)
   if (!is.null(stored_weather) && nrow(stored_weather) > 0) {
     return(stored_weather)
   }
@@ -846,8 +763,8 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
   lat <- mean(deps$latitude, na.rm = TRUE)
   lng <- mean(deps$longitude, na.rm = TRUE)
 
-  stored_weather <- weather_daily_from_core_data(deps, start_date, end_date)
-  daily_data <- weather_daily_as_api_daily(stored_weather)
+  stored_weather <- environment_daily_from_core_data(deps, start_date, end_date)
+  daily_data <- environment_daily_as_api_daily(stored_weather)
   if (is.null(daily_data)) {
     daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
   }
@@ -918,8 +835,8 @@ show_weather_modal <- function(lat, lng, start_date, end_date, locality = NULL) 
     }
   }
 
-  stored_weather <- weather_daily_from_core_data(deps, start_date, end_date)
-  daily_data <- weather_daily_as_api_daily(stored_weather)
+  stored_weather <- environment_daily_from_core_data(deps, start_date, end_date)
+  daily_data <- environment_daily_as_api_daily(stored_weather)
   if (is.null(daily_data)) {
     daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
   }

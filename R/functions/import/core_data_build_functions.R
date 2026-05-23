@@ -22,7 +22,7 @@ build_core_data_from_source <- function(config) {
 
   core_data$obs <- enhanced_data$obs
   core_data$deps <- enhanced_data$deps
-  core_data$weather_daily <- enhanced_data$weather_daily
+  core_data$environment_daily <- enhanced_data$environment_daily
   core_data$app <- list(
     core_data_updated = as_core_data_build_datetime(Sys.time(), config),
     core_data_weather_updated = empty_core_data_build_datetime(config),

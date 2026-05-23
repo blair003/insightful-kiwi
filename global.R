@@ -57,6 +57,7 @@ create_directories_if_missing(config$env$dirs)
 
 source("R/functions/weather_functions.R")
 source("R/functions/import/camtrapdp_functions.R")
+source("R/functions/daylight_functions.R")
 source("R/functions/import/core_data_metadata_functions.R")
 source("R/functions/import/core_data_cache_functions.R")
 source("R/functions/import/weather_enrichment_functions.R")

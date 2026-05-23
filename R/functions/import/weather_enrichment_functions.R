@@ -1,96 +1,45 @@
-weather_daily_key <- function(weather_daily) {
-  paste(as.character(weather_daily$locationID), as.character(weather_daily$date), sep = "|")
+environment_daily_key <- function(environment_daily) {
+  paste(as.character(environment_daily$locationID), as.character(environment_daily$date), sep = "|")
 }
 
-weather_daily_has_weather_data <- function(weather_daily) {
-  if (is.null(weather_daily) || nrow(weather_daily) == 0) {
+environment_daily_has_weather_data <- function(environment_daily) {
+  if (is.null(environment_daily) || nrow(environment_daily) == 0) {
     return(logical(0))
   }
 
   weather_columns <- intersect(
     c("weathercode", "temperature_2m_max", "temperature_2m_min", "precipitation_sum"),
-    names(weather_daily)
+    names(environment_daily)
   )
   if (length(weather_columns) == 0) {
-    return(rep(FALSE, nrow(weather_daily)))
+    return(rep(FALSE, nrow(environment_daily)))
   }
 
   Reduce(
     `|`,
-    lapply(weather_columns, function(column) !is.na(weather_daily[[column]]))
+    lapply(weather_columns, function(column) !is.na(environment_daily[[column]]))
   )
 }
 
-merge_weather_daily <- function(existing_weather_daily, new_weather_daily) {
-  weather_daily <- dplyr::bind_rows(
-    new_weather_daily,
-    existing_weather_daily
+merge_environment_daily <- function(existing_environment_daily, new_environment_daily) {
+  environment_daily <- dplyr::bind_rows(
+    new_environment_daily,
+    existing_environment_daily
   )
 
-  if (is.null(weather_daily) || nrow(weather_daily) == 0) {
+  if (is.null(environment_daily) || nrow(environment_daily) == 0) {
     return(NULL)
   }
 
-  weather_daily <- weather_daily %>%
+  environment_daily <- environment_daily %>%
     dplyr::filter(!is.na(locationID), !is.na(date)) %>%
     dplyr::arrange(locationID, date) %>%
     dplyr::distinct(locationID, date, .keep_all = TRUE)
 
-  add_diel_boundaries_to_weather_daily(weather_daily)
+  add_daylight_boundaries_to_daily(environment_daily)
 }
 
-build_observation_daylight_daily <- function(obs, deps) {
-  required_obs_columns <- c("timestamp", "locationID")
-  required_dep_columns <- c("locationID", "latitude", "longitude")
-  if (is.null(obs) || nrow(obs) == 0 ||
-      is.null(deps) || nrow(deps) == 0 ||
-      !all(required_obs_columns %in% names(obs)) ||
-      !all(required_dep_columns %in% names(deps))) {
-    return(NULL)
-  }
-
-  required_dates <- obs %>%
-    dplyr::filter(!is.na(timestamp), !is.na(locationID)) %>%
-    dplyr::mutate(date = as.Date(timestamp, tz = weather_playback_timezone())) %>%
-    dplyr::distinct(locationID, date) %>%
-    dplyr::filter(!is.na(date))
-
-  if (nrow(required_dates) == 0) {
-    return(NULL)
-  }
-
-  daylight_daily <- required_dates %>%
-    dplyr::left_join(
-      deps %>%
-        dplyr::select(dplyr::any_of(c("locationID", "locationName", "locality", "latitude", "longitude"))) %>%
-        dplyr::distinct(locationID, .keep_all = TRUE),
-      by = "locationID"
-    ) %>%
-    dplyr::filter(!is.na(latitude), !is.na(longitude))
-
-  add_diel_boundaries_to_weather_daily(daylight_daily)
-}
-
-merge_daylight_daily <- function(weather_daily = NULL, daylight_daily = NULL) {
-  if (is.null(daylight_daily) || nrow(daylight_daily) == 0) {
-    return(add_diel_boundaries_to_weather_daily(weather_daily))
-  }
-
-  merge_weather_daily(daylight_daily, weather_daily)
-}
-
-add_observation_daylight_classes <- function(obs, deps, weather_daily = NULL) {
-  daylight_daily <- build_observation_daylight_daily(obs, deps)
-  daily_lookup <- merge_daylight_daily(weather_daily, daylight_daily)
-
-  list(
-    obs = add_observation_time_classes(obs, daily_lookup),
-    daylight_daily = daylight_daily,
-    weather_daily = daily_lookup
-  )
-}
-
-weather_coverage_status <- function(obs, weather_daily = NULL) {
+weather_coverage_status <- function(obs, environment_daily = NULL) {
   if (is.null(obs) || nrow(obs) == 0 ||
       !"timestamp" %in% names(obs) ||
       !"locationID" %in% names(obs)) {
@@ -108,15 +57,15 @@ weather_coverage_status <- function(obs, weather_daily = NULL) {
     return(list(status = "not_applicable", required = 0L, available = 0L, missing = 0L))
   }
 
-  if (is.null(weather_daily) || nrow(weather_daily) == 0 ||
-      !all(c("locationID", "date") %in% names(weather_daily))) {
+  if (is.null(environment_daily) || nrow(environment_daily) == 0 ||
+      !all(c("locationID", "date") %in% names(environment_daily))) {
     return(list(status = "missing", required = required_count, available = 0L, missing = required_count))
   }
 
   available <- required %>%
     dplyr::inner_join(
-      weather_daily %>%
-        dplyr::filter(weather_daily_has_weather_data(.)) %>%
+      environment_daily %>%
+        dplyr::filter(environment_daily_has_weather_data(.)) %>%
         dplyr::distinct(locationID, date),
       by = c("locationID", "date")
     ) %>%
@@ -145,7 +94,7 @@ fetch_weather_for_location <- function(location, start_date, end_date) {
     return(NULL)
   }
 
-  weather_df <- weather_daily_to_df(fetch_weather_data(lat, lng, start_date, end_date))
+  weather_df <- environment_daily_to_df(fetch_weather_data(lat, lng, start_date, end_date))
   if (is.null(weather_df) || nrow(weather_df) == 0) {
     return(NULL)
   }
@@ -159,7 +108,7 @@ fetch_weather_for_location <- function(location, start_date, end_date) {
   }
   weather_df$latitude <- lat
   weather_df$longitude <- lng
-  weather_df <- add_diel_boundaries_to_weather_daily(weather_df)
+  weather_df <- add_daylight_boundaries_to_daily(weather_df)
 
   weather_df[, c(
     intersect(c("locationID", "locationName", "locality", "latitude", "longitude"), names(weather_df)),
@@ -167,7 +116,7 @@ fetch_weather_for_location <- function(location, start_date, end_date) {
   )]
 }
 
-build_observation_weather_daily <- function(obs, deps, weather_daily = NULL) {
+build_observation_environment_daily <- function(obs, deps, environment_daily = NULL) {
   required_obs_columns <- c("timestamp", "locationID")
   required_dep_columns <- c("locationID", "latitude", "longitude")
   if (is.null(obs) || nrow(obs) == 0 ||
@@ -184,13 +133,13 @@ build_observation_weather_daily <- function(obs, deps, weather_daily = NULL) {
     dplyr::filter(!is.na(observation_date))
 
   if (nrow(required_dates) == 0) {
-    return(add_diel_boundaries_to_weather_daily(weather_daily))
+    return(add_daylight_boundaries_to_daily(environment_daily))
   }
 
-  existing_weather <- add_diel_boundaries_to_weather_daily(weather_daily)
+  existing_weather <- add_daylight_boundaries_to_daily(environment_daily)
   if (!is.null(existing_weather) && nrow(existing_weather) > 0 &&
       all(c("locationID", "date") %in% names(existing_weather))) {
-    existing_keys <- weather_daily_key(existing_weather[weather_daily_has_weather_data(existing_weather), , drop = FALSE])
+    existing_keys <- environment_daily_key(existing_weather[environment_daily_has_weather_data(existing_weather), , drop = FALSE])
     required_dates <- required_dates %>%
       dplyr::filter(!paste(as.character(locationID), as.character(observation_date), sep = "|") %in% existing_keys)
   }
@@ -238,7 +187,7 @@ build_observation_weather_daily <- function(obs, deps, weather_daily = NULL) {
     }
 
     group <- location_groups[i, , drop = FALSE]
-    weather_df <- weather_daily_to_df(fetch_weather_data(
+    weather_df <- environment_daily_to_df(fetch_weather_data(
       group$weather_latitude[[1]],
       group$weather_longitude[[1]],
       group$start_date[[1]],
@@ -248,7 +197,7 @@ build_observation_weather_daily <- function(obs, deps, weather_daily = NULL) {
       return(NULL)
     }
 
-    weather_df <- add_diel_boundaries_to_weather_daily(weather_df)
+    weather_df <- add_daylight_boundaries_to_daily(weather_df)
     group_locations <- locations %>%
       dplyr::filter(
         weather_latitude == group$weather_latitude[[1]],
@@ -289,106 +238,10 @@ build_observation_weather_daily <- function(obs, deps, weather_daily = NULL) {
     return(existing_weather)
   }
 
-  merge_weather_daily(existing_weather, dplyr::bind_rows(weather_by_location))
+  merge_environment_daily(existing_weather, dplyr::bind_rows(weather_by_location))
 }
 
-classify_observation_time <- function(timestamp, sunrise, sunset, civil_dawn, civil_dusk) {
-  timezone <- weather_playback_timezone()
-  timestamp <- as.POSIXct(timestamp, tz = timezone)
-
-  if (is.na(timestamp) || is.na(sunrise) || is.na(sunset) || sunset <= sunrise) {
-    return(list(day_night_class = "Unknown", diel_class = "Unknown"))
-  }
-
-  day_night_class <- if (timestamp >= sunrise && timestamp < sunset) "Day" else "Night"
-  if (is.na(civil_dawn) || civil_dawn > sunrise) {
-    civil_dawn <- sunrise
-  }
-  if (is.na(civil_dusk) || civil_dusk < sunset) {
-    civil_dusk <- sunset
-  }
-
-  diel_class <- if (timestamp < civil_dawn || timestamp >= civil_dusk) {
-    "Nocturnal"
-  } else if (timestamp < sunrise) {
-    "Matutinal"
-  } else if (timestamp < sunset) {
-    "Diurnal"
-  } else {
-    "Vespertine"
-  }
-
-  list(day_night_class = day_night_class, diel_class = diel_class)
-}
-
-add_observation_time_classes <- function(obs, weather_daily = NULL) {
-  if (is.null(obs) || nrow(obs) == 0 || !"timestamp" %in% names(obs)) {
-    return(obs)
-  }
-
-  timezone <- weather_playback_timezone()
-  obs$.observation_row_id <- seq_len(nrow(obs))
-  obs <- obs %>%
-    dplyr::select(-dplyr::any_of(c(
-      "observation_date", "sunrise", "sunset", "civil_dawn", "civil_dusk",
-      "matutinal_end", "diurnal_end",
-      "weathercode", "temperature_2m_max", "temperature_2m_min",
-      "precipitation_sum", "day_night_class", "diel_class"
-    )))
-  obs$observation_date <- as.Date(obs$timestamp, tz = timezone)
-
-  if (!is.null(weather_daily) && nrow(weather_daily) > 0 &&
-      all(c("locationID", "date") %in% names(weather_daily)) &&
-      "locationID" %in% names(obs)) {
-    weather_lookup <- weather_daily %>%
-      dplyr::select(
-        dplyr::any_of(c(
-          "locationID", "date", "sunrise", "sunset", "matutinal_end",
-          "diurnal_end", "civil_dawn", "civil_dusk", "weathercode", "temperature_2m_max",
-          "temperature_2m_min", "precipitation_sum", "weather_condition",
-          "weather_icon"
-        ))
-      ) %>%
-      dplyr::rename(observation_date = date)
-
-    obs <- obs %>%
-      dplyr::left_join(weather_lookup, by = c("locationID", "observation_date"))
-  } else {
-    obs$sunrise <- as.POSIXct(NA, tz = timezone)
-    obs$sunset <- as.POSIXct(NA, tz = timezone)
-    obs$civil_dawn <- as.POSIXct(NA, tz = timezone)
-    obs$civil_dusk <- as.POSIXct(NA, tz = timezone)
-    obs$matutinal_end <- as.POSIXct(NA, tz = timezone)
-    obs$diurnal_end <- as.POSIXct(NA, tz = timezone)
-  }
-
-  for (time_column in c("sunrise", "sunset", "civil_dawn", "civil_dusk", "matutinal_end", "diurnal_end")) {
-    if (!time_column %in% names(obs)) {
-      obs[[time_column]] <- as.POSIXct(NA, tz = timezone)
-    }
-  }
-
-  classifications <- lapply(seq_len(nrow(obs)), function(i) {
-    classify_observation_time(
-      obs$timestamp[[i]],
-      obs$sunrise[[i]],
-      obs$sunset[[i]],
-      obs$civil_dawn[[i]],
-      obs$civil_dusk[[i]]
-    )
-  })
-
-  obs$day_night_class <- vapply(classifications, `[[`, character(1), "day_night_class")
-  obs$diel_class <- vapply(classifications, `[[`, character(1), "diel_class")
-
-  obs <- obs %>%
-    dplyr::arrange(.observation_row_id) %>%
-    dplyr::select(-.observation_row_id)
-
-  obs
-}
-
-add_observation_weather_fields <- function(obs, weather_daily = NULL) {
+add_observation_weather_fields <- function(obs, environment_daily = NULL) {
   if (is.null(obs) || nrow(obs) == 0 || !"timestamp" %in% names(obs)) {
     return(obs)
   }
@@ -402,11 +255,11 @@ add_observation_weather_fields <- function(obs, weather_daily = NULL) {
     )))
   obs$observation_date <- as.Date(obs$timestamp, tz = timezone)
 
-  if (!is.null(weather_daily) && nrow(weather_daily) > 0 &&
-      all(c("locationID", "date") %in% names(weather_daily)) &&
+  if (!is.null(environment_daily) && nrow(environment_daily) > 0 &&
+      all(c("locationID", "date") %in% names(environment_daily)) &&
       "locationID" %in% names(obs)) {
-    weather_lookup <- weather_daily %>%
-      dplyr::filter(weather_daily_has_weather_data(.)) %>%
+    weather_lookup <- environment_daily %>%
+      dplyr::filter(environment_daily_has_weather_data(.)) %>%
       dplyr::select(
         dplyr::any_of(c(
           "locationID", "date", "weathercode", "temperature_2m_max",
@@ -425,16 +278,16 @@ add_observation_weather_fields <- function(obs, weather_daily = NULL) {
     dplyr::select(-.observation_row_id)
 }
 
-enrich_observations_with_daily_weather <- function(obs, deps, weather_daily = NULL) {
-  weather_daily <- build_observation_weather_daily(obs, deps, weather_daily)
-  coverage <- weather_coverage_status(obs, weather_daily)
+enrich_observations_with_daily_weather <- function(obs, deps, environment_daily = NULL) {
+  environment_daily <- build_observation_environment_daily(obs, deps, environment_daily)
+  coverage <- weather_coverage_status(obs, environment_daily)
   if (open_meteo_rate_limit_hit()) {
     coverage$status <- if (coverage$available > 0) "deferred_partial" else "deferred"
   }
 
   list(
-    obs = add_observation_weather_fields(obs, weather_daily),
-    weather_daily = weather_daily,
+    obs = add_observation_weather_fields(obs, environment_daily),
+    environment_daily = environment_daily,
     weather_status = coverage
   )
 }
@@ -443,10 +296,10 @@ enrich_core_data_weather <- function(core_data, cache_file = NULL, config = NULL
   weather_enrichment <- enrich_observations_with_daily_weather(
     core_data$obs,
     core_data$deps,
-    core_data$weather_daily
+    core_data$environment_daily
   )
   core_data$obs <- weather_enrichment$obs
-  core_data$weather_daily <- weather_enrichment$weather_daily
+  core_data$environment_daily <- weather_enrichment$environment_daily
   if (is.null(core_data$app)) {
     core_data$app <- list()
   }

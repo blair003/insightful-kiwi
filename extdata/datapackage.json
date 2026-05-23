@@ -1,8 +1,8 @@
 {
   "profile": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/camtrap-dp-profile.json",
-  "name": "whakatane-kiwi-trust-20260519192034",
-  "id": "9df7bb6d-a0db-46f0-b23f-429b08ddc5cb",
-  "created": "2026-05-19T19:20:34Z",
+  "name": "whakatane-kiwi-trust-20260523054933",
+  "id": "b2bbcc29-16db-4a04-b448-317f16fae2b4",
+  "created": "2026-05-23T05:49:33Z",
   "contributors": [
     {
       "title": "Agouti Admins",
@@ -114,7 +114,7 @@
   },
   "temporal": {
     "start": "2023-08-11",
-    "end": "2026-03-07"
+    "end": "2026-05-22"
   },
   "taxonomic": [
     {

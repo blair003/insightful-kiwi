@@ -57,15 +57,15 @@ species_dashboard_empty_diel_summary <- function(reason = "No data") {
     )
 }
 
-species_dashboard_diel_period_intervals <- function(weather_row) {
-  timezone <- weather_playback_timezone()
-  day_start <- as.POSIXct(as.Date(weather_row$date), tz = timezone)
+species_dashboard_diel_period_intervals <- function(daylight_row) {
+  timezone <- if (exists("daylight_timezone", mode = "function", inherits = TRUE)) daylight_timezone() else weather_playback_timezone()
+  day_start <- as.POSIXct(as.Date(daylight_row$date), tz = timezone)
   day_end <- day_start + 24 * 60 * 60
 
-  sunrise <- weather_row$sunrise[[1]]
-  sunset <- weather_row$sunset[[1]]
-  civil_dawn <- weather_row$civil_dawn[[1]]
-  civil_dusk <- weather_row$civil_dusk[[1]]
+  sunrise <- daylight_row$sunrise[[1]]
+  sunset <- daylight_row$sunset[[1]]
+  civil_dawn <- daylight_row$civil_dawn[[1]]
+  civil_dusk <- daylight_row$civil_dusk[[1]]
 
   if (is.na(sunrise) || is.na(sunset) || sunset <= sunrise) {
     return(NULL)
@@ -85,16 +85,16 @@ species_dashboard_diel_period_intervals <- function(weather_row) {
   )
 }
 
-species_dashboard_diel_effort_hours <- function(deps_data, weather_daily, period_start = NULL, period_end = NULL) {
+species_dashboard_diel_effort_hours <- function(deps_data, environment_daily, period_start = NULL, period_end = NULL) {
   empty_effort <- stats::setNames(rep(0, length(species_dashboard_diel_levels)), species_dashboard_diel_levels)
   if (is.null(deps_data) || nrow(deps_data) == 0 ||
-      is.null(weather_daily) || nrow(weather_daily) == 0 ||
+      is.null(environment_daily) || nrow(environment_daily) == 0 ||
       !all(c("locationID", "start", "end") %in% names(deps_data)) ||
-      !all(c("locationID", "date", "sunrise", "sunset", "civil_dawn", "civil_dusk") %in% names(weather_daily))) {
+      !all(c("locationID", "date", "sunrise", "sunset", "civil_dawn", "civil_dusk") %in% names(environment_daily))) {
     return(empty_effort)
   }
 
-  timezone <- weather_playback_timezone()
+  timezone <- if (exists("daylight_timezone", mode = "function", inherits = TRUE)) daylight_timezone() else weather_playback_timezone()
   period_start <- if (is.null(period_start) || is.na(period_start)) {
     as.POSIXct(NA, tz = timezone)
   } else {
@@ -107,7 +107,7 @@ species_dashboard_diel_effort_hours <- function(deps_data, weather_daily, period
   }
 
   effort_hours <- empty_effort
-  weather_daily <- weather_daily %>%
+  environment_daily <- environment_daily %>%
     dplyr::filter(.data$locationID %in% unique(deps_data$locationID))
 
   for (dep_index in seq_len(nrow(deps_data))) {
@@ -125,19 +125,19 @@ species_dashboard_diel_effort_hours <- function(deps_data, weather_daily, period
       next
     }
 
-    deployment_weather <- weather_daily %>%
+    deployment_daylight <- environment_daily %>%
       dplyr::filter(
         .data$locationID == deployment$locationID[[1]],
         .data$date >= as.Date(dep_start, tz = timezone),
         .data$date <= as.Date(dep_end, tz = timezone)
       )
 
-    if (nrow(deployment_weather) == 0) {
+    if (nrow(deployment_daylight) == 0) {
       next
     }
 
-    for (weather_index in seq_len(nrow(deployment_weather))) {
-      intervals <- species_dashboard_diel_period_intervals(deployment_weather[weather_index, ])
+    for (daylight_index in seq_len(nrow(deployment_daylight))) {
+      intervals <- species_dashboard_diel_period_intervals(deployment_daylight[daylight_index, ])
       if (is.null(intervals) || nrow(intervals) == 0) {
         next
       }
@@ -204,7 +204,7 @@ species_dashboard_classify_diel_activity <- function(rate_share, sample_size) {
   )
 }
 
-species_dashboard_diel_summary <- function(species_obs, deps_data, weather_daily, period_start = NULL, period_end = NULL) {
+species_dashboard_diel_summary <- function(species_obs, deps_data, environment_daily, period_start = NULL, period_end = NULL) {
   if (is.null(species_obs) || nrow(species_obs) == 0 || !"diel_class" %in% names(species_obs)) {
     return(species_dashboard_empty_diel_summary("No observations in this selection"))
   }
@@ -217,7 +217,7 @@ species_dashboard_diel_summary <- function(species_obs, deps_data, weather_daily
   }
 
   observation_counts <- table(factor(valid_obs$diel_class, levels = species_dashboard_diel_levels))
-  effort_hours <- species_dashboard_diel_effort_hours(deps_data, weather_daily, period_start, period_end)
+  effort_hours <- species_dashboard_diel_effort_hours(deps_data, environment_daily, period_start, period_end)
   has_effort <- any(effort_hours > 0, na.rm = TRUE)
 
   rates <- if (has_effort) {
@@ -1307,7 +1307,7 @@ species_dashboard_module_server <- function(id,
         species_dashboard_diel_summary(
           filter_possible_duplicates_for_use_net(overall_sobs(), use_net()),
           overall_deps(),
-          core_data$weather_daily
+          core_data$environment_daily
         )
       )
     }) %>%
@@ -1422,7 +1422,7 @@ species_dashboard_module_server <- function(id,
         species_dashboard_diel_summary(
           filter_possible_duplicates_for_use_net(current_sobs(), use_net()),
           current_deps(),
-          core_data$weather_daily,
+          core_data$environment_daily,
           current_period_data$start_date(),
           current_period_data$end_date()
         )
@@ -1456,7 +1456,7 @@ species_dashboard_module_server <- function(id,
         species_dashboard_diel_summary(
           filter_possible_duplicates_for_use_net(prior_sobs(), use_net()),
           prior_deps(),
-          core_data$weather_daily,
+          core_data$environment_daily,
           prior_period_data$start_date(),
           prior_period_data$end_date()
         )
@@ -1488,7 +1488,7 @@ species_dashboard_module_server <- function(id,
         species_dashboard_diel_summary(
           filter_possible_duplicates_for_use_net(ly_sobs(), use_net()),
           ly_deps(),
-          core_data$weather_daily,
+          core_data$environment_daily,
           last_year_period_data$start_date(),
           last_year_period_data$end_date()
         )
