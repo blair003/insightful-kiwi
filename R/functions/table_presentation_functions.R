@@ -19,8 +19,30 @@ get_columns_to_round <- function() {
 }
 
 
+prepare_raw_observations_browse_data <- function(obs, blank_species_label = "Blank") {
+  if (is.null(obs) || nrow(obs) == 0 || !"observationType" %in% names(obs)) {
+    return(obs)
+  }
 
+  observation_type <- tolower(trimws(as.character(obs$observationType)))
+  obs <- obs[is.na(observation_type) | observation_type != "unclassified", , drop = FALSE]
 
+  observation_type <- tolower(trimws(as.character(obs$observationType)))
+  blank_rows <- !is.na(observation_type) & observation_type == "blank"
+
+  species_columns <- intersect(c("scientificName", "vernacularNames.eng"), names(obs))
+  for (species_column in species_columns) {
+    obs[[species_column]] <- as.character(obs[[species_column]])
+    obs[[species_column]][blank_rows] <- blank_species_label
+  }
+
+  if ("scientificName_lower" %in% names(obs)) {
+    obs$scientificName_lower <- as.character(obs$scientificName_lower)
+    obs$scientificName_lower[blank_rows] <- tolower(blank_species_label)
+  }
+
+  obs
+}
 
 
 # Active table_id values that route through get_table_specification().
@@ -175,8 +197,10 @@ get_table_specification <- function(table_id = NULL) {
                     
                   },
                   "rawdata" = {
-                    output_data$caption <- "Table showing all observation records 
-                    from the entire project."
+                    output_data$caption <- paste(
+                      "Table showing reviewable observation records from the entire project.",
+                      "Blank observations are labelled as Blank in the Species column."
+                    )
                     
                     output_data$fields <- c("locality", 
                                             "line", 

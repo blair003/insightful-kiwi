@@ -1,6 +1,10 @@
 # R/functions/weather_functions.R
 
 weather_cache <- new.env()
+weather_fetch_failures <- new.env()
+weather_background_cache <- new.env()
+weather_background_cache$refresh_in_progress <- FALSE
+weather_background_cache$refresh_requested <- as.POSIXct(NA)
 open_meteo_rate_limit <- new.env()
 open_meteo_rate_limit$request_times <- numeric(0)
 open_meteo_rate_limit$backoff_until <- as.POSIXct(NA)
@@ -148,6 +152,77 @@ open_meteo_backoff <- function(wait_seconds = 60, cache_key = NA_character_) {
   )
 }
 
+weather_cache_key <- function(lat, lng, start_date, end_date, timezone = weather_actual_timezone()) {
+  start_str <- format(as.Date(start_date), "%Y-%m-%d")
+  end_str <- format(as.Date(end_date), "%Y-%m-%d")
+  paste(round(lat, 2), round(lng, 2), start_str, end_str, timezone, sep = "_")
+}
+
+weather_fetch_failure_active <- function(cache_key, now = Sys.time()) {
+  if (!exists(cache_key, envir = weather_fetch_failures)) {
+    return(FALSE)
+  }
+
+  retry_after <- get(cache_key, envir = weather_fetch_failures)
+  !is.na(retry_after) && now < retry_after
+}
+
+weather_mark_fetch_failure <- function(cache_key, retry_seconds = 300) {
+  assign(cache_key, Sys.time() + retry_seconds, envir = weather_fetch_failures)
+}
+
+request_weather_cache_refresh <- function(reason = "weather lookup miss") {
+  if (!requireNamespace("future", quietly = TRUE) ||
+      !requireNamespace("promises", quietly = TRUE) ||
+      !exists("load_core_data", mode = "function", inherits = TRUE) ||
+      !exists("config", inherits = TRUE) ||
+      isTRUE(weather_background_cache$refresh_in_progress)) {
+    return(invisible(FALSE))
+  }
+
+  last_requested <- weather_background_cache$refresh_requested
+  if (!is.na(last_requested) &&
+      as.numeric(difftime(Sys.time(), last_requested, units = "secs")) < 300) {
+    return(invisible(FALSE))
+  }
+
+  weather_background_cache$refresh_in_progress <- TRUE
+  weather_background_cache$refresh_requested <- Sys.time()
+  logger::log_info("weather_functions.R, starting background weather cache refresh: %s", reason)
+
+  on_fulfilled <- function(rebuilt) {
+    core_data <<- rebuilt$core_data
+    cache_file <<- rebuilt$cache_file
+    package_id <<- rebuilt$package_id
+    weather_background_cache$refresh_in_progress <- FALSE
+    logger::log_info(
+      "weather_functions.R, background weather cache refresh complete for data package id %s",
+      rebuilt$package_id
+    )
+  }
+  on_rejected <- function(error) {
+    weather_background_cache$refresh_in_progress <- FALSE
+    logger::log_error(
+      "weather_functions.R, background weather cache refresh failed: %s",
+      conditionMessage(error)
+    )
+  }
+
+  future_promise <- future::future({
+    old_defer <- getOption("insightfulkiwi.defer_weather_on_rate_limit", TRUE)
+    options(insightfulkiwi.defer_weather_on_rate_limit = FALSE)
+    on.exit(options(insightfulkiwi.defer_weather_on_rate_limit = old_defer), add = TRUE)
+
+    load_core_data(config, refresh_weather = TRUE)
+  }, seed = TRUE)
+
+  promise_then <- getExportedValue("promises", "%...>%")
+  promise_catch <- getExportedValue("promises", "%...!%")
+  promise_catch(promise_then(future_promise, on_fulfilled), on_rejected)
+
+  invisible(TRUE)
+}
+
 weather_actual_timezone <- function() {
   if (exists("config", inherits = TRUE) &&
       !is.null(config$globals$actual_timezone) &&
@@ -221,15 +296,19 @@ get_mode <- function(v) {
   uniqv[which.max(tabulate(match(v, uniqv)))]
 }
 
-fetch_weather_data <- function(lat, lng, start_date, end_date) {
+fetch_weather_data <- function(lat, lng, start_date, end_date, timeout_seconds = 8, use_failure_backoff = TRUE) {
   start_str <- format(as.Date(start_date), "%Y-%m-%d")
   end_str <- format(as.Date(end_date), "%Y-%m-%d")
 
   timezone <- weather_actual_timezone()
-  cache_key <- paste(round(lat, 2), round(lng, 2), start_str, end_str, timezone, sep = "_")
+  cache_key <- weather_cache_key(lat, lng, start_date, end_date, timezone)
   if (exists(cache_key, envir = weather_cache)) {
     logger::log_info("weather_functions.R, fetch_weather_data: using cached data for %s", cache_key)
     return(get(cache_key, envir = weather_cache))
+  }
+  if (isTRUE(use_failure_backoff) && weather_fetch_failure_active(cache_key)) {
+    logger::log_warn("weather_functions.R, fetch_weather_data: recent failure cached for %s; skipping API request", cache_key)
+    return(NULL)
   }
 
   timezone_query <- gsub("/", "%2F", timezone, fixed = TRUE)
@@ -250,7 +329,7 @@ fetch_weather_data <- function(lat, lng, start_date, end_date) {
       }
 
       open_meteo_record_request()
-      res <- httr::GET(url, httr::timeout(8))
+      res <- httr::GET(url, httr::timeout(timeout_seconds))
       status_code <- httr::status_code(res)
       response_text <- httr::content(res, "text", encoding = "UTF-8")
 
@@ -295,6 +374,7 @@ fetch_weather_data <- function(lat, lng, start_date, end_date) {
     return(daily)
   }
 
+  weather_mark_fetch_failure(cache_key)
   return(NULL)
 }
 
@@ -449,10 +529,15 @@ format_weather_clock_time <- function(value) {
   format(time_value, "%H:%M")
 }
 
-playback_weather_for_deployments <- function(deployments, start_date, end_date) {
+playback_weather_for_deployments <- function(deployments, start_date, end_date, allow_remote_fallback = FALSE) {
   stored_weather <- environment_daily_from_core_data(deployments, start_date, end_date)
   if (!is.null(stored_weather) && nrow(stored_weather) > 0) {
     return(stored_weather)
+  }
+
+  request_weather_cache_refresh("playback weather cache miss")
+  if (!isTRUE(allow_remote_fallback)) {
+    return(NULL)
   }
 
   fetch_weather_for_deployments(deployments, start_date, end_date)
@@ -766,7 +851,7 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
   stored_weather <- environment_daily_from_core_data(deps, start_date, end_date)
   daily_data <- environment_daily_as_api_daily(stored_weather)
   if (is.null(daily_data)) {
-    daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
+    request_weather_cache_refresh("dashboard weather cache miss")
   }
   summary <- summarise_weather(daily_data)
 
@@ -838,7 +923,8 @@ show_weather_modal <- function(lat, lng, start_date, end_date, locality = NULL) 
   stored_weather <- environment_daily_from_core_data(deps, start_date, end_date)
   daily_data <- environment_daily_as_api_daily(stored_weather)
   if (is.null(daily_data)) {
-    daily_data <- fetch_weather_data(lat, lng, start_date, end_date)
+    request_weather_cache_refresh("weather details cache miss")
+    daily_data <- fetch_weather_data(lat, lng, start_date, end_date, timeout_seconds = 3)
   }
   if (is.null(daily_data)) {
     showNotification("Failed to fetch weather details.", type = "error")

@@ -18,6 +18,14 @@ source_timestamp_timezone <- function() {
   "Pacific/Auckland"
 }
 
+source_timestamp_date <- function(value, timezone = source_timestamp_timezone()) {
+  if (inherits(value, "POSIXt")) {
+    return(as.Date(value, tz = timezone))
+  }
+
+  as.Date(value)
+}
+
 should_force_source_timestamp_timezone <- function() {
   exists("config", inherits = TRUE) &&
     isTRUE(config$globals$source_timestamps_are_local)
@@ -620,8 +628,8 @@ create_years_available_list <- function(deps) {
 
   deps_dates <- deps %>%
     dplyr::mutate(
-      start_date = as.Date(start),
-      end_date = as.Date(end)
+      start_date = source_timestamp_date(start, display_timezone),
+      end_date = source_timestamp_date(end, display_timezone)
     )
 
   all_start <- min(deps_dates$start_date, na.rm = TRUE)
@@ -689,8 +697,8 @@ create_seasons_available_list <- function(deps, hemisphere, include_years = FALS
   deps <- deps %>%
     mutate(
       # Extract the date part only for start and end dates
-      start_date = as.Date(start),
-      end_date = as.Date(end),
+      start_date = source_timestamp_date(start, display_timezone),
+      end_date = source_timestamp_date(end, display_timezone),
       start_month = month(start),
 
       # Determine season based on month and hemisphere

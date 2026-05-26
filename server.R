@@ -503,7 +503,7 @@ server <- function(input, output, session) {
   
   setup_table_output(output, 
                      table_id = "rawdata_observations_browse", 
-                     data = core_data$obs,
+                     data = prepare_raw_observations_browse_data(core_data$obs),
                      table_type = "paged",
                      table_order = list(list(4, 'asc')),
                      render_when = function() {

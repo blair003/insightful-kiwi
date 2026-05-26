@@ -140,10 +140,18 @@ playback_update_slider <- function(session, input_id, points, value) {
   updateSliderInput(session, input_id, value = playback_index_for_time(points, value))
 }
 
+playback_as_date <- function(value) {
+  if (inherits(value, "POSIXt")) {
+    return(as.Date(value, tz = playback_actual_timezone()))
+  }
+
+  as.Date(value)
+}
+
 playback_date_midnight <- function(date_value) {
   timezone <- playback_actual_timezone()
   as.POSIXct(
-    paste(format(as.Date(date_value), "%Y-%m-%d"), "00:00:00"),
+    paste(format(playback_as_date(date_value), "%Y-%m-%d"), "00:00:00"),
     tz = timezone
   )
 }
@@ -151,7 +159,7 @@ playback_date_midnight <- function(date_value) {
 playback_date_end <- function(date_value) {
   timezone <- playback_actual_timezone()
   as.POSIXct(
-    paste(format(as.Date(date_value), "%Y-%m-%d"), "23:59:59"),
+    paste(format(playback_as_date(date_value), "%Y-%m-%d"), "23:59:59"),
     tz = timezone
   )
 }
@@ -1284,8 +1292,8 @@ mapping_module_server <- function(id,
 
         period_obs <- obs_data %>%
           dplyr::filter(
-            as.Date(timestamp) >= as.Date(fallback_start),
-            as.Date(timestamp) <= as.Date(fallback_end),
+            playback_as_date(timestamp) >= playback_as_date(fallback_start),
+            playback_as_date(timestamp) <= playback_as_date(fallback_end),
             !is.na(timestamp)
           )
 
@@ -1317,8 +1325,8 @@ mapping_module_server <- function(id,
 
         playback_weather_for_deployments(
           active_locations,
-          as.Date(playback_period_start()),
-          as.Date(playback_period_end())
+          playback_as_date(playback_period_start()),
+          playback_as_date(playback_period_end())
         )
       })
 
@@ -2318,8 +2326,8 @@ mapping_module_server <- function(id,
 
         playback_weather_for_deployments(
           active_locations,
-          as.Date(playback_period_start_obs()),
-          as.Date(playback_period_end_obs())
+          playback_as_date(playback_period_start_obs()),
+          playback_as_date(playback_period_end_obs())
         )
       })
 
@@ -2381,16 +2389,16 @@ mapping_module_server <- function(id,
         start_date <- if (is.function(period_start_date)) {
           period_start_date()
         } else {
-          as.Date(playback_period_start_obs())
+          playback_as_date(playback_period_start_obs())
         }
         end_date <- if (is.function(period_end_date)) {
           period_end_date()
         } else {
-          as.Date(playback_period_end_obs())
+          playback_as_date(playback_period_end_obs())
         }
 
         req(start_date, end_date)
-        paste(as.character(as.Date(start_date)), as.character(as.Date(end_date)), sep = "|")
+        paste(as.character(playback_as_date(start_date)), as.character(playback_as_date(end_date)), sep = "|")
       })
 
       playback_slider_value_obs <- function() {
@@ -2725,17 +2733,17 @@ mapping_module_server <- function(id,
                 ),
                 first_check = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  as.Date(playback_period_start_obs()),
+                  playback_as_date(playback_period_start_obs()),
                   .data$first_check
                 ),
                 last_check = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  as.Date(current_time_obsmap),
+                  playback_as_date(current_time_obsmap),
                   .data$last_check
                 ),
                 check_span_days = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  pmax(as.integer(as.Date(current_time_obsmap) - as.Date(playback_period_start_obs())), 0L),
+                  pmax(as.integer(playback_as_date(current_time_obsmap) - playback_as_date(playback_period_start_obs())), 0L),
                   .data$check_span_days
                 )
               )
@@ -2777,17 +2785,17 @@ mapping_module_server <- function(id,
                 ),
                 first_check = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  as.Date(start_time_obsmap),
+                  playback_as_date(start_time_obsmap),
                   .data$first_check
                 ),
                 last_check = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  as.Date(current_time_obsmap),
+                  playback_as_date(current_time_obsmap),
                   .data$last_check
                 ),
                 check_span_days = dplyr::if_else(
                   .data$trap_marker_type == "unchecked",
-                  pmax(as.integer(as.Date(current_time_obsmap) - as.Date(start_time_obsmap)), 0L),
+                  pmax(as.integer(playback_as_date(current_time_obsmap) - playback_as_date(start_time_obsmap)), 0L),
                   .data$check_span_days
                 )
               )
@@ -3498,6 +3506,7 @@ observation_marker_group_palette <- function() {
     rabbit = "#16a34a",
     hedgehog = "#0f766e",
     possum = "#2563eb",
+    kiwi = "#854d0e",
     weka = "#15803d",
     bird = "#0284c7",
     mustelid = "#dc2626",
@@ -3517,6 +3526,7 @@ observation_marker_group_from_scientific_name <- function(scientific_name) {
     names == "oryctolagus cuniculus" ~ "rabbit",
     names == "erinaceus europaeus" ~ "hedgehog",
     names == "trichosurus vulpecula" ~ "possum",
+    names == "apteryx mantelli" ~ "kiwi",
     names == "gallirallus australis" ~ "weka",
     names == "aves" ~ "bird",
     names == "mustelidae" ~ "mustelid",
@@ -3542,6 +3552,7 @@ observation_species_icon_path <- function(scientific_name) {
     rabbit = "www/icons/map_icons/obs-rabbit.svg",
     hedgehog = "www/icons/map_icons/obs-hedgehog.svg",
     possum = "www/icons/map_icons/obs-possum.svg",
+    kiwi = "www/icons/map_icons/obs-kiwi.svg",
     weka = "www/icons/map_icons/obs-weka.svg",
     bird = "www/icons/map_icons/obs-bird.svg",
     mustelid = "www/icons/map_icons/obs-mustelid.svg",
