@@ -1235,13 +1235,87 @@ annotate_wkt_trap_periods <- function(trap_data, period_groups) {
     return(NULL)
   }
 
+  assignable_periods <- period_groups[!names(period_groups) %in% "ALL"]
+  assignable_periods <- Filter(function(period) {
+    is.null(period$assign_period) || isTRUE(period$assign_period)
+  }, assignable_periods)
+  period_levels <- names(assignable_periods)
+
+  period_interval <- function(period) {
+    data.frame(
+      start = as.Date(period$start_date),
+      end = as.Date(period$end_date),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  period_intervals <- if (length(assignable_periods) > 0) {
+    do.call(rbind, lapply(assignable_periods, period_interval))
+  } else {
+    data.frame(start = as.Date(character()), end = as.Date(character()))
+  }
+
+  overlapping_trap_period <- function(start_date, end_date) {
+    start_date <- as.Date(start_date)
+    end_date <- as.Date(end_date)
+    if (is.na(start_date) || is.na(end_date) || length(period_levels) == 0) {
+      return(NA_character_)
+    }
+
+    matches <- period_levels[
+      period_intervals$start <= end_date & period_intervals$end >= start_date
+    ]
+    if (length(matches) == 0) {
+      return(NA_character_)
+    }
+
+    matches[[1]]
+  }
+
   trap_data$deps$check_date <- as.Date(trap_data$deps$deploymentEnd)
+  trap_data$deps$prior_check_date <- as.Date(trap_data$deps$deploymentStart)
+  trap_data$deps$period <- factor(
+    mapply(
+      overlapping_trap_period,
+      trap_data$deps$prior_check_date,
+      trap_data$deps$check_date,
+      USE.NAMES = FALSE
+    ),
+    levels = period_levels
+  )
 
   trap_data$obs$check_date <- as.Date(trap_data$obs$eventStart)
   if (!"prior_check_date" %in% names(trap_data$obs)) {
     trap_data$obs$prior_check_date <- as.Date(trap_data$obs$eventStart)
   } else {
     trap_data$obs$prior_check_date <- as.Date(trap_data$obs$prior_check_date)
+  }
+  trap_data$obs$period <- factor(
+    mapply(
+      overlapping_trap_period,
+      trap_data$obs$prior_check_date,
+      trap_data$obs$check_date,
+      USE.NAMES = FALSE
+    ),
+    levels = period_levels
+  )
+
+  if (!is.null(trap_data$trap_summary) &&
+      "trap_id" %in% names(trap_data$trap_summary) &&
+      "locationName" %in% names(trap_data$deps) &&
+      "period" %in% names(trap_data$deps)) {
+    trap_period_summary <- trap_data$deps %>%
+      dplyr::filter(!is.na(.data$period)) %>%
+      dplyr::group_by(trap_id = .data$locationName) %>%
+      dplyr::summarise(
+        period = paste(unique(as.character(.data$period)), collapse = "; "),
+        .groups = "drop"
+      )
+
+    if (nrow(trap_period_summary) > 0) {
+      trap_data$trap_summary <- trap_data$trap_summary %>%
+        dplyr::left_join(trap_period_summary, by = "trap_id")
+    }
   }
 
   trap_data

@@ -3149,6 +3149,7 @@ mapping_module_server <- function(id,
             Longitude = numeric(),
             Species = character(),
             Count = numeric(),
+            Period = character(),
             Timestamp = character(),
             prior_check_date = character(),
             check_interval = integer(),
@@ -3190,12 +3191,19 @@ mapping_module_server <- function(id,
           rep(NA_integer_, nrow(observation_rows))
         }
 
+        period_values <- if ("period" %in% names(observation_rows)) {
+          as.character(observation_rows$period)
+        } else {
+          rep(NA_character_, nrow(observation_rows))
+        }
+
         data.frame(
           Location = observation_rows$locationName,
           Latitude = observation_rows$latitude,
           Longitude = observation_rows$longitude,
           Species = observation_rows[[species_column]],
           Count = observation_rows$count,
+          Period = period_values,
           Timestamp = timestamp_values,
           prior_check_date = prior_check_values,
           check_interval = check_interval_values,
@@ -4249,6 +4257,9 @@ prepare_trap_observations_for_map <- function(trap_data_value,
   }
 
   trap_obs <- trap_data_value$obs
+  if (!"period" %in% names(trap_obs)) {
+    trap_obs$period <- NA_character_
+  }
   trap_deps <- trap_data_value$deps
   selected_period_intervals <- normalise_trap_period_intervals(period_intervals)
 
@@ -4530,7 +4541,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           create_species_rank(scientificName_lower, spp_classes)
         ),
         possible_duplicate = FALSE,
-        period = NA_character_,
+        period = as.character(.data$period),
         day_night_class = NA_character_,
         diel_class = NA_character_,
         classificationConfidence = NA_real_,

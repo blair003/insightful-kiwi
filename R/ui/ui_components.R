@@ -1,7 +1,7 @@
 species_dashboard_nav_menu <- function() {
   species_dashboard_panels <- unlist(
-    lapply(names(core_data$spp_classes), function(group_name) {
-      species_in_group <- core_data$spp_classes[[group_name]]
+    lapply(names(core_data$app$spp_classes), function(group_name) {
+      species_in_group <- core_data$app$spp_classes[[group_name]]
 
       lapply(names(species_in_group), function(species_name) {
         sci_name <- species_in_group[[species_name]]
@@ -37,7 +37,7 @@ species_dashboard_sidebar_controls <- function() {
   period_defaults <- species_dashboard_period_defaults(core_data)
 
   species_dashboard_controls <- unlist(
-    lapply(core_data$spp_classes, function(species_in_group) {
+    lapply(core_data$app$spp_classes, function(species_in_group) {
       lapply(species_in_group, function(sci_name) {
         dashboard_id <- paste0("species_dashboard_", make.names(sci_name))
         dashboard_tab_input <- paste0(dashboard_id, "-dashboard_tabs")

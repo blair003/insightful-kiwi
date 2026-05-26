@@ -13,6 +13,11 @@ period_names_without_all <- function(period_groups, assignable_only = TRUE) {
 }
 
 find_matching_prior_year_period <- function(period_name, period_groups) {
+  if (length(period_name) != 1 || is.na(period_name) || !nzchar(as.character(period_name))) {
+    return(NA_character_)
+  }
+  period_name <- as.character(period_name)
+
   period_names <- period_names_without_all(period_groups)
   if (grepl("^\\d{4}$", period_name)) {
     matching_period <- as.character(as.integer(period_name) - 1)
@@ -39,6 +44,10 @@ find_matching_prior_year_period <- function(period_name, period_groups) {
 }
 
 get_period_index <- function(period_groups, period_name) {
+  if (length(period_name) != 1 || is.na(period_name)) {
+    return(1)
+  }
+
   period_index <- match(period_name, period_names_without_all(period_groups))
 
   if (is.na(period_index)) {
