@@ -2601,26 +2601,25 @@ mapping_module_server <- function(id,
         }
       }, ignoreInit = TRUE)
       
-      observation_map_processed_data <- shiny::debounce(reactive({
-        req(obs(), deps(), current_selected_species(), current_selected_localities())
-        if (playback_active_obs()) {
-          req(input$time_slider)
-        }
+      prepared_trap_observations_obs <- shiny::debounce(reactive({
+        req(current_selected_species(), current_selected_localities())
 
         start_date <- if (is.function(period_start_date)) {
           period_start_date()
         } else {
+          req(obs())
           suppressWarnings(min(as.Date(obs()$timestamp), na.rm = TRUE))
         }
 
         end_date <- if (is.function(period_end_date)) {
           period_end_date()
         } else {
+          req(obs())
           suppressWarnings(max(as.Date(obs()$timestamp), na.rm = TRUE))
         }
 
         req(start_date, end_date)
-        
+
         species_to_map <- tolower(unname(current_selected_species()))
         localities_to_map <- current_selected_localities()
         selected_period_intervals <- if (is.function(period_intervals)) {
@@ -2633,7 +2632,7 @@ mapping_module_server <- function(id,
         } else {
           selected_period_intervals
         }
-        trap_obs_filtered <- if (isTRUE(include_trap_data_selected())) {
+        trap_observations <- if (isTRUE(include_trap_data_selected())) {
           prepare_trap_observations_for_map(
             current_trap_data(),
             start_date,
@@ -2648,6 +2647,30 @@ mapping_module_server <- function(id,
         } else {
           dplyr::tibble()
         }
+
+        list(
+          start_date = start_date,
+          end_date = end_date,
+          species_to_map = species_to_map,
+          localities_to_map = localities_to_map,
+          active_trap_period_intervals = active_trap_period_intervals,
+          trap_observations = trap_observations
+        )
+      }), 500)
+
+      observation_map_processed_data <- reactive({
+        req(obs(), deps(), current_selected_species(), current_selected_localities())
+        if (playback_active_obs()) {
+          req(input$time_slider)
+        }
+
+        trap_selection <- req(prepared_trap_observations_obs())
+        start_date <- trap_selection$start_date
+        end_date <- trap_selection$end_date
+        species_to_map <- trap_selection$species_to_map
+        localities_to_map <- trap_selection$localities_to_map
+        active_trap_period_intervals <- trap_selection$active_trap_period_intervals
+        trap_obs_filtered <- trap_selection$trap_observations
         
         logger::log_debug(sprintf(
           "mapping_module_server [observation] ID: %s - observation_map_processed_data: Processing for species: [%s], localities: [%s]",
@@ -2948,7 +2971,7 @@ mapping_module_server <- function(id,
             sep = "|"
           )
         )
-      }), 500)
+      })
 
       playback_window_times_obs <- reactive({
         if (!playback_active_obs()) {
@@ -4195,13 +4218,18 @@ trap_intervals_overlap_periods <- function(start_times,
     )
   }
 
-  vapply(seq_len(row_count), function(index) {
-    if (is.na(row_start[[index]]) || is.na(row_end[[index]]) || row_end[[index]] < row_start[[index]]) {
-      return(FALSE)
-    }
+  valid_rows <- !is.na(row_start) & !is.na(row_end) & row_end >= row_start
+  overlaps <- rep(FALSE, row_count)
+  if (!any(valid_rows)) {
+    return(overlaps)
+  }
 
-    any(periods$start <= row_end[[index]] & periods$end >= row_start[[index]])
-  }, logical(1))
+  for (period_index in seq_len(nrow(periods))) {
+    overlaps <- overlaps |
+      (periods$start[[period_index]] <= row_end & periods$end[[period_index]] >= row_start)
+  }
+
+  overlaps & valid_rows
 }
 
 prepare_trap_observations_for_map <- function(trap_data_value,
