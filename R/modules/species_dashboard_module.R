@@ -257,7 +257,7 @@ species_dashboard_diel_summary <- function(species_obs, deps_data, environment_d
       sample_size
     ),
     TRUE ~ sprintf(
-      "Based on %d observations and effort-normalized diel rates.",
+      "Based on %d observations and effort-normalised diel rates.",
       sample_size
     )
   )
@@ -847,7 +847,7 @@ species_dashboard_module_server <- function(id,
             species_dashboard_diel_colours[[row$diel_class]]
           ),
           title = sprintf(
-            "%s: %.1f%% of effort-normalized rate",
+            "%s: %.1f%% of effort-normalised rate",
             row$diel_class,
             share * 100
           )

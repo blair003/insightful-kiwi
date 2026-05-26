@@ -18,6 +18,13 @@ dashboard_rai_metric <- function(rai_group, lower_is_better, locality = NULL, pe
       current_period_index <- idx
     }
   }
+  if (length(current_period_index) != 1 || is.na(current_period_index)) {
+    current_period_index <- get_period_index(core_data$period_groups, core_data$app$period_defaults$primary_period)
+  }
+  current_period_index <- suppressWarnings(as.integer(current_period_index[[1]]))
+  if (is.na(current_period_index)) {
+    current_period_index <- get_period_index(core_data$period_groups, core_data$app$period_defaults$primary_period)
+  }
 
   metric <- generate_rai_group_period_comparison(
     obs = metric_obs,
@@ -148,11 +155,18 @@ dashboard_animal_detections_metric <- function(locality = NULL, period_name = NU
     current_period <- period_name
     current_period_index <- match(period_name, period_names)
   } else {
-    current_period <- core_data$app$period_defaults$primary_period
+    current_period <- if (length(core_data$app$period_defaults$primary_period) > 0 && !is.na(core_data$app$period_defaults$primary_period[[1]])) {
+      as.character(core_data$app$period_defaults$primary_period[[1]])
+    } else if (length(period_names) > 0) {
+      period_names[[1]]
+    } else {
+      NA_character_
+    }
     current_period_index <- core_data$app$period_defaults$primary_period_index
   }
+  current_period_index <- get_period_index(core_data$period_groups, current_period)
 
-  prior_period <- if (!is.na(current_period_index) && current_period_index < length(period_names)) {
+  prior_period <- if (length(current_period_index) == 1 && !is.na(current_period_index) && current_period_index < length(period_names)) {
     period_names[[current_period_index + 1]]
   } else {
     NA_character_

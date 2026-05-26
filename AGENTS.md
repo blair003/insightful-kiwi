@@ -2,7 +2,7 @@
 
 ## Project
 
-This is an R/Shiny app for Insightful Kiwi, an app to allow community-based conversation groups to analyse and visualise data from camera monitoring networks.
+This is an R/Shiny app for Insightful Kiwi, an app to allow community-based consersation groups to analyse and visualise data from camera monitoring networks, and trapping-data.
 
 The app is running inside a VS Code dev container using Docker.
 
@@ -10,9 +10,9 @@ Do not reinstall R packages, rebuild the container, or modify Docker setup unles
 
 ## Data model
 
-The performance of this application relies on using the `core_data` global variable as the main data source.
+The performance of this application relies on using the `core_data` and `trap_data` global variables as the main data sources. Both of these are calculated once and saved as .RDS files under cache/, so you can read the most recent versions directly from there if you are not changing the code that reads or modifies core_data or trap_data.
 
-Don't write code or functions that ingest data from files in extdata/ directly. If you think you need to, `STOP` and ask first. The solution will likely be to update `core_data` to include what we need, if it is missing. Ask before updating core_data.
+Don't write code or functions that ingest data from files in extdata/ directly. If you think you need to, `STOP` and ask first. The solution will likely be to update `core_data` or `trap_data` to include what we need, if it is missing. Ask before updating core_data or trap_data.
 
 For reference:
 The source for `core_data$deps` is `extdata/deployments.csv`
@@ -21,7 +21,7 @@ The source for `core_data_media` is `extdata/media.csv`
 
 ## Image cache
 
-`www/cache/` contains thousands of generated cache directories. There is no need to search or enumerate this folder.
+`www/cache/` contains thousands of generated cache directories. There is no need to search or enumerate this folder unless you are changing the image download/caching functions.
 
 Exception:
 `www/cache/favourites/` directory structure is meaningful and may be inspected when relevant.

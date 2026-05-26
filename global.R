@@ -93,6 +93,8 @@ core_data$app$period_defaults <- get_default_complete_period_selection(
 source("R/modules/period_selection_module.R")
 source("R/modules/plotting_module.R")
 source("R/modules/mapping_module.R")
+source("R/functions/monitoring_trapping_functions.R")
+source("R/modules/monitoring_trapping_module.R")
 source("R/modules/species_dashboard_module.R")
 source("R/modules/activity_patterns_module.R")
 source("R/modules/dashboard_module.R")

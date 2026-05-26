@@ -1361,6 +1361,25 @@ server <- function(input, output, session) {
       observation_map_loaded(TRUE)
     }
   })
+  ########### MONITORING VS TRAPPING FEATURE ###########
+
+  monitoring_trapping_loaded <- reactiveVal(FALSE)
+
+  observeEvent(input$nav, {
+    if (input$nav == "monitoring_trapping" && !monitoring_trapping_loaded()) {
+      logger::log_debug("server.R, lazily calling monitoring_trapping_module_server()")
+      monitoring_trapping_module_server(
+        id = "monitoring_trapping",
+        core_data = core_data,
+        trap_data = trap_data,
+        config = config,
+        use_net = global_use_net
+      )
+      monitoring_trapping_loaded(TRUE)
+    }
+  }, ignoreNULL = FALSE, ignoreInit = FALSE)
+
+
   
 
   register_report_download_handler(

@@ -154,16 +154,28 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
 
 dashboard_module_server <- function(id, core_data, config, use_net = reactive(config$globals$use_net_data)) {
   moduleServer(id, function(input, output, session) {
+    period_defaults <- species_dashboard_period_defaults(core_data)
     dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
-    dashboard_plot_periods <- dashboard_plot_periods[
-      seq(core_data$app$period_defaults$primary_period_index, length(dashboard_plot_periods))
-    ]
+    primary_period_index <- core_data$app$period_defaults$primary_period_index
+    if (length(primary_period_index) != 1 || is.na(primary_period_index)) {
+      primary_period_index <- get_period_index(core_data$period_groups, period_defaults$current_period)
+    }
+    primary_period_index <- suppressWarnings(as.integer(primary_period_index[[1]]))
+    if (is.na(primary_period_index)) {
+      primary_period_index <- 1L
+    }
+    primary_period_index <- min(max(primary_period_index, 1L), length(dashboard_plot_periods))
+    dashboard_plot_periods <- if (length(dashboard_plot_periods) > 0) {
+      dashboard_plot_periods[seq.int(primary_period_index, length(dashboard_plot_periods))]
+    } else {
+      character(0)
+    }
     dashboard_plot_deps <- core_data$deps %>%
       dplyr::filter(as.character(period) %in% dashboard_plot_periods)
 
-    main_dashboard_current_period <- period_selection_module_server("main_dashboard_current_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$current_period)
-    main_dashboard_prior_period <- period_selection_module_server("main_dashboard_prior_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$prior_period)
-    main_dashboard_last_year_period <- period_selection_module_server("main_dashboard_last_year_period", period_groups = core_data$period_groups, selected = species_dashboard_period_defaults(core_data)$last_year_period)
+    main_dashboard_current_period <- period_selection_module_server("main_dashboard_current_period", period_groups = core_data$period_groups, selected = period_defaults$current_period)
+    main_dashboard_prior_period <- period_selection_module_server("main_dashboard_prior_period", period_groups = core_data$period_groups, selected = period_defaults$prior_period)
+    main_dashboard_last_year_period <- period_selection_module_server("main_dashboard_last_year_period", period_groups = core_data$period_groups, selected = period_defaults$last_year_period)
 
     output$main_dashboard_current_period_name <- renderText({ main_dashboard_current_period$period_name() })
     output$main_dashboard_prior_period_name <- renderText({ main_dashboard_prior_period$period_name() })

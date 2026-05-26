@@ -15,6 +15,7 @@ ui <- function(request) {
       'density_map': true,
       'density_playback_map': true,
       'observation_map': true,
+      'monitoring_trapping': true,
       'activity_patterns': true,
       'raw_data': false
     };
@@ -282,6 +283,11 @@ ui <- function(request) {
       
       
       conditionalPanel(
+        condition = "input.nav === 'monitoring_trapping'",
+        monitoring_trapping_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
+      ),
+
+      conditionalPanel(
         condition = "input.nav === 'raw_data'",
         tags$small("Raw data for the entire project across all seasons is shown here.")
       ),
@@ -414,6 +420,16 @@ ui <- function(request) {
           # Call the module UI for the main layout
           mapping_module_ui(id = "observation_map", view = "observation_map_layout")
         ),
+
+        ######### MONITORING VS TRAPPING OUTPUT #########
+        if (!is.null(trap_data)) {
+          nav_panel(
+            title = "Monitoring vs Trapping",
+            icon = icon("scale-balanced"),
+            value = "monitoring_trapping",
+            monitoring_trapping_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "main")
+          )
+        },
 
         ######### PLOTS OUTPUT #########
         nav_panel(
