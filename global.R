@@ -78,15 +78,17 @@ core_data_weather_deferred <- local({
 
 # These modules are required for UI and server. Dependent on core_data$period_groups
 source("R/functions/period_group_functions.R")
-core_data$app$period_defaults <- get_default_complete_period_selection(
-  core_data$deps,
-  core_data$period_groups
-)
 
 trap_data_result <- load_trap_data(config, core_data, cache_file)
 trap_data <- trap_data_result$trap_data
 core_data <- trap_data_result$core_data
 rm(trap_data_result)
+
+core_data <- update_year_period_bounds_from_observations(core_data, trap_data, config)
+core_data$app$period_defaults <- get_default_complete_period_selection(
+  core_data$deps,
+  core_data$period_groups
+)
 
 source("R/modules/period_selection_module.R")
 source("R/modules/plotting_module.R")

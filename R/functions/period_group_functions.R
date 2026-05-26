@@ -130,3 +130,122 @@ get_default_complete_period_selection <- function(deps, period_groups) {
     completion_summary = completion_summary
   )
 }
+
+period_group_value <- function(period_info, field, default = NULL) {
+  if (is.null(period_info) || !(field %in% names(period_info))) {
+    return(default)
+  }
+
+  value <- period_info[[field]]
+  if (length(value) == 0) {
+    return(default)
+  }
+
+  value[[1]]
+}
+
+period_group_observation_dates <- function(core_data, trap_data = NULL, timezone = "UTC") {
+  monitoring_dates <- as.Date(character())
+  if (!is.null(core_data$obs) && "timestamp" %in% names(core_data$obs)) {
+    monitoring_dates <- as.Date(core_data$obs$timestamp, tz = timezone)
+  }
+
+  trap_dates <- as.Date(character())
+  if (!is.null(trap_data) && !is.null(trap_data$obs)) {
+    if ("check_date" %in% names(trap_data$obs)) {
+      trap_dates <- as.Date(trap_data$obs$check_date)
+    } else if ("eventStart" %in% names(trap_data$obs)) {
+      trap_dates <- parse_trap_period_date(trap_data$obs$eventStart, timezone)
+    }
+  }
+
+  dates <- c(monitoring_dates, trap_dates)
+  dates[!is.na(dates)]
+}
+
+parse_trap_period_date <- function(value, timezone = "UTC") {
+  if (inherits(value, "Date")) {
+    return(value)
+  }
+  if (inherits(value, "POSIXt")) {
+    return(as.Date(value, tz = timezone))
+  }
+
+  raw_value <- as.character(value)
+  raw_value[!nzchar(raw_value)] <- NA_character_
+  date_prefix <- ifelse(
+    grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}", raw_value),
+    substr(raw_value, 1, 10),
+    raw_value
+  )
+  parsed <- suppressWarnings(as.Date(date_prefix))
+  needs_posix <- is.na(parsed) & !is.na(raw_value)
+
+  if (any(needs_posix)) {
+    posix_value <- sub("([+-][0-9]{2}):([0-9]{2})$", "\\1\\2", raw_value[needs_posix])
+    parsed_posix <- suppressWarnings(as.POSIXct(
+      posix_value,
+      tz = timezone,
+      tryFormats = c(
+        "%Y-%m-%dT%H:%M:%OS%z",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%OS",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d"
+      )
+    ))
+    parsed[needs_posix] <- as.Date(parsed_posix, tz = timezone)
+  }
+
+  parsed
+}
+
+update_year_period_bounds_from_observations <- function(core_data, trap_data = NULL, config = NULL) {
+  if (is.null(core_data$period_groups) || length(core_data$period_groups) == 0) {
+    return(core_data)
+  }
+
+  timezone <- if (!is.null(config) && !is.null(config$globals$actual_timezone) && nzchar(config$globals$actual_timezone)) {
+    config$globals$actual_timezone
+  } else if (!is.null(config) && !is.null(config$globals$timezone) && nzchar(config$globals$timezone)) {
+    config$globals$timezone
+  } else {
+    "UTC"
+  }
+
+  observation_dates <- period_group_observation_dates(core_data, trap_data, timezone)
+  if (length(observation_dates) == 0) {
+    return(core_data)
+  }
+
+  for (period_name in names(core_data$period_groups)) {
+    period_info <- core_data$period_groups[[period_name]]
+    if (!identical(as.character(period_group_value(period_info, "period_type")), "year")) {
+      next
+    }
+
+    period_year <- suppressWarnings(as.integer(period_name))
+    if (is.na(period_year)) {
+      period_year <- lubridate::year(period_group_value(period_info, "start_date"))
+    }
+    if (is.na(period_year)) {
+      next
+    }
+
+    year_dates <- observation_dates[lubridate::year(observation_dates) == period_year]
+    if (length(year_dates) == 0) {
+      next
+    }
+
+    core_data$period_groups[[period_name]]$start_date <- as.POSIXct(
+      paste(min(year_dates), "00:00:00"),
+      tz = timezone
+    )
+    core_data$period_groups[[period_name]]$end_date <- as.POSIXct(
+      paste(max(year_dates), "23:59:59"),
+      tz = timezone
+    )
+  }
+
+  core_data
+}

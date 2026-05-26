@@ -732,6 +732,17 @@ mapping_module_ui <- function(id,
           conditionalPanel(
             condition = "input.include_trap_data",
             ns = ns,
+            checkboxInput(
+              inputId = ns("include_trap_between_seasons"),
+              label = "Include data between seasons",
+              value = FALSE
+            )
+          )
+        },
+        if (isTRUE(trap_data_available)) {
+          conditionalPanel(
+            condition = "input.include_trap_data",
+            ns = ns,
             tags$div(
               class = "trap-data-options",
               checkboxInput(
@@ -952,6 +963,7 @@ mapping_module_server <- function(id,
                                   marker_metric_override = NULL, # Reactive: for comparative density map
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
+                                  period_intervals = NULL,   # Reactive: selected period intervals
                                   playback_mode = c("none", "always"),
                                   enable_map_outputs = TRUE,
                                   use_net = reactive(config$globals$use_net_data),
@@ -2206,6 +2218,10 @@ mapping_module_server <- function(id,
         isTRUE(input$include_trap_data) && !is.null(current_trap_data())
       })
 
+      include_trap_between_seasons_selected <- reactive({
+        isTRUE(input$include_trap_between_seasons)
+      })
+
       show_trap_blank_checks_selected <- reactive({
         isTRUE(input$show_trap_blank_checks)
       })
@@ -2585,7 +2601,7 @@ mapping_module_server <- function(id,
         }
       }, ignoreInit = TRUE)
       
-      observation_map_processed_data <- reactive({
+      observation_map_processed_data <- shiny::debounce(reactive({
         req(obs(), deps(), current_selected_species(), current_selected_localities())
         if (playback_active_obs()) {
           req(input$time_slider)
@@ -2607,6 +2623,16 @@ mapping_module_server <- function(id,
         
         species_to_map <- tolower(unname(current_selected_species()))
         localities_to_map <- current_selected_localities()
+        selected_period_intervals <- if (is.function(period_intervals)) {
+          period_intervals()
+        } else {
+          NULL
+        }
+        active_trap_period_intervals <- if (isTRUE(include_trap_between_seasons_selected())) {
+          NULL
+        } else {
+          selected_period_intervals
+        }
         trap_obs_filtered <- if (isTRUE(include_trap_data_selected())) {
           prepare_trap_observations_for_map(
             current_trap_data(),
@@ -2616,7 +2642,8 @@ mapping_module_server <- function(id,
             localities_to_map,
             trap_locality_distance_km_selected(),
             include_blank_checks = show_trap_blank_checks_selected(),
-            include_unchecked_locations = show_trap_unchecked_locations_selected()
+            include_unchecked_locations = show_trap_unchecked_locations_selected(),
+            period_intervals = active_trap_period_intervals
           )
         } else {
           dplyr::tibble()
@@ -2712,12 +2739,26 @@ mapping_module_server <- function(id,
                 (
                   .data$trap_marker_type %in% c("kill", "check") &
                     .data$display_start_time <= current_time_obsmap &
-                    .data$display_end_time >= playback_period_start_obs()
+                    .data$display_end_time >= playback_period_start_obs() &
+                    trap_intervals_overlap_periods(
+                      .data$display_start_time,
+                      .data$display_end_time,
+                      active_trap_period_intervals,
+                      playback_period_start_obs(),
+                      current_time_obsmap
+                    )
                 ) |
                   (
                     .data$trap_marker_type == "unchecked" &
                       .data$display_start_time <= current_time_obsmap &
-                      .data$display_end_time >= playback_period_start_obs()
+                      .data$display_end_time >= playback_period_start_obs() &
+                      trap_intervals_overlap_periods(
+                        .data$display_start_time,
+                        .data$display_end_time,
+                        active_trap_period_intervals,
+                        playback_period_start_obs(),
+                        current_time_obsmap
+                      )
                   )
               ) %>%
               dplyr::mutate(
@@ -2764,12 +2805,26 @@ mapping_module_server <- function(id,
                 (
                   .data$trap_marker_type %in% c("kill", "check") &
                     .data$display_start_time <= current_time_obsmap &
-                    .data$display_end_time >= start_time_obsmap
+                    .data$display_end_time >= start_time_obsmap &
+                    trap_intervals_overlap_periods(
+                      .data$display_start_time,
+                      .data$display_end_time,
+                      active_trap_period_intervals,
+                      start_time_obsmap,
+                      current_time_obsmap
+                    )
                 ) |
                   (
                     .data$trap_marker_type == "unchecked" &
                       .data$display_start_time <= current_time_obsmap &
-                      .data$display_end_time >= start_time_obsmap
+                      .data$display_end_time >= start_time_obsmap &
+                      trap_intervals_overlap_periods(
+                        .data$display_start_time,
+                        .data$display_end_time,
+                        active_trap_period_intervals,
+                        start_time_obsmap,
+                        current_time_obsmap
+                      )
                   )
               ) %>%
               dplyr::mutate(
@@ -2883,6 +2938,7 @@ mapping_module_server <- function(id,
             if (is.null(current_time_obsmap)) "no-current" else format(current_time_obsmap, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
             exclude_possible_duplicates_selected(),
             include_trap_data_selected(),
+            include_trap_between_seasons_selected(),
             show_trap_blank_checks_selected(),
             show_trap_unchecked_locations_selected(),
             trap_locality_distance_km_selected(),
@@ -2892,7 +2948,7 @@ mapping_module_server <- function(id,
             sep = "|"
           )
         )
-      })
+      }), 500)
 
       playback_window_times_obs <- reactive({
         if (!playback_active_obs()) {
@@ -3125,7 +3181,102 @@ mapping_module_server <- function(id,
         )
       }
 
+      collapse_selection_values <- function(values) {
+        values <- as.character(values)
+        values <- values[!is.na(values) & nzchar(values)]
+        if (length(values) == 0) {
+          return("")
+        }
+
+        paste(values, collapse = "; ")
+      }
+
+      format_export_datetime <- function(value) {
+        if (is.null(value) || length(value) == 0 || is.na(value)) {
+          return("")
+        }
+
+        format(as.POSIXct(value, tz = playback_actual_timezone()), "%Y-%m-%d %H:%M:%S %Z", tz = playback_actual_timezone())
+      }
+
+      format_export_date <- function(value) {
+        if (is.null(value) || length(value) == 0 || is.na(value)) {
+          return("")
+        }
+
+        as.character(as.Date(value, tz = playback_actual_timezone()))
+      }
+
+      prepare_observation_map_export_metadata <- function(processed_data, export_data) {
+        period_intervals_value <- if (is.function(period_intervals)) {
+          period_intervals()
+        } else {
+          NULL
+        }
+        period_names_value <- if (!is.null(period_intervals_value) && "period_name" %in% names(period_intervals_value)) {
+          period_intervals_value$period_name
+        } else {
+          character()
+        }
+        period_interval_text <- if (!is.null(period_intervals_value) && nrow(period_intervals_value) > 0) {
+          collapse_selection_values(vapply(seq_len(nrow(period_intervals_value)), function(index) {
+            sprintf(
+              "%s: %s to %s",
+              period_intervals_value$period_name[[index]],
+              format_export_date(period_intervals_value$start_date[[index]]),
+              format_export_date(period_intervals_value$end_date[[index]])
+            )
+          }, character(1)))
+        } else {
+          ""
+        }
+
+        selected_start_date <- if (is.function(period_start_date)) period_start_date() else NULL
+        selected_end_date <- if (is.function(period_end_date)) period_end_date() else NULL
+
+        data.frame(
+          Criterion = c(
+            "Downloaded at",
+            "Selected seasons",
+            "Selected season intervals",
+            "Selected date range",
+            "Playback window",
+            "Playback view mode",
+            "Playback increment",
+            "Selected species",
+            "Selected localities",
+            "Exclude possible duplicates",
+            "Include trapping data",
+            "Include data between seasons",
+            "Show trap check counters",
+            "Show unchecked traps",
+            "Trap locality distance km",
+            "Exported rows"
+          ),
+          Value = c(
+            format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z", tz = playback_actual_timezone()),
+            collapse_selection_values(period_names_value),
+            period_interval_text,
+            sprintf("%s to %s", format_export_date(selected_start_date), format_export_date(selected_end_date)),
+            sprintf("%s to %s", format_export_datetime(processed_data$start_time), format_export_datetime(processed_data$current_time)),
+            if (is.null(input$playback_view_mode)) "" else as.character(input$playback_view_mode),
+            if (is.null(input$playback_step_size)) "" else as.character(input$playback_step_size),
+            collapse_selection_values(current_selected_species()),
+            collapse_selection_values(current_selected_localities()),
+            as.character(isTRUE(exclude_possible_duplicates_selected())),
+            as.character(isTRUE(include_trap_data_selected())),
+            as.character(isTRUE(include_trap_between_seasons_selected())),
+            as.character(isTRUE(show_trap_blank_checks_selected())),
+            as.character(isTRUE(show_trap_unchecked_locations_selected())),
+            as.character(trap_locality_distance_km_selected()),
+            as.character(nrow(export_data))
+          ),
+          check.names = FALSE
+        )
+      }
+
       output$observation_data_table <- DT::renderDataTable({
+        req(identical(input$observation_map_tabs, ns("data_tab")))
         processed_data <- req(observation_map_processed_data())
         table_data <- prepare_observation_map_table(processed_data$observations_for_table)
 
@@ -3136,6 +3287,7 @@ mapping_module_server <- function(id,
       })
 
       output$observation_export_table <- DT::renderDataTable({
+        req(identical(input$observation_map_tabs, ns("export_tab")))
         processed_data <- req(observation_map_processed_data())
         export_data <- prepare_observation_map_export(processed_data$observations_for_table)
 
@@ -3155,11 +3307,17 @@ mapping_module_server <- function(id,
         content = function(file) {
           processed_data <- req(observation_map_processed_data())
           export_data <- prepare_observation_map_export(processed_data$observations_for_table)
-          utils::write.csv(export_data, file, row.names = FALSE, na = "")
+          metadata <- prepare_observation_map_export_metadata(processed_data, export_data)
+          connection <- file(file, open = "w")
+          on.exit(close(connection), add = TRUE)
+          utils::write.csv(metadata, connection, row.names = FALSE, na = "")
+          writeLines("", connection)
+          utils::write.csv(export_data, connection, row.names = FALSE, na = "")
         }
       )
 
       output$observation_cumulative_data_table <- DT::renderDataTable({
+        req(identical(input$observation_map_tabs, ns("cumulative_data_tab")))
         processed_data <- req(observation_map_processed_data())
         table_data <- prepare_observation_map_table(processed_data$cumulative_observations_for_table)
 
@@ -3978,6 +4136,74 @@ parse_trap_map_date <- function(value) {
   parsed
 }
 
+normalise_trap_period_intervals <- function(period_intervals) {
+  if (is.null(period_intervals) || nrow(period_intervals) == 0) {
+    return(NULL)
+  }
+
+  start_column <- if ("start_date" %in% names(period_intervals)) "start_date" else "start"
+  end_column <- if ("end_date" %in% names(period_intervals)) "end_date" else "end"
+  if (!all(c(start_column, end_column) %in% names(period_intervals))) {
+    return(NULL)
+  }
+
+  intervals <- data.frame(
+    start = playback_date_midnight(period_intervals[[start_column]]),
+    end = playback_date_end(period_intervals[[end_column]]),
+    stringsAsFactors = FALSE
+  )
+  intervals <- intervals[!is.na(intervals$start) & !is.na(intervals$end), , drop = FALSE]
+  intervals <- intervals[intervals$start <= intervals$end, , drop = FALSE]
+
+  if (nrow(intervals) == 0) {
+    return(NULL)
+  }
+
+  intervals
+}
+
+trap_intervals_overlap_periods <- function(start_times,
+                                           end_times,
+                                           period_intervals,
+                                           window_start = NULL,
+                                           window_end = NULL) {
+  periods <- normalise_trap_period_intervals(period_intervals)
+  row_count <- length(start_times)
+  if (is.null(periods)) {
+    return(rep(TRUE, row_count))
+  }
+
+  timezone <- playback_actual_timezone()
+  row_start <- as.POSIXct(start_times, tz = timezone)
+  row_end <- as.POSIXct(end_times, tz = timezone)
+
+  if (!is.null(window_start) && !is.na(window_start)) {
+    window_start <- as.POSIXct(window_start, tz = timezone)
+    row_start <- as.POSIXct(
+      pmax(as.numeric(row_start), as.numeric(window_start), na.rm = FALSE),
+      origin = "1970-01-01",
+      tz = timezone
+    )
+  }
+
+  if (!is.null(window_end) && !is.na(window_end)) {
+    window_end <- as.POSIXct(window_end, tz = timezone)
+    row_end <- as.POSIXct(
+      pmin(as.numeric(row_end), as.numeric(window_end), na.rm = FALSE),
+      origin = "1970-01-01",
+      tz = timezone
+    )
+  }
+
+  vapply(seq_len(row_count), function(index) {
+    if (is.na(row_start[[index]]) || is.na(row_end[[index]]) || row_end[[index]] < row_start[[index]]) {
+      return(FALSE)
+    }
+
+    any(periods$start <= row_end[[index]] & periods$end >= row_start[[index]])
+  }, logical(1))
+}
+
 prepare_trap_observations_for_map <- function(trap_data_value,
                                               start_date,
                                               end_date,
@@ -3985,7 +4211,8 @@ prepare_trap_observations_for_map <- function(trap_data_value,
                                               selected_localities = NULL,
                                               max_locality_distance_km = 1,
                                               include_blank_checks = FALSE,
-                                              include_unchecked_locations = FALSE) {
+                                              include_unchecked_locations = FALSE,
+                                              period_intervals = NULL) {
   if (is.null(trap_data_value) ||
       is.null(trap_data_value$obs) ||
       is.null(trap_data_value$deps) ||
@@ -3995,6 +4222,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
 
   trap_obs <- trap_data_value$obs
   trap_deps <- trap_data_value$deps
+  selected_period_intervals <- normalise_trap_period_intervals(period_intervals)
 
   if (!all(c("deploymentID", "latitude", "longitude", "locationName") %in% names(trap_deps))) {
     return(dplyr::tibble())
@@ -4052,11 +4280,14 @@ prepare_trap_observations_for_map <- function(trap_data_value,
   trap_checks_in_window <- trap_obs %>%
     dplyr::mutate(
       check_date = parse_trap_map_date(eventStart),
-      prior_check_date = parse_trap_map_date(prior_check_date)
+      prior_check_date = parse_trap_map_date(prior_check_date),
+      display_start_time = as.POSIXct(prior_check_date, tz = playback_actual_timezone()),
+      display_end_time = as.POSIXct(check_date + 1, tz = playback_actual_timezone()) - 1
     ) %>%
     dplyr::filter(
-      .data$check_date >= as.Date(start_date),
-      .data$check_date <= as.Date(end_date)
+      .data$display_start_time <= as.POSIXct(as.Date(end_date) + 1, tz = playback_actual_timezone()) - 1,
+      .data$display_end_time >= as.POSIXct(as.Date(start_date), tz = playback_actual_timezone()),
+      trap_intervals_overlap_periods(.data$display_start_time, .data$display_end_time, selected_period_intervals)
     ) %>%
     dplyr::left_join(trap_deployment_fields, by = "deploymentID")
 
@@ -4287,7 +4518,8 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       dplyr::filter(
         .data$trap_marker_type %in% c("kill", "check"),
         .data$display_start_time <= as.POSIXct(as.Date(end_date) + 1, tz = playback_actual_timezone()) - 1,
-        .data$display_end_time >= as.POSIXct(as.Date(start_date), tz = playback_actual_timezone())
+        .data$display_end_time >= as.POSIXct(as.Date(start_date), tz = playback_actual_timezone()),
+        trap_intervals_overlap_periods(.data$display_start_time, .data$display_end_time, selected_period_intervals)
       ) %>%
       dplyr::left_join(trap_deployment_fields, by = "deploymentID") %>%
       dplyr::left_join(trap_location_metrics, by = "locationID")

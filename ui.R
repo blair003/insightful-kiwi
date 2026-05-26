@@ -1,7 +1,7 @@
 # ui.R
 
 ui <- function(request) {
-  season_choices <- period_names_without_all(core_data$period_groups)
+  season_choices <- period_names_without_all(core_data$period_groups, assignable_only = FALSE)
 
   tagList(
   useShinyjs(), 

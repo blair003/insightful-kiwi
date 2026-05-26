@@ -102,6 +102,7 @@ period_selection_module_server <- function(id,
     end_date <- reactiveVal(NULL)
     period_name <- reactiveVal(NULL)
     period_names <- reactiveVal(NULL)
+    period_intervals <- reactiveVal(NULL)
 
     valid_selected_periods <- function(period_selection) {
       selected_periods <- as.character(period_selection)
@@ -122,6 +123,14 @@ period_selection_module_server <- function(id,
       end_date(max(do.call(c, lapply(selected_groups, `[[`, "end_date")), na.rm = TRUE))
       period_names(selected_periods)
       period_name(paste(selected_periods, collapse = ", "))
+      period_intervals(dplyr::bind_rows(lapply(selected_periods, function(period) {
+        data.frame(
+          period_name = period,
+          start_date = selected_groups[[period]]$start_date,
+          end_date = selected_groups[[period]]$end_date,
+          stringsAsFactors = FALSE
+        )
+      })))
     }
 
     initial_period_name <- if (!is.null(selected) && any(selected %in% names(period_groups))) {
@@ -188,7 +197,8 @@ period_selection_module_server <- function(id,
       start_date = start_date,
       end_date = end_date,
       period_name = period_name,
-      period_names = period_names
+      period_names = period_names,
+      period_intervals = period_intervals
     ))
   })
 }

@@ -1351,6 +1351,7 @@ server <- function(input, output, session) {
         deps = filtered_deps_observation_map,
         period_start_date = observation_map_period$start_date,
         period_end_date = observation_map_period$end_date,
+        period_intervals = observation_map_period$period_intervals,
         playback_mode = "always",
         use_net = global_use_net,
         trap_data = reactive(trap_data)
