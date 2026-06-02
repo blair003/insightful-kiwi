@@ -43,15 +43,115 @@ find_matching_prior_year_period <- function(period_name, period_groups) {
   NA_character_
 }
 
-get_period_index <- function(period_groups, period_name) {
-  if (length(period_name) != 1 || is.na(period_name)) {
-    return(1)
+period_index_value <- function(value) {
+  if (is.null(value) || length(value) == 0) {
+    return(NA_integer_)
   }
 
-  period_index <- match(period_name, period_names_without_all(period_groups))
+  suppressWarnings(as.integer(value[[1]]))
+}
 
+normalise_period_index <- function(period_groups,
+                                   period_index = NULL,
+                                   period_name = NULL,
+                                   default = 1L,
+                                   assignable_only = TRUE) {
+  period_names <- period_names_without_all(period_groups, assignable_only = assignable_only)
+  if (length(period_names) == 0) {
+    return(NA_integer_)
+  }
+
+  if (length(period_name) == 1 && !is.na(period_name)) {
+    matched_index <- match(as.character(period_name), period_names)
+    if (!is.na(matched_index)) {
+      return(as.integer(matched_index))
+    }
+  }
+
+  resolved_index <- period_index_value(period_index)
+  if (is.na(resolved_index)) {
+    resolved_index <- period_index_value(default)
+  }
+  if (is.na(resolved_index)) {
+    resolved_index <- 1L
+  }
+
+  as.integer(min(max(resolved_index, 1L), length(period_names)))
+}
+
+period_name_from_index <- function(period_groups,
+                                   period_index = NULL,
+                                   period_name = NULL,
+                                   fallback = NULL,
+                                   assignable_only = TRUE) {
+  period_names <- period_names_without_all(period_groups, assignable_only = assignable_only)
+
+  if (length(period_name) == 1 && !is.na(period_name)) {
+    period_name <- as.character(period_name)
+    if (period_name %in% period_names) {
+      return(period_name)
+    }
+  }
+
+  if (!is.null(period_index) && length(period_index) > 0) {
+    period_index_name <- as.character(period_index[[1]])
+    if (!is.na(period_index_name) && period_index_name %in% period_names) {
+      return(period_index_name)
+    }
+
+    period_index <- normalise_period_index(
+      period_groups,
+      period_index = period_index,
+      assignable_only = assignable_only
+    )
+    if (!is.na(period_index)) {
+      return(period_names[[period_index]])
+    }
+  }
+
+  if (length(fallback) == 1 && !is.na(fallback)) {
+    fallback <- as.character(fallback)
+    if (fallback %in% period_names || fallback %in% names(period_groups)) {
+      return(fallback)
+    }
+  }
+
+  if (length(period_names) > 0) {
+    return(period_names[[1]])
+  }
+  if (length(names(period_groups)) > 0) {
+    return(names(period_groups)[[1]])
+  }
+
+  NA_character_
+}
+
+period_names_from_index <- function(period_groups,
+                                    period_index = NULL,
+                                    period_name = NULL,
+                                    assignable_only = TRUE) {
+  period_names <- period_names_without_all(period_groups, assignable_only = assignable_only)
+  if (length(period_names) == 0) {
+    return(character(0))
+  }
+
+  period_index <- normalise_period_index(
+    period_groups,
+    period_index = period_index,
+    period_name = period_name,
+    assignable_only = assignable_only
+  )
   if (is.na(period_index)) {
-    return(1)
+    return(character(0))
+  }
+
+  period_names[seq.int(period_index, length(period_names))]
+}
+
+get_period_index <- function(period_groups, period_name) {
+  period_index <- normalise_period_index(period_groups, period_name = period_name)
+  if (is.na(period_index)) {
+    return(1L)
   }
 
   period_index
@@ -108,28 +208,53 @@ summarise_period_annotation_completeness <- function(deps, period_groups) {
     dplyr::bind_rows()
 }
 
-get_default_complete_period_selection <- function(deps, period_groups) {
+get_default_complete_period_selection <- function(deps, period_groups, config = NULL) {
   period_names <- period_names_without_all(period_groups)
   completion_summary <- summarise_period_annotation_completeness(deps, period_groups)
   complete_periods <- completion_summary$period[completion_summary$is_complete]
 
-  primary_period <- if (length(complete_periods) > 0) {
+  fallback_primary_period <- if (length(complete_periods) > 0) {
     complete_periods[[1]]
   } else if (length(period_names) > 0) {
     period_names[[1]]
-  } else {
+  } else if (length(names(period_groups)) > 0) {
     names(period_groups)[[1]]
+  } else {
+    NA_character_
   }
 
-  comparative_period <- find_matching_prior_year_period(primary_period, period_groups)
-  if (is.na(comparative_period)) {
+  default_primary_period <- if (!is.null(config$globals$default_primary_period)) {
+    config$globals$default_primary_period
+  } else {
+    NULL
+  }
+  default_comparative_period <- if (!is.null(config$globals$default_comparative_period)) {
+    config$globals$default_comparative_period
+  } else {
+    NULL
+  }
+
+  primary_period <- period_name_from_index(
+    period_groups,
+    period_index = default_primary_period,
+    fallback = fallback_primary_period
+  )
+
+  fallback_comparative_period <- find_matching_prior_year_period(primary_period, period_groups)
+  if (is.na(fallback_comparative_period)) {
     primary_index <- match(primary_period, period_names)
-    comparative_period <- if (!is.na(primary_index) && primary_index < length(period_names)) {
+    fallback_comparative_period <- if (!is.na(primary_index) && primary_index < length(period_names)) {
       period_names[[primary_index + 1]]
     } else {
       primary_period
     }
   }
+
+  comparative_period <- period_name_from_index(
+    period_groups,
+    period_index = default_comparative_period,
+    fallback = fallback_comparative_period
+  )
 
   list(
     primary_period = primary_period,

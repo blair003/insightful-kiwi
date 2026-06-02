@@ -155,21 +155,11 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
 dashboard_module_server <- function(id, core_data, config, use_net = reactive(config$globals$use_net_data)) {
   moduleServer(id, function(input, output, session) {
     period_defaults <- species_dashboard_period_defaults(core_data)
-    dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
-    primary_period_index <- core_data$app$period_defaults$primary_period_index
-    if (length(primary_period_index) != 1 || is.na(primary_period_index)) {
-      primary_period_index <- get_period_index(core_data$period_groups, period_defaults$current_period)
-    }
-    primary_period_index <- suppressWarnings(as.integer(primary_period_index[[1]]))
-    if (is.na(primary_period_index)) {
-      primary_period_index <- 1L
-    }
-    primary_period_index <- min(max(primary_period_index, 1L), length(dashboard_plot_periods))
-    dashboard_plot_periods <- if (length(dashboard_plot_periods) > 0) {
-      dashboard_plot_periods[seq.int(primary_period_index, length(dashboard_plot_periods))]
-    } else {
-      character(0)
-    }
+    dashboard_plot_periods <- period_names_from_index(
+      core_data$period_groups,
+      period_index = core_data$app$period_defaults$primary_period_index,
+      period_name = period_defaults$current_period
+    )
     dashboard_plot_deps <- core_data$deps %>%
       dplyr::filter(as.character(period) %in% dashboard_plot_periods)
 

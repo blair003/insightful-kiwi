@@ -1,20 +1,11 @@
 species_dashboard_period_defaults <- function(core_data) {
   period_names <- period_names_without_all(core_data$period_groups)
-  fallback_period <- if (length(period_names) > 0) {
-    period_names[[1]]
-  } else if (length(names(core_data$period_groups)) > 0) {
-    names(core_data$period_groups)[[1]]
-  } else {
-    NA_character_
-  }
-
-  current_period <- core_data$app$period_defaults$primary_period
-  current_period <- if (length(current_period) > 0 && !is.na(current_period[[1]]) && nzchar(as.character(current_period[[1]]))) {
-    as.character(current_period[[1]])
-  } else {
-    fallback_period
-  }
-  current_period_index <- match(current_period, period_names)
+  current_period <- period_name_from_index(
+    core_data$period_groups,
+    period_index = core_data$app$period_defaults$primary_period_index,
+    period_name = core_data$app$period_defaults$primary_period
+  )
+  current_period_index <- normalise_period_index(core_data$period_groups, period_name = current_period)
 
   prior_period <- if (length(current_period_index) == 1 && !is.na(current_period_index) && current_period_index < length(period_names)) {
     period_names[[current_period_index + 1]]
@@ -24,12 +15,12 @@ species_dashboard_period_defaults <- function(core_data) {
 
   last_year_period <- find_matching_prior_year_period(current_period, core_data$period_groups)
   if (length(last_year_period) != 1 || is.na(last_year_period)) {
-    comparative_period <- core_data$app$period_defaults$comparative_period
-    last_year_period <- if (length(comparative_period) > 0 && !is.na(comparative_period[[1]]) && nzchar(as.character(comparative_period[[1]]))) {
-      as.character(comparative_period[[1]])
-    } else {
-      prior_period
-    }
+    last_year_period <- period_name_from_index(
+      core_data$period_groups,
+      period_index = core_data$app$period_defaults$comparative_period_index,
+      period_name = core_data$app$period_defaults$comparative_period,
+      fallback = prior_period
+    )
   }
 
   list(

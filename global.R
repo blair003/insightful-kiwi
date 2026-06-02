@@ -87,7 +87,8 @@ rm(trap_data_result)
 core_data <- update_year_period_bounds_from_observations(core_data, trap_data, config)
 core_data$app$period_defaults <- get_default_complete_period_selection(
   core_data$deps,
-  core_data$period_groups
+  core_data$period_groups,
+  config
 )
 
 source("R/modules/period_selection_module.R")

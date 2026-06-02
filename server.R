@@ -421,13 +421,14 @@ server <- function(input, output, session) {
       observation_map_period$end_date()
     ))
   })
-  
+
   dashboard_state <- dashboard_module_server("dashboard", core_data = core_data, config = config, use_net = global_use_net)
 
-  dashboard_plot_periods <- period_names_without_all(core_data$period_groups)
-  dashboard_plot_periods <- dashboard_plot_periods[
-    seq(core_data$app$period_defaults$primary_period_index, length(dashboard_plot_periods))
-  ]
+  dashboard_plot_periods <- period_names_from_index(
+    core_data$period_groups,
+    period_index = core_data$app$period_defaults$primary_period_index,
+    period_name = core_data$app$period_defaults$primary_period
+  )
   dashboard_plot_deps <- core_data$deps %>%
     dplyr::filter(as.character(period) %in% dashboard_plot_periods)
 
