@@ -73,6 +73,20 @@ if (file.exists("config/.env")) {
 if (!is.null(config$globals$ga_tag) && !nzchar(config$globals$ga_tag) && nzchar(Sys.getenv("GA_TAG"))) {
   config$globals$ga_tag <- Sys.getenv("GA_TAG")
 }
+download_image_cache_on_startup_env <- Sys.getenv("DOWNLOAD_IMAGE_CACHE_ON_STARTUP")
+if (nzchar(download_image_cache_on_startup_env)) {
+  normalized_download_image_cache_on_startup <- tolower(trimws(download_image_cache_on_startup_env))
+  if (normalized_download_image_cache_on_startup %in% c("true", "t", "1", "yes", "y", "on")) {
+    config$globals$download_image_cache_on_startup <- TRUE
+  } else if (normalized_download_image_cache_on_startup %in% c("false", "f", "0", "no", "n", "off")) {
+    config$globals$download_image_cache_on_startup <- FALSE
+  } else {
+    logger::log_warn(
+      "Ignoring invalid DOWNLOAD_IMAGE_CACHE_ON_STARTUP value '%s'. Use TRUE or FALSE.",
+      download_image_cache_on_startup_env
+    )
+  }
+}
 
 
 core_data_weather_deferred <- local({

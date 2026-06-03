@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-ssh sitehost '
+ssh -t sitehost '
   cd /opt/docker/services/shiny-server/data/wkt.insightful.kiwi &&
   git pull --ff-only &&
   cd /opt/docker/services/shiny-server &&
