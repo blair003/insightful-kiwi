@@ -51,6 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
     git \
+    openssh-client \
     pandoc \
     google-chrome-stable \
     && apt-get clean \

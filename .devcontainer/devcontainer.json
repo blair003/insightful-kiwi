@@ -6,6 +6,14 @@
   },
   "workspaceFolder": "/srv/shiny-server/insightful.kiwi",
   "workspaceMount": "source=${localWorkspaceFolder},target=/srv/shiny-server/insightful.kiwi,type=bind,consistency=cached",
+
+  "mounts": [
+    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+  ],
+  "containerEnv": {
+    "SSH_AUTH_SOCK": "/ssh-agent"
+  },
+
   "forwardPorts": [3838],
   "portsAttributes": {
     "3838": {
