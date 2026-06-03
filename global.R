@@ -64,8 +64,15 @@ source("R/functions/import/weather_enrichment_functions.R")
 source("R/functions/import/core_data_build_functions.R")
 source("R/functions/import/trap_data_import_functions.R")
 
-# Load environment variables (dotenv is now available)
-dotenv::load_dot_env("config/.env")
+# Load optional local environment variables (dotenv is now available).
+if (file.exists("config/.env")) {
+  dotenv::load_dot_env("config/.env")
+} else {
+  logger::log_info("No config/.env file found; continuing with process environment variables.")
+}
+if (!is.null(config$globals$ga_tag) && !nzchar(config$globals$ga_tag) && nzchar(Sys.getenv("GA_TAG"))) {
+  config$globals$ga_tag <- Sys.getenv("GA_TAG")
+}
 
 
 core_data_weather_deferred <- local({
@@ -143,30 +150,34 @@ rm(core_data_weather_deferred)
 
 
 # --- Background Caching of favourite and selected species images on Startup ---
-logger::log_info("Attempting to launch background image caching process...")
+if (isTRUE(config$globals$download_image_cache_on_startup)) {
+  logger::log_info("Attempting to launch background image caching process...")
 
-image_cache_log_run_id <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
-image_cache_log_file <- image_cache_log_path(config, "image-cache")
+  image_cache_log_run_id <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+  image_cache_log_file <- image_cache_log_path(config, "image-cache")
 
-future::future({
-  configure_image_cache_logger(config, image_cache_log_file)
+  future::future({
+    configure_image_cache_logger(config, image_cache_log_file)
 
-  logger::log_info("----- Background image caching started: %s -----", Sys.time())
+    logger::log_info("----- Background image caching started: %s -----", Sys.time())
 
-  tryCatch({
-    cache_selected_images(core_data$media, core_data$obs, config)
-    logger::log_info("----- Background image caching finished: %s -----", Sys.time())
-    TRUE
-  }, error = function(e) {
-    msg <- conditionMessage(e)
-    logger::log_error("Background image caching process failed: %s", msg)
-    stop(msg)
+    tryCatch({
+      cache_selected_images(core_data$media, core_data$obs, config)
+      logger::log_info("----- Background image caching finished: %s -----", Sys.time())
+      TRUE
+    }, error = function(e) {
+      msg <- conditionMessage(e)
+      logger::log_error("Background image caching process failed: %s", msg)
+      stop(msg)
+    })
+  }, seed = TRUE) %...>% {
+    logger::log_info("Background image caching complete. Details written to %s", image_cache_log_file)
+  } %...!% (function(error) {
+    logger::log_error("Background caching process failed: %s", conditionMessage(error))
   })
-}, seed = TRUE) %...>% {
-  logger::log_info("Background image caching complete. Details written to %s", image_cache_log_file)
-} %...!% (function(error) {
-  logger::log_error("Background caching process failed: %s", conditionMessage(error))
-})
+} else {
+  logger::log_info("Background image caching skipped; set config$globals$download_image_cache_on_startup = TRUE to enable it.")
+}
 # --- End Background Caching ---
 
 enableBookmarking(store = "url")

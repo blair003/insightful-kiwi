@@ -119,6 +119,10 @@ config$globals <- list(
   # Size of resized image copies, being width (left to right). Aspect ratio will be 
   # maintained. Recommended 800, 1024, 1200 as we have placeholder images
   image_resize_width_pixels = 1200,
+
+  # TRUE downloads/caches favourite and selected species images in the background
+  # when the app starts. This can use multiple GB of disk and bandwidth.
+  download_image_cache_on_startup = FALSE,
   
   # How far from a location an species icon can be randomly dispersed
   marker_offset_value = 0.0002,
