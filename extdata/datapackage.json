@@ -1,8 +1,8 @@
 {
   "profile": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/camtrap-dp-profile.json",
-  "name": "whakatane-kiwi-trust-20260604212056",
-  "id": "95878f64-e7ab-4f3c-ac75-89896fadf25f",
-  "created": "2026-06-04T21:20:56Z",
+  "name": "whakatane-kiwi-trust-20260606204212",
+  "id": "0e561ddb-3cd3-4c02-ab40-4e884d1c145f",
+  "created": "2026-06-06T20:42:12Z",
   "contributors": [
     {
       "title": "Agouti Admins",
@@ -443,6 +443,17 @@
       "vernacularNames": {
         "eng": "Common pheasant",
         "nld": "Fazant"
+      }
+    },
+    {
+      "scientificName": "Phylloscopus collybita",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/6VFMH",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Phylloscopidae",
+      "vernacularNames": {
+        "eng": "Common chiffchaff",
+        "nld": "Tjiftjaf"
       }
     },
     {
