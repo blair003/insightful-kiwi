@@ -140,6 +140,28 @@ playback_update_slider <- function(session, input_id, points, value) {
   updateSliderInput(session, input_id, value = playback_index_for_time(points, value))
 }
 
+playback_index_at_or_after_time <- function(points, value) {
+  if (is.null(points) || length(points) == 0) {
+    return(1L)
+  }
+
+  value <- as.POSIXct(value, tz = playback_actual_timezone())
+  if (is.null(value) || length(value) == 0 || is.na(value)) {
+    return(1L)
+  }
+
+  candidates <- which(as.numeric(points) >= as.numeric(value))
+  if (length(candidates) == 0) {
+    return(length(points))
+  }
+
+  candidates[[1]]
+}
+
+playback_skip_slider_to_time <- function(session, input_id, points, value) {
+  updateSliderInput(session, input_id, value = playback_index_at_or_after_time(points, value))
+}
+
 playback_as_date <- function(value) {
   if (inherits(value, "POSIXt")) {
     return(as.Date(value, tz = playback_actual_timezone()))
@@ -732,19 +754,21 @@ mapping_module_ui <- function(id,
           conditionalPanel(
             condition = "input.include_trap_data",
             ns = ns,
-            checkboxInput(
-              inputId = ns("include_trap_between_seasons"),
-              label = "Include data between seasons",
-              value = FALSE
-            )
-          )
-        },
-        if (isTRUE(trap_data_available)) {
-          conditionalPanel(
-            condition = "input.include_trap_data",
-            ns = ns,
             tags$div(
               class = "trap-data-options",
+              sliderInput(
+                inputId = ns("trap_locality_distance_km"),
+                label = tags$small("Maximum distance (km) from selected localities"),
+                min = 0,
+                max = trap_distance_max,
+                value = min(1.0, trap_distance_max),
+                step = 0.25
+              ),
+              checkboxInput(
+                inputId = ns("include_trap_between_seasons"),
+                label = "Include data between monitoring seasons",
+                value = TRUE
+              ),
               checkboxInput(
                 inputId = ns("show_trap_blank_checks"),
                 label = "Show trap check counters",
@@ -754,14 +778,6 @@ mapping_module_ui <- function(id,
                 inputId = ns("show_trap_unchecked_locations"),
                 label = "Show unchecked traps",
                 value = FALSE
-              ),
-              sliderInput(
-                inputId = ns("trap_locality_distance_km"),
-                label = "Include traps within km of selected localities",
-                min = 0,
-                max = trap_distance_max,
-                value = min(0.5, trap_distance_max),
-                step = 0.25
               )
             )
           )
@@ -802,11 +818,6 @@ mapping_module_ui <- function(id,
             "Season" = "season"
           ),
           selected = "day"
-        ),
-        checkboxInput(
-          inputId = ns("skip_playback_gaps"),
-          label = "Skip gaps in monitoring data",
-          value = TRUE
         ),
         if (isTRUE(include_marker_options)) {
           checkboxInput(
@@ -1235,9 +1246,7 @@ mapping_module_server <- function(id,
         identical(playback_mode, "always")
       })
 
-      skip_playback_gaps <- reactive({
-        isTRUE(input$skip_playback_gaps)
-      })
+      skip_playback_gaps <- function() TRUE
 
       playback_period_groups <- reactive({
         if (exists("core_data", inherits = TRUE) && !is.null(core_data$period_groups)) {
@@ -1571,9 +1580,11 @@ mapping_module_server <- function(id,
           resume_id <- playback_skip_resume_id() + 1L
           playback_skip_resume_id(resume_id)
           shinyjs::delay(3000, {
-            req(playback_active())
-            req(identical(playback_skip_resume_id(), resume_id))
-            playback_update_slider(session, "time_slider", playback_points(), skip_target$target)
+            if (!isTRUE(playback_active()) ||
+                !identical(playback_skip_resume_id(), resume_id)) {
+              return()
+            }
+            playback_skip_slider_to_time(session, "time_slider", playback_points(), skip_target$target)
             playback_gap_notice(NULL)
             is_playing(TRUE)
           })
@@ -2281,7 +2292,7 @@ mapping_module_server <- function(id,
       })
 
       skip_playback_gaps_obs <- reactive({
-        isTRUE(input$skip_playback_gaps)
+        !(include_trap_data_selected() && include_trap_between_seasons_selected())
       })
 
       playback_period_groups_obs <- reactive({
@@ -2583,9 +2594,11 @@ mapping_module_server <- function(id,
           resume_id <- playback_skip_resume_id_obs() + 1L
           playback_skip_resume_id_obs(resume_id)
           shinyjs::delay(3000, {
-            req(playback_active_obs())
-            req(identical(playback_skip_resume_id_obs(), resume_id))
-            playback_update_slider(session, "time_slider", playback_points_obs(), skip_target$target)
+            if (!isTRUE(playback_active_obs()) ||
+                !identical(playback_skip_resume_id_obs(), resume_id)) {
+              return()
+            }
+            playback_skip_slider_to_time(session, "time_slider", playback_points_obs(), skip_target$target)
             playback_gap_notice_obs(NULL)
             is_playing_obs(TRUE)
           })
