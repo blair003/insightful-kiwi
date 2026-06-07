@@ -215,6 +215,27 @@ get_image_cache_web_path <- function(config) {
 }
 
 
+get_favourites_manifest_path <- function(config) {
+  if (is.null(config$env$dirs$media_cache_metadata)) {
+    stop("config$env$dirs$media_cache_metadata is not configured.")
+  }
+
+  file.path(config$env$dirs$media_cache_metadata, "favourites_manifest.csv")
+}
+
+# --- Background Caching of favourite and selected species images on Startup ---
+rebuild_favourites_manifest_from_local_cache <- function() {
+  tryCatch({
+    rebuild_favourites_manifest_from_cached_files(core_data$media, core_data$obs, config)
+  }, error = function(e) {
+    logger::log_warn(
+      "global.R, favourites image manifest rebuild from local cache failed: %s",
+      conditionMessage(e)
+    )
+  })
+}
+
+
 image_cache_file_url <- function(file_path, config = NULL) {
   if (is.null(file_path) || is.na(file_path) || !nzchar(file_path)) {
     return(NA_character_)
@@ -242,6 +263,202 @@ find_cached_image_file <- function(config, hash_dir_name, file_name) {
   }
 
   cached_file
+}
+
+
+image_cache_folder_name <- function(value, fallback = NA_character_) {
+  if (is.null(value) || length(value) == 0 || is.na(value[[1]])) {
+    return(fallback)
+  }
+
+  folder <- gsub("[^a-zA-Z0-9_ -]", "", trimws(as.character(value[[1]])))
+  if (!nzchar(folder)) {
+    return(fallback)
+  }
+
+  folder
+}
+
+
+empty_favourites_manifest <- function() {
+  data.frame(
+    web_path = character(0),
+    context = character(0),
+    sequenceID = character(0),
+    observationID = character(0),
+    period = character(0),
+    scientificName = character(0),
+    fileName = character(0),
+    sourceFilePath = character(0),
+    stringsAsFactors = FALSE
+  )
+}
+
+
+write_favourites_manifest <- function(manifest, config) {
+  manifest_path <- get_favourites_manifest_path(config)
+  manifest_dir <- dirname(manifest_path)
+  if (!dir.exists(manifest_dir)) {
+    dir.create(manifest_dir, recursive = TRUE)
+  }
+
+  utils::write.csv(manifest, manifest_path, row.names = FALSE)
+  manifest_path
+}
+
+
+cached_resized_to_original_filename <- function(file_name) {
+  sub("_resized(?=\\.[Jj][Pp][Gg]$)", "", file_name, perl = TRUE)
+}
+
+
+rebuild_favourites_manifest_from_cached_files <- function(media_df, obs_df, config) {
+  favourites_dir <- file.path(get_primary_image_cache_dir(config), "favourites")
+  manifest <- empty_favourites_manifest()
+
+  if (!dir.exists(favourites_dir)) {
+    manifest_path <- write_favourites_manifest(manifest, config)
+    logger::log_info(
+      "No favourites image cache directory found at %s. Wrote empty favourites manifest: %s",
+      favourites_dir,
+      manifest_path
+    )
+    return(invisible(0L))
+  }
+
+  image_files <- list.files(
+    favourites_dir,
+    pattern = "_resized\\.[Jj][Pp][Gg]$",
+    recursive = TRUE,
+    full.names = TRUE
+  )
+
+  if (length(image_files) == 0) {
+    manifest_path <- write_favourites_manifest(manifest, config)
+    logger::log_info("No cached favourite images found. Wrote empty favourites manifest: %s", manifest_path)
+    return(invisible(0L))
+  }
+
+  if (!all(c("fileName", "sequenceID", "filePath") %in% names(media_df)) ||
+      !all(c("sequenceID", "observationID", "scientificName") %in% names(obs_df))) {
+    manifest_path <- write_favourites_manifest(manifest, config)
+    logger::log_warn(
+      "Cannot rebuild favourites manifest because core_data media/obs columns are incomplete. Wrote empty manifest: %s",
+      manifest_path
+    )
+    return(invisible(0L))
+  }
+
+  public_lookup <- get_media_public_flags(media_df, config)
+  media_df <- media_df[public_lookup$flags, , drop = FALSE]
+  media_df$fileName <- as.character(media_df$fileName)
+  media_df$sequenceID <- as.character(media_df$sequenceID)
+
+  obs_df$sequenceID <- as.character(obs_df$sequenceID)
+  obs_df$observationID <- as.character(obs_df$observationID)
+  obs_df$scientificName <- as.character(obs_df$scientificName)
+  if (!"period" %in% names(obs_df)) {
+    obs_df$period <- NA_character_
+  }
+
+  rows <- list()
+  favourites_prefix <- paste0(normalize_cache_file_path(favourites_dir), "/")
+
+  add_row <- function(web_path, context, sequence_id, observation_id, period, scientific_name, file_name, source_file_path) {
+    rows[[length(rows) + 1L]] <<- data.frame(
+      web_path = web_path,
+      context = context,
+      sequenceID = sequence_id,
+      observationID = observation_id,
+      period = period,
+      scientificName = scientific_name,
+      fileName = file_name,
+      sourceFilePath = source_file_path,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  for (cached_file in image_files) {
+    normalized_cached_file <- normalize_cache_file_path(cached_file)
+    if (!startsWith(normalized_cached_file, favourites_prefix)) {
+      next
+    }
+
+    relative_path <- substring(normalized_cached_file, nchar(favourites_prefix) + 1)
+    path_parts <- strsplit(relative_path, "/", fixed = TRUE)[[1]]
+    if (length(path_parts) < 2) {
+      next
+    }
+
+    folder <- path_parts[[1]]
+    resized_file_name <- basename(cached_file)
+    source_file_name <- cached_resized_to_original_filename(resized_file_name)
+    media_matches <- media_df[media_df$fileName == source_file_name, , drop = FALSE]
+    if (nrow(media_matches) == 0) {
+      next
+    }
+
+    web_path <- image_cache_file_url(cached_file, config)
+    if (is.na(web_path)) {
+      next
+    }
+
+    for (media_index in seq_len(nrow(media_matches))) {
+      sequence_id <- media_matches$sequenceID[[media_index]]
+      sequence_obs <- obs_df[obs_df$sequenceID == sequence_id, , drop = FALSE]
+      if (nrow(sequence_obs) == 0) {
+        next
+      }
+
+      period_matches <- !is.na(sequence_obs$period) &
+        vapply(sequence_obs$period, image_cache_folder_name, character(1)) == folder
+      if (any(period_matches)) {
+        obs_row <- sequence_obs[which(period_matches)[[1]], , drop = FALSE]
+        add_row(
+          web_path = web_path,
+          context = "period",
+          sequence_id = sequence_id,
+          observation_id = obs_row$observationID[[1]],
+          period = obs_row$period[[1]],
+          scientific_name = obs_row$scientificName[[1]],
+          file_name = source_file_name,
+          source_file_path = media_matches$filePath[[media_index]]
+        )
+      }
+
+      species_matches <- vapply(sequence_obs$scientificName, image_cache_folder_name, character(1)) == folder
+      if (any(species_matches)) {
+        species_obs <- sequence_obs[species_matches, , drop = FALSE]
+        species_obs <- species_obs[!duplicated(species_obs$scientificName), , drop = FALSE]
+        for (obs_index in seq_len(nrow(species_obs))) {
+          add_row(
+            web_path = web_path,
+            context = "species",
+            sequence_id = sequence_id,
+            observation_id = species_obs$observationID[[obs_index]],
+            period = species_obs$period[[obs_index]],
+            scientific_name = species_obs$scientificName[[obs_index]],
+            file_name = source_file_name,
+            source_file_path = media_matches$filePath[[media_index]]
+          )
+        }
+      }
+    }
+  }
+
+  if (length(rows) > 0) {
+    manifest <- do.call(rbind, rows)
+    manifest <- manifest[!duplicated(paste(manifest$web_path, manifest$context, manifest$observationID, sep = "|")), , drop = FALSE]
+  }
+
+  manifest_path <- write_favourites_manifest(manifest, config)
+  logger::log_info(
+    "Rebuilt favourites image manifest from local cache: %d rows written to %s",
+    nrow(manifest),
+    manifest_path
+  )
+
+  invisible(nrow(manifest))
 }
 
 
@@ -277,7 +494,7 @@ image_cache_log_path <- function(config, prefix = "image-cache") {
 cache_selected_images <- function(media_df, obs_df, config) {
   local_cache_dir <- get_primary_image_cache_dir(config)
   favourites_base_dir <- file.path(local_cache_dir, "favourites")
-  favourites_manifest_path <- file.path(favourites_base_dir, "_manifest.csv")
+  favourites_manifest_path <- get_favourites_manifest_path(config)
   cache_species_classes <- c("target", "interesting")
 
   get_cache_scalar <- function(value, fallback = NA_character_) {
@@ -291,21 +508,6 @@ cache_selected_images <- function(media_df, obs_df, config) {
     }
 
     value
-  }
-
-  sanitize_cache_folder <- function(value, fallback) {
-    folder <- get_cache_scalar(value, fallback)
-    if (is.na(folder)) {
-      return(fallback)
-    }
-
-    folder <- gsub("[^a-zA-Z0-9_ -]", "", folder)
-
-    if (is.na(folder) || nchar(trimws(folder)) == 0) {
-      return(fallback)
-    }
-
-    folder
   }
 
   get_column_value <- function(df, column, row_index, fallback = NA_character_) {
@@ -545,7 +747,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
         sequence_obs <- get_sequence_observations(sequence_id)
         observation_id <- if (nrow(sequence_obs) > 0) sequence_obs$observationID[[1]] else NA_character_
         period <- get_sequence_period(sequence_id, get_column_value(media_to_cache, "period", i))
-        period_folder <- sanitize_cache_folder(period, NA_character_)
+        period_folder <- image_cache_folder_name(period, NA_character_)
 
         if (is.na(period_folder)) {
           logger::log_warn(
@@ -581,7 +783,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
         if (nrow(sequence_obs) > 0) {
           sequence_obs <- sequence_obs[!duplicated(sequence_obs$scientificName), , drop = FALSE]
           for (obs_index in seq_len(nrow(sequence_obs))) {
-            species_folder <- sanitize_cache_folder(sequence_obs$scientificName[obs_index], "Unknown")
+            species_folder <- image_cache_folder_name(sequence_obs$scientificName[obs_index], "Unknown")
             species_dest_dir <- file.path(favourites_base_dir, species_folder)
             if (!dir.exists(species_dest_dir)) dir.create(species_dest_dir, recursive = TRUE)
             species_dest_file_path <- file.path(species_dest_dir, basename(resized_file_path))
@@ -613,8 +815,9 @@ cache_selected_images <- function(media_df, obs_df, config) {
   if (length(manifest_rows) > 0) {
     manifest <- do.call(rbind, manifest_rows)
     manifest <- manifest[!duplicated(paste(manifest$web_path, manifest$observationID, sep = "|")), , drop = FALSE]
-    if (!dir.exists(favourites_base_dir)) {
-      dir.create(favourites_base_dir, recursive = TRUE)
+    favourites_manifest_dir <- dirname(favourites_manifest_path)
+    if (!dir.exists(favourites_manifest_dir)) {
+      dir.create(favourites_manifest_dir, recursive = TRUE)
     }
     utils::write.csv(manifest, favourites_manifest_path, row.names = FALSE)
     logger::log_info("Wrote favourites image manifest: %s", favourites_manifest_path)

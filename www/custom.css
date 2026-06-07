@@ -319,6 +319,19 @@
         outline-offset: 4px;
       }
 
+      .dashboard-favourites-image-static {
+        cursor: default;
+      }
+
+      .dashboard-favourites-empty {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        color: #495057;
+        margin: 0.85rem 0 1rem;
+        padding: 1rem 1.15rem;
+      }
+
       .dashboard-favourites-slide img {
         aspect-ratio: 16 / 9;
         background: #f1f3f5;

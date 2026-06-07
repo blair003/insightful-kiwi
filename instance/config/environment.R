@@ -43,6 +43,7 @@ config$env$dirs$reports <- file.path(config$env$dirs$cache, "reports")
 config$env$dirs$plots <- file.path(config$env$dirs$cache, "plots")
 config$env$dirs$maps <- file.path(config$env$dirs$cache, "maps")
 config$env$dirs$media <- config$env$dirs$public_media_cache
+config$env$dirs$media_cache_metadata <- file.path(config$env$dirs$cache, "media-cache")
 
 config$env$trap_data_files <- list(
   raw_trap_data = "trap-data.csv",

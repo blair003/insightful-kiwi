@@ -1005,39 +1005,126 @@ render_dashboard_rai_cards <- function(locality = NULL,
   )
 }
 
+dashboard_empty_favourite_image_records <- function() {
+  data.frame(
+    web_path = character(0),
+    context = character(0),
+    sequenceID = character(0),
+    observationID = character(0),
+    period = character(0),
+    scientificName = character(0),
+    fileName = character(0),
+    sourceFilePath = character(0),
+    file_mtime = as.POSIXct(character(0)),
+    src = character(0),
+    stringsAsFactors = FALSE
+  )
+}
+
+
+dashboard_favourite_image_file_records <- function(max_images = 30,
+                                                   context = "period",
+                                                   period_name = NULL,
+                                                   species = NULL) {
+  favourites_dir <- file.path(get_primary_image_cache_dir(config), "favourites")
+  if (!dir.exists(favourites_dir)) {
+    return(dashboard_empty_favourite_image_records())
+  }
+
+  folder <- NA_character_
+  if (identical(context, "period") && !is.null(period_name)) {
+    folder <- image_cache_folder_name(period_name)
+  } else if (identical(context, "species") && !is.null(species)) {
+    folder <- image_cache_folder_name(species)
+  }
+
+  image_dir <- if (is.na(folder)) favourites_dir else file.path(favourites_dir, folder)
+  if (!dir.exists(image_dir)) {
+    return(dashboard_empty_favourite_image_records())
+  }
+
+  image_files <- list.files(
+    image_dir,
+    pattern = "_resized\\.[Jj][Pp][Gg]$",
+    recursive = is.na(folder),
+    full.names = TRUE
+  )
+  if (length(image_files) == 0) {
+    return(dashboard_empty_favourite_image_records())
+  }
+
+  file_mtime <- as.POSIXct(file.info(image_files)$mtime)
+  keep <- !is.na(file_mtime)
+  image_files <- image_files[keep]
+  file_mtime <- file_mtime[keep]
+  if (length(image_files) == 0) {
+    return(dashboard_empty_favourite_image_records())
+  }
+
+  order_index <- order(file_mtime, decreasing = TRUE)
+  image_files <- head(image_files[order_index], max_images)
+  file_mtime <- head(file_mtime[order_index], max_images)
+
+  web_paths <- vapply(image_files, image_cache_file_url, character(1), config = config)
+  keep <- !is.na(web_paths) & nzchar(web_paths)
+  if (!any(keep)) {
+    return(dashboard_empty_favourite_image_records())
+  }
+
+  data.frame(
+    web_path = web_paths[keep],
+    context = context,
+    sequenceID = NA_character_,
+    observationID = NA_character_,
+    period = if (identical(context, "period") && !is.null(period_name)) period_name else NA_character_,
+    scientificName = if (identical(context, "species") && !is.null(species)) species else NA_character_,
+    fileName = basename(image_files[keep]),
+    sourceFilePath = NA_character_,
+    file_mtime = file_mtime[keep],
+    src = encode_web_path(web_paths[keep]),
+    stringsAsFactors = FALSE
+  )
+}
+
+
 dashboard_favourite_image_records <- function(max_images = 30,
                                              context = "period",
                                              period_name = NULL,
                                              species = NULL) {
-  manifest_path <- file.path(get_primary_image_cache_dir(config), "favourites", "_manifest.csv")
+  manifest_path <- get_favourites_manifest_path(config)
+  manifest <- dashboard_empty_favourite_image_records()
 
-  if (!file.exists(manifest_path)) {
-    return(data.frame())
+  if (file.exists(manifest_path)) {
+    manifest <- utils::read.csv(manifest_path, stringsAsFactors = FALSE)
+    if (!all(c("web_path", "context", "observationID") %in% names(manifest))) {
+      manifest <- dashboard_empty_favourite_image_records()
+    }
   }
 
-  manifest <- utils::read.csv(manifest_path, stringsAsFactors = FALSE)
-  if (!all(c("web_path", "context", "observationID") %in% names(manifest))) {
-    return(data.frame())
+  if (nrow(manifest) > 0) {
+    manifest <- manifest[manifest$context == context, , drop = FALSE]
+    manifest <- manifest[!is.na(manifest$observationID) & nzchar(manifest$observationID), , drop = FALSE]
+    if (!is.null(period_name) && "period" %in% names(manifest)) {
+      manifest <- manifest[manifest$period == period_name, , drop = FALSE]
+    }
+    if (!is.null(species) && "scientificName" %in% names(manifest)) {
+      manifest <- manifest[tolower(manifest$scientificName) == tolower(species), , drop = FALSE]
+    }
   }
 
-  manifest <- manifest[manifest$context == context, , drop = FALSE]
-  manifest <- manifest[!is.na(manifest$observationID) & nzchar(manifest$observationID), , drop = FALSE]
-  if (!is.null(period_name) && "period" %in% names(manifest)) {
-    manifest <- manifest[manifest$period == period_name, , drop = FALSE]
-  }
-  if (!is.null(species) && "scientificName" %in% names(manifest)) {
-    manifest <- manifest[tolower(manifest$scientificName) == tolower(species), , drop = FALSE]
+  if (nrow(manifest) > 0) {
+    file_paths <- file.path("www", manifest$web_path)
+    manifest$file_mtime <- as.POSIXct(file.info(file_paths)$mtime)
+    manifest <- manifest[!is.na(manifest$file_mtime), , drop = FALSE]
   }
 
   if (nrow(manifest) == 0) {
-    return(manifest)
-  }
-
-  file_paths <- file.path("www", manifest$web_path)
-  manifest$file_mtime <- as.POSIXct(file.info(file_paths)$mtime)
-  manifest <- manifest[!is.na(manifest$file_mtime), , drop = FALSE]
-  if (nrow(manifest) == 0) {
-    return(manifest)
+    return(dashboard_favourite_image_file_records(
+      max_images = max_images,
+      context = context,
+      period_name = period_name,
+      species = species
+    ))
   }
 
   manifest <- manifest[order(manifest$file_mtime, decreasing = TRUE), , drop = FALSE]
@@ -1046,6 +1133,29 @@ dashboard_favourite_image_records <- function(max_images = 30,
 
   manifest
 }
+
+
+render_dashboard_favourites_empty <- function(context = "period",
+                                              period_name = NULL,
+                                              species = NULL) {
+  favourites_dir <- file.path(get_primary_image_cache_dir(config), "favourites")
+  manifest_path <- get_favourites_manifest_path(config)
+
+  message <- if (!dir.exists(favourites_dir)) {
+    "Favourite images are not cached yet."
+  } else if (!file.exists(manifest_path)) {
+    "Favourite image links are being prepared."
+  } else if (identical(context, "period") && !is.null(period_name)) {
+    sprintf("No favourite images found for %s.", period_name)
+  } else if (identical(context, "species") && !is.null(species)) {
+    sprintf("No favourite images found for this species.")
+  } else {
+    "No favourite images found."
+  }
+
+  div(class = "dashboard-favourites-empty", message)
+}
+
 
 render_dashboard_favourites_hero <- function(max_images = 30,
                                              context = "period",
@@ -1060,7 +1170,11 @@ render_dashboard_favourites_hero <- function(max_images = 30,
   )
 
   if (nrow(image_records) == 0) {
-    return(NULL)
+    return(render_dashboard_favourites_empty(
+      context = context,
+      period_name = period_name,
+      species = species
+    ))
   }
 
   div(
@@ -1070,9 +1184,15 @@ render_dashboard_favourites_hero <- function(max_images = 30,
       class = "dashboard-favourites-slider",
       lapply(seq_len(nrow(image_records)), function(image_index) {
         observation_id <- image_records$observationID[[image_index]]
-        click_payload <- jsonlite::toJSON(list(observation_ids = c(observation_id)), auto_unbox = TRUE)
-        div(
-          class = "dashboard-favourites-slide",
+        has_observation_id <- !is.na(observation_id) && nzchar(observation_id)
+        image_tag <- tags$img(
+          src = image_records$src[[image_index]],
+          alt = sprintf("Favourite observation image %d", image_index),
+          loading = "lazy"
+        )
+
+        image_control <- if (has_observation_id) {
+          click_payload <- jsonlite::toJSON(list(observation_ids = c(observation_id)), auto_unbox = TRUE)
           tags$button(
             type = "button",
             class = "dashboard-favourites-image-button",
@@ -1082,12 +1202,18 @@ render_dashboard_favourites_hero <- function(max_images = 30,
               slider_id,
               click_payload
             ),
-            tags$img(
-              src = image_records$src[[image_index]],
-              alt = sprintf("Favourite observation image %d", image_index),
-              loading = "lazy"
-            )
+            image_tag
           )
+        } else {
+          div(
+            class = "dashboard-favourites-image-button dashboard-favourites-image-static",
+            image_tag
+          )
+        }
+
+        div(
+          class = "dashboard-favourites-slide",
+          image_control
         )
       })
     ),

@@ -163,7 +163,7 @@ if (isTRUE(core_data_weather_deferred)) {
 rm(core_data_weather_deferred)
 
 
-# --- Background Caching of favourite and selected species images on Startup ---
+
 if (isTRUE(config$globals$download_image_cache_on_startup)) {
   logger::log_info("Attempting to launch background image caching process...")
 
@@ -177,6 +177,7 @@ if (isTRUE(config$globals$download_image_cache_on_startup)) {
 
     tryCatch({
       cache_selected_images(core_data$media, core_data$obs, config)
+      rebuild_favourites_manifest_from_local_cache()
       logger::log_info("----- Background image caching finished: %s -----", Sys.time())
       TRUE
     }, error = function(e) {
@@ -192,6 +193,7 @@ if (isTRUE(config$globals$download_image_cache_on_startup)) {
 } else {
   logger::log_info("Background image caching skipped; 
   set config$globals$download_image_cache_on_startup = TRUE to enable it.")
+  rebuild_favourites_manifest_from_local_cache()
 }
 # --- End Background Caching ---
 
