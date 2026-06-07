@@ -13,9 +13,9 @@ register_report_download_handler <- function(input,
     },
 
     content = function(file) {
-      reports_cache_dir <- "cache/reports"
-      density_maps_dir <- paste0(reports_cache_dir, "/density_maps")
-      plots_dir <- paste0(reports_cache_dir, "/plots")
+      reports_cache_dir <- config$env$dirs$reports
+      density_maps_dir <- file.path(reports_cache_dir, "density_maps")
+      plots_dir <- file.path(reports_cache_dir, "plots")
 
       period_name <- primary_period$period_name()
       package_created_date <- core_data$created

@@ -17,6 +17,7 @@
 instance/config/*
 !instance/config/base.R
 !instance/config/project.R
+!instance/config/environment.R
 
 # Instance runtime/generated
 instance/cache/

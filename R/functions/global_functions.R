@@ -170,23 +170,49 @@ normalize_cache_file_path <- function(path) {
 }
 
 
-get_served_image_cache_dir <- function() {
-  normalize_cache_file_path(file.path("www", "cache", "images"))
+path_to_url_part <- function(path) {
+  gsub("\\\\", "/", path)
+}
+
+
+encode_web_path <- function(web_path) {
+  vapply(
+    strsplit(path_to_url_part(web_path), "/", fixed = TRUE),
+    function(path_parts) paste(utils::URLencode(path_parts, reserved = TRUE), collapse = "/"),
+    character(1)
+  )
+}
+
+
+get_served_image_cache_dir <- function(config = NULL) {
+  if (!is.null(config) && !is.null(config$env$dirs$public_media_cache)) {
+    return(path_to_url_part(config$env$dirs$public_media_cache))
+  }
+
+  path_to_url_part(file.path("www", "media-cache"))
 }
 
 
 get_configured_image_cache_dir <- function(config) {
-  normalize_cache_file_path(file.path(config$env$dirs$cache, "images"))
+  if (!is.null(config$env$dirs$media)) {
+    return(path_to_url_part(config$env$dirs$media))
+  }
+
+  get_served_image_cache_dir(config)
 }
 
 
 get_image_cache_dirs <- function(config) {
   cache_dirs <- c(
-    get_served_image_cache_dir(),
-    get_configured_image_cache_dir(config)
+    get_served_image_cache_dir(config),
+    get_configured_image_cache_dir(config),
+    file.path("www", "cache", "images"),
+    file.path(config$env$dirs$cache, "images"),
+    file.path(config$env$dirs$cache, "favourites")
   )
 
-  unique(cache_dirs[nzchar(cache_dirs)])
+  cache_dirs <- path_to_url_part(cache_dirs[nzchar(cache_dirs)])
+  unique(cache_dirs)
 }
 
 
@@ -196,16 +222,39 @@ get_primary_image_cache_dir <- function(config) {
 
 
 image_cache_file_url <- function(file_path) {
+  if (is.null(file_path) || is.na(file_path) || !nzchar(file_path)) {
+    return(NA_character_)
+  }
+
+  raw_file_path <- path_to_url_part(file_path)
+  if (startsWith(raw_file_path, "www/")) {
+    return(sub("^www/", "", raw_file_path))
+  }
+
   normalized_file_path <- normalize_cache_file_path(file_path)
   www_dir <- normalize_cache_file_path("www")
   www_prefix <- paste0(www_dir, "/")
 
-  if (!startsWith(normalized_file_path, www_prefix)) {
-    return(NA_character_)
+  if (startsWith(normalized_file_path, www_prefix)) {
+    sub_path <- substring(normalized_file_path, nchar(www_prefix) + 1)
+    return(path_to_url_part(sub_path))
   }
 
-  sub_path <- substring(normalized_file_path, nchar(www_prefix) + 1)
-  gsub("\\\\", "/", sub_path)
+  public_cache_dirs <- c(
+    if (exists("config", inherits = TRUE)) get_served_image_cache_dir(get("config", inherits = TRUE)) else get_served_image_cache_dir(),
+    file.path("instance", "www", "media-cache")
+  )
+
+  for (public_cache_dir in public_cache_dirs) {
+    public_cache_dir <- normalize_cache_file_path(public_cache_dir)
+    public_cache_prefix <- paste0(public_cache_dir, "/")
+    if (startsWith(normalized_file_path, public_cache_prefix)) {
+      sub_path <- substring(normalized_file_path, nchar(public_cache_prefix) + 1)
+      return(path_to_url_part(file.path("media-cache", sub_path)))
+    }
+  }
+
+  NA_character_
 }
 
 

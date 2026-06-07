@@ -35,8 +35,6 @@ instance/
 
 Assume that anything under instance/ is deployment-specific rather than application code. However files in `instance/config/` are R code and do impact on how the application operates.
 
-`instance.example/` contains example configuration and data structures intended for new deployments. Make sure `/instance.example/config/` is always updated when `instance/config/` is updated.
-
 ## Data model
 
 The performance of this application relies on using the `core_data` and `trap_data` global variables as the main data sources. Both of these are calculated once and saved as .RDS files under `instance/cache/`. If you are not modifying the data ingestion pipeline, read the most recent cached versions instead of rebuilding them.

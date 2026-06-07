@@ -1009,7 +1009,7 @@ dashboard_favourite_image_records <- function(max_images = 30,
                                              context = "period",
                                              period_name = NULL,
                                              species = NULL) {
-  manifest_path <- file.path("www", "media-cache", "favourites", "_manifest.csv")
+  manifest_path <- file.path(get_primary_image_cache_dir(config), "favourites", "_manifest.csv")
 
   if (!file.exists(manifest_path)) {
     return(data.frame())
@@ -1019,6 +1019,12 @@ dashboard_favourite_image_records <- function(max_images = 30,
   if (!all(c("web_path", "context", "observationID") %in% names(manifest))) {
     return(data.frame())
   }
+
+  manifest$web_path <- gsub(
+    "^cache/images/",
+    "media-cache/",
+    path_to_url_part(manifest$web_path)
+  )
 
   manifest <- manifest[manifest$context == context, , drop = FALSE]
   manifest <- manifest[!is.na(manifest$observationID) & nzchar(manifest$observationID), , drop = FALSE]
@@ -1035,13 +1041,14 @@ dashboard_favourite_image_records <- function(max_images = 30,
 
   file_paths <- file.path("www", manifest$web_path)
   manifest$file_mtime <- as.POSIXct(file.info(file_paths)$mtime)
+  manifest <- manifest[!is.na(manifest$file_mtime), , drop = FALSE]
+  if (nrow(manifest) == 0) {
+    return(manifest)
+  }
+
   manifest <- manifest[order(manifest$file_mtime, decreasing = TRUE), , drop = FALSE]
   manifest <- head(manifest, max_images)
-  manifest$src <- vapply(
-    strsplit(manifest$web_path, "/", fixed = TRUE),
-    function(path_parts) paste(utils::URLencode(path_parts, reserved = TRUE), collapse = "/"),
-    character(1)
-  )
+  manifest$src <- encode_web_path(manifest$web_path)
 
   manifest
 }

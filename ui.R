@@ -43,7 +43,7 @@ ui <- function(request) {
       add_busy_spinner(spin = "cube-grid", color = "#cf6819", onstart = TRUE), 
       tags$head(
         tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
-        tags$link(rel = "icon", href = "favicon.png", type = "image/png"),
+        tags$link(rel = "icon", href = "images/icons/favicon.png", type = "image/png"),
         tags$script(src = "custom.js"),
         tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"),
         tags$script(src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"),

@@ -252,7 +252,7 @@ create_resized_image <- function(image_file, resized_width) {
 # Update to work on the resized image only
 add_logo <- function(image_file) {
   main_image <- image_read(image_file)
-  logo <- image_read("www/wkt-logo.png")
+  logo <- image_read(file.path(config$env$dirs$project_images, "wkt-logo.png"))
   
   # Adjust logo if necessary and make transparent
   logo <- image_background(logo, "none")
@@ -311,7 +311,7 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
   carousel_id <- paste0("carousel_", observation_id) # Unique ID for the carousel container
   #carousel_id <- "observation_image_viewer_carousel"
   
-  loading_placeholder <- paste0("carousel_loading_placeholder_", config$globals$image_resize_width_pixels, ".png") # Path to a loading image, www is assumed
+  loading_placeholder <- file.path("images", paste0("carousel_loading_placeholder_", config$globals$image_resize_width_pixels, ".png")) # Path to a loading image, www is assumed
   
   image_paths_meta <- lapply(sequence_media_info, function(image_info) {
     path_components <- unlist(strsplit(image_info$filePath, "/"))
@@ -557,7 +557,7 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
 # Check for favourites folder for each, see if that gets us to 40?
 # Consider usage of function e.g. iimage page by species? Favourites for everything?
 get_latest_images <- function(max_images = 40) {
-  base_dir <- file.path(config$env$dirs$cache, "favourites")
+  base_dir <- file.path(get_primary_image_cache_dir(config), "favourites")
   
   if (!dir_exists(base_dir)) { 
     dir_create(base_dir)
@@ -565,7 +565,11 @@ get_latest_images <- function(max_images = 40) {
   }
   
   # List and sort image files by modification time
-  img_files <- fs::dir_ls(base_dir, regexp = "_resized\\.JPG$", ignore.case = TRUE)
+  img_files <- fs::dir_ls(base_dir, regexp = "_resized\\.JPG$", recurse = TRUE, ignore.case = TRUE)
+  if (length(img_files) == 0) {
+    return(NULL)
+  }
+
   file_info <- fs::file_info(img_files)
   
   sorted_files <- img_files[order(file_info$modification_time, decreasing = TRUE)]
@@ -573,8 +577,9 @@ get_latest_images <- function(max_images = 40) {
   # Limit to max_images
   latest_images <- head(sorted_files, max_images)
   
-  # Format paths for web, Shiny assumes www when serving whereas we need to include for filesystem functions
-  web_paths <- sub("^www/", "", latest_images)
+  web_paths <- vapply(latest_images, image_cache_file_url, character(1))
+  web_paths <- web_paths[!is.na(web_paths)]
+  web_paths <- encode_web_path(web_paths)
   
   return(web_paths)
 }
