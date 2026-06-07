@@ -1,28 +1,36 @@
-.Rproj.user
+# R / RStudio
+.Rproj.user/
 .Rhistory
 .RData
 .Rprofile
 .Renviron
-.Ruserdata
+.Ruserdata/
 *.Rproj
-insightful-kiwi.Rproj
+
+# OS / editor
 .DS_Store
-app_cache/
-config/*
-!config/environment.R
-!config/config-wkt_main.R
-!config/config-wkt_ohiwa_forest.R
-#extdata/datapackage.json
-#extdata/deployments.csv
-#extdata/media.csv
-#extdata/observations.csv
-cache/
-logs/
-tangential/
-config/.env
-www/cache/
-temp/
-.positai
-.git
 .vscode/
+.positai/
 .lintr
+
+# Instance config: commit only selected config files
+instance/config/*
+!instance/config/base.R
+!instance/config/project.R
+
+# Instance runtime/generated
+instance/cache/
+instance/app_cache/
+instance/logs/
+
+# Generated media cache: keep dir placeholder, ignore files
+instance/www/media-cache/*
+!instance/www/media-cache/.gitkeep
+
+# Track symlinks in www/, so do NOT ignore these:
+# www/media-cache
+# www/project-images
+
+# Runtime temp
+temp/
+tangential/

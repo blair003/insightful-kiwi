@@ -1,6 +1,7 @@
 FROM rocker/shiny-verse:4.5.3
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Pacific/Auckland
 ENV PATH="/opt/venv/bin:$PATH"
 
 # First install tools needed to add external apt repos

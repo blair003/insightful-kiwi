@@ -8,41 +8,58 @@ The app is running inside a VS Code dev container using Docker.
 
 Do not reinstall R packages, rebuild the container, or modify Docker setup unless explicitly asked.
 
+
+## Repository structure
+
+Main entry points:
+
+- `global.R` → global setup, configuration, package loading, data loading
+- `ui.R` → UI definition
+- `server.R` → server logic
+- `R/` → supporting functions and modules
+- `www/` → static web assets and media cache
+- `instance/` → instance-specific configuration, data, caches and logs
+- `instance.example/` → example instance structure for new deployments
+
+Prefer editing files in `R/` where possible rather than making large changes directly in `server.R`.
+
+## Instance structure
+
+The application stores instance-specific state under `instance/`.
+
+instance/
+├── config/
+├── extdata/
+├── cache/
+└── logs/
+
+Assume that anything under instance/ is deployment-specific rather than application code. However files in `instance/config/` are R code and do impact on how the application operates.
+
+`instance.example/` contains example configuration and data structures intended for new deployments. Make sure `/instance.example/config/` is always updated when `instance/config/` is updated.
+
 ## Data model
 
-The performance of this application relies on using the `core_data` and `trap_data` global variables as the main data sources. Both of these are calculated once and saved as .RDS files under cache/, so you can read the most recent versions directly from there if you are not changing the code that reads or modifies core_data or trap_data.
+The performance of this application relies on using the `core_data` and `trap_data` global variables as the main data sources. Both of these are calculated once and saved as .RDS files under `instance/cache/`. If you are not modifying the data ingestion pipeline, read the most recent cached versions instead of rebuilding them.
 
-Don't write code or functions that ingest data from files in extdata/ directly. If you think you need to, `STOP` and ask first. The solution will likely be to update `core_data` or `trap_data` to include what we need, if it is missing. Ask before updating core_data or trap_data.
+Don't write code or functions that ingest data from files in `instance/extdata/` directly. If you think you need to, `STOP` and ask first. 
+
+The preferred solution will usually be to update `core_data` or `trap_data` rather than bypassing them.
 
 For reference:
 The source for `core_data$deps` is `extdata/deployments.csv`
 The source for `core_data$obs` is `extdata/observations.csv`
 The source for `core_data_media` is `extdata/media.csv`
 
-## Image cache
+## Runtime-generated data
 
-`www/cache/` contains thousands of generated cache directories. There is no need to search or enumerate this folder unless you are changing the image download/caching functions.
+The following locations may contain large volumes of generated files:
 
-Exception:
-`www/cache/favourites/` directory structure is meaningful and may be inspected when relevant.
+`instance/cache/`
+`instance/app_cache/`
+`instance/logs/`
+`www/media-cache/`
 
-Structure of `www/cache/favourites/`:
-- species favourites are grouped by scientific name
-- period group favourites are grouped by `period_group_` directory name
-
-When looking for representative images or favourite images, check:
-`www/cache/favourites/`
-
-## App structure
-
-Main entry points:
-- `global.R` → global setup, configuration, package loading, data loading
-- `ui.R` → UI definition
-- `server.R` → server logic
-- `R/` → supporting functions and modules
-- `config/` → environment and site-specific config
-
-Prefer editing files in `R/` where possible rather than making large changes directly in `server.R`.
+Avoid searching or analysing these directories unless directly relevant to the task.
 
 ## Runtime usage
 

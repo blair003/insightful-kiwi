@@ -16,7 +16,9 @@ logger::log_formatter(logger::formatter_sprintf)
 
 
 # Source project configurations and environment settings
-source("config/config-wkt_main.R")
+source("config/base.R")
+source("config/project.R")
+
 # source("config/config-wkt_ohiwa_forest.R")
 
 # environment.R can now be sourced (it uses logger, which is now available).

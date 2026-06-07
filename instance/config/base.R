@@ -1,31 +1,18 @@
-# This contains configuration options for your project. Take a backup copy before
-# editing. Specify the config to use in global.R 
-# Also see environment.R for environment config
 
 config <- list()
-
-config$meta <- list(
-  organisation_name = "Whakatane Kiwi Trust",
-  organisation_abbrev = "WKT",
-  organisation_header_logo = "wkt-logo-small.png",
-  
-  project_name = "Ohiwa Forest",
-  
-  localities_list = list(
-    "OF" = "Ohiwa Forest"
-  )
-)
 
 config$globals <- list(
   # Set logger threshold as required: DEBUG, INFO, SUCCESS, WARN, ERROR, FATAL
   log_threshold = "DEBUG",
-  
-  # If a custom_start_date is specified below, all deployments and associated 
-  # observations before this date will be excluded
- # custom_start_date = "2024-10-24",
-  
-  ga_tag = Sys.getenv("GA_TAG"),
 
+  # Import converted WKT trap check data as global trap_data on startup.
+  import_trap_data = TRUE,
+  trap_data_first_deployment_days = NULL,
+  trap_data_kill_prior_check_override_days = 120,
+  
+  # Google analytics code, read in from config/.env
+  ga_tag = Sys.getenv("GA_TAG"),
+  
   # Determines the species name we output, only works for these two shown
   species_name_type = "vernacularNames.eng",
   #species_name_type = "scientificName",
@@ -57,10 +44,10 @@ config$globals <- list(
   # Which period_grouping to use as default for primary and comparative 
   # We create core_data$period_groups as a list, with each item having a description, 
   # start and end date. These reference the list item number
-  
+
   default_primary_period = 1, # Most recent season
   default_comparative_period = 5, # Same season prior year
-  
+
   # Normalisation applied to all RAI calculations
   rai_norm_hours  = 2000,
   
@@ -80,7 +67,7 @@ config$globals <- list(
     cathemeral_day_night_share = 0.25
   ),
 
-  # TRUE shows dashboard weather separately for each locality when localities are
+  # TRUE shows dashboard weather cards separately for each locality when localities are
   # not combined. FALSE shows one weather summary for the selected network.
   dashboard_weather_by_locality = FALSE,
 
@@ -88,9 +75,9 @@ config$globals <- list(
   # operate the project for the selected period/locality.
   dashboard_volunteer_hours = list(
     deployment_setup_minutes = 30,
-    deployment_retrieval_minutes = 20,
-    data_check_upload_minutes_per_deployment = 20,
-    annotation_seconds_per_observation = 15
+    deployment_retrieval_minutes = 25,
+    data_check_upload_minutes_per_deployment = 15,
+    annotation_seconds_per_observation = 12
   ),
 
   # Optional override for classifier labels shown on the dashboard. Names should
@@ -124,6 +111,9 @@ config$globals <- list(
   # when the app starts. This can use multiple GB of disk and bandwidth.
   download_image_cache_on_startup = FALSE,
   
+  ###########################
+  # Observations map settings
+  ###########################
   # How far from a location an species icon can be randomly dispersed
   marker_offset_value = 0.0002,
   
@@ -143,7 +133,7 @@ config$globals <- list(
       # in this list, otherwise you'll end up with two taxonomic entries
       old_scientificName = c("Rattus norvegicus", "Rattus rattus", "Rattus"),
       new_vernacularNames.eng = "Rats",
-      new_vernacularNames.nld = "Ratten",
+      #new_vernacularNames.nld = "Ratten",
       
       # Used in observations and taxonomic
       new_taxonID = "https://www.checklistbank.org/dataset/COL2023/taxon/63QK6",
@@ -161,19 +151,33 @@ config$globals <- list(
       new_vernacularNames.eng = "Insect sp.",
       new_vernacularNames.nld = "Insect sp.",
       
+      # Used in observations and taxonomic
       new_taxonID = "https://www.checklistbank.org/dataset/COL2023/taxon/H6",
       new_taxonRank = "class",
       new_taxon_order = "",
       new_taxon_family = ""
     ),
-    
+
+    # Keep Agouti and trapping data labels consistent for Mustela nivalis.
+    # "Least weasel" is the broader common name; WKT uses "weasel" operationally.
+    "Mustela nivalis" = list(
+      old_scientificName = c("Mustela nivalis"),
+      new_vernacularNames.eng = "weasel",
+      new_vernacularNames.nld = "Wezel",
+
+      # Used in observations and taxonomic
+      new_taxonID = "https://www.checklistbank.org/dataset/COL2023/taxon/44QY4",
+      new_taxonRank = "species",
+      new_taxon_order = "Carnivora",
+      new_taxon_family = "Mustelidae"
+    ),
     
     # Combine Felis and Felis catus into Felis catus
     # Because the AI detects as Felis, and we only have Felis catus in our area
     "Felis catus" = list(
       old_scientificName = c("Felis", "Felis catus"),
       new_vernacularNames.eng = "domestic cat",
-      # new_vernacularNames.nld = "kat",
+     # new_vernacularNames.nld = "kat",
       
       # Used in observations and taxonomic
       new_taxonID = "https://www.checklistbank.org/dataset/COL2023/taxon/3DXV3",
@@ -183,32 +187,33 @@ config$globals <- list(
     )
   ),
   
-  # Classify species into classes, starting with the most important class 
-  # and working down. You can change the species in each class 
+  # Classify species into classes, starting with the most important class (e.g. 
+  # target) and working down. You can change the species in each class 
+  # (use scientific name), rename classes, remove classes, and you can add classes
+  # You are limited based on what will fit the default reporting template
+  
+  spp_classes = list(
 
- 
- spp_classes = list(
-   
-   "target" = c(
-     "Mustela erminea", 
-     "Mustela nivalis",
-     "Mustela putorius furo", 
-     "Felis catus", 
-     "Rattus"
-   ),
-   "interesting" = c(
-     "Apteryx mantelli",
-     "Sus scrofa", 
-     "Canis lupus familiaris", 
-     "Trichosurus vulpecula", 
-     "Erinaceus europaeus", 
-     "Mus musculus",
-     "Gallirallus australis"
-   )
- ),
+    "target" = c(
+      "Mustela erminea", 
+      "Mustela nivalis",
+      "Mustela putorius furo", 
+      "Felis catus", 
+      "Rattus"
+    ),
+    "interesting" = c(
+      "Apteryx mantelli",
+      "Sus scrofa", 
+      "Canis lupus familiaris", 
+      "Trichosurus vulpecula", 
+      "Erinaceus europaeus", 
+      "Mus musculus",
+      "Gallirallus australis"
+    )
+  ),
 
   # Species excluded from background image caching. Useful for high-volume,
-  # low-interest species that would otherwise fill the local cache.
+  # low-interest species that would otherwise fill the local image cache/disk drive
   image_cache_excluded_species = c(
     "Rattus",
     "Mus musculus",
@@ -254,19 +259,19 @@ config$globals <- list(
 
   # Initial species groups shown in the dashboard RAI history graph.
   dashboard_rai_history_default_groups = c("Kiwi", "Mustelids"),
-
+  
   # Any species not in a class will be put into a class with this name
   spp_class_unclassified = "other",
   
   # Determines whether unclassified species are shown in selects
-  spp_show_unclassified = TRUE,
+  spp_show_unclassified = FALSE,
   
   # Default height output for all leaflet maps
-  leaflet_height = "calc(100vh - 150px)",
+  leaflet_height = "calc(100vh - 170px)",
   
   # By default, we output column names (exploded by underscore), with capitalisation 
   # applied to each word. The list below lets you completely change the output name. 
-  # Note that get_column_descriptions.R tries to match the new name (right side)
+  # Note that get_column_description tries to match the new name (right side)
   
   # name = "New Name"
   column_renames = list(
