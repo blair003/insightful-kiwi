@@ -12,19 +12,32 @@
 #   install_if_missing(c("r-lib/devtools"), source = "github")
 # }
 install_if_missing <- function(packages, source = c("cran", "github")) {
+  source <- match.arg(source)
+  packages <- unique(stats::na.omit(as.character(packages)))
+  packages <- packages[nzchar(packages)]
+  if (length(packages) == 0) {
+    return(invisible(NULL))
+  }
+
+  installed_packages <- rownames(utils::installed.packages())
+
   if (source == "cran") {
-    missing_packages <- setdiff(packages, installed.packages()[, "Package"])
+    missing_packages <- setdiff(packages, installed_packages)
     if (length(missing_packages) > 0) {
-      install.packages(missing_packages)
-    }
-  } else if (source == "github") {
-    missing_packages <- setdiff(sapply(packages, basename), installed.packages()[, "Package"])
-    if (length(missing_packages) > 0) {
-      remotes::install_github(packages[match(missing_packages, sapply(packages, basename))])
+      utils::install.packages(missing_packages)
     }
   } else {
-    stop("Invalid source argument. Must be either 'cran' or 'github'.")
+    github_package_names <- basename(packages)
+    missing_packages <- setdiff(github_package_names, installed_packages)
+    if (length(missing_packages) > 0) {
+      if (!requireNamespace("remotes", quietly = TRUE)) {
+        stop("The remotes package is required to install GitHub packages.", call. = FALSE)
+      }
+      remotes::install_github(packages[match(missing_packages, github_package_names)])
+    }
   }
+
+  invisible(NULL)
 }
 
 # Function to create directories if they don't exist
@@ -41,11 +54,11 @@ install_if_missing <- function(packages, source = c("cran", "github")) {
 # }
 create_directories_if_missing <- function(dirs) {
   if (length(dirs) == 0) {
-    logger::log_warn("No directories provided to ensure_directories_exist().")
+    logger::log_warn("No directories provided to create_directories_if_missing().")
     return(invisible(NULL))
   }
-  
-  lapply(names(dirs), function(name) {
+
+  for (name in names(dirs)) {
     dir_path <- dirs[[name]]
     if (!fs::dir_exists(dir_path)) {
       fs::dir_create(dir_path)
@@ -53,7 +66,46 @@ create_directories_if_missing <- function(dirs) {
     } else {
       logger::log_debug(sprintf("Directory '%s' already exists at path: %s", name, dir_path))
     }
-  })
+  }
+
+  invisible(NULL)
+}
+
+parse_env_flag <- function(value, name) {
+  if (is.null(value) || length(value) == 0) {
+    return(NULL)
+  }
+
+  value <- as.character(value[[1]])
+  if (!nzchar(value)) {
+    return(NULL)
+  }
+
+  normalized_value <- tolower(trimws(value))
+  if (normalized_value %in% c("true", "t", "1", "yes", "y", "on")) {
+    return(TRUE)
+  }
+  if (normalized_value %in% c("false", "f", "0", "no", "n", "off")) {
+    return(FALSE)
+  }
+
+  logger::log_warn("Ignoring invalid %s value '%s'. Use TRUE or FALSE.", name, value)
+  NULL
+}
+
+prepare_runtime_core_data <- function(core_data, trap_data = NULL, config = NULL) {
+  if (is.null(core_data$app)) {
+    core_data$app <- list()
+  }
+
+  core_data <- update_year_period_bounds_from_observations(core_data, trap_data, config)
+  core_data$app$period_defaults <- get_default_complete_period_selection(
+    core_data$deps,
+    core_data$period_groups,
+    config
+  )
+
+  core_data
 }
 
 get_use_net_data_setting <- function(default = NULL) {
@@ -224,9 +276,18 @@ get_favourites_manifest_path <- function(config) {
 }
 
 # --- Background Caching of favourite and selected species images on Startup ---
-rebuild_favourites_manifest_from_local_cache <- function() {
+rebuild_favourites_manifest_from_local_cache <- function(runtime_core_data = NULL, config = NULL) {
   tryCatch({
-    rebuild_favourites_manifest_from_cached_files(core_data$media, core_data$obs, config)
+    if (is.null(runtime_core_data)) {
+      runtime_core_data <- get("core_data", inherits = TRUE)
+    }
+    config <- resolve_image_cache_config(config)
+
+    rebuild_favourites_manifest_from_cached_files(
+      runtime_core_data$media,
+      runtime_core_data$obs,
+      config
+    )
   }, error = function(e) {
     logger::log_warn(
       "global.R, favourites image manifest rebuild from local cache failed: %s",

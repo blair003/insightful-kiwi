@@ -1,59 +1,57 @@
 # global.R
-# At R console, run: install.packages("shiny") before running this code
 
-# This ensures install_if_missing is defined
+################################################################
+# Bootstrap helpers, logging, and configuration
+################################################################
+
 source("R/functions/global_functions.R")
 
-# These are needed before their first use or before config/environment.R is sourced.
-# Need shiny installed independently of this just to run this code
-bootstrap_cran_packages <- c("logger")
-install_if_missing(bootstrap_cran_packages, "cran")
-
-# Essential libraries we just installed that are needed immediately
+# logger is needed before instance/config/environment.R is sourced.
+install_if_missing("logger", "cran")
 library(logger)
-
 logger::log_formatter(logger::formatter_sprintf)
 
-
-# Source project configurations and environment settings
 source("instance/config/base.R")
 source("instance/config/project.R")
-
-# environment.R can now be sourced (it uses logger, which is now available).
 source("instance/config/environment.R")
 
-# Set log threshold (logger is loaded, config$globals from config-wkt_main.R is available)
 if (!is.null(config$globals$log_threshold)) {
-  log_threshold(config$globals$log_threshold)
+  logger::log_threshold(config$globals$log_threshold)
 } else {
   logger::log_warn("config$globals$log_threshold is not defined. Using default logger threshold.")
 }
 
 
-
 ################################################################
-# Main package installation and loading for the application
+# Package installation and loading
 ################################################################
 
-# Install all other required CRAN & GitHub packages
-# install_if_missing will skip packages already installed in the bootstrap phase.
+main_cran_packages <- unique(c(config$env$required_cran_packages, "promises"))
+main_github_packages <- config$env$required_github_packages
+
+github_package_names <- if (length(main_github_packages) > 0) {
+  vapply(main_github_packages, function(pkg) sub(".*/", "", pkg), character(1))
+} else {
+  character(0)
+}
+
 logger::log_info("Checking and installing main list of CRAN packages...")
-install_if_missing(config$env$required_cran_packages, "cran")
+install_if_missing(main_cran_packages, "cran")
 
 logger::log_info("Checking and installing main list of GitHub packages...")
-install_if_missing(config$env$required_github_packages, "github") # devtools is now available
+install_if_missing(main_github_packages, "github")
 
-# Load all application packages
 logger::log_info("Loading all required packages...")
-all_packages <- c(
-  config$env$required_cran_packages,
-  sapply(config$env$required_github_packages, \(pkg) sub(".*/", "", pkg))
-)
-lapply(all_packages, library, character.only = TRUE)
+all_packages <- unique(c(main_cran_packages, github_package_names))
+invisible(lapply(all_packages, library, character.only = TRUE))
 logger::log_info("All required packages loaded.")
 
-# create_directories_if_missing is defined in global_functions.R
 create_directories_if_missing(config$env$dirs)
+
+
+################################################################
+# Function sources
+################################################################
 
 source("R/functions/weather_functions.R")
 source("R/functions/import/camtrapdp_functions.R")
@@ -63,54 +61,54 @@ source("R/functions/import/core_data_cache_functions.R")
 source("R/functions/import/weather_enrichment_functions.R")
 source("R/functions/import/core_data_build_functions.R")
 source("R/functions/import/trap_data_import_functions.R")
+source("R/functions/period_group_functions.R")
 
-# Load optional local environment variables (dotenv is now available).
+
+################################################################
+# Local environment overrides
+################################################################
+
 if (file.exists("instance/config/.env")) {
   dotenv::load_dot_env("instance/config/.env")
 } else {
   logger::log_info("No instance/config/.env file found; continuing with process environment variables.")
 }
+
 if (!is.null(config$globals$ga_tag) && !nzchar(config$globals$ga_tag) && nzchar(Sys.getenv("GA_TAG"))) {
   config$globals$ga_tag <- Sys.getenv("GA_TAG")
 }
-download_image_cache_on_startup_env <- Sys.getenv("DOWNLOAD_IMAGE_CACHE_ON_STARTUP")
-if (nzchar(download_image_cache_on_startup_env)) {
-  normalized_download_image_cache_on_startup <- tolower(trimws(download_image_cache_on_startup_env))
-  if (normalized_download_image_cache_on_startup %in% c("true", "t", "1", "yes", "y", "on")) {
-    config$globals$download_image_cache_on_startup <- TRUE
-  } else if (normalized_download_image_cache_on_startup %in% c("false", "f", "0", "no", "n", "off")) {
-    config$globals$download_image_cache_on_startup <- FALSE
-  } else {
-    logger::log_warn(
-      "Ignoring invalid DOWNLOAD_IMAGE_CACHE_ON_STARTUP value '%s'. Use TRUE or FALSE.",
-      download_image_cache_on_startup_env
-    )
-  }
+
+download_image_cache_override <- parse_env_flag(
+  Sys.getenv("DOWNLOAD_IMAGE_CACHE_ON_STARTUP"),
+  "DOWNLOAD_IMAGE_CACHE_ON_STARTUP"
+)
+if (!is.null(download_image_cache_override)) {
+  config$globals$download_image_cache_on_startup <- download_image_cache_override
 }
 
 
-core_data_weather_deferred <- local({
-  core_data_result <- load_core_data(config)
-  core_data <<- core_data_result$core_data
-  cache_file <<- core_data_result$cache_file
-  package_id <<- core_data_result$package_id
-  isTRUE(core_data_result$weather_deferred)
-})
+################################################################
+# Data loading and runtime defaults
+################################################################
 
-# These modules are required for UI and server. Dependent on core_data$period_groups
-source("R/functions/period_group_functions.R")
+core_data_result <- load_core_data(config)
+core_data <- core_data_result$core_data
+cache_file <- core_data_result$cache_file
+package_id <- core_data_result$package_id
+core_data_weather_deferred <- isTRUE(core_data_result$weather_deferred)
+rm(core_data_result)
 
 trap_data_result <- load_trap_data(config, core_data, cache_file)
 trap_data <- trap_data_result$trap_data
 core_data <- trap_data_result$core_data
 rm(trap_data_result)
 
-core_data <- update_year_period_bounds_from_observations(core_data, trap_data, config)
-core_data$app$period_defaults <- get_default_complete_period_selection(
-  core_data$deps,
-  core_data$period_groups,
-  config
-)
+core_data <- prepare_runtime_core_data(core_data, trap_data, config)
+
+
+################################################################
+# UI, server, and app support sources
+################################################################
 
 source("R/modules/period_selection_module.R")
 source("R/modules/plotting_module.R")
@@ -126,13 +124,19 @@ source("R/functions/visualisation_functions.R")
 source("R/functions/utility_functions.R")
 source("R/ui/ui_components.R")
 
-# For future call
-plan(multisession)
+future::plan(future::multisession)
+
+
+################################################################
+# Background weather refresh
+################################################################
 
 if (isTRUE(core_data_weather_deferred)) {
   logger::log_warn(
-    "global.R, weather enrichment is incomplete or deferred. 
-    Loading app now and completing core_data weather cache in the background."
+    paste(
+      "global.R, weather enrichment is incomplete or deferred.",
+      "Loading app now and completing core_data weather cache in the background."
+    )
   )
 
   future::future({
@@ -143,13 +147,15 @@ if (isTRUE(core_data_weather_deferred)) {
     Sys.sleep(60)
     load_core_data(config, refresh_weather = TRUE)
   }, seed = TRUE) %...>% (function(rebuilt) {
-    core_data <<- rebuilt$core_data
+    core_data <<- prepare_runtime_core_data(rebuilt$core_data, trap_data, config)
     cache_file <<- rebuilt$cache_file
     package_id <<- rebuilt$package_id
 
     logger::log_info(
-      "global.R, background weather rebuild complete for data package id %s. 
-      Cache saved to %s and global core_data updated.",
+      paste(
+        "global.R, background weather rebuild complete for data package id %s.",
+        "Cache saved to %s and global core_data updated."
+      ),
       rebuilt$package_id,
       rebuilt$cache_file
     )
@@ -163,6 +169,9 @@ if (isTRUE(core_data_weather_deferred)) {
 rm(core_data_weather_deferred)
 
 
+################################################################
+# Background image cache
+################################################################
 
 if (isTRUE(config$globals$download_image_cache_on_startup)) {
   logger::log_info("Attempting to launch background image caching process...")
@@ -177,7 +186,7 @@ if (isTRUE(config$globals$download_image_cache_on_startup)) {
 
     tryCatch({
       cache_selected_images(core_data$media, core_data$obs, config)
-      rebuild_favourites_manifest_from_local_cache()
+      rebuild_favourites_manifest_from_local_cache(core_data, config)
       logger::log_info("----- Background image caching finished: %s -----", Sys.time())
       TRUE
     }, error = function(e) {
@@ -191,10 +200,11 @@ if (isTRUE(config$globals$download_image_cache_on_startup)) {
     logger::log_error("Background caching process failed: %s", conditionMessage(error))
   })
 } else {
-  logger::log_info("Background image caching skipped; 
-  set config$globals$download_image_cache_on_startup = TRUE to enable it.")
-  rebuild_favourites_manifest_from_local_cache()
+  logger::log_info(paste(
+    "Background image caching skipped;",
+    "set config$globals$download_image_cache_on_startup = TRUE to enable it."
+  ))
+  rebuild_favourites_manifest_from_local_cache(core_data, config)
 }
-# --- End Background Caching ---
 
-enableBookmarking(store = "url")
+shiny::enableBookmarking(store = "url")
