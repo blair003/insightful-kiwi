@@ -9,7 +9,11 @@ config$env <- list(
     public_media_cache = normalizePath(file.path("www", "media-cache"), mustWork = FALSE),
     project_images = normalizePath(file.path("www", "project-images"), mustWork = FALSE)
   ),
-  
+
+  # URL path prefixes served from Shiny's www root.
+  web_paths = list(
+    public_media_cache = "media-cache"
+  ),
   
   # List of required CRAN packages
 

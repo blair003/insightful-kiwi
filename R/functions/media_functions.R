@@ -319,8 +319,8 @@ create_observation_images_ui <- function(sequence_media_info, observation_id, co
     resized_filename <- sub("\\.JPG$", "_resized.JPG", image_info$fileName, ignore.case = TRUE)
     cached_resized_file <- find_cached_image_file(config, hash_dir_name, resized_filename)
     cached_original_file <- find_cached_image_file(config, hash_dir_name, image_info$fileName)
-    resized_url <- if (!is.na(cached_resized_file)) image_cache_file_url(cached_resized_file) else NA_character_
-    local_url <- if (!is.na(cached_original_file)) image_cache_file_url(cached_original_file) else NA_character_
+    resized_url <- if (!is.na(cached_resized_file)) image_cache_file_url(cached_resized_file, config) else NA_character_
+    local_url <- if (!is.na(cached_original_file)) image_cache_file_url(cached_original_file, config) else NA_character_
 
     list(
       local_fs = file.path(local_cache_dir, hash_dir_name, image_info$fileName),
@@ -577,7 +577,7 @@ get_latest_images <- function(max_images = 40) {
   # Limit to max_images
   latest_images <- head(sorted_files, max_images)
   
-  web_paths <- vapply(latest_images, image_cache_file_url, character(1))
+  web_paths <- vapply(latest_images, image_cache_file_url, character(1), config = config)
   web_paths <- web_paths[!is.na(web_paths)]
   web_paths <- encode_web_path(web_paths)
   

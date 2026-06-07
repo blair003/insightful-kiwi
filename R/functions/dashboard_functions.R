@@ -1020,12 +1020,6 @@ dashboard_favourite_image_records <- function(max_images = 30,
     return(data.frame())
   }
 
-  manifest$web_path <- gsub(
-    "^cache/images/",
-    "media-cache/",
-    path_to_url_part(manifest$web_path)
-  )
-
   manifest <- manifest[manifest$context == context, , drop = FALSE]
   manifest <- manifest[!is.na(manifest$observationID) & nzchar(manifest$observationID), , drop = FALSE]
   if (!is.null(period_name) && "period" %in% names(manifest)) {

@@ -1,68 +1,34 @@
 # AGENTS.md
 
-## Project
+## Project Context
+**Insightful Kiwi:** R/Shiny app for community conservation groups to analyze camera monitoring and trapping data.
+**Environment:** VS Code dev container (Docker).
+**CRITICAL:** DO NOT reinstall R packages, rebuild the container, or modify the Docker setup unless explicitly requested.
 
-This is an R/Shiny app for Insightful Kiwi, an app to allow community-based consersation groups to analyse and visualise data from camera monitoring networks, and trapping-data.
+## Repository Structure
+- `global.R` → Global setup, config, package/data loading.
+- `ui.R` / `server.R` → UI definition / Server logic.
+- `R/` → Supporting functions and modules. **(Prefer editing here over `server.R`)**.
+- `www/` → Static web assets and media cache.
+- `instance/` → Deployment-specific config, data, caches, and logs. *(Note: `instance/config/` contains active R code).*
+- `instance.example/` → Template for new deployments.
 
-The app is running inside a VS Code dev container using Docker.
+## Data Model Constraints
+Performance relies heavily on `core_data` and `trap_data` global variables. Both are calculated once and cached as `.RDS` files in `instance/cache/`.
 
-Do not reinstall R packages, rebuild the container, or modify Docker setup unless explicitly asked.
+- **DO NOT** write code to ingest data directly from `instance/extdata/`. If you think this is necessary, **STOP** and ask the user first.
+- **DO NOT** write compatibility code for data issues. Instead, delete the `.RDS` files in `instance/cache/` to force a clean regeneration on the next runtime.
+- **Preferred Solution:** Update the `core_data` or `trap_data` variables rather than bypassing them.
 
+**Source Mapping:**
+- `core_data$deps` ← `extdata/deployments.csv`
+- `core_data$obs` ← `extdata/observations.csv`
+- `core_data$media` ← `extdata/media.csv`
 
-## Repository structure
-
-Main entry points:
-
-- `global.R` → global setup, configuration, package loading, data loading
-- `ui.R` → UI definition
-- `server.R` → server logic
-- `R/` → supporting functions and modules
-- `www/` → static web assets and media cache
-- `instance/` → instance-specific configuration, data, caches and logs
-- `instance.example/` → example instance structure for new deployments
-
-Prefer editing files in `R/` where possible rather than making large changes directly in `server.R`.
-
-## Instance structure
-
-The application stores instance-specific state under `instance/`.
-
-instance/
-├── config/
-├── extdata/
-├── cache/
-└── logs/
-
-Assume that anything under instance/ is deployment-specific rather than application code. However files in `instance/config/` are R code and do impact on how the application operates.
-
-## Data model
-
-The performance of this application relies on using the `core_data` and `trap_data` global variables as the main data sources. Both of these are calculated once and saved as .RDS files under `instance/cache/`. If you are not modifying the data ingestion pipeline, read the most recent cached versions instead of rebuilding them.
-
-Don't write code or functions that ingest data from files in `instance/extdata/` directly. If you think you need to, `STOP` and ask first. 
-
-The preferred solution will usually be to update `core_data` or `trap_data` rather than bypassing them.
-
-For reference:
-The source for `core_data$deps` is `extdata/deployments.csv`
-The source for `core_data$obs` is `extdata/observations.csv`
-The source for `core_data_media` is `extdata/media.csv`
-
-## Runtime-generated data
-
-The following locations may contain large volumes of generated files:
-
-`instance/cache/`
-`instance/app_cache/`
-`instance/logs/`
-`www/media-cache/`
-
-Avoid searching or analysing these directories unless directly relevant to the task.
-
-## Runtime usage
-
-Do not run the full Shiny app unless explicitly asked.
-
-The app is long-running and GUI-based. Running it provides limited value for debugging.
-
-Assume the user will run the app and validate behaviour.
+## Runtime Rules
+- **DO NOT** run the Shiny app unless explicitly asked. It is a long-running GUI application; the user will run the app to validate behavior.
+- **DO NOT** search, parse, or analyze the following directories unless directly relevant to the task, as they contain large volumes of generated files:
+  - `instance/cache/`
+  - `instance/app_cache/`
+  - `instance/logs/`
+  - `www/media-cache/`

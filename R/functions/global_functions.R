@@ -170,103 +170,78 @@ normalize_cache_file_path <- function(path) {
 }
 
 
-path_to_url_part <- function(path) {
+normalize_path_separators <- function(path) {
   gsub("\\\\", "/", path)
 }
 
 
 encode_web_path <- function(web_path) {
   vapply(
-    strsplit(path_to_url_part(web_path), "/", fixed = TRUE),
+    strsplit(normalize_path_separators(web_path), "/", fixed = TRUE),
     function(path_parts) paste(utils::URLencode(path_parts, reserved = TRUE), collapse = "/"),
     character(1)
   )
 }
 
 
-get_served_image_cache_dir <- function(config = NULL) {
-  if (!is.null(config) && !is.null(config$env$dirs$public_media_cache)) {
-    return(path_to_url_part(config$env$dirs$public_media_cache))
+resolve_image_cache_config <- function(config = NULL) {
+  if (!is.null(config)) {
+    return(config)
   }
 
-  path_to_url_part(file.path("www", "media-cache"))
-}
-
-
-get_configured_image_cache_dir <- function(config) {
-  if (!is.null(config$env$dirs$media)) {
-    return(path_to_url_part(config$env$dirs$media))
+  if (exists("config", inherits = TRUE)) {
+    return(get("config", inherits = TRUE))
   }
 
-  get_served_image_cache_dir(config)
-}
-
-
-get_image_cache_dirs <- function(config) {
-  cache_dirs <- c(
-    get_served_image_cache_dir(config),
-    get_configured_image_cache_dir(config),
-    file.path("www", "cache", "images"),
-    file.path(config$env$dirs$cache, "images"),
-    file.path(config$env$dirs$cache, "favourites")
-  )
-
-  cache_dirs <- path_to_url_part(cache_dirs[nzchar(cache_dirs)])
-  unique(cache_dirs)
+  stop("Image cache config was not provided and no global config exists.")
 }
 
 
 get_primary_image_cache_dir <- function(config) {
-  get_image_cache_dirs(config)[[1]]
+  if (is.null(config$env$dirs$public_media_cache)) {
+    stop("config$env$dirs$public_media_cache is not configured.")
+  }
+
+  normalize_path_separators(config$env$dirs$public_media_cache)
 }
 
 
-image_cache_file_url <- function(file_path) {
+get_image_cache_web_path <- function(config) {
+  if (is.null(config$env$web_paths$public_media_cache)) {
+    stop("config$env$web_paths$public_media_cache is not configured.")
+  }
+
+  normalize_path_separators(config$env$web_paths$public_media_cache)
+}
+
+
+image_cache_file_url <- function(file_path, config = NULL) {
   if (is.null(file_path) || is.na(file_path) || !nzchar(file_path)) {
     return(NA_character_)
   }
 
-  raw_file_path <- path_to_url_part(file_path)
-  if (startsWith(raw_file_path, "www/")) {
-    return(sub("^www/", "", raw_file_path))
-  }
-
+  config <- resolve_image_cache_config(config)
+  cache_dir <- normalize_cache_file_path(get_primary_image_cache_dir(config))
   normalized_file_path <- normalize_cache_file_path(file_path)
-  www_dir <- normalize_cache_file_path("www")
-  www_prefix <- paste0(www_dir, "/")
+  cache_prefix <- paste0(cache_dir, "/")
 
-  if (startsWith(normalized_file_path, www_prefix)) {
-    sub_path <- substring(normalized_file_path, nchar(www_prefix) + 1)
-    return(path_to_url_part(sub_path))
+  if (!startsWith(normalized_file_path, cache_prefix)) {
+    return(NA_character_)
   }
 
-  public_cache_dirs <- c(
-    if (exists("config", inherits = TRUE)) get_served_image_cache_dir(get("config", inherits = TRUE)) else get_served_image_cache_dir(),
-    file.path("instance", "www", "media-cache")
-  )
-
-  for (public_cache_dir in public_cache_dirs) {
-    public_cache_dir <- normalize_cache_file_path(public_cache_dir)
-    public_cache_prefix <- paste0(public_cache_dir, "/")
-    if (startsWith(normalized_file_path, public_cache_prefix)) {
-      sub_path <- substring(normalized_file_path, nchar(public_cache_prefix) + 1)
-      return(path_to_url_part(file.path("media-cache", sub_path)))
-    }
-  }
-
-  NA_character_
+  sub_path <- substring(normalized_file_path, nchar(cache_prefix) + 1)
+  normalize_path_separators(file.path(get_image_cache_web_path(config), sub_path))
 }
 
 
 find_cached_image_file <- function(config, hash_dir_name, file_name) {
-  candidate_paths <- file.path(get_image_cache_dirs(config), hash_dir_name, file_name)
-  existing_paths <- candidate_paths[file.exists(candidate_paths)]
+  cached_file <- file.path(get_primary_image_cache_dir(config), hash_dir_name, file_name)
 
-  if (length(existing_paths) == 0) {
+  if (!file.exists(cached_file)) {
     return(NA_character_)
   }
 
-  existing_paths[[1]]
+  cached_file
 }
 
 
@@ -374,7 +349,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
                                scientific_name,
                                file_name,
                                source_file_path) {
-    web_path <- image_cache_file_url(cached_file_path)
+    web_path <- image_cache_file_url(cached_file_path, config)
 
     manifest_rows[[length(manifest_rows) + 1]] <<- data.frame(
       web_path = web_path,
