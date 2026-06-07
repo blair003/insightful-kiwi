@@ -1,4 +1,35 @@
-# R / RStudio
+# Ignore all new top-level files/dirs by default
+/*
+
+# Re-include known top-level project files
+!.gitignore
+!README.md
+!renv.lock
+!global.R
+!server.R
+!ui.R
+
+# Re-include known top-level dirs
+!R/
+!www/
+!instance/
+!resources/
+
+# Then control contents inside allowed dirs
+instance/config/*
+!instance/config/base.R
+!instance/config/project.R
+!instance/config/environment.R
+
+instance/cache/
+instance/app_cache/
+instance/logs/
+
+instance/www/media-cache/*
+!instance/www/media-cache/.gitkeep
+
+# Normal junk ignores
+.DS_Store
 .Rproj.user/
 .Rhistory
 .RData
@@ -6,32 +37,6 @@
 .Renviron
 .Ruserdata/
 *.Rproj
-
-# OS / editor
-.DS_Store
 .vscode/
 .positai/
 .lintr
-
-# Instance config: commit only selected config files
-instance/config/*
-!instance/config/base.R
-!instance/config/project.R
-!instance/config/environment.R
-
-# Instance runtime/generated
-instance/cache/
-instance/app_cache/
-instance/logs/
-
-# Generated media cache: keep dir placeholder, ignore files
-instance/www/media-cache/*
-!instance/www/media-cache/.gitkeep
-
-# Track symlinks in www/, so do NOT ignore these:
-# www/media-cache
-# www/project-images
-
-# Runtime temp
-temp/
-tangential/
