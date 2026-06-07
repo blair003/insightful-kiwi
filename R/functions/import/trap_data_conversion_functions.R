@@ -123,13 +123,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
                                                output_dir = NULL,
                                                first_deployment_days = NULL,
                                                include_missing_coordinates = TRUE,
-                                               log_file = file.path(
-                                                 "logs",
-                                                 sprintf(
-                                                   "wkt-trap-data-import-%s.log",
-                                                   format(Sys.Date(), "%Y-%m-%d")
-                                                 )
-                                               ),
+                                               log_file = NULL,
                                                package_id = NULL,
                                                package_name = "wkt-trap-checks",
                                                timezone = "UTC",

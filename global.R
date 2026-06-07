@@ -6,6 +6,11 @@
 
 source("R/functions/global_functions.R")
 
+# Only autoreload if code has changed
+options(
+  shiny.autoreload.pattern = ".*\\.(r|R|html?|js|css|json)$"
+)
+
 # logger is needed before instance/config/environment.R is sourced.
 install_if_missing("logger", "cran")
 library(logger)

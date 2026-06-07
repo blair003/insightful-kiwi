@@ -181,6 +181,10 @@ load_trap_data <- function(config, core_data, cache_file) {
     first_deployment_days = config$globals$trap_data_first_deployment_days,
     kill_prior_check_override_days = config$globals$trap_data_kill_prior_check_override_days,
     include_missing_coordinates = TRUE,
+    log_file = file.path(
+      config$env$dirs$logs,
+      sprintf("wkt-trap-data-import-%s.log", format(Sys.Date(), "%Y-%m-%d"))
+    ),
     package_name = "wkt-trap-checks",
     timezone = config$globals$actual_timezone,
     period_groups = core_data$period_groups,
