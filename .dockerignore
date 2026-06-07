@@ -1,5 +1,5 @@
 # Git
-.git
+.git/
 .gitignore
 
 # Dev-only config
@@ -7,34 +7,31 @@
 .devcontainer/devcontainer.json
 
 # R / IDE noise
-.Rproj.user
+.Rproj.user/
 .Rhistory
 .RData
 .Rprofile
 .Renviron
-.Ruserdata
+.Ruserdata/
 *.Rproj
 
-# Runtime / generated
-cache/
-logs/
+
 temp/
-www/cache/
+tangential/
+# Do not bake instance data into image unless explicitly needed
+instance/
 
-# Data -- we don't want to bake into the image
-extdata/
-data/
 
-# Large / binary
+# Large generated/data files anywhere
 *.rds
+*.RDS
 *.RData
 *.sqlite
-*.csv
 *.parquet
 
-# Secrets
-config/.env
+# Usually data, but be careful: this ignores all CSVs
+# *.csv
 
 # Misc
 .DS_Store
-.positai
+.positai/

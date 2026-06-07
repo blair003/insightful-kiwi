@@ -27,7 +27,7 @@ ui <- function(request) {
     title = tags$div(
       style = "display: flex; align-items: center; height: 100%; padding-top: 8px; padding-right: 20px;",
       tags$img(
-        src = "favicon.png",
+        src = "images/icons/favicon.png",
         height = "32",
         width = "32",
         style = "margin-right: 10px;"

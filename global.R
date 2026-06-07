@@ -16,13 +16,11 @@ logger::log_formatter(logger::formatter_sprintf)
 
 
 # Source project configurations and environment settings
-source("config/base.R")
-source("config/project.R")
-
-# source("config/config-wkt_ohiwa_forest.R")
+source("instance/config/base.R")
+source("instance/config/project.R")
 
 # environment.R can now be sourced (it uses logger, which is now available).
-source("config/environment.R")
+source("instance/config/environment.R")
 
 # Set log threshold (logger is loaded, config$globals from config-wkt_main.R is available)
 if (!is.null(config$globals$log_threshold)) {
@@ -67,10 +65,10 @@ source("R/functions/import/core_data_build_functions.R")
 source("R/functions/import/trap_data_import_functions.R")
 
 # Load optional local environment variables (dotenv is now available).
-if (file.exists("config/.env")) {
-  dotenv::load_dot_env("config/.env")
+if (file.exists("instance/config/.env")) {
+  dotenv::load_dot_env("instance/config/.env")
 } else {
-  logger::log_info("No config/.env file found; continuing with process environment variables.")
+  logger::log_info("No instance/config/.env file found; continuing with process environment variables.")
 }
 if (!is.null(config$globals$ga_tag) && !nzchar(config$globals$ga_tag) && nzchar(Sys.getenv("GA_TAG"))) {
   config$globals$ga_tag <- Sys.getenv("GA_TAG")
@@ -192,7 +190,8 @@ if (isTRUE(config$globals$download_image_cache_on_startup)) {
     logger::log_error("Background caching process failed: %s", conditionMessage(error))
   })
 } else {
-  logger::log_info("Background image caching skipped; set config$globals$download_image_cache_on_startup = TRUE to enable it.")
+  logger::log_info("Background image caching skipped; 
+  set config$globals$download_image_cache_on_startup = TRUE to enable it.")
 }
 # --- End Background Caching ---
 

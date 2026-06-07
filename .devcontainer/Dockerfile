@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libudunits2-dev \
     libgdal-dev \
     libgeos-dev \
-    libproj-dev \ 
+    libproj-dev \
     libsqlite3-dev \
     libpango-1.0-0 \
     libcairo2 \
@@ -53,6 +53,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     git \
     openssh-client \
+    bubblewrap \
     pandoc \
     google-chrome-stable \
     && apt-get clean \

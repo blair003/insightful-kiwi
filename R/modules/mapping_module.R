@@ -3745,20 +3745,20 @@ observation_marker_color <- function(scientific_name) {
 observation_species_icon_path <- function(scientific_name) {
   group <- observation_marker_group_from_scientific_name(scientific_name)
   paths <- c(
-    stoat = "www/icons/map_icons/obs-stoat.svg",
-    weasel = "www/icons/map_icons/obs-weasel.svg",
-    ferret = "www/icons/map_icons/obs-ferret.svg",
-    rat = "www/icons/map_icons/obs-rat.svg",
-    mouse = "www/icons/map_icons/obs-mouse.svg",
-    cat = "www/icons/map_icons/obs-cat.svg",
-    rabbit = "www/icons/map_icons/obs-rabbit.svg",
-    hedgehog = "www/icons/map_icons/obs-hedgehog.svg",
-    possum = "www/icons/map_icons/obs-possum.svg",
-    kiwi = "www/icons/map_icons/obs-kiwi.svg",
-    weka = "www/icons/map_icons/obs-weka.svg",
-    bird = "www/icons/map_icons/obs-bird.svg",
-    mustelid = "www/icons/map_icons/obs-mustelid.svg",
-    other = "www/icons/map_icons/obs-other.svg"
+    stoat = "www/images/icons/map_icons/obs-stoat.svg",
+    weasel = "www/images/icons/map_icons/obs-weasel.svg",
+    ferret = "www/images/icons/map_icons/obs-ferret.svg",
+    rat = "www/images/icons/map_icons/obs-rat.svg",
+    mouse = "www/images/icons/map_icons/obs-mouse.svg",
+    cat = "www/images/icons/map_icons/obs-cat.svg",
+    rabbit = "www/images/icons/map_icons/obs-rabbit.svg",
+    hedgehog = "www/images/icons/map_icons/obs-hedgehog.svg",
+    possum = "www/images/icons/map_icons/obs-possum.svg",
+    kiwi = "www/images/icons/map_icons/obs-kiwi.svg",
+    weka = "www/images/icons/map_icons/obs-weka.svg",
+    bird = "www/images/icons/map_icons/obs-bird.svg",
+    mustelid = "www/images/icons/map_icons/obs-mustelid.svg",
+    other = "www/images/icons/map_icons/obs-other.svg"
   )
   group <- ifelse(group %in% names(paths), group, "other")
   unname(paths[group])
@@ -4094,20 +4094,20 @@ trap_marker_group_from_record <- function(scientific_name, description = NULL) {
 
 trap_kill_icon_path <- function(group) {
   paths <- c(
-    stoat = "www/icons/map_icons/trap-kill-stoat.svg",
-    weasel = "www/icons/map_icons/trap-kill-weasel.svg",
-    ferret = "www/icons/map_icons/trap-kill-ferret.svg",
-    rat = "www/icons/map_icons/trap-kill-rat.svg",
-    mouse = "www/icons/map_icons/trap-kill-mouse.svg",
-    cat = "www/icons/map_icons/trap-kill-cat.svg",
-    rabbit = "www/icons/map_icons/trap-kill-rabbit.svg",
-    hedgehog = "www/icons/map_icons/trap-kill-hedgehog.svg",
-    possum = "www/icons/map_icons/trap-kill-possum.svg",
-    weka = "www/icons/map_icons/trap-kill.svg",
-    bird = "www/icons/map_icons/trap-kill-bird.svg",
-    mustelid = "www/icons/map_icons/trap-kill-mustelid.svg",
-    mixed = "www/icons/map_icons/trap-kill-mixed.svg",
-    other = "www/icons/map_icons/trap-kill.svg"
+    stoat = "www/images/icons/map_icons/trap-kill-stoat.svg",
+    weasel = "www/images/icons/map_icons/trap-kill-weasel.svg",
+    ferret = "www/images/icons/map_icons/trap-kill-ferret.svg",
+    rat = "www/images/icons/map_icons/trap-kill-rat.svg",
+    mouse = "www/images/icons/map_icons/trap-kill-mouse.svg",
+    cat = "www/images/icons/map_icons/trap-kill-cat.svg",
+    rabbit = "www/images/icons/map_icons/trap-kill-rabbit.svg",
+    hedgehog = "www/images/icons/map_icons/trap-kill-hedgehog.svg",
+    possum = "www/images/icons/map_icons/trap-kill-possum.svg",
+    weka = "www/images/icons/map_icons/trap-kill.svg",
+    bird = "www/images/icons/map_icons/trap-kill-bird.svg",
+    mustelid = "www/images/icons/map_icons/trap-kill-mustelid.svg",
+    mixed = "www/images/icons/map_icons/trap-kill-mixed.svg",
+    other = "www/images/icons/map_icons/trap-kill.svg"
   )
 
   group <- ifelse(is.na(group) | !group %in% names(paths), "other", group)
@@ -4132,7 +4132,7 @@ get_trap_kill_icon <- function(description = NULL, scientific_name = NULL, multi
 
 get_trap_check_icon <- function() {
   makeIcon(
-    iconUrl = "www/icons/map_icons/trap-check.svg",
+    iconUrl = "www/images/icons/map_icons/trap-check.svg",
     iconWidth = 26,
     iconHeight = 26,
     iconAnchorX = 13,
@@ -5590,67 +5590,67 @@ get_species_icon <- function(species) {
   # Define a named list of icons
   species_icons <- list(
     "apteryx mantelli" = makeIcon(
-      iconUrl = "www/icons/map_icons/kiwi.png", # https://www.cleanpng.com/
+      iconUrl = "www/images/icons/map_icons/kiwi.png", # https://www.cleanpng.com/
       iconWidth = 49,
       iconHeight = 29
     ),
     "mustela erminea" = makeIcon(
-      iconUrl = "www/icons/map_icons/stoat.png",
+      iconUrl = "www/images/icons/map_icons/stoat.png",
       iconWidth = 60,
       iconHeight = 23
     ),
     "mustela nivalis" = makeIcon(
-      iconUrl = "www/icons/map_icons/weasel.png",
+      iconUrl = "www/images/icons/map_icons/weasel.png",
       iconWidth = 50,
       iconHeight = 36
     ),
     "felis catus" = makeIcon(
-      iconUrl = "www/icons/map_icons/cat.png",
+      iconUrl = "www/images/icons/map_icons/cat.png",
       iconWidth = 37,
       iconHeight = 28
     ),
     "Rattus" = makeIcon(
-      iconUrl = "www/icons/map_icons/rat.png",
+      iconUrl = "www/images/icons/map_icons/rat.png",
       iconWidth = 30,
       iconHeight = 26
     ),
     
     "Gallirallus australis" = makeIcon(
-      iconUrl = "www/icons/map_icons/weka.png",
+      iconUrl = "www/images/icons/map_icons/weka.png",
       iconWidth = 40,
       iconHeight = 35
     ),
     "Prosthemadera novaeseelandiae" = makeIcon(
-      iconUrl = "www/icons/map_icons/tui.png",
+      iconUrl = "www/images/icons/map_icons/tui.png",
       iconWidth = 30,
       iconHeight = 27
     ),
     "Erinaceus europaeus" = makeIcon(
-      iconUrl = "www/icons/map_icons/hedgehog.png",
+      iconUrl = "www/images/icons/map_icons/hedgehog.png",
       iconWidth = 30, 
       iconHeight = 22   
     ),
     "Sus scrofa" = makeIcon(
-      iconUrl = "www/icons/map_icons/wildboar.png",
+      iconUrl = "www/images/icons/map_icons/wildboar.png",
       iconWidth = 40,
       iconHeight = 28
     ),
     
     "no_obs_deployments" = makeIcon(
-      iconUrl = "www/icons/map_icons/cross.png",
+      iconUrl = "www/images/icons/map_icons/cross.png",
       iconWidth = 10, 
       iconHeight = 10
     ),
     
     "none" = makeIcon(
-      iconUrl = "www/icons/map_icons/cross.png",
+      iconUrl = "www/images/icons/map_icons/cross.png",
       iconWidth = 10, 
       iconHeight = 10
     )
   )
   
   "default_icon" <- makeIcon(
-    iconUrl = "www/icons/map_icons/other1.png",
+    iconUrl = "www/images/icons/map_icons/other1.png",
     iconWidth = 10,
     iconHeight = 10
   )

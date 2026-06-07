@@ -23,6 +23,7 @@ pkgs <- c(
   "httpgd",
   "styler",
   "lintr",
+  "cyclocomp",
 
   "memoise",
 

@@ -1009,7 +1009,7 @@ dashboard_favourite_image_records <- function(max_images = 30,
                                              context = "period",
                                              period_name = NULL,
                                              species = NULL) {
-  manifest_path <- file.path("www", "cache", "images", "favourites", "_manifest.csv")
+  manifest_path <- file.path("www", "media-cache", "favourites", "_manifest.csv")
 
   if (!file.exists(manifest_path)) {
     return(data.frame())
