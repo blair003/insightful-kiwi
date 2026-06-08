@@ -4,6 +4,7 @@
 # Re-include known top-level project files
 !.gitignore
 !README.md
+!deploy-sitehost-wkt.sh
 !renv.lock
 !global.R
 !server.R
