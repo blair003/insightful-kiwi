@@ -28,6 +28,7 @@ pkgs <- c(
   "memoise",
 
   "logger",
+  "cran",
   "shiny",
   "bslib",
   "lubridate",
