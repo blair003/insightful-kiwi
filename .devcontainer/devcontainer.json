@@ -28,11 +28,7 @@
       "extensions": [
         "REditorSupport.r",
         "REditorSupport.r-debugger",
-        "Posit.shiny",
-        "OpenAI.chatgpt",
-        "Google.gemini",
-        "Natizyskunk.sftp",
-        "ms-azuretools.vscode-docker"
+        "Posit.shiny"
       ],
       "settings": {
         "r.lsp.enabled": true,

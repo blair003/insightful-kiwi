@@ -79,7 +79,7 @@ EXPOSE 3838
 # Dev-only target
 FROM base AS dev
 
-RUN Rscript -e 'install.packages(c("languageserver", "httpgd", "styler", "lintr", "cyclocomp", "vscDebugger"))'
+RUN Rscript -e 'install.packages(c("languageserver", "httpgd", "styler", "lintr", "cyclocomp")); install.packages("vscDebugger", repos = c("https://manuelhentschel.r-universe.dev", "https://cloud.r-project.org"))'
 
 # Production target.
 # This is last, so it is the default when no --target is specified.
