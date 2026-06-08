@@ -1,4 +1,4 @@
-FROM rocker/shiny-verse:4.5.3
+FROM rocker/shiny-verse:4.5.3 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Pacific/Auckland
@@ -67,7 +67,7 @@ RUN python3 -m venv /opt/venv && \
 
 ENV PKG_SYSREQS=false
 
-# R packages
+# Required production R packages
 COPY .devcontainer/setup-r.R /tmp/setup-r.R
 RUN Rscript /tmp/setup-r.R
 
@@ -76,5 +76,11 @@ WORKDIR /srv/shiny-server
 
 EXPOSE 3838
 
-# Do not override CMD.
-# rocker/shiny-verse already starts shiny-server.
+# Dev-only target
+FROM base AS dev
+
+RUN Rscript -e 'install.packages(c("languageserver", "httpgd", "styler", "lintr", "cyclocomp", "vscDebugger"))'
+
+# Production target.
+# This is last, so it is the default when no --target is specified.
+FROM base AS production

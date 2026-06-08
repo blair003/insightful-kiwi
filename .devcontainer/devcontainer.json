@@ -2,7 +2,8 @@
   "name": "insightful-kiwi-shiny",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": ".."
+    "context": "..",
+    "target": "dev"
   },
   "workspaceFolder": "/srv/shiny-server/insightful.kiwi",
   "workspaceMount": "source=${localWorkspaceFolder},target=/srv/shiny-server/insightful.kiwi,type=bind,consistency=cached",
@@ -21,8 +22,6 @@
       "onAutoForward": "openBrowser"
     }
   },
-
-  "postCreateCommand": "Rscript -e 'install.packages(c(\"jsonlite\", \"rlang\", \"remotes\", \"languageserver\", \"httpgd\", \"styler\", \"lintr\", \"cyclocomp\")); remotes::install_github(\"ManuelHentschel/vscDebugger\")'",
 
   "customizations": {
     "vscode": {
