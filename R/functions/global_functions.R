@@ -1,43 +1,36 @@
-# Function to check and install missing packages
+# Function to check required packages are available
 #
-# This function checks if specified R packages are installed. If any are missing,
-# it installs them from either CRAN or GitHub.
+# This function checks if specified R packages can be loaded. If any are missing,
+# startup stops so the Docker image can be fixed instead of installing at runtime.
 #
-# @param packages A character vector of package names to check and install.
-# @param source A character string indicating the source of the packages.
-#   Must be "cran" for CRAN or "github" for GitHub.
+# @param packages A character vector of package names to check.
+# @param context A character string naming where the packages should be installed.
 # @examples
 # \dontrun{
-#   install_if_missing(c("dplyr", "ggplot2"), source = "cran")
-#   install_if_missing(c("r-lib/devtools"), source = "github")
+#   assert_packages_available(c("dplyr", "ggplot2"))
 # }
-install_if_missing <- function(packages, source = c("cran", "github")) {
-  source <- match.arg(source)
+assert_packages_available <- function(packages, context = "Docker image") {
   packages <- unique(stats::na.omit(as.character(packages)))
   packages <- packages[nzchar(packages)]
   if (length(packages) == 0) {
     return(invisible(NULL))
   }
 
-  installed_packages <- rownames(utils::installed.packages())
+  missing_packages <- packages[
+    !vapply(packages, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))
+  ]
 
-  if (source == "cran") {
-    missing_packages <- setdiff(packages, installed_packages)
-    if (length(missing_packages) > 0) {
-      utils::install.packages(missing_packages)
-    }
-  } else {
-    github_package_names <- basename(packages)
-    missing_packages <- setdiff(github_package_names, installed_packages)
-    if (length(missing_packages) > 0) {
-      if (!requireNamespace("remotes", quietly = TRUE)) {
-        stop("The remotes package is required to install GitHub packages.", call. = FALSE)
-      }
-      remotes::install_github(packages[match(missing_packages, github_package_names)])
-    }
+  if (length(missing_packages) > 0) {
+    stop(
+      "Missing packages in ",
+      context,
+      ": ",
+      paste(missing_packages, collapse = ", "),
+      call. = FALSE
+    )
   }
 
-  invisible(NULL)
+  invisible(packages)
 }
 
 # Function to create directories if they don't exist

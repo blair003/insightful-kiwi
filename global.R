@@ -12,7 +12,7 @@ options(
 )
 
 # logger is needed before instance/config/environment.R is sourced.
-install_if_missing("logger", "cran")
+assert_packages_available("logger")
 library(logger)
 logger::log_formatter(logger::formatter_sprintf)
 
@@ -28,7 +28,7 @@ if (!is.null(config$globals$log_threshold)) {
 
 
 ################################################################
-# Package installation and loading
+# Package validation and loading
 ################################################################
 
 main_cran_packages <- unique(c(config$env$required_cran_packages, "promises"))
@@ -40,14 +40,11 @@ github_package_names <- if (length(main_github_packages) > 0) {
   character(0)
 }
 
-logger::log_info("Checking and installing main list of CRAN packages...")
-install_if_missing(main_cran_packages, "cran")
-
-logger::log_info("Checking and installing main list of GitHub packages...")
-install_if_missing(main_github_packages, "github")
+logger::log_info("Checking required packages are available...")
+all_packages <- unique(c(main_cran_packages, github_package_names))
+assert_packages_available(all_packages)
 
 logger::log_info("Loading all required packages...")
-all_packages <- unique(c(main_cran_packages, github_package_names))
 invisible(lapply(all_packages, library, character.only = TRUE))
 logger::log_info("All required packages loaded.")
 
