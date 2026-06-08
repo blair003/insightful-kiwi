@@ -292,7 +292,7 @@ enrich_observations_with_daily_weather <- function(obs, deps, environment_daily 
   )
 }
 
-enrich_core_data_weather <- function(core_data, cache_file = NULL, config = NULL) {
+enrich_core_data_weather <- function(core_data, cache_file = NULL, config) {
   weather_enrichment <- enrich_observations_with_daily_weather(
     core_data$obs,
     core_data$deps,

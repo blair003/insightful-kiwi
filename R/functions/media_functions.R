@@ -10,7 +10,7 @@ get_sequence_media_urls <- function(media) {
   n_items <- min(nrow(media), 3)
   
   if (n_items > 0) {
-    public_lookup <- get_media_public_flags(media, config)
+    public_lookup <- get_media_public_flags(media)
     
     # Loop through each entry
     for (i in 1:n_items) {

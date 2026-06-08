@@ -22,7 +22,8 @@
 Performance relies heavily on `core_data` and `trap_data` global variables. Both are calculated once and cached as `.RDS` files in `instance/cache/`.
 
 - **DO NOT** write code to ingest data directly from `instance/extdata/`. If you think this is necessary, **STOP** and ask the user first.
-- **DO NOT** write compatibility code for data issues. Instead, delete the `.RDS` files in `instance/cache/` to force a clean regeneration on the next runtime.
+- **DO NOT add fallback or compatibility code for stale cached `core_data` / `trap_data` structures.**  If cached data is missing expected fields or uses old build logic, update the build logic and force a cache rebuild.
+
 - **Preferred Solution:** Update the `core_data` or `trap_data` variables rather than bypassing them.
 
 **Source Mapping:**

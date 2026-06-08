@@ -2,20 +2,16 @@
 # Defines how source camera timestamps are interpreted. Some exports label local
 # camera clock times as UTC, so these helpers can force the timezone without
 # converting the displayed clock time.
-source_timestamp_timezone <- function() {
-  if (exists("config", inherits = TRUE) &&
-      !is.null(config$globals$source_timestamp_timezone) &&
-      nzchar(config$globals$source_timestamp_timezone)) {
-    return(config$globals$source_timestamp_timezone)
+source_timestamp_timezone <- function(runtime_config = NULL) {
+  if (is.null(runtime_config) && exists("config", inherits = TRUE)) {
+    runtime_config <- get("config", inherits = TRUE)
   }
 
-  if (exists("config", inherits = TRUE) &&
-      !is.null(config$globals$actual_timezone) &&
-      nzchar(config$globals$actual_timezone)) {
-    return(config$globals$actual_timezone)
+  if (is.null(runtime_config)) {
+    return("Pacific/Auckland")
   }
 
-  "Pacific/Auckland"
+  config_source_timestamp_timezone(runtime_config)
 }
 
 source_timestamp_date <- function(value, timezone = source_timestamp_timezone()) {
@@ -26,9 +22,12 @@ source_timestamp_date <- function(value, timezone = source_timestamp_timezone())
   as.Date(value)
 }
 
-should_force_source_timestamp_timezone <- function() {
-  exists("config", inherits = TRUE) &&
-    isTRUE(config$globals$source_timestamps_are_local)
+should_force_source_timestamp_timezone <- function(runtime_config = NULL) {
+  if (is.null(runtime_config) && exists("config", inherits = TRUE)) {
+    runtime_config <- get("config", inherits = TRUE)
+  }
+
+  !is.null(runtime_config) && config_source_timestamps_are_local(runtime_config)
 }
 
 parse_source_timestamp_as_local <- function(value, timezone = source_timestamp_timezone()) {
@@ -119,6 +118,28 @@ filter_detection_obs <- function(obs) {
   obs %>% dplyr::filter(.data$observationType %in% core_data_detection_observation_types())
 }
 
+filter_setup_unclassified_observations <- function(obs) {
+  if (is.null(obs) ||
+      !all(c("observationType", "cameraSetupType") %in% names(obs))) {
+    return(obs)
+  }
+
+  setup_unclassified <- tolower(trimws(as.character(obs$observationType))) == "unclassified" &
+    tolower(trimws(as.character(obs$cameraSetupType))) == "setup"
+
+  setup_unclassified[is.na(setup_unclassified)] <- FALSE
+
+  removed_count <- sum(setup_unclassified)
+  if (removed_count > 0) {
+    logger::log_info(sprintf(
+      "camtrapdp_functions.R, removed %s setup observations marked as unclassified",
+      removed_count
+    ))
+  }
+
+  obs[!setup_unclassified, , drop = FALSE]
+}
+
 process_camtrapdp_package <- function() {
  # browser()
   tryCatch({
@@ -144,10 +165,14 @@ process_camtrapdp_package <- function() {
       filter(!is.na(start) & !is.na(end))
 
     # Step 2: Transform the observations data
+    logger::log_info("Starting Step 2: Preparing source observations")
+    source_observations <- package$data$observations
+    source_observations <- filter_setup_unclassified_observations(source_observations)
+
     logger::log_info("Starting Step 2: Consolidating species observations")
     #browser()
     core_data$obs <- consol_spp_obs(
-      package$data$observations,
+      source_observations,
       config$globals$spp_consol_defs
     )
 

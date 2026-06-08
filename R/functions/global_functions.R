@@ -64,6 +64,50 @@ create_directories_if_missing <- function(dirs) {
   invisible(NULL)
 }
 
+require_config_globals <- function(config) {
+  if (is.null(config) || is.null(config$globals)) {
+    stop("config$globals is required.", call. = FALSE)
+  }
+
+  config$globals
+}
+
+config_global_value <- function(config, name, default = NULL) {
+  globals <- require_config_globals(config)
+  value <- globals[[name]]
+  if (is.null(value)) {
+    return(default)
+  }
+
+  value
+}
+
+config_non_empty_string <- function(value) {
+  !is.null(value) && length(value) > 0 && !is.na(value[[1]]) && nzchar(value[[1]])
+}
+
+config_actual_timezone <- function(config, default = "UTC") {
+  timezone <- config_global_value(config, "actual_timezone")
+  if (config_non_empty_string(timezone)) {
+    return(timezone[[1]])
+  }
+
+  default
+}
+
+config_source_timestamp_timezone <- function(config) {
+  timezone <- config_global_value(config, "source_timestamp_timezone")
+  if (config_non_empty_string(timezone)) {
+    return(timezone[[1]])
+  }
+
+  config_actual_timezone(config, default = "Pacific/Auckland")
+}
+
+config_source_timestamps_are_local <- function(config) {
+  isTRUE(config_global_value(config, "source_timestamps_are_local", FALSE))
+}
+
 parse_env_flag <- function(value, name) {
   if (is.null(value) || length(value) == 0) {
     return(NULL)
@@ -86,7 +130,7 @@ parse_env_flag <- function(value, name) {
   NULL
 }
 
-prepare_runtime_core_data <- function(core_data, trap_data = NULL, config = NULL) {
+prepare_runtime_core_data <- function(core_data, trap_data = NULL, config) {
   if (is.null(core_data$app)) {
     core_data$app <- list()
   }
@@ -193,7 +237,7 @@ cache_media_is_public <- function(value) {
 }
 
 
-get_media_public_flags <- function(media_df, config = NULL) {
+get_media_public_flags <- function(media_df) {
   public_column <- intersect(c("filePublic", "isPublic"), names(media_df))
   if (length(public_column) > 0) {
     public_column <- public_column[[1]]
@@ -403,7 +447,7 @@ rebuild_favourites_manifest_from_cached_files <- function(media_df, obs_df, conf
     return(invisible(0L))
   }
 
-  public_lookup <- get_media_public_flags(media_df, config)
+  public_lookup <- get_media_public_flags(media_df)
   media_df <- media_df[public_lookup$flags, , drop = FALSE]
   media_df$fileName <- as.character(media_df$fileName)
   media_df$sequenceID <- as.character(media_df$sequenceID)
@@ -708,7 +752,7 @@ cache_selected_images <- function(media_df, obs_df, config) {
     favourite_flags <- vapply(media_df$favourite, is_true_value, logical(1))
   }
 
-  public_lookup <- get_media_public_flags(media_df, config)
+  public_lookup <- get_media_public_flags(media_df)
   public_flags <- public_lookup$flags
 
   selected_flags <- as.character(media_df$sequenceID) %in% selected_sequence_ids

@@ -208,7 +208,7 @@ summarise_period_annotation_completeness <- function(deps, period_groups) {
     dplyr::bind_rows()
 }
 
-get_default_complete_period_selection <- function(deps, period_groups, config = NULL) {
+get_default_complete_period_selection <- function(deps, period_groups, config) {
   period_names <- period_names_without_all(period_groups)
   completion_summary <- summarise_period_annotation_completeness(deps, period_groups)
   complete_periods <- completion_summary$period[completion_summary$is_complete]
@@ -223,16 +223,8 @@ get_default_complete_period_selection <- function(deps, period_groups, config = 
     NA_character_
   }
 
-  default_primary_period <- if (!is.null(config$globals$default_primary_period)) {
-    config$globals$default_primary_period
-  } else {
-    NULL
-  }
-  default_comparative_period <- if (!is.null(config$globals$default_comparative_period)) {
-    config$globals$default_comparative_period
-  } else {
-    NULL
-  }
+  default_primary_period <- config_global_value(config, "default_primary_period")
+  default_comparative_period <- config_global_value(config, "default_comparative_period")
 
   primary_period <- period_name_from_index(
     period_groups,
@@ -334,18 +326,15 @@ parse_trap_period_date <- function(value, timezone = "UTC") {
   parsed
 }
 
-update_year_period_bounds_from_observations <- function(core_data, trap_data = NULL, config = NULL) {
+update_year_period_bounds_from_observations <- function(core_data, trap_data = NULL, config) {
   if (is.null(core_data$period_groups) || length(core_data$period_groups) == 0) {
     return(core_data)
   }
 
-  timezone <- if (!is.null(config) && !is.null(config$globals$actual_timezone) && nzchar(config$globals$actual_timezone)) {
-    config$globals$actual_timezone
-  } else if (!is.null(config) && !is.null(config$globals$timezone) && nzchar(config$globals$timezone)) {
-    config$globals$timezone
-  } else {
-    "UTC"
-  }
+  timezone <- config_actual_timezone(
+    config,
+    default = config_global_value(config, "timezone", "UTC")
+  )
 
   observation_dates <- period_group_observation_dates(core_data, trap_data, timezone)
   if (length(observation_dates) == 0) {

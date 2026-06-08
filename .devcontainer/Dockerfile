@@ -2,7 +2,7 @@ FROM rocker/shiny-verse:4.5.3
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Pacific/Auckland
-ENV PATH="/opt/venv/bin:$PATH"
+# ENV PATH="/opt/venv/bin:$PATH"
 
 # First install tools needed to add external apt repos
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -62,7 +62,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # WeasyPrint
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/venv/bin/pip install --no-cache-dir weasyprint
+    /opt/venv/bin/pip install --no-cache-dir weasyprint && \
+    ln -s /opt/venv/bin/weasyprint /usr/local/bin/weasyprint
 
 ENV PKG_SYSREQS=false
 

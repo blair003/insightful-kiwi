@@ -39,10 +39,14 @@ species_dashboard_diel_colours <- c(
   Nocturnal = "#4b5563"
 )
 
-species_dashboard_diel_thresholds <- function(core_data = NULL) {
+species_dashboard_diel_thresholds <- function(core_data) {
+  if (is.null(core_data) || is.null(core_data$app)) {
+    stop("core_data$app$diel_thresholds is missing. Rebuild core_data.", call. = FALSE)
+  }
+
   thresholds <- core_data$app$diel_thresholds
-  if (is.null(thresholds) && exists("config", inherits = TRUE)) {
-    thresholds <- core_data_diel_thresholds(get("config", inherits = TRUE))
+  if (is.null(thresholds)) {
+    stop("core_data$app$diel_thresholds is missing. Rebuild core_data.", call. = FALSE)
   }
 
   normalise_species_dashboard_diel_thresholds(thresholds)

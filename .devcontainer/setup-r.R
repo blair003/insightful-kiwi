@@ -18,12 +18,6 @@ if (!requireNamespace("pak", quietly = TRUE)) {
 
 
 pkgs <- c(
-  "languageserver",
-  "httpgd",
-  "styler",
-  "lintr",
-  "cyclocomp",
-
   "memoise",
 
   "logger",

@@ -21,10 +21,14 @@
       "onAutoForward": "openBrowser"
     }
   },
+
+  "postCreateCommand": "Rscript -e 'install.packages(c(\"jsonlite\", \"rlang\", \"remotes\", \"languageserver\", \"httpgd\", \"styler\", \"lintr\", \"cyclocomp\")); remotes::install_github(\"ManuelHentschel/vscDebugger\")'",
+
   "customizations": {
     "vscode": {
       "extensions": [
         "REditorSupport.r",
+        "REditorSupport.r-debugger",
         "Posit.shiny",
         "OpenAI.chatgpt",
         "Google.gemini",

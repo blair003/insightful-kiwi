@@ -1,37 +1,25 @@
-get_core_data_app_timezone <- function(config = NULL) {
-  if (!is.null(config$globals$actual_timezone) && nzchar(config$globals$actual_timezone)) {
-    return(config$globals$actual_timezone)
-  }
-
-  "UTC"
+config_core_data_app_timezone <- function(config) {
+  config_actual_timezone(config, default = "UTC")
 }
 
-as_core_data_build_datetime <- function(value = Sys.time(), config = NULL) {
+as_core_data_build_datetime <- function(value = Sys.time(), config) {
   as.POSIXct(
     as.numeric(value),
     origin = "1970-01-01",
-    tz = get_core_data_app_timezone(config)
+    tz = config_core_data_app_timezone(config)
   )
 }
 
-empty_core_data_build_datetime <- function(config = NULL) {
+empty_core_data_build_datetime <- function(config) {
   as.POSIXct(
     NA_real_,
     origin = "1970-01-01",
-    tz = get_core_data_app_timezone(config)
+    tz = config_core_data_app_timezone(config)
   )
 }
 
-core_data_period_grouping_signature <- function(config = NULL) {
-  if (is.null(config) || is.null(config$globals)) {
-    return(list(
-      period_grouping = NULL,
-      period_grouping_include_years = FALSE,
-      hemisphere = NULL
-    ))
-  }
-
-  globals <- config$globals
+config_period_grouping_signature <- function(config) {
+  globals <- require_config_globals(config)
   list(
     period_grouping = globals$period_grouping,
     period_grouping_include_years = isTRUE(globals$period_grouping_include_years),
@@ -43,16 +31,20 @@ core_data_period_grouping_signature <- function(config = NULL) {
   )
 }
 
-core_data_species_consolidation_signature <- function(config = NULL) {
-  if (is.null(config) || is.null(config$globals)) {
-    return(NULL)
-  }
-
-  config$globals$spp_consol_defs
+config_species_consolidation_signature <- function(config) {
+  config_global_value(config, "spp_consol_defs")
 }
 
-core_data_observation_model_version <- function() {
-  "all_observation_types_v1"
+core_data_source_observation_rules_version <- function() {
+  "exclude_setup_unclassified_v1"
+}
+
+core_data_cache_invalidation_signature <- function(config) {
+  list(
+    source_observation_rules_version = core_data_source_observation_rules_version(),
+    period_grouping = config_period_grouping_signature(config),
+    species_consolidation = config_species_consolidation_signature(config)
+  )
 }
 
 default_species_dashboard_diel_thresholds <- function() {
@@ -83,11 +75,13 @@ normalise_species_dashboard_diel_thresholds <- function(thresholds = NULL) {
   resolved
 }
 
-core_data_diel_thresholds <- function(config = NULL) {
-  normalise_species_dashboard_diel_thresholds(config$globals$species_dashboard_diel_thresholds)
+config_species_dashboard_diel_thresholds <- function(config) {
+  normalise_species_dashboard_diel_thresholds(
+    config_global_value(config, "species_dashboard_diel_thresholds")
+  )
 }
 
-ensure_core_data_app_metadata <- function(core_data, config = NULL) {
+ensure_core_data_app_metadata <- function(core_data, config) {
   if (is.null(core_data$app)) {
     core_data$app <- list()
   }
@@ -107,18 +101,18 @@ ensure_core_data_app_metadata <- function(core_data, config = NULL) {
   core_data
 }
 
-mark_core_data_app_updated <- function(core_data, field, updated = Sys.time(), config = NULL) {
+mark_core_data_app_updated <- function(core_data, field, updated = Sys.time(), config) {
   core_data <- ensure_core_data_app_metadata(core_data, config)
   core_data$app[[field]] <- as_core_data_build_datetime(updated, config)
   core_data
 }
 
-format_core_data_build_datetime <- function(value, config = NULL) {
+format_core_data_build_datetime <- function(value, config) {
   if (is.null(value) || length(value) == 0 || is.na(value[[1]])) {
     return("Not recorded")
   }
 
-  timezone <- get_core_data_app_timezone(config)
+  timezone <- config_core_data_app_timezone(config)
   value <- as_core_data_build_datetime(value[[1]], config)
   if (is.na(value)) {
     return("Not recorded")

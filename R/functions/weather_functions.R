@@ -224,22 +224,14 @@ request_weather_cache_refresh <- function(reason = "weather lookup miss") {
 }
 
 weather_actual_timezone <- function() {
-  if (exists("config", inherits = TRUE) &&
-      !is.null(config$globals$actual_timezone) &&
-      nzchar(config$globals$actual_timezone)) {
-    return(config$globals$actual_timezone)
+  if (exists("config", inherits = TRUE)) {
+    return(config_actual_timezone(get("config", inherits = TRUE), default = "Pacific/Auckland"))
   }
 
   "Pacific/Auckland"
 }
 
 weather_playback_timezone <- function() {
-  if (exists("config", inherits = TRUE) &&
-      !is.null(config$globals$actual_timezone) &&
-      nzchar(config$globals$actual_timezone)) {
-    return(config$globals$actual_timezone)
-  }
-
   weather_actual_timezone()
 }
 
