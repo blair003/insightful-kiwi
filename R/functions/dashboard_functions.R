@@ -1113,7 +1113,13 @@ dashboard_favourite_image_records <- function(max_images = 30,
   }
 
   if (nrow(manifest) > 0) {
-    file_paths <- file.path("www", manifest$web_path)
+    cache_web_path <- paste0(get_image_cache_web_path(config), "/")
+    manifest_sub_paths <- ifelse(
+      startsWith(manifest$web_path, cache_web_path),
+      substring(manifest$web_path, nchar(cache_web_path) + 1),
+      NA_character_
+    )
+    file_paths <- file.path(get_primary_image_cache_dir(config), manifest_sub_paths)
     manifest$file_mtime <- as.POSIXct(file.info(file_paths)$mtime)
     manifest <- manifest[!is.na(manifest$file_mtime), , drop = FALSE]
   }

@@ -111,17 +111,6 @@ export_view_image_to_pdf <- function(screenshot_data_url, pdf_file, export_dir) 
   invisible(pdf_file)
 }
 
-pdf_export_www_url <- function(path) {
-  normalized_path <- normalizePath(path, winslash = "/", mustWork = TRUE)
-  www_root <- normalizePath("www", winslash = "/", mustWork = TRUE)
-
-  if (!startsWith(normalized_path, paste0(www_root, "/"))) {
-    stop("PDF export failed: generated image is not under www.")
-  }
-
-  sub(paste0("^", www_root, "/"), "", normalized_path)
-}
-
 create_pdf_export_density_map <- function(active_locations,
                                           obs_summary_location,
                                           show_zero = TRUE,
@@ -280,10 +269,11 @@ create_pdf_export_density_map <- function(active_locations,
   map
 }
 
-render_pdf_export_leaflet_png <- function(map, map_id, export_dir, width = NULL, height = NULL) {
+render_pdf_export_leaflet_png <- function(map, map_id, export_dir, width = NULL, height = NULL, config = NULL) {
+  config <- resolve_image_cache_config(config)
   dir.create(export_dir, recursive = TRUE, showWarnings = FALSE)
 
-  public_dir <- file.path("www", "cache", "pdf_export_maps")
+  public_dir <- file.path(get_primary_image_cache_dir(config), "pdf_export_maps")
   dir.create(public_dir, recursive = TRUE, showWarnings = FALSE)
 
   export_id <- paste0(format(Sys.time(), "%Y%m%d%H%M%S"), "-", sample.int(999999, 1))
@@ -319,5 +309,10 @@ render_pdf_export_leaflet_png <- function(map, map_id, export_dir, width = NULL,
     stop("PDF export failed: Leaflet PNG file was not created.")
   }
 
-  list(file = png_file, src = pdf_export_www_url(png_file))
+  png_src <- image_cache_file_url(png_file, config)
+  if (is.na(png_src) || !nzchar(png_src)) {
+    stop("PDF export failed: generated image is not under the configured public media cache.")
+  }
+
+  list(file = png_file, src = png_src)
 }

@@ -2137,7 +2137,8 @@ mapping_module_server <- function(id,
           map_id = MAP_ID,
           export_dir = export_dir,
           width = width,
-          height = height
+          height = height,
+          config = config
         )
       }
       
