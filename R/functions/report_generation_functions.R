@@ -1,18 +1,27 @@
 
-generate_report_filename <- function(period_name, package_created_date, report_format) {
+generate_report_package_date_string <- function(package_created_date) {
   package_date_posix <- as.POSIXct(package_created_date, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
-  package_date_string <- format(package_date_posix, format = "%Y%m%d%H%M", tz = config$globals$actual_timezone)
-  
-  # Construct the initial file name with potential spaces
-  initial_filename <- paste(period_name, "deployment_report", package_date_string, sep = "_")
-  
-  # Determine the file extension based on the selected report format
+  format(package_date_posix, format = "%Y%m%d%H%M", tz = config$globals$actual_timezone)
+}
+
+get_report_count_basis <- function(use_net) {
+  if (isTRUE(use_net)) "net" else "total"
+}
+
+generate_report_output_filename <- function(period_name, package_date_string, report_format, use_net = NULL) {
+  filename_parts <- c(period_name)
+  if (!is.null(use_net)) {
+    filename_parts <- c(filename_parts, get_report_count_basis(use_net))
+  }
+  filename_parts <- c(filename_parts, "deployment_report", package_date_string)
+
   file_extension <- ifelse(report_format == "pdf", ".pdf", ".html")
-  
-  # Append the file extension to the filename and remove spaces
-  final_filename <- gsub(" ", "_", paste0(initial_filename, file_extension))
-  
-  return(final_filename)
+  gsub(" ", "_", paste0(paste(filename_parts, collapse = "_"), file_extension))
+}
+
+generate_report_filename <- function(period_name, package_created_date, report_format, use_net = NULL) {
+  package_date_string <- generate_report_package_date_string(package_created_date)
+  generate_report_output_filename(period_name, package_date_string, report_format, use_net)
 }
 
 
@@ -51,8 +60,11 @@ collate_reporting_data <- function(start_date, end_date, period_name, reporting_
         organisation_name = config$meta$organisation_name,
         organisation_header_logo = config$meta$organisation_header_logo,
         project_name = config$meta$project_name
+      ),
+
+      paths = list(
+        report_shared_resources = normalizePath(config$env$dirs$report_resources, mustWork = FALSE)
       )
-    
     ),
     data = list(
       camera_network_overview = reporting_data$camera_network_overview,
@@ -182,7 +194,7 @@ generate_locality_plots <- function(obs, unique_localities, period_name, reports
 }
 
 
-render_report <- function(period_name, package_date_string, reports_cache_dir, data_to_export) {
+render_report <- function(period_name, package_date_string, reports_cache_dir, data_to_export, use_net) {
   #browser()
   ensure_pandoc_available()
 
@@ -192,20 +204,36 @@ render_report <- function(period_name, package_date_string, reports_cache_dir, d
     config$globals$use_net_data <<- previous_use_net_data
   }, add = TRUE)
 
-  report_template <- "resources/templates/deployment_report.Rmd"
-  report_css <- "resources/templates/custom_report.css"
+  report_template_dir <- file.path(config$env$dirs$report_templates, "deployment_report")
+  report_template <- file.path(report_template_dir, "deployment_report.Rmd")
+  report_css <- file.path(report_template_dir, "custom_report.css")
   
   if (!file.exists(report_template)) stop("Can't find deployment_report.Rmd, stopping")
+  if (!file.exists(report_css)) stop("Can't find custom_report.css, stopping")
   
-  report_template_copy <- file.path(reports_cache_dir, gsub(" ", "_", paste0(period_name, "_deployment_report_", package_date_string, ".Rmd")))
+  report_html_filename <- generate_report_output_filename(period_name, package_date_string, "html", use_net)
+  report_template_copy <- file.path(reports_cache_dir, sub("\\.html$", ".Rmd", report_html_filename))
   file.copy(report_template, report_template_copy, overwrite = TRUE)
   
+  report_template_resources_path <- normalizePath(file.path(report_template_dir, "resources"), mustWork = FALSE)
+  report_shared_resources_path <- normalizePath(config$env$dirs$report_resources, mustWork = FALSE)
+  data_to_export$config$paths$report_template_resources <- report_template_resources_path
+  data_to_export$config$paths$report_shared_resources <- report_shared_resources_path
+
+  reports_cache_path <- normalizePath(reports_cache_dir, mustWork = FALSE)
+  report_shared_resources_relative <- fs::path_rel(report_shared_resources_path, start = reports_cache_path)
+  report_shared_resources_relative <- gsub("\\\\", "/", report_shared_resources_relative)
+
   report_css_copy <- file.path(reports_cache_dir, "custom_report.css")
-  file.copy(report_css, report_css_copy, overwrite = TRUE)
+  report_css_content <- readLines(report_css, warn = FALSE)
+  report_css_content <- gsub("{{REPORT_SHARED_RESOURCES_PATH}}", report_shared_resources_relative, report_css_content, fixed = TRUE)
+  writeLines(report_css_content, report_css_copy)
   
   rmarkdown::render(
     input = report_template_copy,
     output_format = "html_document",
+    output_file = report_html_filename,
+    output_dir = reports_cache_dir,
     params = data_to_export,
     quiet = FALSE,
     envir = new.env(parent = globalenv())

@@ -13,7 +13,8 @@
 !R/
 !www/
 !instance/
-!resources/
+!instance/reports/
+!instance/reports/**
 
 # Then control contents inside allowed dirs
 instance/config/*

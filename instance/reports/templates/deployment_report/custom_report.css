@@ -1,43 +1,42 @@
       /*
-        Paths are relative to where the css file will be after a report is created
-        So relative to the cache
+        REPORT_SHARED_RESOURCES_PATH is replaced when the CSS is copied to the report cache.
       */
 
       @font-face {
         font-family: 'Source Sans Pro';
-        src: url('../../resources/fonts/SourceSansPro-Regular.ttf') format('truetype');
+        src: url('{{REPORT_SHARED_RESOURCES_PATH}}/fonts/SourceSansPro-Regular.ttf') format('truetype');
         font-weight: 400; /* Normal weight */
         font-style: normal;
       }
       @font-face {
         font-family: 'Source Sans Pro';
-        src: url('../../resources/fonts/SourceSansPro-Semibold.ttf') format('truetype');
+        src: url('{{REPORT_SHARED_RESOURCES_PATH}}/fonts/SourceSansPro-Semibold.ttf') format('truetype');
         font-weight: 600; /* Semi-Bold weight */
         font-style: normal;
       }
       @font-face {
         font-family: 'Source Sans Pro';
-        src: url('../../resources/fonts/SourceSansPro-Bold.ttf') format('truetype');
+        src: url('{{REPORT_SHARED_RESOURCES_PATH}}/fonts/SourceSansPro-Bold.ttf') format('truetype');
         font-weight: 700; /* Bold weight */
         font-style: normal;
       }
       
       @font-face {
         font-family: 'Source Sans Pro';
-        src: url('../../resources/fonts/SourceSansPro-Italic.ttf') format('truetype');
+        src: url('{{REPORT_SHARED_RESOURCES_PATH}}/fonts/SourceSansPro-Italic.ttf') format('truetype');
         font-weight: 400; /* Normal weight */
         font-style: italic;
       }
       @font-face {
         font-family: 'Source Sans Pro';
-        src: url('../../resources/fonts/SourceSansPro-SemiboldItalic.ttf') format('truetype');
+        src: url('{{REPORT_SHARED_RESOURCES_PATH}}/fonts/SourceSansPro-SemiboldItalic.ttf') format('truetype');
         font-weight: 600; /* Semi-bold weight */
         font-style: italic;
       }
       
       @font-face {
         font-family: 'Source Sans Pro';
-        src: url('../../resources/fonts/SourceSansPro-BoldItalic.ttf') format('truetype');
+        src: url('{{REPORT_SHARED_RESOURCES_PATH}}/fonts/SourceSansPro-BoldItalic.ttf') format('truetype');
         font-weight: 700; /* Bold weight */
         font-style: italic;
       }

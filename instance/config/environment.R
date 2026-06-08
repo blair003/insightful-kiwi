@@ -2,8 +2,7 @@ config$env <- list(
   
   # Directory paths, you can update these if you like.
   dirs = list(
-    camtrap_package = normalizePath("instance/extdata", mustWork = FALSE),
-    trap_data_source = normalizePath(file.path("instance/extdata", "trap-data"), mustWork = FALSE),
+    extdata = normalizePath("instance/extdata", mustWork = FALSE),
     cache = normalizePath("instance/cache", mustWork = FALSE),
     logs = normalizePath("instance/logs", mustWork = FALSE),
     public_media_cache = normalizePath(file.path("www", "media-cache"), mustWork = FALSE),
@@ -37,9 +36,14 @@ config$env <- list(
   # "mapview",
   # "promises", 
 
-# Add subdirectories dynamically based off root path
+# Add subdirectories dynamically based off root paths
+config$env$dirs$camtrap_package <- file.path(config$env$dirs$extdata, "monitoring-data")
+config$env$dirs$trap_data_source <- file.path(config$env$dirs$extdata, "trap-data")
 config$env$dirs$trap_monitoring_data <- file.path(config$env$dirs$cache, "trap-data-camtrapdp")
 config$env$dirs$reports <- file.path(config$env$dirs$cache, "reports")
+config$env$dirs$report_root <- normalizePath(file.path("instance", "reports"), mustWork = FALSE)
+config$env$dirs$report_templates <- file.path(config$env$dirs$report_root, "templates")
+config$env$dirs$report_resources <- file.path(config$env$dirs$report_root, "resources")
 config$env$dirs$plots <- file.path(config$env$dirs$cache, "plots")
 config$env$dirs$maps <- file.path(config$env$dirs$cache, "maps")
 config$env$dirs$media <- config$env$dirs$public_media_cache

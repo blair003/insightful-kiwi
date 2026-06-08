@@ -61,7 +61,7 @@ generate_column_descriptions <- function(column_names) {
 
 
 generate_html_header <- function() {
-  logo_path <- normalizePath(file.path("../../resources", params$config$meta$organisation_header_logo), mustWork = FALSE)
+  logo_path <- report_image_path(params$config$meta$organisation_header_logo)
 
   html_string <- sprintf('<div class="page-break-header"><span><strong>InsightfulKiwi</strong>&nbsp;| %s - Camera Monitoring Results - %s</span><img src="%s" alt="Logo"></div>\n\n',
           params$config$meta$project_name,
@@ -69,6 +69,10 @@ generate_html_header <- function() {
           logo_path)
   
   return(html_string)
+}
+
+report_image_path <- function(...) {
+  normalizePath(file.path(params$config$paths$report_template_resources, "images", ...), mustWork = FALSE)
 }
 
 
@@ -585,7 +589,7 @@ generate_column_descriptions(c("Coverage Area (ha)", "Camera Density (per hectar
 ```
 
 #### Kohi Point Scenic Reserve Map - Camera Monitoring Lines (teal blue), Rodent monitoring (yellow)
-<img src="../../resources/kohipoint_map.jpg" alt="Map of Kohi Point Scenic Reserve showing camera monitoring lines" width="1024" border="1" />
+<img src="`r report_image_path('kohipoint_map.jpg')`" alt="Map of Kohi Point Scenic Reserve showing camera monitoring lines" width="1024" border="1" />
 <figcaption>Source: Gaye Payze, Whakatane Kiwi Trust</figcaption>
 </figure>
 
@@ -595,7 +599,7 @@ generate_column_descriptions(c("Coverage Area (ha)", "Camera Density (per hectar
 ```
 
 #### Mokoroa Bush Scenic Reserve Map - Camera Monitoring Lines (teal blue), Rodent monitoring (yellow)
-<img src="../../resources/mokoroa_map.jpg" alt="Map of Mokoroa Bush Scenic Reserve showing camera monitoring lines" width="1024" border="1" />
+<img src="`r report_image_path('mokoroa_map.jpg')`" alt="Map of Mokoroa Bush Scenic Reserve showing camera monitoring lines" width="1024" border="1" />
 <figcaption>Source: Gaye Payze, Whakatane Kiwi Trust</figcaption>
 </figure>
 
@@ -605,7 +609,7 @@ generate_column_descriptions(c("Coverage Area (ha)", "Camera Density (per hectar
 ```
 
 #### Ohope Scenic Reserve Map - Camera Monitoring Lines (teal blue), Rodent monitoring (yellow)
-<img src="../../resources/ohope_map.jpg" alt="Map of Ohope Scenic Reserve showing camera monitoring lines" width="1024" border="1" />
+<img src="`r report_image_path('ohope_map.jpg')`" alt="Map of Ohope Scenic Reserve showing camera monitoring lines" width="1024" border="1" />
 <figcaption>Source: Gaye Payze, Whakatane Kiwi Trust</figcaption>
 </figure>
 
@@ -725,7 +729,7 @@ The camera is centered on and positioned relative to a lure basket. Camera lens 
 
 The lure is contained within a mesh basket (17mm mesh), with a fine mesh cover (6mm mesh), anchored to the ground with two wide U-shaped pegs. The lure used is bait of fresh rabbit as a base, with a layer of Erayz on top.
 <figure>
-<img src="../../resources/example_camera_setup_in_field.jpg" alt="Image showing an example camera deployed, camera strapped to tree and bait basket in view" width="800" border="1" />
+<img src="`r report_image_path('example_camera_setup_in_field.jpg')`" alt="Image showing an example camera deployed, camera strapped to tree and bait basket in view" width="800" border="1" />
 <figcaption>Example camera deployment in the field</figcaption>
 </figure>
 Once setup is complete and checked, the location identifier and associated camera name is recorded, then the camera's menu is used to manually trigger a detection, resulting in three images. The timestamp on these images will be recorded as the deployment start date. Finally, the camera's weather tight door is securely fastened.

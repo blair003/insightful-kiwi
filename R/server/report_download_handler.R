@@ -9,7 +9,7 @@ register_report_download_handler <- function(input,
                                              use_net = reactive(config$globals$use_net_data)) {
   output$download_report <- downloadHandler(
     filename = function() {
-      generate_report_filename(primary_period$period_name(), core_data$created, input$report_format)
+      generate_report_filename(primary_period$period_name(), core_data$created, input$report_format, use_net())
     },
 
     content = function(file) {
@@ -19,12 +19,11 @@ register_report_download_handler <- function(input,
 
       period_name <- primary_period$period_name()
       package_created_date <- core_data$created
-      package_date_string <- format(as.POSIXct(package_created_date, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ"), format = "%Y%m%d%H%M", tz = "Pacific/Auckland")
+      package_date_string <- generate_report_package_date_string(package_created_date)
 
       ensure_directories_exist(reports_cache_dir, density_maps_dir, plots_dir)
 
-      report_count_basis <- if (isTRUE(use_net())) "net" else "total"
-      report_html <- file.path(reports_cache_dir, gsub(" ", "_", paste0(period_name, "_", report_count_basis, "_deployment_report_", package_date_string, ".html")))
+      report_html <- file.path(reports_cache_dir, generate_report_output_filename(period_name, package_date_string, "html", use_net()))
 
       if (!file.exists(report_html)) {
         ensure_pandoc_available()
@@ -78,16 +77,25 @@ register_report_download_handler <- function(input,
           period_name,
           package_date_string,
           reports_cache_dir,
-          data_to_export
+          data_to_export,
+          use_net()
         )
       }
 
+      if (!file.exists(report_html)) {
+        stop("Report HTML was not created: ", report_html, call. = FALSE)
+      }
+
       if (input$report_format == "pdf") {
-        report_pdf <- file.path(reports_cache_dir, gsub(" ", "-", paste0(period_name, "_", report_count_basis, "_deployment_report_", package_date_string, ".pdf")))
+        report_pdf <- file.path(reports_cache_dir, generate_report_output_filename(period_name, package_date_string, "pdf", use_net()))
         convert_to_pdf(report_html, report_pdf)
-        file.copy(report_pdf, file, overwrite = TRUE)
+        if (!file.copy(report_pdf, file, overwrite = TRUE)) {
+          stop("Failed to copy report PDF to download file.", call. = FALSE)
+        }
       } else {
-        file.copy(report_html, file, overwrite = TRUE)
+        if (!file.copy(report_html, file, overwrite = TRUE)) {
+          stop("Failed to copy report HTML to download file.", call. = FALSE)
+        }
       }
     }
   )

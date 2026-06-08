@@ -1,2 +1,11 @@
-Put the Camtrap DP datapackage contents in this extdata folder.
-datapackage.json, deployments.csv, media.csv and observations.csv
+External input data for this deployment lives here.
+
+monitoring-data/
+  Camtrap DP package used for camera monitoring data. Expected files include:
+  - datapackage.json
+  - deployments.csv
+  - observations.csv
+  - media.csv
+
+trap-data/
+  Trap monitoring source files. Expected files are configured in instance/config/environment.R.

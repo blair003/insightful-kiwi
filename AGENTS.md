@@ -11,7 +11,12 @@
 - `R/` → Supporting functions and modules. **(Prefer editing here over `server.R`)**.
 - `www/` → Static web assets and media cache.
 - `instance/` → Deployment-specific config, data, caches, and logs. *(Note: `instance/config/` contains active R code).*
-- `instance.example/` → Template for new deployments.
+
+## Path Management
+
+- **Use Dynamic Base Paths:** When referencing root directories in code, DO NOT hardcode paths (e.g., "instance/cache/"). Always use the dynamic base paths defined in config/environment.R via the config$env$dirs list (e.g., config$env$dirs$cache).
+
+- **Subdirectories**: It is acceptable to hardcode subdirectories as long as they are appended to the dynamic base paths (e.g., file.path(config$env$dirs$cache, "reports")).
 
 ## Data Model Constraints
 Performance relies heavily on `core_data` and `trap_data` global variables. Both are calculated once and cached as `.RDS` files in `instance/cache/`.

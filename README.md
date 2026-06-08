@@ -12,13 +12,13 @@ InsightfulKiwi is an R Shiny application designed for analyzing and visualizing 
 
 ## Setup and Configuration
 
-1.  **Dependencies**: Before running, ensure all required R packages are installed. You can review the main packages list in `config/environment.R`. Basic packages like `shiny` and `logger` will automatically bootstrap missing components upon running.
+1.  **Dependencies**: Before running, ensure all required R packages are installed. You can review the main packages list in `instance/config/environment.R`. Basic packages like `shiny` and `logger` will automatically bootstrap missing components upon running.
 2.  **Dataset**:
     - The application requires a Camtrap DP dataset.
-    - Place the dataset package inside the `extdata/` directory (or modify the `camtrap_package` path variable in `config/environment.R` to point to its location).
-    - Ensure a valid `datapackage.json` is present.
+    - Place the Camtrap DP monitoring dataset package inside `instance/extdata/monitoring-data/` (or modify the `camtrap_package` path variable in `instance/config/environment.R` to point to its location).
+    - Ensure a valid `datapackage.json` is present in that directory.
 3.  **Configurations**:
-    - Various deployment logic settings such as organization name, species name display types, named species classes (like target vs interesting species), period groupings, and camera thresholds are controlled in `config/config-wkt_main.R`. Adjust these to reflect your project before proceeding.
+    - Various deployment logic settings such as organization name, species name display types, named species classes (like target vs interesting species), period groupings, and camera thresholds are controlled in `instance/config/*.R`. Adjust these to reflect your project before proceeding.
 
 ## Running the Application
 
