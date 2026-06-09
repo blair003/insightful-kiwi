@@ -370,13 +370,13 @@ ui <- function(request) {
 
         ######### DENSITY MAP OUTPUT #########
         nav_panel(
-          title = "Density Map",
+          title = "Density Summary",
          # icon = icon("bullseye"),
           icon = icon("layer-group"),
           value = "density_map",
           div(
             class = "map-page-heading",
-            h2("Density Map"),
+            h2("Density Summary"),
             uiOutput("density_map_selection_heading")
           ),
 
@@ -397,12 +397,12 @@ ui <- function(request) {
 
         ######### DENSITY TIMELINE MAP OUTPUT #########
         nav_panel(
-          title = "Density Timeline Map",
+          title = "Density Timeline",
           icon = icon("play-circle"),
           value = "density_timeline_map",
           div(
             class = "map-page-heading",
-            h2("Density Timeline Map"),
+            h2("Density Timeline"),
             uiOutput("density_timeline_map_selection_heading")
           ),
           mapping_module_ui("density_timeline_map", view = "density_playback_layout")
@@ -410,14 +410,14 @@ ui <- function(request) {
 
         ######### OBSERVATION MAP OUTPUT #########
         nav_panel(
-          title = "Observation Map",
+          title = "Observation Timeline",
           # icon = icon("bullseye"),
           # icon = icon("layer-group"),
           icon = icon("map-location-dot"), # Example new icon
           value = "observation_map",
           div(
             class = "map-page-heading",
-            h2("Observation Map"),
+            h2("Observation Timeline"),
             uiOutput("observation_map_selection_heading")
           ),
           # Call the module UI for the main layout
