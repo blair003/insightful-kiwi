@@ -738,10 +738,17 @@ mapping_module_ui <- function(id,
           label = "Include monitoring records",
           value = TRUE
         ),
-        checkboxInput(
-          inputId = ns("exclude_possible_duplicates"),
-          label = "Exclude possible duplicates",
-          value = isTRUE(config$globals$use_net_data)
+        conditionalPanel(
+          condition = "input.include_monitoring_records",
+          ns = ns,
+          tags$div(
+            class = "monitoring-record-options",
+            checkboxInput(
+              inputId = ns("exclude_possible_duplicates"),
+              label = "Exclude possible duplicates",
+              value = isTRUE(config$globals$use_net_data)
+            )
+          )
         ),
         if (isTRUE(trap_data_available)) {
           checkboxInput(

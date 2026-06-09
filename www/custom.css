@@ -199,29 +199,49 @@
         text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
       }
 
-      .trap-data-options,
+      .monitoring-record-options,
+      .trap-data-options {
+        border-left: 2px solid rgba(20, 83, 45, 0.22);
+        margin: -12px 0 8px 10px;
+        padding: 0 0 0 12px;
+      }
+
       .prediction-surface-options {
         border-left: 2px solid rgba(20, 83, 45, 0.22);
         margin: -2px 0 10px 10px;
         padding: 2px 0 0 12px;
       }
 
+      .monitoring-record-options .shiny-input-container,
+      .monitoring-record-options .form-group,
       .trap-data-options .shiny-input-container,
+      .trap-data-options .form-group {
+        margin-bottom: 6px;
+      }
+
       .prediction-surface-options .shiny-input-container {
         margin-bottom: 8px;
       }
 
+      .monitoring-record-options .checkbox,
       .trap-data-options .checkbox,
       .observation-layer-options .checkbox {
-        margin-bottom: 8px;
+        margin-bottom: 6px;
+      }
+
+      .monitoring-record-options label,
+      .trap-data-options label {
+        font-size: 0.875rem;
+        line-height: 1.25;
       }
 
       .observation-layer-options {
         margin: -2px 0 8px 0;
       }
 
-      .observation-layer-options .shiny-input-container {
-        margin-bottom: 8px;
+      .observation-layer-options .shiny-input-container,
+      .observation-layer-options .form-group {
+        margin-bottom: 6px;
       }
 
       .prediction-surface-options small {
