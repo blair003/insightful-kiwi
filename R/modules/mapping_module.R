@@ -95,6 +95,47 @@ surface_basis_label <- function(ns) {
   )
 }
 
+map_option_info_label <- function(ns, label, input_id, title) {
+  tags$span(
+    class = "surface-basis-label",
+    label,
+    actionLink(
+      ns(input_id),
+      label = NULL,
+      icon = icon("circle-info"),
+      class = "surface-basis-info-link",
+      title = title
+    )
+  )
+}
+
+trapping_records_label <- function(ns) {
+  map_option_info_label(
+    ns,
+    "Include trapping records",
+    "include_trap_data_info",
+    "About trapping records"
+  )
+}
+
+trap_check_counters_label <- function(ns) {
+  map_option_info_label(
+    ns,
+    "Trap check counters",
+    "trap_check_counters_info",
+    "About trap check counters"
+  )
+}
+
+unchecked_traps_label <- function(ns) {
+  map_option_info_label(
+    ns,
+    "Unchecked traps",
+    "unchecked_traps_info",
+    "About unchecked traps"
+  )
+}
+
 playback_actual_timezone <- function() {
   if (exists("weather_playback_timezone", mode = "function", inherits = TRUE)) {
     return(weather_playback_timezone())
@@ -753,7 +794,7 @@ mapping_module_ui <- function(id,
         if (isTRUE(trap_data_available)) {
           checkboxInput(
             inputId = ns("include_trap_data"),
-            label = "Include trapping records",
+            label = trapping_records_label(ns),
             value = FALSE
           )
         },
@@ -800,12 +841,12 @@ mapping_module_ui <- function(id,
               class = "observation-layer-options",
               checkboxInput(
                 inputId = ns("show_trap_blank_checks"),
-                label = "Trap check counters",
+                label = trap_check_counters_label(ns),
                 value = FALSE
               ),
               checkboxInput(
                 inputId = ns("show_trap_unchecked_locations"),
-                label = "Unchecked traps",
+                label = unchecked_traps_label(ns),
                 value = FALSE
               )
             )
@@ -867,7 +908,7 @@ mapping_module_ui <- function(id,
         ),
         selectInput(
           inputId = ns("playback_step_size"),
-          label = "Playback increments",
+          label = "Progression increments",
           choices = c(
             "Hourly" = "hour",
             "Diel activity" = "diel",
@@ -1023,6 +1064,38 @@ mapping_module_server <- function(id,
         tags$p("It uses IDW interpolation, which gives nearby camera locations more influence than locations farther away."),
         tags$p(tags$strong("Location-weighted RAI"), " starts with the RAI for each line, then weights it by the share of observations recorded at each camera location on that line."),
         tags$p(tags$strong("Line RAI"), " gives each camera location the RAI calculated for its line."),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$include_trap_data_info, {
+      showModal(modalDialog(
+        title = "Include trapping records",
+        tags$p("Check this box to include trap records where the trap-check interval overlaps the relevant map scope and locality selection."),
+        tags$p("When checked, relevant trap kills of the selected species will be shown."),
+        tags$p("A record is included when the interval from the previous check to this check overlaps the selected timeframe, even if the check date itself falls outside it."),
+        tags$p("You can widen the trap catchment area to include any trap within the specified distance of any selected locality. Additional options are available to show counters and unchecked traps."),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$trap_check_counters_info, {
+      showModal(modalDialog(
+        title = "Trap check counters",
+        tags$p("Trap check counters show how many checks were recorded for each matching trap, and appear when that count is greater than one."),
+        tags$p("The count is based on your season and locality selection. It ignores the species filter, so checks are counted whether or not anything was caught. It follows the 'Include records between monitoring seasons' checkbox, so if that is unchecked, any checks between seasons will be excluded."),
+        tags$p("A check is counted when the interval from the previous check to this check overlaps the selected timeframe, even if the check date itself falls outside it."),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$unchecked_traps_info, {
+      showModal(modalDialog(
+        title = "Unchecked traps",
+        tags$p("Unchecked traps use the selected season scope rather than the moving playback window. They mark selected-locality traps with no overlapping check anywhere in the selected seasons, and show a count of 0."),
         easyClose = TRUE,
         footer = modalButton("Close")
       ))
@@ -5198,18 +5271,8 @@ create_trap_kill_summary <- function(trap_observations) {
   }
 
   metric_columns <- trap_metric_columns()
-  available_metric_columns <- intersect(metric_columns, names(kill_rows))
-  metric_summary <- if (length(available_metric_columns) == length(metric_columns)) {
-    kill_rows %>%
-      dplyr::group_by(.data$locationID) %>%
-      dplyr::summarise(
-        dplyr::across(dplyr::all_of(metric_columns), dplyr::first),
-        .groups = "drop"
-      )
-  } else {
-    summarise_visible_trap_metrics(trap_observations) %>%
-      dplyr::select(locationID, dplyr::all_of(metric_columns))
-  }
+  metric_summary <- summarise_visible_trap_metrics(trap_observations) %>%
+    dplyr::select(locationID, dplyr::all_of(metric_columns))
 
   kill_rows %>%
     dplyr::group_by(.data$locationID, .data$locationName, .data$scientificName_lower) %>%
