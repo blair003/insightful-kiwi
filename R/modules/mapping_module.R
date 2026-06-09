@@ -1072,8 +1072,7 @@ mapping_module_server <- function(id,
     observeEvent(input$include_trap_data_info, {
       showModal(modalDialog(
         title = "Include trapping records",
-        tags$p("Check this box to include trap records where the trap-check interval overlaps the relevant map scope and locality selection."),
-        tags$p("When checked, relevant trap kills of the selected species will be shown."),
+        tags$p("Check this box to include trap records where the trap-check interval overlaps the relevant map scope and locality selection. When checked, relevant trap kills of the selected species will be shown."),
         tags$p("A record is included when the interval from the previous check to this check overlaps the selected timeframe, even if the check date itself falls outside it."),
         tags$p("You can widen the trap catchment area to include any trap within the specified distance of any selected locality. Additional options are available to show counters and unchecked traps."),
         easyClose = TRUE,
