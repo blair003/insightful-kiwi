@@ -13,6 +13,13 @@ playback_timeline_ui <- function(ns, points, value, step_size = "day") {
       actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success playback-transport-btn"),
       shinyjs::disabled(
         actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning playback-transport-btn")
+      ),
+      actionButton(
+        ns("reset_btn"),
+        label = tags$span(class = "visually-hidden", "Reset progression"),
+        icon = icon("rotate-left"),
+        class = "btn-danger playback-transport-btn playback-reset-btn",
+        title = "Reset progression"
       )
     ),
     div(
@@ -665,21 +672,8 @@ mapping_module_ui <- function(id,
         if (isTRUE(include_marker_options)) {
           checkboxInput(
             inputId = ns("show_density_location_markers"),
-            label = "Show camera markers",
+            label = "Camera RAI markers",
             value = TRUE
-          )
-        },
-        if (isTRUE(include_marker_options)) {
-          conditionalPanel(
-            condition = "input.show_density_location_markers",
-            ns = ns,
-            radioButtons(
-              inputId = ns("density_marker_metric"),
-              label = "Marker value:",
-              choices = c("Counts" = "count", "Line RAI" = "rai"),
-              selected = "count",
-              inline = TRUE
-            )
           )
         },
         if (isTRUE(include_prediction_option)) {
@@ -688,7 +682,7 @@ mapping_module_ui <- function(id,
             ns = ns,
             checkboxInput(
               inputId = ns("show_predicted_rai_surface"),
-              label = "Show predicted RAI surface",
+              label = "Predicted RAI surface",
               value = FALSE
             )
           )
@@ -697,22 +691,19 @@ mapping_module_ui <- function(id,
           conditionalPanel(
             condition = prediction_basis_condition,
             ns = ns,
-            radioButtons(
-              inputId = ns("predicted_rai_surface_basis"),
-              label = "Surface basis:",
-              choices = c(
-                "Location-weighted line RAI" = "weighted_line_rai",
-                "Line RAI" = "line_rai"
+            tags$div(
+              class = "prediction-surface-options",
+              radioButtons(
+                inputId = ns("predicted_rai_surface_basis"),
+                label = "Surface basis:",
+                choices = c(
+                  "Location-weighted line RAI" = "weighted_line_rai",
+                  "Line RAI" = "line_rai"
+                ),
+                selected = "weighted_line_rai"
               ),
-              selected = "weighted_line_rai"
+              tags$small(prediction_help_text)
             )
-          )
-        },
-        if (isTRUE(include_prediction_option)) {
-          conditionalPanel(
-            condition = prediction_condition,
-            ns = ns,
-            tags$small(prediction_help_text)
           )
         }
       )
@@ -738,10 +729,6 @@ mapping_module_ui <- function(id,
           inputId = ns("exclude_possible_duplicates"),
           label = "Exclude possible duplicates",
           value = isTRUE(config$globals$use_net_data)
-        ),
-        checkboxInput(
-          inputId = ns("enhance_map_details"),
-          label = "Show monitoring area"
         ),
         if (isTRUE(trap_data_available)) {
           checkboxInput(
@@ -771,17 +758,22 @@ mapping_module_ui <- function(id,
               ),
               checkboxInput(
                 inputId = ns("show_trap_blank_checks"),
-                label = "Show trap check counters",
+                label = "Trap check counters",
                 value = FALSE
               ),
               checkboxInput(
                 inputId = ns("show_trap_unchecked_locations"),
-                label = "Show unchecked traps",
+                label = "Unchecked traps",
                 value = FALSE
               )
             )
           )
-        }
+        },
+        tags$hr(),
+        checkboxInput(
+          inputId = ns("enhance_map_details"),
+          label = "Monitoring area"
+        )
       )
     )
   } else if (view == "density_playback_controls") {
@@ -789,10 +781,49 @@ mapping_module_ui <- function(id,
       tagList(
         hr(),
         div(class = "sidebar_heading", "PLAYBACK SETTINGS"),
-        div(
-          class = "playback-reset-row",
-          actionButton(ns("reset_btn"), "Reset progression", icon = icon("rotate-left"), class = "btn-outline-danger")
+        if (isTRUE(include_marker_options)) {
+          checkboxInput(
+            inputId = ns("show_density_location_markers"),
+            label = "Camera RAI markers",
+            value = TRUE
+          )
+        },
+        radioButtons(
+          inputId = ns("playback_view_mode"),
+          label = "View mode:",
+          choices = c("Single period" = "single", "Cumulative" = "cumulative"),
+          selected = "cumulative"
         ),
+        if (isTRUE(include_prediction_option)) {
+          conditionalPanel(
+            condition = "input.playback_view_mode === 'cumulative'",
+            ns = ns,
+            checkboxInput(
+              inputId = ns("show_predicted_rai_surface"),
+              label = "Predicted RAI surface",
+              value = FALSE
+            )
+          )
+        },
+        if (isTRUE(include_prediction_option)) {
+          conditionalPanel(
+            condition = "input.playback_view_mode === 'cumulative' && input.show_predicted_rai_surface",
+            ns = ns,
+            tags$div(
+              class = "prediction-surface-options",
+              radioButtons(
+                inputId = ns("predicted_rai_surface_basis"),
+                label = "Surface basis:",
+                choices = c(
+                  "Location-weighted line RAI" = "weighted_line_rai",
+                  "Line RAI" = "line_rai"
+                ),
+                selected = "weighted_line_rai"
+              ),
+              tags$small("Predicted surface uses IDW interpolation within the monitored footprint and updates monthly during cumulative playback.")
+            )
+          )
+        },
         div(
           class = "playback-speed-control",
           sliderInput(
@@ -818,60 +849,7 @@ mapping_module_ui <- function(id,
             "Season" = "season"
           ),
           selected = "day"
-        ),
-        if (isTRUE(include_marker_options)) {
-          checkboxInput(
-            inputId = ns("show_density_location_markers"),
-            label = "Show camera markers",
-            value = TRUE
-          )
-        },
-        if (isTRUE(include_marker_options)) {
-          conditionalPanel(
-            condition = "input.show_density_location_markers",
-            ns = ns,
-            radioButtons(
-              inputId = ns("density_marker_metric"),
-              label = "Marker value:",
-              choices = c("Counts" = "count", "Line RAI" = "rai"),
-              selected = "count",
-              inline = TRUE
-            )
-          )
-        },
-        radioButtons(
-          inputId = ns("playback_view_mode"),
-          label = "View mode:",
-          choices = c("Single period" = "single", "Cumulative" = "cumulative"),
-          selected = "cumulative"
-        ),
-        if (isTRUE(include_prediction_option)) {
-          conditionalPanel(
-            condition = "input.playback_view_mode === 'cumulative'",
-            ns = ns,
-            checkboxInput(
-              inputId = ns("show_predicted_rai_surface"),
-              label = "Show predicted RAI surface",
-              value = FALSE
-            )
-          )
-        },
-        if (isTRUE(include_prediction_option)) {
-          conditionalPanel(
-            condition = "input.playback_view_mode === 'cumulative' && input.show_predicted_rai_surface",
-            ns = ns,
-            radioButtons(
-              inputId = ns("predicted_rai_surface_basis"),
-              label = "Surface basis:",
-              choices = c(
-                "Location-weighted line RAI" = "weighted_line_rai",
-                "Line RAI" = "line_rai"
-              ),
-              selected = "weighted_line_rai"
-            ),
-            tags$small("Predicted surface uses IDW interpolation within the monitored footprint and updates monthly during cumulative playback.")
-          )
-        }
+        )
       )
     )
   } else if (view == "map") { # This is for the density map
@@ -1055,19 +1033,7 @@ mapping_module_server <- function(id,
     })
 
     density_marker_metric_selected <- reactive({
-      if (type == "density" &&
-          !is.null(marker_metric_override) &&
-          !is.null(marker_metric_override())) {
-        metric <- marker_metric_override()
-      } else {
-        metric <- input$density_marker_metric
-      }
-
-      if (is.null(metric) || !metric %in% c("count", "rai")) {
-        return("count")
-      }
-
-      metric
+      "count"
     })
     
     # --- Common Reactives ---
