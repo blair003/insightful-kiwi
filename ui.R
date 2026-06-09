@@ -256,7 +256,8 @@ ui <- function(request) {
             core_data$app$spp_classes[[1]][2],  # Second species from the first list
             core_data$app$spp_classes[[1]][3]  # Third species from the first list
           ),
-          label = "Species selection:"
+          label = "Species selection:",
+          show_combined_species_note = FALSE
         ),
         # Call module UI for locality selection
          mapping_module_ui(
@@ -276,7 +277,9 @@ ui <- function(request) {
         mapping_module_ui(
           id = "observation_map",
           view = "density_playback_controls",
-          include_prediction_option = FALSE
+          include_prediction_option = FALSE,
+          include_monitoring_area_option = TRUE,
+          include_observation_layer_options = TRUE
         )
         
       ), # conditionalPanel

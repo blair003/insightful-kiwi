@@ -16,7 +16,7 @@ playback_timeline_ui <- function(ns, points, value, step_size = "day") {
       ),
       actionButton(
         ns("reset_btn"),
-        label = tags$span(class = "visually-hidden", "Reset progression"),
+        label = NULL,
         icon = icon("rotate-left"),
         class = "btn-danger playback-transport-btn playback-reset-btn",
         title = "Reset progression"
@@ -77,6 +77,20 @@ playback_timeline_ui <- function(ns, points, value, step_size = "day") {
         jsonlite::toJSON(slider_id, auto_unbox = TRUE),
         jsonlite::toJSON(slider_labels, auto_unbox = TRUE)
       )))
+    )
+  )
+}
+
+surface_basis_label <- function(ns) {
+  tags$span(
+    class = "surface-basis-label",
+    "Surface basis:",
+    actionLink(
+      ns("predicted_rai_surface_basis_info"),
+      label = NULL,
+      icon = icon("circle-info"),
+      class = "surface-basis-info-link",
+      title = "About surface basis"
     )
   )
 }
@@ -604,7 +618,10 @@ mapping_module_ui <- function(id,
                               label = "Species selection:",
                               include_prediction_option = TRUE,
                               include_marker_options = include_prediction_option,
+                              include_monitoring_area_option = FALSE,
+                              include_observation_layer_options = FALSE,
                               prediction_cumulative_only = FALSE,
+                              show_combined_species_note = TRUE,
                               map_height = config$globals$leaflet_height) { # Added map_height
   ns <- NS(id)
   
@@ -622,11 +639,9 @@ mapping_module_ui <- function(id,
             closeAfterSelect = TRUE
           )
         ),
-        # For density map, this note is relevant.
-        # For observation map, species are shown separately.
-       # if (type == "density") { # Assuming 'type' can be inferred or passed for UI context
+        if (isTRUE(show_combined_species_note)) {
           tags$small("Note: Selected species will be combined, not shown separately.")
-      #  }
+        }
       )
     )
   } else if (view == "select_localities") {
@@ -653,12 +668,6 @@ mapping_module_ui <- function(id,
     } else {
       "input.show_predicted_rai_surface"
     }
-    prediction_help_text <- if (isTRUE(prediction_cumulative_only)) {
-      "Predicted surface uses IDW interpolation within the monitored footprint and updates monthly during cumulative playback."
-    } else {
-      "Predicted surface uses IDW interpolation within the monitored footprint."
-    }
-
     return(
       tagList(
         checkboxInput(
@@ -695,14 +704,13 @@ mapping_module_ui <- function(id,
               class = "prediction-surface-options",
               radioButtons(
                 inputId = ns("predicted_rai_surface_basis"),
-                label = "Surface basis:",
+                label = surface_basis_label(ns),
                 choices = c(
-                  "Location-weighted line RAI" = "weighted_line_rai",
+                  "Location-weighted RAI" = "weighted_line_rai",
                   "Line RAI" = "line_rai"
                 ),
                 selected = "weighted_line_rai"
-              ),
-              tags$small(prediction_help_text)
+              )
             )
           )
         }
@@ -726,6 +734,11 @@ mapping_module_ui <- function(id,
     return(
       tagList(
         checkboxInput(
+          inputId = ns("include_monitoring_records"),
+          label = "Include monitoring records",
+          value = TRUE
+        ),
+        checkboxInput(
           inputId = ns("exclude_possible_duplicates"),
           label = "Exclude possible duplicates",
           value = isTRUE(config$globals$use_net_data)
@@ -733,7 +746,7 @@ mapping_module_ui <- function(id,
         if (isTRUE(trap_data_available)) {
           checkboxInput(
             inputId = ns("include_trap_data"),
-            label = "Include trapping data",
+            label = "Include trapping records",
             value = FALSE
           )
         },
@@ -753,9 +766,31 @@ mapping_module_ui <- function(id,
               ),
               checkboxInput(
                 inputId = ns("include_trap_between_seasons"),
-                label = "Include data between monitoring seasons",
+                label = "Include records between monitoring seasons",
                 value = TRUE
-              ),
+              )
+            )
+          )
+        }
+      )
+    )
+  } else if (view == "density_playback_controls") {
+    return(
+      tagList(
+        hr(),
+        if (isTRUE(include_marker_options)) {
+          checkboxInput(
+            inputId = ns("show_density_location_markers"),
+            label = "Camera RAI markers",
+            value = TRUE
+          )
+        },
+        if (isTRUE(include_observation_layer_options)) {
+          conditionalPanel(
+            condition = "input.include_trap_data",
+            ns = ns,
+            tags$div(
+              class = "observation-layer-options",
               checkboxInput(
                 inputId = ns("show_trap_blank_checks"),
                 label = "Trap check counters",
@@ -769,29 +804,16 @@ mapping_module_ui <- function(id,
             )
           )
         },
-        tags$hr(),
-        checkboxInput(
-          inputId = ns("enhance_map_details"),
-          label = "Monitoring area"
-        )
-      )
-    )
-  } else if (view == "density_playback_controls") {
-    return(
-      tagList(
-        hr(),
-        div(class = "sidebar_heading", "PLAYBACK SETTINGS"),
-        if (isTRUE(include_marker_options)) {
+        if (isTRUE(include_monitoring_area_option)) {
           checkboxInput(
-            inputId = ns("show_density_location_markers"),
-            label = "Camera RAI markers",
-            value = TRUE
+            inputId = ns("enhance_map_details"),
+            label = "Monitoring area boundaries"
           )
         },
         radioButtons(
           inputId = ns("playback_view_mode"),
           label = "View mode:",
-          choices = c("Single period" = "single", "Cumulative" = "cumulative"),
+          choices = c("Single period view" = "single", "Cumulative view" = "cumulative"),
           selected = "cumulative"
         ),
         if (isTRUE(include_prediction_option)) {
@@ -813,14 +835,14 @@ mapping_module_ui <- function(id,
               class = "prediction-surface-options",
               radioButtons(
                 inputId = ns("predicted_rai_surface_basis"),
-                label = "Surface basis:",
+                label = surface_basis_label(ns),
                 choices = c(
-                  "Location-weighted line RAI" = "weighted_line_rai",
+                  "Location-weighted RAI" = "weighted_line_rai",
                   "Line RAI" = "line_rai"
                 ),
                 selected = "weighted_line_rai"
               ),
-              tags$small("Predicted surface uses IDW interpolation within the monitored footprint and updates monthly during cumulative playback.")
+              tags$small("Updates monthly during playback.")
             )
           )
         },
@@ -949,7 +971,6 @@ mapping_module_server <- function(id,
                                   prediction_surface_override = NULL, # Reactive: for comparative density map
                                   prediction_surface_basis_override = NULL, # Reactive: for comparative density map
                                   location_markers_override = NULL, # Reactive: for comparative density map
-                                  marker_metric_override = NULL, # Reactive: for comparative density map
                                   period_names = NULL,      # Reactive: selected period names
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
@@ -987,6 +1008,18 @@ mapping_module_server <- function(id,
 
       isTRUE(input$exclude_possible_duplicates)
     })
+
+    observeEvent(input$predicted_rai_surface_basis_info, {
+      showModal(modalDialog(
+        title = "Surface basis",
+        tags$p("The predicted RAI surface estimates RAI between camera locations within each selected locality."),
+        tags$p("It uses IDW interpolation, which gives nearby camera locations more influence than locations farther away."),
+        tags$p(tags$strong("Location-weighted RAI"), " starts with the RAI for each line, then weights it by the share of observations recorded at each camera location on that line."),
+        tags$p(tags$strong("Line RAI"), " gives each camera location the RAI calculated for its line."),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    }, ignoreInit = TRUE)
 
     show_predicted_rai_surface_selected <- reactive({
       if (playback_active() && !identical(input$playback_view_mode, "cumulative")) {
@@ -1032,9 +1065,6 @@ mapping_module_server <- function(id,
       isTRUE(input$show_density_location_markers)
     })
 
-    density_marker_metric_selected <- reactive({
-      "count"
-    })
     
     # --- Common Reactives ---
     current_selected_species <- reactive({
@@ -1986,7 +2016,6 @@ mapping_module_server <- function(id,
             if (is.null(current_time_dens)) "no-current" else format(current_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
             exclude_possible_duplicates_selected(),
             show_density_location_markers_selected(),
-            density_marker_metric_selected(),
             show_predicted_rai_surface_selected(),
             predicted_rai_surface_basis_selected(),
             predicted_rai_surface_cache_key,
@@ -1994,7 +2023,7 @@ mapping_module_server <- function(id,
             sep = "|"
           ),
           show_location_markers = show_density_location_markers_selected(),
-          marker_metric = density_marker_metric_selected(),
+          marker_metric = "count",
           weather_control = weather_control,
           period_control = period_control,
           skip_notice = skip_notice
@@ -2184,7 +2213,6 @@ mapping_module_server <- function(id,
         show_predicted_rai_surface = show_predicted_rai_surface_selected,
         predicted_rai_surface_basis = predicted_rai_surface_basis_selected,
         show_density_location_markers = show_density_location_markers_selected,
-        density_marker_metric = density_marker_metric_selected,
         recenter_map = recenter_map_generic # Return the generic recenter function
       ))
       
@@ -2230,12 +2258,20 @@ mapping_module_server <- function(id,
         isTRUE(input$include_trap_between_seasons)
       })
 
+      include_monitoring_records_selected <- reactive({
+        if (is.null(input$include_monitoring_records)) {
+          return(TRUE)
+        }
+
+        isTRUE(input$include_monitoring_records)
+      })
+
       show_trap_blank_checks_selected <- reactive({
-        isTRUE(input$show_trap_blank_checks)
+        isTRUE(include_trap_data_selected()) && isTRUE(input$show_trap_blank_checks)
       })
 
       show_trap_unchecked_locations_selected <- reactive({
-        isTRUE(input$show_trap_unchecked_locations)
+        isTRUE(include_trap_data_selected()) && isTRUE(input$show_trap_unchecked_locations)
       })
 
       trap_locality_distance_km_selected <- reactive({
@@ -2903,11 +2939,27 @@ mapping_module_server <- function(id,
           )
         }
 
-        no_obs_locations_obsmap <- active_locations_obsmap %>%
-          dplyr::filter(!locationName %in% obs_filtered_obsmap$locationName)
+        visible_monitoring_obsmap <- if (isTRUE(include_monitoring_records_selected())) {
+          obs_filtered_obsmap
+        } else {
+          obs_filtered_obsmap[0, , drop = FALSE]
+        }
+
+        visible_obs_cumulative_table <- if (isTRUE(include_monitoring_records_selected())) {
+          obs_cumulative_table
+        } else {
+          obs_cumulative_table[0, , drop = FALSE]
+        }
+
+        no_obs_locations_obsmap <- if (isTRUE(include_monitoring_records_selected())) {
+          active_locations_obsmap %>%
+            dplyr::filter(!locationName %in% visible_monitoring_obsmap$locationName)
+        } else {
+          active_locations_obsmap[0, , drop = FALSE]
+        }
         
         marker_prep_input <- list(
-          observations = obs_filtered_obsmap,
+          observations = visible_monitoring_obsmap,
           no_obs_deployments = no_obs_locations_obsmap
         )
         
@@ -2929,8 +2981,8 @@ mapping_module_server <- function(id,
         }
         
         # config$globals$species_name_type is assumed to be defined elsewhere
-        observations_for_table <- dplyr::bind_rows(obs_filtered_obsmap, trap_obs_filtered)
-        cumulative_observations_for_table <- dplyr::bind_rows(obs_cumulative_table, trap_cumulative_table)
+        observations_for_table <- dplyr::bind_rows(visible_monitoring_obsmap, trap_obs_filtered)
+        cumulative_observations_for_table <- dplyr::bind_rows(visible_obs_cumulative_table, trap_cumulative_table)
 
         weather_control <- if (playback_active_obs()) {
           step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
@@ -2974,6 +3026,7 @@ mapping_module_server <- function(id,
             exclude_possible_duplicates_selected(),
             include_trap_data_selected(),
             include_trap_between_seasons_selected(),
+            include_monitoring_records_selected(),
             show_trap_blank_checks_selected(),
             show_trap_unchecked_locations_selected(),
             trap_locality_distance_km_selected(),
@@ -3289,9 +3342,10 @@ mapping_module_server <- function(id,
             "Playback increment",
             "Selected species",
             "Selected localities",
+            "Include monitoring records",
             "Exclude possible duplicates",
-            "Include trapping data",
-            "Include data between seasons",
+            "Include trapping records",
+            "Include records between seasons",
             "Show trap check counters",
             "Show unchecked traps",
             "Trap locality distance km",
@@ -3307,6 +3361,7 @@ mapping_module_server <- function(id,
             if (is.null(input$playback_step_size)) "" else as.character(input$playback_step_size),
             collapse_selection_values(current_selected_species()),
             collapse_selection_values(current_selected_localities()),
+            as.character(isTRUE(include_monitoring_records_selected())),
             as.character(isTRUE(exclude_possible_duplicates_selected())),
             as.character(isTRUE(include_trap_data_selected())),
             as.character(isTRUE(include_trap_between_seasons_selected())),
