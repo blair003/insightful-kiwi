@@ -722,7 +722,7 @@ mapping_module_ui <- function(id,
         if (isTRUE(include_marker_options)) {
           checkboxInput(
             inputId = ns("show_density_location_markers"),
-            label = "Camera RAI markers",
+            label = "Observation counts",
             value = TRUE
           )
         },
@@ -829,7 +829,7 @@ mapping_module_ui <- function(id,
         if (isTRUE(include_marker_options)) {
           checkboxInput(
             inputId = ns("show_density_location_markers"),
-            label = "Camera RAI markers",
+            label = "Observation counts",
             value = TRUE
           )
         },
@@ -890,7 +890,7 @@ mapping_module_ui <- function(id,
                 ),
                 selected = "weighted_line_rai"
               ),
-              tags$small("Updates monthly during playback.")
+              tags$small("RAI surface is calculated/updated monthly.")
             )
           )
         },
