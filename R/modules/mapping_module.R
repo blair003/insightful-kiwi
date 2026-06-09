@@ -829,7 +829,7 @@ mapping_module_ui <- function(id,
         }
       )
     )
-  } else if (view == "density_playback_controls") {
+  } else if (view == "density_timeline_controls") {
     return(
       tagList(
         hr(),
@@ -935,7 +935,7 @@ mapping_module_ui <- function(id,
         leafletOutput(ns("map_display"), height = map_height)
       )
     )
-  } else if (view == "density_playback_layout") {
+  } else if (view == "density_timeline_layout") {
     return(
       tagList(
         div(
@@ -944,7 +944,7 @@ mapping_module_ui <- function(id,
           uiOutput(ns("playback_window_ui"))
         ),
         navset_tab(
-          id = ns("density_playback_tabs"),
+          id = ns("density_timeline_tabs"),
           nav_panel(
             "Map",
             leafletOutput(ns("map_display"), height = map_height),
@@ -1620,20 +1620,20 @@ mapping_module_server <- function(id,
         req(playback_active())
         if (identical(input$playback_view_mode, "single")) {
           shiny::showTab(
-            inputId = "density_playback_tabs",
+            inputId = "density_timeline_tabs",
             target = "cumulative_data",
             session = session
           )
         } else {
-          if (identical(input$density_playback_tabs, "cumulative_data")) {
+          if (identical(input$density_timeline_tabs, "cumulative_data")) {
             updateTabsetPanel(
               session,
-              "density_playback_tabs",
+              "density_timeline_tabs",
               selected = "data"
             )
           }
           shiny::hideTab(
-            inputId = "density_playback_tabs",
+            inputId = "density_timeline_tabs",
             target = "cumulative_data",
             session = session
           )
@@ -1650,10 +1650,10 @@ mapping_module_server <- function(id,
         }
       }, ignoreInit = TRUE)
 
-      observeEvent(list(session$rootScope()$input$nav, input$density_playback_tabs), {
+      observeEvent(list(session$rootScope()$input$nav, input$density_timeline_tabs), {
         if (identical(playback_mode, "always") &&
             (!identical(session$rootScope()$input$nav, "density_timeline_map") ||
-             !is.null(input$density_playback_tabs) && !identical(input$density_playback_tabs, "map"))) {
+             !is.null(input$density_timeline_tabs) && !identical(input$density_timeline_tabs, "map"))) {
           playback_skip_resume_id(playback_skip_resume_id() + 1L)
           playback_gap_notice(NULL)
           is_playing(FALSE)
@@ -2287,7 +2287,7 @@ mapping_module_server <- function(id,
 
       observe({
         main_nav <- session$rootScope()$input$nav
-        playback_tab <- input$density_playback_tabs
+        playback_tab <- input$density_timeline_tabs
 
         req(identical(playback_mode, "always"), main_nav == "density_timeline_map")
         req(is.null(playback_tab) || identical(playback_tab, "map"))

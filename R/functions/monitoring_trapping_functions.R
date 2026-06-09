@@ -34,6 +34,85 @@ monitoring_trapping_window <- function(start_date, end_date, lag_window) {
   )
 }
 
+monitoring_trapping_windows_for_periods <- function(period_groups,
+                                                    period_names,
+                                                    start_date,
+                                                    end_date,
+                                                    lag_window) {
+  period_names <- as.character(period_names)
+  period_names <- period_names[period_names %in% names(period_groups)]
+
+  if (length(period_names) == 0) {
+    trap_window <- monitoring_trapping_window(start_date, end_date, lag_window)
+    return(list(
+      windows = dplyr::tibble(
+        window_start = trap_window$start_date,
+        window_end = trap_window$end_date
+      ),
+      trap_window = trap_window
+    ))
+  }
+
+  windows <- dplyr::bind_rows(lapply(period_names, function(period_name) {
+    period <- period_groups[[period_name]]
+    window <- monitoring_trapping_window(period$start_date, period$end_date, lag_window)
+    dplyr::tibble(
+      period_name = period_name,
+      window_start = window$start_date,
+      window_end = window$end_date,
+      lag_days = window$lag_days,
+      label = window$label
+    )
+  })) %>%
+    dplyr::distinct(.data$window_start, .data$window_end, .keep_all = TRUE)
+
+  lag_days <- unique(windows$lag_days)
+  label <- unique(windows$label)
+  if (length(period_names) > 1) {
+    label <- if (identical(lag_window, "same")) {
+      "same selected monitoring seasons"
+    } else {
+      sprintf("%s after each selected monitoring season", label[[1]])
+    }
+  } else {
+    label <- label[[1]]
+  }
+
+  list(
+    windows = windows,
+    trap_window = list(
+      start_date = min(windows$window_start, na.rm = TRUE),
+      end_date = max(windows$window_end, na.rm = TRUE),
+      label = label,
+      lag_days = lag_days[[1]]
+    )
+  )
+}
+
+monitoring_trapping_deployment_window_overlaps <- function(trap_deps, windows) {
+  if (nrow(trap_deps) == 0 || is.null(windows) || nrow(windows) == 0) {
+    return(dplyr::tibble())
+  }
+
+  joined <- merge(
+    trap_deps,
+    windows,
+    by = NULL,
+    all = FALSE
+  )
+
+  joined %>%
+    dplyr::mutate(
+      overlap_start = pmax(.data$prior_check_date, .data$window_start, na.rm = TRUE),
+      overlap_end = pmin(.data$check_date, .data$window_end, na.rm = TRUE),
+      overlap_days = as.numeric(.data$overlap_end - .data$overlap_start)
+    ) %>%
+    dplyr::filter(
+      !is.na(.data$overlap_days),
+      .data$overlap_days > 0
+    )
+}
+
 empty_monitoring_trapping_trap_summary <- function() {
   dplyr::tibble(
     monitoring_key = character(),
@@ -166,7 +245,8 @@ monitoring_trapping_filtered_deployments <- function(trap_data,
                                                      start_date,
                                                      end_date,
                                                      selected_localities = NULL,
-                                                     max_locality_distance_km = 1) {
+                                                     max_locality_distance_km = 1,
+                                                     windows = NULL) {
   if (is.null(trap_data) || is.null(trap_data$deps) || nrow(trap_data$deps) == 0) {
     return(dplyr::tibble())
   }
@@ -174,6 +254,25 @@ monitoring_trapping_filtered_deployments <- function(trap_data,
   max_locality_distance_km <- suppressWarnings(as.numeric(max_locality_distance_km))
   if (is.na(max_locality_distance_km) || max_locality_distance_km < 0) {
     max_locality_distance_km <- 1
+  }
+
+  if (is.null(windows)) {
+    windows <- dplyr::tibble(
+      window_start = as.Date(start_date),
+      window_end = as.Date(end_date)
+    )
+  } else {
+    windows <- windows %>%
+      dplyr::transmute(
+        window_start = as.Date(.data$window_start),
+        window_end = as.Date(.data$window_end)
+      ) %>%
+      dplyr::filter(!is.na(.data$window_start), !is.na(.data$window_end)) %>%
+      dplyr::distinct()
+  }
+
+  if (nrow(windows) == 0) {
+    return(dplyr::tibble())
   }
 
   trap_deps <- trap_data$deps %>%
@@ -194,8 +293,8 @@ monitoring_trapping_filtered_deployments <- function(trap_data,
     dplyr::filter(
       !is.na(.data$deploymentID),
       !is.na(.data$check_date),
-      .data$prior_check_date <= as.Date(end_date),
-      .data$check_date >= as.Date(start_date)
+      .data$prior_check_date <= max(windows$window_end, na.rm = TRUE),
+      .data$check_date >= min(windows$window_start, na.rm = TRUE)
     )
 
   if (!is.null(selected_localities) && length(selected_localities) > 0) {
@@ -206,6 +305,12 @@ monitoring_trapping_filtered_deployments <- function(trap_data,
           suppressWarnings(as.numeric(.data$locality_distance_km)) <= max_locality_distance_km
       )
   }
+
+  if (nrow(trap_deps) == 0) {
+    return(dplyr::tibble())
+  }
+
+  trap_deps <- monitoring_trapping_deployment_window_overlaps(trap_deps, windows)
 
   if (nrow(trap_deps) == 0) {
     return(dplyr::tibble())
@@ -234,14 +339,16 @@ monitoring_trapping_trap_details <- function(trap_data,
                                              end_date,
                                              scientific_names,
                                              selected_localities = NULL,
-                                             max_locality_distance_km = 1) {
+                                             max_locality_distance_km = 1,
+                                             windows = NULL) {
   deployment_lookup <- monitoring_trapping_filtered_deployments(
     trap_data = trap_data,
     core_data = core_data,
     start_date = start_date,
     end_date = end_date,
     selected_localities = selected_localities,
-    max_locality_distance_km = max_locality_distance_km
+    max_locality_distance_km = max_locality_distance_km,
+    windows = windows
   )
 
   if (nrow(deployment_lookup) == 0) {
@@ -261,7 +368,7 @@ monitoring_trapping_trap_details <- function(trap_data,
     ) %>%
     dplyr::summarise(
       trap_checks = dplyr::n_distinct(.data$deploymentID),
-      trap_days = sum(.data$interval_days[!duplicated(.data$deploymentID) & is.finite(.data$interval_days) & .data$interval_days > 0], na.rm = TRUE),
+      trap_days = sum(.data$overlap_days, na.rm = TRUE),
       first_check = suppressWarnings(min(.data$prior_check_date, na.rm = TRUE)),
       last_check = suppressWarnings(max(.data$check_date, na.rm = TRUE)),
       .groups = "drop"
@@ -294,7 +401,7 @@ monitoring_trapping_trap_details <- function(trap_data,
         )
       ) %>%
       dplyr::left_join(
-        deployment_lookup %>% dplyr::select("deploymentID", "locationID"),
+        deployment_lookup %>% dplyr::select("deploymentID", "locationID") %>% dplyr::distinct(),
         by = "deploymentID"
       ) %>%
       dplyr::group_by(.data$locationID) %>%
@@ -339,7 +446,8 @@ summarise_trapping_by_monitoring_line <- function(trap_data,
                                                  end_date,
                                                  scientific_names,
                                                  selected_localities = NULL,
-                                                 max_locality_distance_km = 1) {
+                                                 max_locality_distance_km = 1,
+                                                 windows = NULL) {
   trap_details <- monitoring_trapping_trap_details(
     trap_data = trap_data,
     core_data = core_data,
@@ -347,7 +455,8 @@ summarise_trapping_by_monitoring_line <- function(trap_data,
     end_date = end_date,
     scientific_names = scientific_names,
     selected_localities = selected_localities,
-    max_locality_distance_km = max_locality_distance_km
+    max_locality_distance_km = max_locality_distance_km,
+    windows = windows
   )
 
   if (nrow(trap_details) == 0) {
@@ -406,7 +515,14 @@ monitoring_trapping_mismatch_summary <- function(core_data,
                                                  high_percentile = 0.6) {
   taxa_groups <- rai_groups[rai_group]
   scientific_names <- monitoring_trapping_species(rai_groups, rai_group)
-  trap_window <- monitoring_trapping_window(start_date, end_date, lag_window)
+  trap_windows <- monitoring_trapping_windows_for_periods(
+    period_groups = core_data$period_groups,
+    period_names = period_names,
+    start_date = start_date,
+    end_date = end_date,
+    lag_window = lag_window
+  )
+  trap_window <- trap_windows$trap_window
 
   monitoring <- summarise_monitoring_rai_by_line(
     core_data = core_data,
@@ -430,7 +546,8 @@ monitoring_trapping_mismatch_summary <- function(core_data,
     end_date = trap_window$end_date,
     scientific_names = scientific_names,
     selected_localities = selected_localities,
-    max_locality_distance_km = max_locality_distance_km
+    max_locality_distance_km = max_locality_distance_km,
+    windows = trap_windows$windows
   )
 
   trapping <- summarise_trapping_by_monitoring_line(
@@ -440,7 +557,8 @@ monitoring_trapping_mismatch_summary <- function(core_data,
     end_date = trap_window$end_date,
     scientific_names = scientific_names,
     selected_localities = selected_localities,
-    max_locality_distance_km = max_locality_distance_km
+    max_locality_distance_km = max_locality_distance_km,
+    windows = trap_windows$windows
   )
 
   summary <- monitoring %>%

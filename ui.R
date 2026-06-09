@@ -226,7 +226,7 @@ ui <- function(request) {
 
         mapping_module_ui(
           id = "density_timeline_map",
-          view = "density_playback_controls",
+          view = "density_timeline_controls",
           include_marker_options = TRUE
         )
       ),
@@ -276,7 +276,7 @@ ui <- function(request) {
 
         mapping_module_ui(
           id = "observation_map",
-          view = "density_playback_controls",
+          view = "density_timeline_controls",
           include_prediction_option = FALSE,
           include_monitoring_area_option = TRUE,
           include_observation_layer_options = TRUE
@@ -405,7 +405,7 @@ ui <- function(request) {
             h2("Density Timeline"),
             uiOutput("density_timeline_map_selection_heading")
           ),
-          mapping_module_ui("density_timeline_map", view = "density_playback_layout")
+          mapping_module_ui("density_timeline_map", view = "density_timeline_layout")
         ),
 
         ######### OBSERVATION MAP OUTPUT #########
