@@ -1197,7 +1197,7 @@ server <- function(input, output, session) {
 
     div(
       class = "playback-window-readout",
-      strong("Current timeframe:"),
+      strong("Timeframe:"),
       paste(
         format(start_time, "%Y-%m-%d", tz = timezone),
         "to",
@@ -1381,6 +1381,24 @@ server <- function(input, output, session) {
         use_net = global_use_net
       )
       monitoring_trapping_loaded(TRUE)
+    }
+  }, ignoreNULL = FALSE, ignoreInit = FALSE)
+
+  ########### TRAPPING PERFORMANCE FEATURE ###########
+
+  trapping_performance_loaded <- reactiveVal(FALSE)
+
+  observeEvent(input$nav, {
+    if (input$nav == "trapping_performance" && !trapping_performance_loaded()) {
+      logger::log_debug("server.R, lazily calling trapping_performance_module_server()")
+      trapping_performance_module_server(
+        id = "trapping_performance",
+        core_data = core_data,
+        trap_data = trap_data,
+        config = config,
+        use_net = global_use_net
+      )
+      trapping_performance_loaded(TRUE)
     }
   }, ignoreNULL = FALSE, ignoreInit = FALSE)
 

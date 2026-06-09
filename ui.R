@@ -16,6 +16,7 @@ ui <- function(request) {
       'density_timeline_map': true,
       'observation_map': true,
       'monitoring_trapping': true,
+      'trapping_performance': true,
       'activity_patterns': true,
       'raw_data': false
     };
@@ -291,6 +292,11 @@ ui <- function(request) {
       ),
 
       conditionalPanel(
+        condition = "input.nav === 'trapping_performance'",
+        trapping_performance_module_ui("trapping_performance", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
+      ),
+
+      conditionalPanel(
         condition = "input.nav === 'raw_data'",
         tags$small("Raw data for the entire project across all seasons is shown here.")
       ),
@@ -431,6 +437,16 @@ ui <- function(request) {
             icon = icon("scale-balanced"),
             value = "monitoring_trapping",
             monitoring_trapping_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "main")
+          )
+        },
+
+        ######### TRAPPING PERFORMANCE OUTPUT #########
+        if (!is.null(trap_data)) {
+          nav_panel(
+            title = "Trap Performance",
+            icon = icon("gauge-high"),
+            value = "trapping_performance",
+            trapping_performance_module_ui("trapping_performance", core_data = core_data, config = config, trap_data = trap_data, view = "main")
           )
         },
 

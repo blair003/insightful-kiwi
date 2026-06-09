@@ -163,6 +163,333 @@ monitoring_trapping_species <- function(rai_groups, rai_group) {
   as.character(rai_group)
 }
 
+monitoring_trapping_latest_trap_date <- function(trap_data) {
+  if (is.null(trap_data) || is.null(trap_data$deps) || nrow(trap_data$deps) == 0) {
+    return(as.Date(NA))
+  }
+
+  date_values <- if ("check_date" %in% names(trap_data$deps)) {
+    as.Date(trap_data$deps$check_date)
+  } else if ("deploymentEnd" %in% names(trap_data$deps)) {
+    as.Date(trap_data$deps$deploymentEnd)
+  } else {
+    as.Date(character())
+  }
+
+  if (!any(!is.na(date_values))) {
+    return(as.Date(NA))
+  }
+
+  max(date_values, na.rm = TRUE)
+}
+
+monitoring_trapping_default_supported_period <- function(core_data,
+                                                        trap_data,
+                                                        after_days = 21) {
+  period_names <- period_names_without_all(core_data$period_groups, assignable_only = FALSE)
+  latest_trap_date <- monitoring_trapping_latest_trap_date(trap_data)
+
+  if (length(period_names) == 0 || is.na(latest_trap_date)) {
+    return(core_data$app$period_defaults$primary_period)
+  }
+
+  supported <- period_names[vapply(period_names, function(period_name) {
+    period <- core_data$period_groups[[period_name]]
+    as.Date(period$end_date) + as.integer(after_days) <= latest_trap_date
+  }, logical(1))]
+
+  if (length(supported) > 0) {
+    return(supported[[1]])
+  }
+
+  fallback <- period_names[vapply(period_names, function(period_name) {
+    period <- core_data$period_groups[[period_name]]
+    as.Date(period$start_date) <= latest_trap_date
+  }, logical(1))]
+
+  if (length(fallback) > 0) {
+    return(fallback[[1]])
+  }
+
+  core_data$app$period_defaults$primary_period
+}
+
+monitoring_trapping_performance_windows <- function(period_groups,
+                                                    period_names,
+                                                    start_date,
+                                                    end_date,
+                                                    window_days = 21) {
+  period_names <- as.character(period_names)
+  period_names <- period_names[period_names %in% names(period_groups)]
+  window_days <- suppressWarnings(as.integer(window_days))
+  if (is.na(window_days) || window_days < 1) {
+    window_days <- 21L
+  }
+
+  if (length(period_names) == 0) {
+    period_names <- "Selected monitoring period"
+    period_groups <- list("Selected monitoring period" = list(
+      start_date = as.Date(start_date),
+      end_date = as.Date(end_date)
+    ))
+  }
+
+  dplyr::bind_rows(lapply(period_names, function(period_name) {
+    period <- period_groups[[period_name]]
+    period_start <- as.Date(period$start_date)
+    period_end <- as.Date(period$end_date)
+    dplyr::tibble(
+      period_name = period_name,
+      phase_key = c("before", "during", "after"),
+      phase = c("Before monitoring", "During monitoring", "After monitoring"),
+      window_start = c(period_start - window_days, period_start, period_end + 1L),
+      window_end = c(period_start - 1L, period_end, period_end + window_days)
+    )
+  })) %>%
+    dplyr::filter(.data$window_start <= .data$window_end)
+}
+
+monitoring_trapping_group_kill_summary <- function(kill_rows, rai_groups) {
+  empty <- dplyr::tibble(
+    rai_group = character(),
+    species_in_group = character(),
+    selected_group_kills = numeric(),
+    species_with_kills = integer(),
+    trap_kill_status = character()
+  )
+
+  if (is.null(rai_groups) || length(rai_groups) == 0) {
+    return(empty)
+  }
+
+  group_rows <- dplyr::bind_rows(lapply(names(rai_groups), function(group_name) {
+    dplyr::tibble(
+      rai_group = group_name,
+      scientificName = as.character(rai_groups[[group_name]])
+    )
+  }))
+
+  if (nrow(group_rows) == 0 || is.null(kill_rows) || nrow(kill_rows) == 0) {
+    return(empty)
+  }
+
+  kill_totals <- kill_rows %>%
+    dplyr::group_by(scientificName_lower = tolower(.data$scientificName)) %>%
+    dplyr::summarise(kills = sum(.data$kill_count, na.rm = TRUE), .groups = "drop")
+
+  group_rows %>%
+    dplyr::mutate(scientificName_lower = tolower(.data$scientificName)) %>%
+    dplyr::left_join(kill_totals, by = "scientificName_lower") %>%
+    dplyr::mutate(kills = dplyr::coalesce(.data$kills, 0)) %>%
+    dplyr::group_by(.data$rai_group) %>%
+    dplyr::summarise(
+      species_in_group = paste(sort(unique(.data$scientificName)), collapse = ", "),
+      selected_group_kills = sum(.data$kills, na.rm = TRUE),
+      species_with_kills = dplyr::n_distinct(.data$scientificName[.data$kills > 0]),
+      trap_kill_status = "Has trap kills",
+      .groups = "drop"
+    ) %>%
+    dplyr::filter(.data$selected_group_kills > 0) %>%
+    dplyr::arrange(dplyr::desc(.data$selected_group_kills), .data$rai_group)
+}
+
+monitoring_trapping_trapping_performance_summary <- function(core_data,
+                                                             trap_data,
+                                                             period_names,
+                                                             start_date,
+                                                             end_date,
+                                                             rai_groups,
+                                                             window_days = 21,
+                                                             selected_localities = NULL,
+                                                             max_locality_distance_km = 1) {
+  windows <- monitoring_trapping_performance_windows(
+    period_groups = core_data$period_groups,
+    period_names = period_names,
+    start_date = start_date,
+    end_date = end_date,
+    window_days = window_days
+  )
+
+  empty_species <- dplyr::tibble(
+    scientificName = character(),
+    phase = character(),
+    kill_count = numeric(),
+    kill_percent = numeric(),
+    trap_check_records = integer(),
+    trap_count = integer(),
+    monitoring_line_count = integer()
+  )
+  empty_line_species <- dplyr::tibble(
+    monitoring_locality = character(),
+    monitoring_line = integer(),
+    phase = character(),
+    scientificName = character(),
+    kill_count = numeric(),
+    trap_check_records = integer(),
+    trap_count = integer()
+  )
+  empty_trap_species <- dplyr::tibble(
+    trap_code = character(),
+    monitoring_locality = character(),
+    monitoring_line = integer(),
+    phase = character(),
+    scientificName = character(),
+    latitude = numeric(),
+    longitude = numeric(),
+    kill_count = numeric(),
+    trap_check_records = integer()
+  )
+
+  if (is.null(trap_data) || is.null(trap_data$obs) || nrow(trap_data$obs) == 0 || nrow(windows) == 0) {
+    return(list(
+      species_summary = empty_species,
+      line_species_summary = empty_line_species,
+      trap_species_summary = empty_trap_species,
+      group_summary = monitoring_trapping_group_kill_summary(empty_species, rai_groups),
+      windows = windows,
+      latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
+    ))
+  }
+
+  deployment_lookup <- monitoring_trapping_filtered_deployments(
+    trap_data = trap_data,
+    core_data = core_data,
+    start_date = min(windows$window_start, na.rm = TRUE),
+    end_date = max(windows$window_end, na.rm = TRUE),
+    selected_localities = selected_localities,
+    max_locality_distance_km = max_locality_distance_km,
+    windows = windows %>% dplyr::select("window_start", "window_end") %>% dplyr::distinct()
+  )
+
+  if (nrow(deployment_lookup) == 0) {
+    return(list(
+      species_summary = empty_species,
+      line_species_summary = empty_line_species,
+      trap_species_summary = empty_trap_species,
+      group_summary = monitoring_trapping_group_kill_summary(empty_species, rai_groups),
+      windows = windows,
+      latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
+    ))
+  }
+
+  deployment_species_lookup <- deployment_lookup %>%
+    dplyr::select(
+      "deploymentID",
+      "monitoring_key",
+      "monitoring_locality",
+      "monitoring_line",
+      "locationID",
+      "trap_code",
+      "latitude",
+      "longitude"
+    ) %>%
+    dplyr::distinct()
+
+  kill_rows <- trap_data$obs %>%
+    dplyr::filter(.data$deploymentID %in% deployment_species_lookup$deploymentID) %>%
+    dplyr::mutate(
+      check_date = if ("check_date" %in% names(.)) as.Date(.data$check_date) else as.Date(.data$eventStart),
+      source_kill_flag = dplyr::coalesce(
+        .data$observationType == "animal" |
+          extract_trap_tag_value(.data$observationTags, "kill") == "1",
+        FALSE
+      ),
+      kill_count = dplyr::if_else(
+        .data$source_kill_flag,
+        dplyr::coalesce(suppressWarnings(as.numeric(.data$count)), 1),
+        0
+      ),
+      scientificName = dplyr::if_else(
+        !is.na(.data$scientificName) & nzchar(as.character(.data$scientificName)),
+        as.character(.data$scientificName),
+        "Unknown species"
+      )
+    ) %>%
+    dplyr::filter(.data$source_kill_flag, .data$kill_count > 0, !is.na(.data$check_date)) %>%
+    dplyr::left_join(deployment_species_lookup, by = "deploymentID")
+
+  if (nrow(kill_rows) == 0) {
+    return(list(
+      species_summary = empty_species,
+      line_species_summary = empty_line_species,
+      trap_species_summary = empty_trap_species,
+      group_summary = monitoring_trapping_group_kill_summary(kill_rows, rai_groups),
+      windows = windows,
+      latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
+    ))
+  }
+
+  kill_rows <- merge(kill_rows, windows, by = NULL, all = FALSE) %>%
+    dplyr::filter(
+      .data$check_date >= .data$window_start,
+      .data$check_date <= .data$window_end
+    )
+
+  if (nrow(kill_rows) == 0) {
+    return(list(
+      species_summary = empty_species,
+      line_species_summary = empty_line_species,
+      trap_species_summary = empty_trap_species,
+      group_summary = monitoring_trapping_group_kill_summary(kill_rows, rai_groups),
+      windows = windows,
+      latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
+    ))
+  }
+
+  total_kills <- sum(kill_rows$kill_count, na.rm = TRUE)
+  species_summary <- kill_rows %>%
+    dplyr::group_by(.data$phase, .data$scientificName) %>%
+    dplyr::summarise(
+      kill_count = sum(.data$kill_count, na.rm = TRUE),
+      trap_check_records = dplyr::n_distinct(.data$deploymentID),
+      trap_count = dplyr::n_distinct(.data$locationID),
+      monitoring_line_count = dplyr::n_distinct(.data$monitoring_key),
+      .groups = "drop"
+    ) %>%
+    dplyr::mutate(
+      kill_percent = if (total_kills > 0) 100 * .data$kill_count / total_kills else NA_real_,
+      phase = factor(.data$phase, levels = c("Before monitoring", "During monitoring", "After monitoring"))
+    ) %>%
+    dplyr::arrange(.data$phase, dplyr::desc(.data$kill_count), .data$scientificName)
+
+  line_species_summary <- kill_rows %>%
+    dplyr::group_by(.data$monitoring_locality, .data$monitoring_line, .data$phase, .data$scientificName) %>%
+    dplyr::summarise(
+      kill_count = sum(.data$kill_count, na.rm = TRUE),
+      trap_check_records = dplyr::n_distinct(.data$deploymentID),
+      trap_count = dplyr::n_distinct(.data$locationID),
+      .groups = "drop"
+    ) %>%
+    dplyr::arrange(.data$monitoring_locality, .data$monitoring_line, .data$phase, dplyr::desc(.data$kill_count))
+
+  trap_species_summary <- kill_rows %>%
+    dplyr::filter(is.finite(.data$latitude), is.finite(.data$longitude)) %>%
+    dplyr::group_by(
+      .data$trap_code,
+      .data$monitoring_locality,
+      .data$monitoring_line,
+      .data$phase,
+      .data$scientificName,
+      .data$latitude,
+      .data$longitude
+    ) %>%
+    dplyr::summarise(
+      kill_count = sum(.data$kill_count, na.rm = TRUE),
+      trap_check_records = dplyr::n_distinct(.data$deploymentID),
+      .groups = "drop"
+    ) %>%
+    dplyr::arrange(.data$monitoring_locality, .data$monitoring_line, .data$trap_code, .data$phase, dplyr::desc(.data$kill_count))
+
+  list(
+    species_summary = species_summary,
+    line_species_summary = line_species_summary,
+    trap_species_summary = trap_species_summary,
+    group_summary = monitoring_trapping_group_kill_summary(kill_rows, rai_groups),
+    windows = windows,
+    latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
+  )
+}
+
 monitoring_trapping_rank <- function(x) {
   x <- suppressWarnings(as.numeric(x))
   out <- rep(NA_real_, length(x))
@@ -186,10 +513,10 @@ monitoring_trapping_classify <- function(monitoring_rank,
 
   dplyr::case_when(
     is.na(camera_hours) | camera_hours <= 0 | is.na(trap_days) | trap_days < min_trap_days ~ "Insufficient data",
-    monitoring_rank >= high_percentile & (is.na(trap_rank) | trap_rank <= low_percentile) ~ "High monitoring / low trapping",
-    monitoring_rank >= high_percentile & trap_rank >= high_percentile ~ "High monitoring / high trapping",
-    monitoring_rank <= low_percentile & trap_rank >= high_percentile ~ "Low monitoring / high trapping",
-    monitoring_rank <= low_percentile & (is.na(trap_rank) | trap_rank <= low_percentile) ~ "Low monitoring / low trapping",
+    monitoring_rank >= high_percentile & (is.na(trap_rank) | trap_rank <= low_percentile) ~ "Relatively high monitoring / relatively low trapping",
+    monitoring_rank >= high_percentile & trap_rank >= high_percentile ~ "Relatively high monitoring / relatively high trapping",
+    monitoring_rank <= low_percentile & trap_rank >= high_percentile ~ "Relatively low monitoring / relatively high trapping",
+    monitoring_rank <= low_percentile & (is.na(trap_rank) | trap_rank <= low_percentile) ~ "Relatively low monitoring / relatively low trapping",
     TRUE ~ "Mixed signal"
   )
 }

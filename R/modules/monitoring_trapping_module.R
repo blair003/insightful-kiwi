@@ -16,6 +16,335 @@ monitoring_trapping_label <- function(ns, icon_name, label, help_id) {
   tagList(icon(icon_name), label, monitoring_trapping_help_link(ns, help_id))
 }
 
+trapping_performance_module_ui <- function(id,
+                                           core_data,
+                                           config,
+                                           trap_data = NULL,
+                                           view = "main") {
+  ns <- NS(id)
+  locality_choices <- sort(unique(as.character(core_data$deps$locality)))
+  season_choices <- period_names_without_all(core_data$period_groups, assignable_only = FALSE)
+  default_period <- monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21)
+
+  if (identical(view, "sidebar")) {
+    return(tagList(
+      period_selection_module_ui(
+        ns("period"),
+        view = "select",
+        choices = season_choices,
+        selected = default_period,
+        label = "Monitoring season(s)",
+        multiple = TRUE
+      ),
+      mapping_module_ui(
+        id = ns("performance_map"),
+        view = "select_localities",
+        choices = locality_choices,
+        selected = locality_choices,
+        label = "Locality selection:"
+      ),
+      mapping_module_ui(
+        id = ns("performance_map"),
+        view = "select_observation_map_options",
+        include_monitoring_records_default = TRUE,
+        include_trap_data_default = TRUE,
+        include_trap_between_seasons_default = FALSE
+      ),
+      mapping_module_ui(
+        id = ns("performance_map"),
+        view = "density_timeline_controls",
+        include_prediction_option = FALSE,
+        include_monitoring_area_option = TRUE,
+        include_observation_layer_options = TRUE,
+        playback_view_mode_selected = "single",
+        playback_step_size_selected = "season",
+        playback_step_size_choices = c("Phase" = "season", "Daily" = "day", "Weekly" = "week")
+      ),
+      sliderInput(
+        ns("window_days"),
+        label = monitoring_trapping_label(ns, "clock", "Before/after days", "trap_comparison_window"),
+        min = 7,
+        max = 84,
+        value = 21,
+        step = 7
+      )
+    ))
+  }
+
+  tagList(
+    div(
+      class = "map-page-heading",
+      h2("Trap Performance"),
+      uiOutput(ns("performance_heading"))
+    ),
+    navset_tab(
+      id = ns("trapping_performance_tabs"),
+      nav_panel(
+        "Map",
+        value = "map",
+        mapping_module_ui(ns("performance_map"), view = "observation_map_layout")
+      ),
+      nav_panel(
+        "Summary",
+        value = "summary",
+        h3("Monitoring groups with trap kills"),
+        DT::dataTableOutput(ns("group_kill_table")),
+        br(),
+        h3("Trap kills by species and phase"),
+        DT::dataTableOutput(ns("species_kill_table")),
+        br(),
+        h3("Trap kills by locality and monitoring line"),
+        DT::dataTableOutput(ns("line_species_kill_table"))
+      )
+    )
+  )
+}
+
+trapping_performance_module_server <- function(id,
+                                               core_data,
+                                               trap_data,
+                                               config,
+                                               use_net = reactive(TRUE)) {
+  moduleServer(id, function(input, output, session) {
+    default_period <- monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21)
+    period <- period_selection_module_server(
+      id = "period",
+      period_groups = core_data$period_groups,
+      selected = default_period
+    )
+
+    window_days <- reactive({
+      value <- suppressWarnings(as.integer(input$window_days))
+      if (is.na(value) || value < 1) 21L else value
+    })
+
+    phase_windows <- reactive({
+      req(period$start_date(), period$end_date())
+      monitoring_trapping_performance_windows(
+        period_groups = core_data$period_groups,
+        period_names = period$period_names(),
+        start_date = period$start_date(),
+        end_date = period$end_date(),
+        window_days = window_days()
+      )
+    })
+
+    phase_period_groups <- reactive({
+      windows <- phase_windows()
+      if (nrow(windows) == 0) {
+        return(NULL)
+      }
+
+      groups <- lapply(seq_len(nrow(windows)), function(index) {
+        list(
+          start_date = windows$window_start[[index]],
+          end_date = windows$window_end[[index]],
+          assign_period = TRUE
+        )
+      })
+      names(groups) <- paste(windows$phase, windows$period_name, sep = " - ")
+      groups
+    })
+
+    phase_intervals <- reactive({
+      windows <- phase_windows()
+      if (nrow(windows) == 0) {
+        return(data.frame())
+      }
+
+      data.frame(
+        period_name = paste(windows$phase, windows$period_name, sep = " - "),
+        start_date = windows$window_start,
+        end_date = windows$window_end,
+        stringsAsFactors = FALSE
+      )
+    })
+
+    map_start_date <- reactive({
+      windows <- phase_windows()
+      req(nrow(windows) > 0)
+      min(windows$window_start, na.rm = TRUE)
+    })
+
+    map_end_date <- reactive({
+      windows <- phase_windows()
+      req(nrow(windows) > 0)
+      max(windows$window_end, na.rm = TRUE)
+    })
+
+    map_obs <- reactive({
+      start_date <- map_start_date()
+      end_date <- map_end_date()
+      filter_detection_obs(filter_obs(core_data$obs, start_date, end_date))
+    })
+
+    map_deps <- reactive({
+      filter_deps(core_data$deps, map_start_date(), map_end_date())
+    })
+
+    all_map_species <- reactive({
+      monitoring_species <- unique(as.character(unlist(core_data$app$spp_classes, use.names = FALSE)))
+      trap_species <- character()
+      if (!is.null(trap_data) && !is.null(trap_data$obs) && nrow(trap_data$obs) > 0) {
+        trap_species <- trap_data$obs %>%
+          dplyr::mutate(
+            source_kill_flag = dplyr::coalesce(
+              .data$observationType == "animal" |
+                extract_trap_tag_value(.data$observationTags, "kill") == "1",
+              FALSE
+            )
+          ) %>%
+          dplyr::filter(
+            .data$source_kill_flag,
+            !is.na(.data$scientificName),
+            nzchar(as.character(.data$scientificName))
+          ) %>%
+          dplyr::pull(.data$scientificName) %>%
+          as.character() %>%
+          unique()
+      }
+
+      sort(unique(c(monitoring_species, trap_species)))
+    })
+
+    performance_result <- reactive({
+      req(trap_data)
+      monitoring_trapping_trapping_performance_summary(
+        core_data = core_data,
+        trap_data = trap_data,
+        period_names = period$period_names(),
+        start_date = period$start_date(),
+        end_date = period$end_date(),
+        rai_groups = config$globals$rai_groups,
+        window_days = window_days(),
+        selected_localities = NULL,
+        max_locality_distance_km = 1
+      )
+    })
+
+    mapping_module_server(
+      id = "performance_map",
+      type = "observation",
+      obs = map_obs,
+      deps = map_deps,
+      species_override = all_map_species,
+      period_start_date = map_start_date,
+      period_end_date = map_end_date,
+      period_intervals = phase_intervals,
+      period_groups_override = phase_period_groups,
+      playback_mode = "always",
+      use_net = use_net,
+      trap_data = reactive(trap_data),
+      observation_nav_value = "trapping_performance"
+    )
+
+    output$performance_heading <- renderUI({
+      result <- performance_result()
+      windows <- phase_windows()
+      window_range <- if (nrow(windows) > 0) {
+        sprintf(
+          "%s to %s",
+          format(min(windows$window_start, na.rm = TRUE), "%d %b %Y"),
+          format(max(windows$window_end, na.rm = TRUE), "%d %b %Y")
+        )
+      } else {
+        "no trap window"
+      }
+
+      tagList(
+        tags$p(sprintf(
+          "Trap and monitoring records before, during, and after selected monitoring season(s), using %s-day before/after windows (%s).",
+          window_days(),
+          window_range
+        )),
+        tags$small(
+          class = "text-muted",
+          sprintf(
+            "Trap data available through %s. Monitoring-group reporting is limited to groups with trap kills in the selected window.",
+            ifelse(is.na(result$latest_trap_date), "unknown date", format(result$latest_trap_date, "%d %b %Y"))
+          )
+        )
+      )
+    })
+
+    output$group_kill_table <- DT::renderDataTable({
+      rows <- performance_result()$group_summary %>%
+        dplyr::transmute(
+          `Monitoring group` = .data$rai_group,
+          `Selected-group trap kills` = round(.data$selected_group_kills, 0),
+          `Species with trap kills` = .data$species_with_kills,
+          `Species in group` = .data$species_in_group
+        )
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        filter = "top",
+        options = list(
+          pageLength = 10,
+          lengthMenu = c(10, 25, 50, 100),
+          scrollX = TRUE,
+          order = list(list(1, "desc")),
+          dom = "lfrtip"
+        )
+      )
+    })
+
+    output$species_kill_table <- DT::renderDataTable({
+      rows <- performance_result()$species_summary %>%
+        dplyr::transmute(
+          Phase = .data$phase,
+          Species = .data$scientificName,
+          `Trap kills` = round(.data$kill_count, 0),
+          `% of trap kills` = round(.data$kill_percent, 1),
+          `Trap checks with kills` = .data$trap_check_records,
+          `Traps with kills` = .data$trap_count,
+          `Monitoring lines with kills` = .data$monitoring_line_count
+        )
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        filter = "top",
+        options = list(
+          pageLength = 10,
+          lengthMenu = c(10, 25, 50, 100),
+          scrollX = TRUE,
+          order = list(list(0, "asc"), list(2, "desc")),
+          dom = "lfrtip"
+        )
+      )
+    })
+
+    output$line_species_kill_table <- DT::renderDataTable({
+      rows <- performance_result()$line_species_summary %>%
+        dplyr::transmute(
+          Locality = .data$monitoring_locality,
+          `Monitoring line` = .data$monitoring_line,
+          Phase = .data$phase,
+          Species = .data$scientificName,
+          `Trap kills` = round(.data$kill_count, 0),
+          `Trap checks with kills` = .data$trap_check_records,
+          `Traps with kills` = .data$trap_count
+        )
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        filter = "top",
+        options = list(
+          pageLength = 10,
+          lengthMenu = c(10, 25, 50, 100),
+          scrollX = TRUE,
+          order = list(list(0, "asc"), list(1, "asc"), list(2, "asc"), list(4, "desc")),
+          dom = "lfrtip"
+        )
+      )
+    })
+  })
+}
+
+
 monitoring_trapping_module_ui <- function(id,
                                           core_data,
                                           config,
@@ -44,7 +373,7 @@ monitoring_trapping_module_ui <- function(id,
       ),
       selectInput(
         ns("localities"),
-        label = tagList(icon("location-dot"), "Reserve"),
+        label = tagList(icon("location-dot"), "Locality"),
         choices = locality_choices,
         selected = locality_choices,
         multiple = TRUE
@@ -192,10 +521,10 @@ monitoring_trapping_module_server <- function(id,
         trap_comparison_window = list(
           title = "Trap comparison window",
           body = tagList(
-            tags$p("This controls which trap check intervals are compared with the selected monitoring season."),
+            tags$p("This controls which trap check intervals or trap kills are compared with the selected monitoring season."),
             tags$ul(
-              tags$li(tags$strong("Same monitoring period: "), "trap checks whose covered interval overlaps the monitoring dates."),
-              tags$li(tags$strong("Next windows: "), "trap checks after the monitoring period, ending 2, 4, 8, or 12 weeks after the monitoring period ends.")
+              tags$li(tags$strong("Monitoring vs Trapping: "), "same-period or next-window trap checks are compared with monitoring RAI."),
+              tags$li(tags$strong("Trap Performance: "), "trap kills are split into equal before, during, and after monitoring windows. The before/after duration is set in days.")
             )
           )
         ),
@@ -209,7 +538,7 @@ monitoring_trapping_module_server <- function(id,
         ),
         hotspot_threshold = list(
           title = "Hotspot threshold",
-          body = tags$p("Mismatch categories use percentile ranks across the visible monitoring lines. At 0.60, the top 40% of monitoring RAI values are high and the bottom 40% are low. The same threshold is applied to selected-group trap kill-rate ranks.")
+          body = tags$p("Relative categories use percentile ranks across the visible monitoring lines. At 0.60, the top 40% of monitoring RAI values are treated as relatively high and the bottom 40% as relatively low. The same threshold is applied to selected-group trap kill-rate ranks.")
         ),
         minimum_trap_days = list(
           title = "Minimum trap-days",
@@ -251,15 +580,25 @@ monitoring_trapping_module_server <- function(id,
 
     output$summary_heading <- renderUI({
       result <- mismatch_result()
-      tags$p(sprintf(
-        "%s monitoring RAI from %s to %s compared with selected-group trap kills per 100 trap-days for %s (%s to %s).",
-        selected_group(),
-        format(as.Date(period$start_date()), "%d %b %Y"),
-        format(as.Date(period$end_date()), "%d %b %Y"),
-        result$trap_window$label,
-        format(result$trap_window$start_date, "%d %b %Y"),
-        format(result$trap_window$end_date, "%d %b %Y")
-      ))
+      latest_trap_date <- monitoring_trapping_latest_trap_date(trap_data)
+      tagList(
+        tags$p(sprintf(
+          "%s monitoring RAI from %s to %s compared with selected-group trap kills per 100 trap-days for %s (%s to %s).",
+          selected_group(),
+          format(as.Date(period$start_date()), "%d %b %Y"),
+          format(as.Date(period$end_date()), "%d %b %Y"),
+          result$trap_window$label,
+          format(result$trap_window$start_date, "%d %b %Y"),
+          format(result$trap_window$end_date, "%d %b %Y")
+        )),
+        tags$small(
+          class = "text-muted",
+          sprintf(
+            "Trap data available through %s. Categories are relative ranks across the visible monitoring lines, not absolute performance grades.",
+            ifelse(is.na(latest_trap_date), "unknown date", format(latest_trap_date, "%d %b %Y"))
+          )
+        )
+      )
     })
 
     output$lag_heading <- renderUI({
@@ -366,18 +705,18 @@ monitoring_trapping_module_server <- function(id,
 
       pal <- leaflet::colorFactor(
         palette = c(
-          "High monitoring / low trapping" = "#d73027",
-          "High monitoring / high trapping" = "#1a9850",
-          "Low monitoring / high trapping" = "#4575b4",
-          "Low monitoring / low trapping" = "#91cf60",
+          "Relatively high monitoring / relatively low trapping" = "#d73027",
+          "Relatively high monitoring / relatively high trapping" = "#1a9850",
+          "Relatively low monitoring / relatively high trapping" = "#4575b4",
+          "Relatively low monitoring / relatively low trapping" = "#91cf60",
           "Mixed signal" = "#fdae61",
           "Insufficient data" = "#969696"
         ),
         domain = c(
-          "High monitoring / low trapping",
-          "High monitoring / high trapping",
-          "Low monitoring / high trapping",
-          "Low monitoring / low trapping",
+          "Relatively high monitoring / relatively low trapping",
+          "Relatively high monitoring / relatively high trapping",
+          "Relatively low monitoring / relatively high trapping",
+          "Relatively low monitoring / relatively low trapping",
           "Mixed signal",
           "Insufficient data"
         )
@@ -430,7 +769,7 @@ monitoring_trapping_module_server <- function(id,
           position = "bottomright",
           pal = pal,
           values = ~mismatch_category,
-          title = "Mismatch category",
+          title = "Relative category",
           opacity = 0.8
         ) %>%
         leaflet::fitBounds(
@@ -447,9 +786,9 @@ monitoring_trapping_module_server <- function(id,
           trap_days_link = mapply(trap_days_link, .data$trap_days, .data$locality, .data$line, USE.NAMES = FALSE)
         ) %>%
         dplyr::transmute(
-          Reserve = .data$locality,
+          Locality = .data$locality,
           Line = .data$line,
-          Category = .data$mismatch_category,
+          `Relative category` = .data$mismatch_category,
           `Monitoring RAI` = round(.data$selected_RAI, 2),
           `Camera hours` = round(.data$camera_hours, 1),
           `Selected group kills / 100 trap-days` = round(.data$kills_per_100_trap_days_selected_species, 2),
@@ -461,9 +800,9 @@ monitoring_trapping_module_server <- function(id,
           `All species kills` = round(.data$any_species_kill_count, 0),
           `Trap checks` = .data$trap_checks,
           `Trap count` = .data$trap_count,
-          `Mismatch score` = round(.data$mismatch_score, 2)
+          `Relative score` = round(.data$mismatch_score, 2)
         ) %>%
-        dplyr::arrange(dplyr::desc(.data$`Mismatch score`))
+        dplyr::arrange(dplyr::desc(.data$`Relative score`))
     })
 
     output$mismatch_table <- DT::renderDataTable({
@@ -485,7 +824,7 @@ monitoring_trapping_module_server <- function(id,
     output$trap_detail_table <- DT::renderDataTable({
       details <- mismatch_result()$trap_details %>%
         dplyr::transmute(
-          Reserve = .data$monitoring_locality,
+          Locality = .data$monitoring_locality,
           Line = .data$monitoring_line,
           Trap = .data$trap_code,
           `Trap line` = .data$trap_line,
@@ -573,7 +912,7 @@ monitoring_trapping_module_server <- function(id,
         ggplot2::labs(
           x = sprintf("%s RAI per %s camera-hours", selected_group(), config$globals$rai_norm_hours),
           y = "Selected-group trap kills / 100 trap-days",
-          colour = "Reserve",
+          colour = "Locality",
           title = sprintf("Selected lag window: %s", names(monitoring_trapping_lag_windows())[monitoring_trapping_lag_windows() == input$lag_window])
         ) +
         theme_insightful()
@@ -597,7 +936,7 @@ monitoring_trapping_module_server <- function(id,
         dplyr::filter(.data$lag_key == input$lag_window) %>%
         dplyr::transmute(
           Season = .data$period_name,
-          Reserve = .data$locality,
+          Locality = .data$locality,
           Line = .data$line,
           `Monitoring RAI` = round(.data$selected_RAI, 2),
           `Selected group trap kills / 100 trap-days` = round(.data$kills_per_100_trap_days_selected_species, 2),
