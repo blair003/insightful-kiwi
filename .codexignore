@@ -1,6 +1,33 @@
-```gitignore
-cache/
+# Runtime/generated
+app_cache/
 logs/
 temp/
 www/cache/*
 !www/cache/favourites/
+
+# Local/instance data
+instance/*
+!instance/config/
+!instance/config/**
+
+# Dev-only / editor
+.vscode/
+.devcontainer/
+.Rproj.user/
+.Rhistory
+.RData
+.Rprofile
+.Renviron
+.Ruserdata/
+*.Rproj
+
+# Large/generated data
+*.rds
+*.RDS
+*.RData
+*.sqlite
+*.parquet
+
+# Misc
+.DS_Store
+.positai/

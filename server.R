@@ -1241,6 +1241,7 @@ server <- function(input, output, session) {
           type = "density",
           obs = filtered_obs_density_map,
           deps = filtered_deps_density_map,
+          period_names = density_map_period$period_names,
           period_start_date = density_map_period$start_date,
           period_end_date = density_map_period$end_date,
           use_net = global_use_net
@@ -1254,6 +1255,7 @@ server <- function(input, output, session) {
             type = "density",
             obs = filtered_obs_density_map,
             deps = filtered_deps_density_map,
+            period_names = density_map_period$period_names,
             period_start_date = density_map_period$start_date,
             period_end_date = density_map_period$end_date,
             use_net = global_use_net
@@ -1266,6 +1268,9 @@ server <- function(input, output, session) {
           type = "density",
           obs = filtered_obs_comparative,
           deps = filtered_deps_comparative,
+          period_names = comparative_period$period_names,
+          period_start_date = comparative_period$start_date,
+          period_end_date = comparative_period$end_date,
           species_override = density_map_primary$selected_species,
           localities_override = density_map_primary$selected_localities,
           prediction_surface_override = density_map_primary$show_predicted_rai_surface,
@@ -1328,6 +1333,7 @@ server <- function(input, output, session) {
         type = "density",
         obs = filtered_obs_playback_map,
         deps = filtered_deps_playback_map,
+        period_names = playback_period$period_names,
         period_start_date = playback_period$start_date,
         period_end_date = playback_period$end_date,
         playback_mode = "always",

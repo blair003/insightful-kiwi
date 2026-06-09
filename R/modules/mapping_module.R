@@ -972,6 +972,7 @@ mapping_module_server <- function(id,
                                   prediction_surface_basis_override = NULL, # Reactive: for comparative density map
                                   location_markers_override = NULL, # Reactive: for comparative density map
                                   marker_metric_override = NULL, # Reactive: for comparative density map
+                                  period_names = NULL,      # Reactive: selected period names
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
                                   period_intervals = NULL,   # Reactive: selected period intervals
@@ -1254,6 +1255,29 @@ mapping_module_server <- function(id,
         }
 
         NULL
+      })
+
+      selected_period_key <- reactive({
+        if (is.function(period_names)) {
+          selected_periods <- as.character(period_names())
+          selected_periods <- selected_periods[!is.na(selected_periods) & nzchar(selected_periods)]
+          if (length(selected_periods) > 0) {
+            return(paste(sort(selected_periods), collapse = ","))
+          }
+        }
+
+        start_key <- if (is.function(period_start_date)) {
+          format(as.Date(period_start_date()), "%Y-%m-%d")
+        } else {
+          "no-start"
+        }
+        end_key <- if (is.function(period_end_date)) {
+          format(as.Date(period_end_date()), "%Y-%m-%d")
+        } else {
+          "no-end"
+        }
+
+        paste(start_key, end_key, sep = ",")
       })
 
       floor_posix_hour <- function(value) {
@@ -1611,6 +1635,7 @@ mapping_module_server <- function(id,
           req(input$time_slider)
         }
         use_playback <- playback_active()
+        period_key_dens <- selected_period_key()
         
         logger::log_debug(sprintf(
           "mapping_module_server [density], %s mapping_data_density() for species: %s, localities: %s",
@@ -1799,6 +1824,7 @@ mapping_module_server <- function(id,
             if (use_playback) "playback-monthly" else "static",
             paste(sort(species_dens), collapse = ","),
             paste(sort(localities_dens), collapse = ","),
+            period_key_dens,
             new_bounds_key,
             surface_basis,
             surface_time_key,
@@ -1986,6 +2012,7 @@ mapping_module_server <- function(id,
             if (use_playback) "playback" else "static",
             paste(sort(species_dens), collapse = ","),
             paste(sort(localities_dens), collapse = ","),
+            period_key_dens,
             new_bounds_key,
             if (is.null(start_time_dens)) "no-start" else format(start_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
             if (is.null(current_time_dens)) "no-current" else format(current_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),

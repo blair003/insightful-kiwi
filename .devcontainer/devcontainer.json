@@ -28,7 +28,8 @@
       "extensions": [
         "REditorSupport.r",
         "REditorSupport.r-debugger",
-        "Posit.shiny"
+        "Posit.shiny",
+        "openai.chatgpt"
       ],
       "settings": {
         "r.lsp.enabled": true,
