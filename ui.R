@@ -13,7 +13,7 @@ ui <- function(request) {
       'plots': true,
       'reporting': true,
       'density_map': true,
-      'density_playback_map': true,
+      'density_timeline_map': true,
       'observation_map': true,
       'monitoring_trapping': true,
       'activity_patterns': true,
@@ -188,7 +188,7 @@ ui <- function(request) {
       ), # conditionalPanel
       
       conditionalPanel(
-        condition = "input.nav === 'density_playback_map'",
+        condition = "input.nav === 'density_timeline_map'",
 
         period_selection_module_ui(
           id = "playback_period",
@@ -200,7 +200,7 @@ ui <- function(request) {
         ),
 
         mapping_module_ui(
-          id = "density_playback_map",
+          id = "density_timeline_map",
           view = "select_species",
           choices = core_data$app$spp_classes,
           selected = c(
@@ -211,21 +211,21 @@ ui <- function(request) {
         ),
 
         mapping_module_ui(
-          id = "density_playback_map",
+          id = "density_timeline_map",
           view = "select_localities",
           choices = unique(core_data$deps$locality),
           selected = unique(core_data$deps$locality)
         ),
 
         mapping_module_ui(
-          id = "density_playback_map",
+          id = "density_timeline_map",
           view = "density_options",
           include_prediction_option = FALSE,
           include_marker_options = FALSE
         ),
 
         mapping_module_ui(
-          id = "density_playback_map",
+          id = "density_timeline_map",
           view = "density_playback_controls",
           include_marker_options = TRUE
         )
@@ -395,17 +395,17 @@ ui <- function(request) {
           )
         ),
 
-        ######### DENSITY PLAYBACK MAP OUTPUT #########
+        ######### DENSITY TIMELINE MAP OUTPUT #########
         nav_panel(
-          title = "Density Playback Map",
+          title = "Density Timeline Map",
           icon = icon("play-circle"),
-          value = "density_playback_map",
+          value = "density_timeline_map",
           div(
             class = "map-page-heading",
-            h2("Density Playback Map"),
-            uiOutput("density_playback_map_selection_heading")
+            h2("Density Timeline Map"),
+            uiOutput("density_timeline_map_selection_heading")
           ),
-          mapping_module_ui("density_playback_map", view = "density_playback_layout")
+          mapping_module_ui("density_timeline_map", view = "density_playback_layout")
         ),
 
         ######### OBSERVATION MAP OUTPUT #########

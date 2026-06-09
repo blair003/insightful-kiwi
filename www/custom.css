@@ -1101,7 +1101,7 @@
           height: calc(100vh - 210px) !important;
         }
 
-        #density_playback_map-map_display,
+        #density_timeline_map-map_display,
         #observation_map-map_display {
           height: calc(100vh - 320px) !important;
         }

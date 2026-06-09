@@ -256,7 +256,7 @@ server <- function(input, output, session) {
         dashboard = input[["dashboard-main_dashboard_tabs"]],
         reporting = input$reporting_tabs,
         density_map = input$density_map_tabs,
-        density_playback_map = input[["density_playback_map-density_playback_tabs"]],
+        density_timeline_map = input[["density_timeline_map-density_playback_tabs"]],
         observation_map = input[["observation_map-observation_map_tabs"]],
         activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
         raw_data = input$raw_data_tabs,
@@ -988,7 +988,7 @@ server <- function(input, output, session) {
         dashboard = "dashboard-main_dashboard_tabs",
         reporting = "reporting_tabs",
         density_map = "density_map_tabs",
-        density_playback_map = "density_playback_map-density_playback_tabs",
+        density_timeline_map = "density_timeline_map-density_playback_tabs",
         observation_map = "observation_map-observation_map_tabs",
         activity_patterns = "activity_patterns-activity_patterns_tabs",
         raw_data = "raw_data_tabs",
@@ -1197,13 +1197,12 @@ server <- function(input, output, session) {
 
     div(
       class = "playback-window-readout",
-      strong("Current window:"),
+      strong("Current timeframe:"),
       paste(
-        format(start_time, "%Y-%m-%d %H:%M:%S", tz = timezone),
+        format(start_time, "%Y-%m-%d", tz = timezone),
         "to",
-        format(end_time, "%Y-%m-%d %H:%M:%S", tz = timezone)
-      ),
-      tags$span(timezone)
+        format(end_time, "%Y-%m-%d", tz = timezone)
+      )
     )
   }
 
@@ -1222,9 +1221,9 @@ server <- function(input, output, session) {
     div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
 
-  output$density_playback_map_selection_heading <- renderUI({
-    species <- input[["density_playback_map-selected_species"]]
-    localities <- input[["density_playback_map-selected_localities"]]
+  output$density_timeline_map_selection_heading <- renderUI({
+    species <- input[["density_timeline_map-selected_species"]]
+    localities <- input[["density_timeline_map-selected_localities"]]
     div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
   
@@ -1296,7 +1295,7 @@ server <- function(input, output, session) {
     use_net = global_use_net
   )
 
-  ########### DENSITY PLAYBACK MAP FEATURE ###########
+  ########### DENSITY TIMELINE MAP FEATURE ###########
 
   playback_period <- period_selection_module_server(
     id = "playback_period",
@@ -1322,13 +1321,13 @@ server <- function(input, output, session) {
     ))
   })
 
-  density_playback_map_loaded <- reactiveVal(FALSE)
+  density_timeline_map_loaded <- reactiveVal(FALSE)
 
   observeEvent(input$nav, {
-    if (input$nav == "density_playback_map" && !density_playback_map_loaded()) {
-      logger::log_debug("server.R, lazily calling mapping_module_server() for density_playback_map")
+    if (input$nav == "density_timeline_map" && !density_timeline_map_loaded()) {
+      logger::log_debug("server.R, lazily calling mapping_module_server() for density_timeline_map")
       mapping_module_server(
-        id = "density_playback_map",
+        id = "density_timeline_map",
         type = "density",
         obs = filtered_obs_playback_map,
         deps = filtered_deps_playback_map,
@@ -1338,7 +1337,7 @@ server <- function(input, output, session) {
         playback_mode = "always",
         use_net = global_use_net
       )
-      density_playback_map_loaded(TRUE)
+      density_timeline_map_loaded(TRUE)
     }
   })
 

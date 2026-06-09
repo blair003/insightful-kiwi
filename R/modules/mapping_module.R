@@ -437,6 +437,14 @@ playback_format_time <- function(value) {
   format(as.POSIXct(value, tz = playback_actual_timezone()), "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone())
 }
 
+playback_format_timeframe_value <- function(value, step_size) {
+  if (step_size %in% c("day", "week", "month", "season")) {
+    return(format(as.Date(value, tz = playback_actual_timezone()), "%Y-%m-%d"))
+  }
+
+  playback_format_time(value)
+}
+
 playback_format_date <- function(value) {
   format(as.Date(value, tz = playback_actual_timezone()), "%d %b %Y")
 }
@@ -635,19 +643,18 @@ playback_window_readout <- function(start_time, current_time, step_size, weather
 
   time_info <- playback_time_info_for_window(weather_df, start_time, current_time, step_size, view_mode)
   period_text <- if (!identical(view_mode, "single")) {
-    "Cumulative playback"
+    "Cumulative timeframe"
   } else if (!is.null(time_info) && !is.null(time_info$label)) {
-    paste0(weather_html_escape(time_info$label), " window")
+    paste0(weather_html_escape(time_info$label), " timeframe")
   } else {
-    "Current window"
+    "Current timeframe"
   }
 
   sprintf(
-    "<div class='playback-window-readout'><strong>%s:</strong> %s to %s <span>%s</span></div>",
+    "<div class='playback-window-readout'><strong>%s:</strong> %s to %s</div>",
     period_text,
-    weather_html_escape(playback_format_time(start_time)),
-    weather_html_escape(playback_format_time(current_time)),
-    weather_html_escape(playback_actual_timezone())
+    weather_html_escape(playback_format_timeframe_value(start_time, step_size)),
+    weather_html_escape(playback_format_timeframe_value(current_time, step_size))
   )
 }
 
@@ -908,7 +915,7 @@ mapping_module_ui <- function(id,
         ),
         selectInput(
           inputId = ns("playback_step_size"),
-          label = "Progression increments",
+          label = "Time step",
           choices = c(
             "Hourly" = "hour",
             "Diel activity" = "diel",
@@ -1645,7 +1652,7 @@ mapping_module_server <- function(id,
 
       observeEvent(list(session$rootScope()$input$nav, input$density_playback_tabs), {
         if (identical(playback_mode, "always") &&
-            (!identical(session$rootScope()$input$nav, "density_playback_map") ||
+            (!identical(session$rootScope()$input$nav, "density_timeline_map") ||
              !is.null(input$density_playback_tabs) && !identical(input$density_playback_tabs, "map"))) {
           playback_skip_resume_id(playback_skip_resume_id() + 1L)
           playback_gap_notice(NULL)
@@ -2282,11 +2289,11 @@ mapping_module_server <- function(id,
         main_nav <- session$rootScope()$input$nav
         playback_tab <- input$density_playback_tabs
 
-        req(identical(playback_mode, "always"), main_nav == "density_playback_map")
+        req(identical(playback_mode, "always"), main_nav == "density_timeline_map")
         req(is.null(playback_tab) || identical(playback_tab, "map"))
 
         logger::log_debug(sprintf(
-          "mapping_module_server [density playback], %s auto-recenter due to navigation/tab switch",
+          "mapping_module_server [density timeline], %s auto-recenter due to navigation/tab switch",
           id
         ))
         recenter_map_generic()
