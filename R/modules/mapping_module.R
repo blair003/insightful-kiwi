@@ -1996,6 +1996,8 @@ mapping_module_server <- function(id,
           NULL
         }
 
+        skip_notice <- render_playback_skip_notice(playback_gap_notice())
+
         list(
           active_locations = active_locations_dens,
           obs_summary_location = obs_summary_location_dens,
@@ -2022,13 +2024,14 @@ mapping_module_server <- function(id,
             show_predicted_rai_surface_selected(),
             predicted_rai_surface_basis_selected(),
             predicted_rai_surface_cache_key,
+            if (is.null(skip_notice)) "no-skip-notice" else skip_notice,
             sep = "|"
           ),
           show_location_markers = show_density_location_markers_selected(),
           marker_metric = density_marker_metric_selected(),
           weather_control = weather_control,
           period_control = period_control,
-          skip_notice = render_playback_skip_notice(playback_gap_notice())
+          skip_notice = skip_notice
         )
       })
       
@@ -2981,6 +2984,8 @@ mapping_module_server <- function(id,
           NULL
         }
 
+        skip_notice <- render_playback_skip_notice(playback_gap_notice_obs())
+
         list(
           observations_for_table = observations_for_table,
           cumulative_observations_for_table = cumulative_observations_for_table,
@@ -2991,7 +2996,7 @@ mapping_module_server <- function(id,
           current_time = current_time_obsmap,
           weather_control = weather_control,
           period_control = period_control,
-          skip_notice = render_playback_skip_notice(playback_gap_notice_obs()),
+          skip_notice = skip_notice,
           map_update_key = paste(
             id,
             paste(sort(species_to_map), collapse = ","),
@@ -3009,6 +3014,7 @@ mapping_module_server <- function(id,
             new_bounds_key,
             nrow(obs_filtered_obsmap),
             nrow(trap_obs_filtered),
+            if (is.null(skip_notice)) "no-skip-notice" else skip_notice,
             sep = "|"
           )
         )
