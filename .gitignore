@@ -14,6 +14,7 @@
 !R/
 !www/
 !instance/
+!.devcontainer/
 !instance/reports/
 !instance/reports/**
 
