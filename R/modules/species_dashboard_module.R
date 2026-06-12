@@ -534,7 +534,7 @@ species_dashboard_module_server <- function(id,
     rai_groups_for_species <- stats::setNames(list(species_name), vernacular_name)
 
     selected_locality_label <- function() {
-      paste("Locality selection:", paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", "))
+      paste("Localities:", paste(vapply(selected_localities(), locality_display_name, character(1)), collapse = ", "))
     }
 
     combine_localities_selected <- reactive({
@@ -634,7 +634,7 @@ species_dashboard_module_server <- function(id,
 
       if (!is.null(period_name_label) &&
           period_name_label %in% names(core_data$period_groups)) {
-        period <- core_data$period_groups[[period_name_label]]
+        period <- period_group_by_name(core_data$period_groups, period_name_label)
         start_date <- period$start_date
         end_date <- period$end_date
 

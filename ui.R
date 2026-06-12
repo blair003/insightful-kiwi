@@ -1,7 +1,7 @@
 # ui.R
 
 ui <- function(request) {
-  season_choices <- period_names_without_all(core_data$period_groups, assignable_only = FALSE)
+  period_choices <- period_selection_choices(core_data$period_groups, config = config)
 
   tagList(
   useShinyjs(), 
@@ -78,9 +78,9 @@ ui <- function(request) {
         period_selection_module_ui(
           id = "primary_period",
           view = "select",
-          choices = season_choices,
+          choices = period_choices,
           selected = core_data$app$period_defaults$primary_period,
-          label = "Primary season:"
+          label = "Primary period:"
         )
       ),
 
@@ -90,15 +90,15 @@ ui <- function(request) {
         period_selection_module_ui(
           id = "density_map_period",
           view = "select",
-          choices = season_choices,
+          choices = period_choices,
           selected = core_data$app$period_defaults$primary_period,
-          label = "Primary season:",
+          label = "Primary period:",
           multiple = TRUE
         ),
         period_selection_module_ui(
           id = "comparative_period",
           view = "select",
-          choices = season_choices,
+          choices = period_choices,
           selected = core_data$app$period_defaults$comparative_period,
           label = "Compare with:",
           multiple = TRUE
@@ -189,9 +189,9 @@ ui <- function(request) {
         period_selection_module_ui(
           id = "playback_period",
           view = "select",
-          choices = season_choices,
+          choices = period_choices,
           selected = core_data$app$period_defaults$primary_period,
-          label = "Season selection:",
+          label = "Period:",
           multiple = TRUE
         ),
 
@@ -236,9 +236,9 @@ ui <- function(request) {
         period_selection_module_ui(
           id = "observation_map_period",
           view = "select",
-          choices = season_choices,
+          choices = period_choices,
           selected = core_data$app$period_defaults$primary_period,
-          label = "Season selection:",
+          label = "Period:",
           multiple = TRUE
         ),
         
@@ -252,7 +252,7 @@ ui <- function(request) {
             core_data$app$spp_classes[[1]][2],  # Second species from the first list
             core_data$app$spp_classes[[1]][3]  # Third species from the first list
           ),
-          label = "Species selection:",
+          label = "Species:",
           show_combined_species_note = FALSE
         ),
         # Call module UI for locality selection
@@ -261,7 +261,7 @@ ui <- function(request) {
            view = "select_localities",
            choices = unique(core_data$deps$locality),
            selected = unique(core_data$deps$locality),
-           label = "Locality selection:"
+           label = "Localities:"
          ),
         
         # Call module UI for other options
@@ -293,7 +293,7 @@ ui <- function(request) {
 
       conditionalPanel(
         condition = "input.nav === 'raw_data'",
-        tags$small("Raw data for the entire project across all seasons is shown here.")
+        tags$small("Raw data for the entire project across all periods is shown here.")
       ),
 
       species_dashboard_sidebar_controls(),

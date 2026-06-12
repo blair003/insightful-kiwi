@@ -41,12 +41,14 @@ trap_data_period_signature <- function(period_groups) {
     return(data.frame())
   }
 
-  period_names <- names(period_groups)
+  flat_period_groups <- flatten_period_groups(period_groups)
+  period_names <- names(flat_period_groups)
   data.frame(
     name = period_names,
-    start_date = vapply(period_groups, function(period) as.character(as.Date(period$start_date)), character(1)),
-    end_date = vapply(period_groups, function(period) as.character(as.Date(period$end_date)), character(1)),
-    assign_period = vapply(period_groups, function(period) {
+    family = vapply(flat_period_groups, function(period) as.character(period_group_value(period, "period_family", NA_character_)), character(1)),
+    start_date = vapply(flat_period_groups, function(period) as.character(as.Date(period$start_date)), character(1)),
+    end_date = vapply(flat_period_groups, function(period) as.character(as.Date(period$end_date)), character(1)),
+    assign_period = vapply(flat_period_groups, function(period) {
       is.null(period$assign_period) || isTRUE(period$assign_period)
     }, logical(1)),
     row.names = NULL,

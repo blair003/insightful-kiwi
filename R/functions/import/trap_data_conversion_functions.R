@@ -1229,7 +1229,8 @@ annotate_wkt_trap_periods <- function(trap_data, period_groups) {
     return(NULL)
   }
 
-  assignable_periods <- period_groups[!names(period_groups) %in% "ALL"]
+  flat_period_groups <- flatten_period_groups(period_groups)
+  assignable_periods <- flat_period_groups[!names(flat_period_groups) %in% "ALL"]
   assignable_periods <- Filter(function(period) {
     is.null(period$assign_period) || isTRUE(period$assign_period)
   }, assignable_periods)

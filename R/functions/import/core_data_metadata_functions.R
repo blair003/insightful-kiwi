@@ -22,12 +22,11 @@ config_period_grouping_signature <- function(config) {
   globals <- require_config_globals(config)
   list(
     period_grouping = globals$period_grouping,
-    period_grouping_include_years = isTRUE(globals$period_grouping_include_years),
     hemisphere = globals$hemisphere,
     actual_timezone = globals$actual_timezone,
     source_timestamps_are_local = isTRUE(globals$source_timestamps_are_local),
     source_timestamp_timezone = globals$source_timestamp_timezone,
-    period_calendar_timezone_version = 2L
+    period_calendar_timezone_version = 3L
   )
 }
 

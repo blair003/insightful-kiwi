@@ -373,7 +373,8 @@ server <- function(input, output, session) {
       core_data$deps,
       density_map_period$period_names(),
       density_map_period$start_date(),
-      density_map_period$end_date()
+      density_map_period$end_date(),
+      density_map_period$period_intervals()
     )
   })
 
@@ -382,7 +383,8 @@ server <- function(input, output, session) {
       core_data$obs,
       density_map_period$period_names(),
       density_map_period$start_date(),
-      density_map_period$end_date()
+      density_map_period$end_date(),
+      density_map_period$period_intervals()
     ))
   })
   
@@ -391,7 +393,8 @@ server <- function(input, output, session) {
       core_data$deps,
       comparative_period$period_names(),
       comparative_period$start_date(),
-      comparative_period$end_date()
+      comparative_period$end_date(),
+      comparative_period$period_intervals()
     )
   })
   
@@ -400,7 +403,8 @@ server <- function(input, output, session) {
       core_data$obs,
       comparative_period$period_names(),
       comparative_period$start_date(),
-      comparative_period$end_date()
+      comparative_period$end_date(),
+      comparative_period$period_intervals()
     ))
   })
 
@@ -409,7 +413,8 @@ server <- function(input, output, session) {
       core_data$deps,
       observation_map_period$period_names(),
       observation_map_period$start_date(),
-      observation_map_period$end_date()
+      observation_map_period$end_date(),
+      observation_map_period$period_intervals()
     )
   })
 
@@ -418,7 +423,8 @@ server <- function(input, output, session) {
       core_data$obs,
       observation_map_period$period_names(),
       observation_map_period$start_date(),
-      observation_map_period$end_date()
+      observation_map_period$end_date(),
+      observation_map_period$period_intervals()
     ))
   })
 
@@ -1287,7 +1293,8 @@ server <- function(input, output, session) {
       core_data$deps,
       playback_period$period_names(),
       playback_period$start_date(),
-      playback_period$end_date()
+      playback_period$end_date(),
+      playback_period$period_intervals()
     )
   })
 
@@ -1296,7 +1303,8 @@ server <- function(input, output, session) {
       core_data$obs,
       playback_period$period_names(),
       playback_period$start_date(),
-      playback_period$end_date()
+      playback_period$end_date(),
+      playback_period$period_intervals()
     ))
   })
 
@@ -1429,8 +1437,8 @@ server <- function(input, output, session) {
 
     if (!is.null(period_name) && period_name == "ALL") {
       filtered_obs <- filter_detection_obs(core_data$obs)
-    } else if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
-      period <- core_data$period_groups[[period_name]]
+    } else if (!is.null(period_name) && period_name %in% names(flatten_period_groups(core_data$period_groups))) {
+      period <- period_group_by_name(core_data$period_groups, period_name)
 
       # Filter obs
       filtered_obs <- filter_detection_obs(filter_obs(core_data$obs, period$start_date, period$end_date))

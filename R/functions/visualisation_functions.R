@@ -1,4 +1,4 @@
-generate_select_input <- function(id, choices, selected, multiple = TRUE, label = "Species selection:") {
+generate_select_input <- function(id, choices, selected, multiple = TRUE, label = "Species:") {
   selectizeInput(
     inputId = id,
     label = tagList(icon("paw"), label),  # Label with icon

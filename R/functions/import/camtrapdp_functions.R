@@ -233,39 +233,36 @@ create_period_groups <- function(deps,
                                  hemisphere = NULL,
                                  include_years = FALSE) {
   tryCatch({
-  #  browser()
-    period_groups <- NULL
+    if (is.null(period_grouping_type) || !nzchar(period_grouping_type)) {
+      period_grouping_type <- "calendar_season"
+    }
 
-    if (period_grouping_type == "calculated_seasons") {
-      logger::log_debug("Creating period groups for calculated_seasons")
-      period_groups <- create_seasons_available_list(
-        deps,
-        hemisphere,
-        include_years = include_years
-      )
-    } else if (period_grouping_type == "year") {
-      logger::log_debug("Creating period groups for year")
-      period_groups <- create_years_available_list(deps)
-    } else {
-      # Placeholder for other grouping types in the future
-      logger::log_warn("Unhandled period grouping type:", period_grouping_type)
+    if (period_grouping_type != "calendar_season") {
+      logger::log_warn("Unhandled period grouping type: %s", period_grouping_type)
       stop(paste("No valid period grouping method found for the provided type:",
                  period_grouping_type))
     }
 
-    # Check if period_groups was successfully created
-    if (is.null(period_groups)) {
+    period_groups <- list(
+      calendar_season = create_calendar_seasons_available_list(deps, hemisphere),
+      calendar_year = create_years_available_list(deps),
+      all = create_all_period_group(deps)
+    )
+
+    if (is.null(period_groups$calendar_season) || length(period_groups$calendar_season) == 0) {
       stop(paste("Error creating period groups with method:", period_grouping_type))
     }
 
-    logger::log_info("Period groups created successfully with method %s:",
-                     period_grouping_type)
-    return(period_groups)
-
+    logger::log_info("Period groups created successfully with method %s", period_grouping_type)
+    period_groups
   }, error = function(e) {
-    logger::log_error("An error occurred while creating period groups:", e$message)
-    stop(e)  # Propagate the original error message
+    logger::log_error("An error occurred while creating period groups: %s", e$message)
+    stop(e)
   })
+}
+
+create_monitoring_period_groups <- function(deps, hemisphere, monitoring_days = 21L) {
+  create_monitoring_seasons_available_list(deps, hemisphere, monitoring_days = monitoring_days)
 }
 
 
@@ -297,40 +294,57 @@ create_species_rank <- function(scientificName_lower, spp_classes) {
 }
 
 
-enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) {
+enhance_core_data <- function(obs, deps, period_groups, monitoring_period_groups = NULL, include_weather = TRUE) {
   logger::log_info("camtrapdp_functions.R, enhance_core_data() running...")
 
   capitalise_first_word <- function(s) {
     str_replace_all(s, pattern = "^\\b(.)", replacement = str_to_upper)
   }
 
-  # Try-catch block for period grouping and filtering
-  deps <- tryCatch({
-    # Filter out the "ALL" entry, if it exists
-    filtered_periods <- period_groups[!names(period_groups) %in% "ALL"]
-    filtered_periods <- Filter(function(period) {
-      is.null(period$assign_period) || isTRUE(period$assign_period)
-    }, filtered_periods)
-    period_levels <- names(filtered_periods)
+  # Try-catch block for period annotation and filtering
+  calendar_season_groups <- period_groups$calendar_season
+  calendar_year_groups <- period_groups$calendar_year
+  if (is.null(monitoring_period_groups)) {
+    monitoring_period_groups <- list()
+  }
+  period_levels <- names(calendar_season_groups)
+  calendar_year_levels <- names(calendar_year_groups)
+  monitoring_period_levels <- names(monitoring_period_groups)
 
-    # Determine period for a given date
-    determine_period <- function(date) {
-      for (period_name in period_levels) {
-        period <- filtered_periods[[period_name]]
-        if (date >= period$start_date & date <= period$end_date) {
-          return(period_name)
-        }
-      }
-      return(NA)
+  determine_period <- function(date, groups) {
+    if (is.numeric(date) && !inherits(date, "Date")) {
+      date <- as.Date(date, origin = "1970-01-01")
+    } else {
+      date <- as.Date(date)
     }
+    for (period_name in names(groups)) {
+      period <- groups[[period_name]]
+      if (date >= as.Date(period$start_date) & date <= as.Date(period$end_date)) {
+        return(period_name)
+      }
+    }
+    NA_character_
+  }
 
-    # Add period to deployments and clean up fields
+  deps <- tryCatch({
+    display_timezone <- period_display_timezone()
+    deployment_start_date <- source_timestamp_date(deps$start, display_timezone)
+
     deps <- deps %>%
       dplyr::mutate(
-        period = factor(
-          sapply(start, determine_period),
+        calendar_season = factor(
+          vapply(deployment_start_date, determine_period, character(1), groups = calendar_season_groups),
           levels = period_levels
-        )
+        ),
+        calendar_year = factor(
+          vapply(deployment_start_date, determine_period, character(1), groups = calendar_year_groups),
+          levels = calendar_year_levels
+        ),
+        monitoring_period = factor(
+          vapply(deployment_start_date, determine_period, character(1), groups = monitoring_period_groups),
+          levels = monitoring_period_levels
+        ),
+        period = calendar_season
       ) %>%
       dplyr::select(
         -c(coordinateUncertainty, timestampIssues, session, array, featureType,
@@ -341,7 +355,7 @@ enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) 
     deps
   }, error = function(e) {
     logger::log_error(
-      "Error processing period groups in enhance_core_data: ", e$message
+      "Error processing period groups in enhance_core_data: %s", e$message
     )
     stop(e)
   })
@@ -417,15 +431,26 @@ enhance_core_data <- function(obs, deps, period_groups, include_weather = TRUE) 
       dplyr::left_join(
         deps %>% dplyr::select(
           deploymentID, locationID, locality, line, locationName, longitude,
-          latitude, period
+          latitude, monitoring_period
         ),
         by = "deploymentID"
       ) %>%
       dplyr::mutate(
-        period = factor(period, levels = period_levels),
+        observation_date = source_timestamp_date(timestamp, period_display_timezone()),
+        calendar_season = factor(
+          vapply(observation_date, determine_period, character(1), groups = calendar_season_groups),
+          levels = period_levels
+        ),
+        calendar_year = factor(
+          vapply(observation_date, determine_period, character(1), groups = calendar_year_groups),
+          levels = calendar_year_levels
+        ),
+        monitoring_period = factor(monitoring_period, levels = monitoring_period_levels),
+        period = calendar_season,
         species_class = determine_species_class(scientificName_lower, spp_classes),
         species_rank = create_species_rank(scientificName_lower, spp_classes)
       ) %>%
+      dplyr::select(-observation_date) %>%
 
       # Arrange by relevant fields for possible duplicate checking
       dplyr::arrange(
@@ -643,143 +668,221 @@ get_season <- function(month, hemisphere) {
 
 # Assume get_season is defined and config$globals$hemisphere is set correctly
 
-create_years_available_list <- function(deps) {
-  display_timezone <- if (!is.null(config$globals$actual_timezone) &&
-                          nzchar(config$globals$actual_timezone)) {
+period_display_timezone <- function() {
+  if (!is.null(config$globals$actual_timezone) && nzchar(config$globals$actual_timezone)) {
     config$globals$actual_timezone
   } else {
     config$globals$timezone
   }
+}
 
+deps_date_bounds <- function(deps, display_timezone = period_display_timezone()) {
   deps_dates <- deps %>%
     dplyr::mutate(
       start_date = source_timestamp_date(start, display_timezone),
       end_date = source_timestamp_date(end, display_timezone)
     )
 
-  all_start <- min(deps_dates$start_date, na.rm = TRUE)
-  all_end <- max(deps_dates$end_date, na.rm = TRUE)
-  available_years <- seq(lubridate::year(all_start), lubridate::year(all_end))
+  list(
+    start = min(deps_dates$start_date, na.rm = TRUE),
+    end = max(deps_dates$end_date, na.rm = TRUE)
+  )
+}
+
+period_rows_to_list <- function(period_rows) {
+  if (is.null(period_rows) || nrow(period_rows) == 0) {
+    return(list())
+  }
+
+  period_rows <- period_rows %>%
+    dplyr::arrange(dplyr::desc(start_date), period_type, period_name)
+
+  row_fields <- intersect(
+    c("start_date", "end_date", "period_type", "period_family", "assign_period"),
+    names(period_rows)
+  )
+
+  split(
+    period_rows[row_fields],
+    factor(period_rows$period_name, levels = period_rows$period_name)
+  )
+}
+
+create_all_period_group <- function(deps) {
+  display_timezone <- period_display_timezone()
+  bounds <- deps_date_bounds(deps, display_timezone)
+
+  period_rows_to_list(tibble::tibble(
+    period_name = "ALL",
+    start_date = bounds$start,
+    end_date = bounds$end,
+    period_type = "all",
+    period_family = "all",
+    assign_period = FALSE
+  ))
+}
+
+create_years_available_list <- function(deps) {
+  display_timezone <- period_display_timezone()
+  bounds <- deps_date_bounds(deps, display_timezone)
+  available_years <- seq(lubridate::year(bounds$start), lubridate::year(bounds$end))
 
   years <- tibble::tibble(
     period_name = as.character(available_years),
     start_date = as.Date(paste0(available_years, "-01-01")),
     end_date = as.Date(paste0(available_years, "-12-31")),
-    period_type = "year",
-    assign_period = TRUE
+    period_type = "calendar_year",
+    period_family = "calendar_year",
+    assign_period = FALSE
   ) %>%
     dplyr::mutate(
-      start_date = pmax(start_date, all_start),
-      end_date = pmin(end_date, all_end)
-    ) %>%
-    dplyr::filter(start_date <= end_date) %>%
-    dplyr::mutate(
-      start_date = as.POSIXct(paste(start_date, "00:00"), tz = display_timezone),
-      end_date = as.POSIXct(paste(end_date, "23:59:59"), tz = display_timezone)
+      start_date = as.Date(start_date),
+      end_date = as.Date(end_date)
     )
 
-  all_entry <- tibble::tibble(
-    period_name = "ALL",
-    start_date = as.POSIXct(paste(all_start, "00:00"), tz = display_timezone),
-    end_date = as.POSIXct(paste(all_end, "23:59:59"), tz = display_timezone),
-    period_type = "all",
-    assign_period = FALSE
-  )
-
-  period_rows_to_list(dplyr::bind_rows(years, all_entry))
+  period_rows_to_list(years)
 }
 
-period_rows_to_list <- function(period_rows) {
-  all_entry <- period_rows[period_rows$period_name == "ALL", , drop = FALSE]
-  period_rows <- period_rows[period_rows$period_name != "ALL", , drop = FALSE]
-  period_rows <- period_rows %>%
-    dplyr::arrange(dplyr::desc(start_date), period_type, period_name)
+calendar_season_name <- function(date, hemisphere) {
+  date <- as.Date(date)
+  season <- get_season(lubridate::month(date), hemisphere)
+  year <- lubridate::year(date)
+  month <- lubridate::month(date)
 
-  period_list <- split(
-    period_rows[c("start_date", "end_date", "period_type", "assign_period")],
-    factor(period_rows$period_name, levels = period_rows$period_name)
-  )
-
-  if (nrow(all_entry) > 0) {
-    period_list[["ALL"]] <- all_entry[c(
-      "start_date", "end_date", "period_type", "assign_period"
-    )]
+  if (tolower(hemisphere) == "south" && identical(season, "Summer")) {
+    start_year <- if (month == 12L) year else year - 1L
+    return(sprintf("Summer %s-%s", start_year, start_year + 1L))
   }
 
-  period_list
+  if (tolower(hemisphere) == "north" && identical(season, "Winter")) {
+    start_year <- if (month == 12L) year else year - 1L
+    return(sprintf("Winter %s-%s", start_year, start_year + 1L))
+  }
+
+  paste(season, year)
 }
 
-create_seasons_available_list <- function(deps, hemisphere, include_years = FALSE) {
-#  browser()
-  source_deps <- deps
-  display_timezone <- if (!is.null(config$globals$actual_timezone) &&
-                          nzchar(config$globals$actual_timezone)) {
-    config$globals$actual_timezone
+calendar_season_bounds <- function(period_name, hemisphere, timezone) {
+  parts <- strsplit(period_name, " ", fixed = TRUE)[[1]]
+  season <- parts[[1]]
+  year_part <- parts[[2]]
+  start_year <- suppressWarnings(as.integer(sub("-.*$", "", year_part)))
+
+  if (is.na(start_year)) {
+    stop(sprintf("Unable to parse calendar season year from '%s'", period_name), call. = FALSE)
+  }
+
+  if (tolower(hemisphere) == "south" && identical(season, "Summer")) {
+    start_date <- as.Date(sprintf("%s-12-01", start_year))
+    end_date <- as.Date(sprintf("%s-02-28", start_year + 1L))
+  } else if (tolower(hemisphere) == "north" && identical(season, "Winter")) {
+    start_date <- as.Date(sprintf("%s-12-01", start_year))
+    end_date <- as.Date(sprintf("%s-02-28", start_year + 1L))
   } else {
-    config$globals$timezone
+    season_months <- if (tolower(hemisphere) == "south") {
+      list(
+        Autumn = c(3L, 5L),
+        Winter = c(6L, 8L),
+        Spring = c(9L, 11L)
+      )
+    } else {
+      list(
+        Spring = c(3L, 5L),
+        Summer = c(6L, 8L),
+        Fall = c(9L, 11L)
+      )
+    }
+    months <- season_months[[season]]
+    if (is.null(months)) {
+      stop(sprintf("Unable to determine bounds for calendar season '%s'", period_name), call. = FALSE)
+    }
+    start_date <- as.Date(sprintf("%s-%02d-01", start_year, months[[1]]))
+    end_month_date <- as.Date(sprintf("%s-%02d-01", start_year, months[[2]]))
+    end_date <- end_month_date + lubridate::days(lubridate::days_in_month(end_month_date) - 1L)
   }
 
-  deps <- deps %>%
-    mutate(
-      # Extract the date part only for start and end dates
+  if (lubridate::month(end_date) == 2L) {
+    end_date <- as.Date(sprintf(
+      "%s-02-%s",
+      lubridate::year(end_date),
+      lubridate::days_in_month(end_date)
+    ))
+  }
+
+  list(
+    start_date = start_date,
+    end_date = end_date
+  )
+}
+
+create_calendar_seasons_available_list <- function(deps, hemisphere) {
+  display_timezone <- period_display_timezone()
+  bounds <- deps_date_bounds(deps, display_timezone)
+  month_starts <- seq(
+    as.Date(format(bounds$start, "%Y-%m-01")),
+    as.Date(format(bounds$end, "%Y-%m-01")),
+    by = "month"
+  )
+  season_names <- unique(vapply(month_starts, calendar_season_name, character(1), hemisphere = hemisphere))
+
+  season_rows <- dplyr::bind_rows(lapply(season_names, function(period_name) {
+    season_bounds <- calendar_season_bounds(period_name, hemisphere, display_timezone)
+    data.frame(
+      period_name = period_name,
+      start_date = season_bounds$start_date,
+      end_date = season_bounds$end_date,
+      period_type = "calendar_season",
+      period_family = "calendar_season",
+      assign_period = TRUE,
+      stringsAsFactors = FALSE
+    )
+  })) %>%
+    dplyr::filter(
+      as.Date(.data$start_date) <= bounds$end,
+      as.Date(.data$end_date) >= bounds$start
+    )
+
+  period_rows_to_list(season_rows)
+}
+
+create_monitoring_seasons_available_list <- function(deps, hemisphere, monitoring_days = 21L) {
+  display_timezone <- period_display_timezone()
+  monitoring_days <- suppressWarnings(as.integer(monitoring_days))
+  if (is.na(monitoring_days) || monitoring_days < 1L) {
+    monitoring_days <- 21L
+  }
+
+  deps %>%
+    dplyr::mutate(
       start_date = source_timestamp_date(start, display_timezone),
       end_date = source_timestamp_date(end, display_timezone),
-      start_month = month(start),
-
-      # Determine season based on month and hemisphere
+      start_month = lubridate::month(start_date),
       season = get_season(start_month, hemisphere),
-
-      year = year(start_date),
-
-      # Create a unique identifier for each season within its year
-      season_year = paste(season, year),
-      start_date = as.POSIXct(paste(start_date, "00:00"), tz = display_timezone),
-      end_date = as.POSIXct(paste(end_date, "23:59:59"), tz = display_timezone),
-      period_type = "calculated_season",
+      year = lubridate::year(start_date),
+      period_name = paste(season, year),
+      period_type = "monitoring_period",
+      period_family = "monitoring_period",
       assign_period = TRUE
     ) %>%
-    group_by(season_year, year, period_type, assign_period) %>%
-    summarise(
-      # Find the earliest start date and the latest end date for each season_year group
+    dplyr::group_by(period_name, year, period_type, period_family, assign_period) %>%
+    dplyr::summarise(
       start_date = min(start_date),
-      end_date = max(end_date),
-      .groups = 'drop'
+      observed_end_date = max(end_date),
+      .groups = "drop"
     ) %>%
-    ungroup() %>%
-    dplyr::rename(period_name = season_year)
-
-  # Adding 'ALL' entry after arranging, ensuring it comes last
-  all_start <- min(deps$start_date)
-  all_end <- max(deps$end_date)
-  deps <- bind_rows(deps, tibble(
-    period_name = "ALL",
-    year = year(all_start),  # Assign infinity to ensure 'ALL' sorts last
-    start_date = all_start,
-    end_date = all_end,
-    period_type = "all",
-    assign_period = FALSE
-  ))
-
-  if (isTRUE(include_years)) {
-    year_periods <- create_years_available_list(source_deps)
-    year_rows <- dplyr::bind_rows(lapply(names(year_periods), function(period_name) {
-      period <- year_periods[[period_name]]
-      data.frame(
-        period_name = period_name,
-        year = lubridate::year(period$start_date),
-        start_date = period$start_date,
-        end_date = period$end_date,
-        period_type = period$period_type,
-        assign_period = FALSE,
-        stringsAsFactors = FALSE
-      )
-    }))
-    year_rows <- year_rows[year_rows$period_name != "ALL", , drop = FALSE]
-    deps <- dplyr::bind_rows(deps, year_rows)
-  }
-
-  period_rows_to_list(deps)
+    dplyr::mutate(
+      max_end_date = pmin(
+        start_date + lubridate::days(monitoring_days - 1L),
+        as.Date(sprintf("%s-12-31", year))
+      ),
+      end_date = pmin(observed_end_date, max_end_date),
+      start_date = as.Date(start_date),
+      end_date = as.Date(end_date)
+    ) %>%
+    dplyr::select(period_name, start_date, end_date, period_type, period_family, assign_period) %>%
+    period_rows_to_list()
 }
+
 
 
 

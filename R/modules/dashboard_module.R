@@ -10,9 +10,9 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
           period_selection_module_ui(
             id = ns("main_dashboard_current_period"),
             view = "select",
-            choices = names(core_data$period_groups),
+            choices = period_selection_choices(core_data$period_groups, config = config),
             selected = core_data$app$period_defaults$primary_period,
-            label = "Current season:"
+            label = "Current period:"
           )
         ),
         conditionalPanel(
@@ -20,9 +20,9 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
           period_selection_module_ui(
             id = ns("main_dashboard_prior_period"),
             view = "select",
-            choices = names(core_data$period_groups),
+            choices = period_selection_choices(core_data$period_groups, config = config),
             selected = species_dashboard_period_defaults(core_data)$prior_period,
-            label = "Prior season:"
+            label = "Prior period:"
           )
         ),
         conditionalPanel(
@@ -30,9 +30,9 @@ dashboard_module_ui <- function(id, view = "main", core_data, config) {
           period_selection_module_ui(
             id = ns("main_dashboard_last_year_period"),
             view = "select",
-            choices = names(core_data$period_groups),
+            choices = period_selection_choices(core_data$period_groups, config = config),
             selected = species_dashboard_period_defaults(core_data)$last_year_period,
-            label = "Same season last year:"
+            label = "Same period last year:"
           )
         ),
         conditionalPanel(
@@ -194,7 +194,7 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       if (dashboard_combine_localities()) {
         locality_scope_label(selected_localities)
       } else {
-        paste("Locality selection:", paste(vapply(selected_localities, locality_display_name, character(1)), collapse = ", "))
+        paste("Localities:", paste(vapply(selected_localities, locality_display_name, character(1)), collapse = ", "))
       }
     })
 
@@ -315,7 +315,7 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       combine_localities <- dashboard_combine_localities()
       selected_localities <- dashboard_selected_localities()
 
-      period_info <- core_data$period_groups[[period_name]]
+      period_info <- period_group_by_name(core_data$period_groups, period_name)
       if (is.null(period_info)) {
         return(NULL)
       }

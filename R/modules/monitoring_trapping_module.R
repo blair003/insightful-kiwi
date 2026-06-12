@@ -47,7 +47,7 @@ trapping_outcomes_module_ui <- function(id,
                                            view = "main") {
   ns <- NS(id)
   locality_choices <- sort(unique(as.character(core_data$deps$locality)))
-  season_choices <- period_names_without_all(core_data$period_groups, assignable_only = FALSE)
+  season_choices <- period_names_without_all(core_data$monitoring_period_groups, assignable_only = FALSE)
   default_period <- monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21)
 
   if (identical(view, "sidebar")) {
@@ -77,7 +77,7 @@ trapping_outcomes_module_ui <- function(id,
         view = "select_localities",
         choices = locality_choices,
         selected = locality_choices,
-        label = "Locality selection:"
+        label = "Localities:"
       ),
       mapping_module_ui(
         id = ns("outcomes_map"),
@@ -175,7 +175,7 @@ trapping_outcomes_module_server <- function(id,
     default_period <- monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21)
     period <- period_selection_module_server(
       id = "period",
-      period_groups = core_data$period_groups,
+      period_groups = core_data$monitoring_period_groups,
       selected = default_period
     )
 
@@ -472,7 +472,7 @@ monitoring_trapping_module_ui <- function(id,
   ns <- NS(id)
   group_choices <- names(config$globals$rai_groups)
   locality_choices <- sort(unique(as.character(core_data$deps$locality)))
-  season_choices <- period_names_without_all(core_data$period_groups, assignable_only = FALSE)
+  season_choices <- period_names_without_all(core_data$monitoring_period_groups, assignable_only = FALSE)
 
   if (identical(view, "sidebar")) {
     return(tagList(
@@ -486,7 +486,7 @@ monitoring_trapping_module_ui <- function(id,
         ns("period"),
         view = "select",
         choices = season_choices,
-        selected = core_data$app$period_defaults$primary_period,
+        selected = monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21),
         label = "Monitoring season(s)",
         multiple = TRUE
       ),
@@ -575,8 +575,8 @@ monitoring_trapping_module_server <- function(id,
 
     period <- period_selection_module_server(
       id = "period",
-      period_groups = core_data$period_groups,
-      selected = core_data$app$period_defaults$primary_period
+      period_groups = core_data$monitoring_period_groups,
+      selected = monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21)
     )
 
     selected_localities <- reactive({
@@ -624,7 +624,7 @@ monitoring_trapping_module_server <- function(id,
       monitoring_trapping_lag_summary(
         core_data = core_data,
         trap_data = trap_data,
-        period_groups = core_data$period_groups[period$period_names()],
+        period_groups = core_data$monitoring_period_groups[period$period_names()],
         rai_groups = config$globals$rai_groups,
         rai_group = selected_group(),
         rai_norm_hours = config$globals$rai_norm_hours,

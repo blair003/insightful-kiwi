@@ -29,24 +29,21 @@ config$globals <- list(
   source_timestamps_are_local = TRUE,
   source_timestamp_timezone = "Pacific/Auckland",
   
-  # To calculate seasons
+  # Hemisphere used to calculate calendar seasons.
   hemisphere = "south",
   
   # We group data into time periods then calculate and summarise for that time period.
-  # Options: "calculated_seasons", "year"
-  period_grouping = "calculated_seasons",
+  # Options: "calendar_season"
+  period_grouping = "calendar_season",
 
-  # When period_grouping is "calculated_seasons", also add selectable year
-  # periods to period_selection. The canonical deployment period remains the
-  # calculated season.
-  period_grouping_include_years = FALSE,
+  # Period families exposed in general period selection widgets. "all" is kept
+  # available for whole-project filtering.
+  period_selector_families = c("calendar_season", "calendar_year", "all"),
   
-  # Which period_grouping to use as default for primary and comparative 
-  # We create core_data$period_groups as a list, with each item having a description, 
-  # start and end date. These reference the list item number
-
-  default_primary_period = 1, # Most recent season
-  default_comparative_period = 5, # Same season prior year
+  # Default primary/comparative selections reference the assignable calendar-season
+  # periods by index, ordered from most recent to oldest.
+  default_primary_period = 1, # Most recent period
+  default_comparative_period = 5, # Same period prior year
 
   # Normalisation applied to all RAI calculations
   rai_norm_hours  = 2000,

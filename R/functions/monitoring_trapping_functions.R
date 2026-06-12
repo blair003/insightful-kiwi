@@ -40,7 +40,8 @@ monitoring_trapping_windows_for_periods <- function(period_groups,
                                                     end_date,
                                                     lag_window) {
   period_names <- as.character(period_names)
-  period_names <- period_names[period_names %in% names(period_groups)]
+  flat_period_groups <- flatten_period_groups(period_groups)
+  period_names <- period_names[period_names %in% names(flat_period_groups)]
 
   if (length(period_names) == 0) {
     trap_window <- monitoring_trapping_window(start_date, end_date, lag_window)
@@ -54,7 +55,7 @@ monitoring_trapping_windows_for_periods <- function(period_groups,
   }
 
   windows <- dplyr::bind_rows(lapply(period_names, function(period_name) {
-    period <- period_groups[[period_name]]
+    period <- flat_period_groups[[period_name]]
     window <- monitoring_trapping_window(period$start_date, period$end_date, lag_window)
     dplyr::tibble(
       period_name = period_name,
@@ -186,15 +187,22 @@ monitoring_trapping_latest_trap_date <- function(trap_data) {
 monitoring_trapping_default_supported_period <- function(core_data,
                                                         trap_data,
                                                         after_days = 21) {
-  period_names <- period_names_without_all(core_data$period_groups, assignable_only = FALSE)
+  monitoring_period_groups <- core_data$monitoring_period_groups
+  period_names <- period_names_without_all(monitoring_period_groups, assignable_only = FALSE)
+  fallback_period <- function() {
+    if (length(period_names) > 0) {
+      return(period_names[[1]])
+    }
+    period_names_without_all(core_data$period_groups)[[1]]
+  }
   latest_trap_date <- monitoring_trapping_latest_trap_date(trap_data)
 
   if (length(period_names) == 0 || is.na(latest_trap_date)) {
-    return(core_data$app$period_defaults$primary_period)
+    return(fallback_period())
   }
 
   supported <- period_names[vapply(period_names, function(period_name) {
-    period <- core_data$period_groups[[period_name]]
+    period <- monitoring_period_groups[[period_name]]
     as.Date(period$end_date) + as.integer(after_days) <= latest_trap_date
   }, logical(1))]
 
@@ -203,7 +211,7 @@ monitoring_trapping_default_supported_period <- function(core_data,
   }
 
   fallback <- period_names[vapply(period_names, function(period_name) {
-    period <- core_data$period_groups[[period_name]]
+    period <- monitoring_period_groups[[period_name]]
     as.Date(period$start_date) <= latest_trap_date
   }, logical(1))]
 
@@ -211,7 +219,7 @@ monitoring_trapping_default_supported_period <- function(core_data,
     return(fallback[[1]])
   }
 
-  core_data$app$period_defaults$primary_period
+  fallback_period()
 }
 
 monitoring_trapping_outcomes_windows <- function(period_groups,
@@ -220,7 +228,8 @@ monitoring_trapping_outcomes_windows <- function(period_groups,
                                                     end_date,
                                                     window_days = 21) {
   period_names <- as.character(period_names)
-  period_names <- period_names[period_names %in% names(period_groups)]
+  flat_period_groups <- flatten_period_groups(period_groups)
+  period_names <- period_names[period_names %in% names(flat_period_groups)]
   window_days <- suppressWarnings(as.integer(window_days))
   if (is.na(window_days) || window_days < 1) {
     window_days <- 21L
@@ -228,14 +237,14 @@ monitoring_trapping_outcomes_windows <- function(period_groups,
 
   if (length(period_names) == 0) {
     period_names <- "Selected monitoring period"
-    period_groups <- list("Selected monitoring period" = list(
+    flat_period_groups <- list("Selected monitoring period" = list(
       start_date = as.Date(start_date),
       end_date = as.Date(end_date)
     ))
   }
 
   dplyr::bind_rows(lapply(period_names, function(period_name) {
-    period <- period_groups[[period_name]]
+    period <- flat_period_groups[[period_name]]
     period_start <- as.Date(period$start_date)
     period_end <- as.Date(period$end_date)
     dplyr::tibble(
@@ -528,18 +537,36 @@ summarise_monitoring_rai_by_line <- function(core_data,
                                              taxa_groups,
                                              rai_norm_hours,
                                              use_net = TRUE) {
+  monitoring_groups <- flatten_period_groups(core_data$monitoring_period_groups)
+  selected_groups <- monitoring_groups[as.character(period_names)]
+  selected_groups <- selected_groups[!vapply(selected_groups, is.null, logical(1))]
+  period_intervals <- if (length(selected_groups) > 0) {
+    dplyr::bind_rows(lapply(names(selected_groups), function(period_name) {
+      data.frame(
+        period_name = period_name,
+        start_date = selected_groups[[period_name]]$start_date,
+        end_date = selected_groups[[period_name]]$end_date,
+        stringsAsFactors = FALSE
+      )
+    }))
+  } else {
+    NULL
+  }
+
   deps <- filter_deps_by_period_names(
     core_data$deps,
     period_names,
     start_date,
-    end_date
+    end_date,
+    period_intervals
   )
 
   obs <- filter_detection_obs(filter_obs_by_period_names(
     core_data$obs,
     period_names,
     start_date,
-    end_date
+    end_date,
+    period_intervals
   ))
 
   rai <- calculate_rai(
@@ -959,12 +986,13 @@ monitoring_trapping_lag_summary <- function(core_data,
                                             selected_localities = NULL,
                                             max_locality_distance_km = 1) {
   lag_values <- monitoring_trapping_lag_windows()
+  flat_period_groups <- flatten_period_groups(period_groups)
   assignable_periods <- period_names_without_all(period_groups)
   taxa_groups <- rai_groups[rai_group]
   scientific_names <- monitoring_trapping_species(rai_groups, rai_group)
 
   period_rows <- lapply(assignable_periods, function(period_name) {
-    period <- period_groups[[period_name]]
+    period <- flat_period_groups[[period_name]]
     monitoring <- summarise_monitoring_rai_by_line(
       core_data = core_data,
       period_names = period_name,

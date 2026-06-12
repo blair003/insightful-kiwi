@@ -1,10 +1,139 @@
-period_names_without_all <- function(period_groups, assignable_only = TRUE) {
-  period_names <- names(period_groups)
+is_period_group_entry <- function(value) {
+  !is.null(value) && all(c("start_date", "end_date") %in% names(value))
+}
+
+period_groups_are_structured <- function(period_groups) {
+  !is.null(period_groups) &&
+    length(period_groups) > 0 &&
+    !all(vapply(period_groups, is_period_group_entry, logical(1)))
+}
+
+period_selector_families <- function(config = NULL, include_all = TRUE) {
+  families <- if (!is.null(config)) {
+    config_global_value(config, "period_selector_families", c("calendar_season", "calendar_year", "all"))
+  } else {
+    c("calendar_season", "calendar_year", "all")
+  }
+
+  families <- as.character(unlist(families, use.names = FALSE))
+  families <- families[!is.na(families) & nzchar(families)]
+  if (isTRUE(include_all) && !("all" %in% families)) {
+    families <- c(families, "all")
+  }
+
+  unique(families)
+}
+
+period_family_label <- function(period_family) {
+  labels <- c(
+    calendar_season = "Calendar seasons",
+    calendar_year = "Calendar years",
+    all = "Whole project",
+    monitoring_period = "Monitoring periods"
+  )
+
+  label <- labels[[period_family]]
+  if (is.null(label)) {
+    label <- gsub("_", " ", period_family)
+    label <- paste0(toupper(substr(label, 1, 1)), substr(label, 2, nchar(label)))
+  }
+
+  label
+}
+
+flatten_period_groups <- function(period_groups, families = NULL, include_all = TRUE) {
+  if (is.null(period_groups) || length(period_groups) == 0) {
+    return(list())
+  }
+
+  if (!period_groups_are_structured(period_groups)) {
+    return(period_groups)
+  }
+
+  if (is.null(families)) {
+    families <- names(period_groups)
+  } else {
+    families <- as.character(unlist(families, use.names = FALSE))
+    if (isTRUE(include_all) && "all" %in% names(period_groups) && !("all" %in% families)) {
+      families <- c(families, "all")
+    }
+  }
+
+  families <- families[families %in% names(period_groups)]
+  flattened <- list()
+  for (family in families) {
+    family_groups <- period_groups[[family]]
+    if (is.null(family_groups) || length(family_groups) == 0) {
+      next
+    }
+    for (period_name in names(family_groups)) {
+      period_info <- family_groups[[period_name]]
+      if (!("period_family" %in% names(period_info))) {
+        period_info$period_family <- family
+      }
+      flattened[[period_name]] <- period_info
+    }
+  }
+
+  flattened
+}
+
+period_group_by_name <- function(period_groups, period_name, families = NULL) {
+  flat_period_groups <- flatten_period_groups(period_groups, families = families)
+  if (length(period_name) != 1 || is.na(period_name) || !(period_name %in% names(flat_period_groups))) {
+    return(NULL)
+  }
+
+  flat_period_groups[[period_name]]
+}
+
+period_selection_choices <- function(period_groups,
+                                     config = NULL,
+                                     families = NULL,
+                                     assignable_only = FALSE) {
+  if (is.null(families)) {
+    families <- period_selector_families(config)
+  }
+
+  if (!period_groups_are_structured(period_groups)) {
+    choice_names <- period_names_without_all(period_groups, assignable_only = assignable_only)
+    if ("ALL" %in% names(period_groups)) {
+      choice_names <- c(choice_names, "ALL")
+    }
+    return(choice_names)
+  }
+
+  choices <- list()
+  for (family in families) {
+    family_groups <- period_groups[[family]]
+    if (is.null(family_groups) || length(family_groups) == 0) {
+      next
+    }
+
+    family_names <- if (identical(family, "all")) {
+      names(family_groups)
+    } else {
+      period_names_without_all(
+        family_groups,
+        assignable_only = assignable_only
+      )
+    }
+    if (length(family_names) > 0) {
+      choices[[period_family_label(family)]] <- stats::setNames(family_names, family_names)
+    }
+  }
+
+  choices
+}
+
+period_names_without_all <- function(period_groups, assignable_only = TRUE, families = NULL) {
+  flat_period_groups <- flatten_period_groups(period_groups, families = families)
+  period_names <- names(flat_period_groups)
   period_names <- period_names[period_names != "ALL"]
 
   if (isTRUE(assignable_only)) {
     period_names <- period_names[vapply(period_names, function(period_name) {
-      period_info <- period_groups[[period_name]]
+      period_info <- flat_period_groups[[period_name]]
       is.null(period_info$assign_period) || isTRUE(period_info$assign_period)
     }, logical(1))]
   }
@@ -28,6 +157,21 @@ find_matching_prior_year_period <- function(period_name, period_groups) {
     return(NA_character_)
   }
 
+  split_year_match <- regexec("^(.+)\\s+(\\d{4})-(\\d{4})$", period_name)
+  split_year_parts <- regmatches(period_name, split_year_match)[[1]]
+  if (length(split_year_parts) == 4) {
+    matching_period <- sprintf(
+      "%s %s-%s",
+      trimws(split_year_parts[[2]]),
+      as.integer(split_year_parts[[3]]) - 1L,
+      as.integer(split_year_parts[[4]]) - 1L
+    )
+    if (matching_period %in% period_names) {
+      return(matching_period)
+    }
+    return(NA_character_)
+  }
+
   period_match <- regexec("^(.+)\\s+(\\d{4})$", period_name)
   period_parts <- regmatches(period_name, period_match)[[1]]
 
@@ -41,6 +185,7 @@ find_matching_prior_year_period <- function(period_name, period_groups) {
   }
 
   NA_character_
+
 }
 
 period_index_value <- function(value) {
@@ -111,7 +256,7 @@ period_name_from_index <- function(period_groups,
 
   if (length(fallback) == 1 && !is.na(fallback)) {
     fallback <- as.character(fallback)
-    if (fallback %in% period_names || fallback %in% names(period_groups)) {
+    if (fallback %in% period_names || fallback %in% names(flatten_period_groups(period_groups))) {
       return(fallback)
     }
   }
@@ -119,8 +264,9 @@ period_name_from_index <- function(period_groups,
   if (length(period_names) > 0) {
     return(period_names[[1]])
   }
-  if (length(names(period_groups)) > 0) {
-    return(names(period_groups)[[1]])
+  flat_period_groups <- flatten_period_groups(period_groups)
+  if (length(names(flat_period_groups)) > 0) {
+    return(names(flat_period_groups)[[1]])
   }
 
   NA_character_
@@ -174,10 +320,11 @@ is_deployment_annotation_complete <- function(deps) {
 }
 
 summarise_period_annotation_completeness <- function(deps, period_groups) {
+  flat_period_groups <- flatten_period_groups(period_groups)
   period_names <- period_names_without_all(period_groups)
 
   lapply(period_names, function(period_name) {
-    period_info <- period_groups[[period_name]]
+    period_info <- flat_period_groups[[period_name]]
     period_uses_canonical_assignment <- is.null(period_info$assign_period) ||
       isTRUE(period_info$assign_period)
 
@@ -217,8 +364,8 @@ get_default_complete_period_selection <- function(deps, period_groups, config) {
     complete_periods[[1]]
   } else if (length(period_names) > 0) {
     period_names[[1]]
-  } else if (length(names(period_groups)) > 0) {
-    names(period_groups)[[1]]
+  } else if (length(names(flatten_period_groups(period_groups))) > 0) {
+    names(flatten_period_groups(period_groups))[[1]]
   } else {
     NA_character_
   }
@@ -326,7 +473,7 @@ parse_trap_period_date <- function(value, timezone = "UTC") {
   parsed
 }
 
-update_year_period_bounds_from_observations <- function(core_data, trap_data = NULL, config) {
+update_all_period_bounds_from_observations <- function(core_data, trap_data = NULL, config) {
   if (is.null(core_data$period_groups) || length(core_data$period_groups) == 0) {
     return(core_data)
   }
@@ -341,33 +488,9 @@ update_year_period_bounds_from_observations <- function(core_data, trap_data = N
     return(core_data)
   }
 
-  for (period_name in names(core_data$period_groups)) {
-    period_info <- core_data$period_groups[[period_name]]
-    if (!identical(as.character(period_group_value(period_info, "period_type")), "year")) {
-      next
-    }
-
-    period_year <- suppressWarnings(as.integer(period_name))
-    if (is.na(period_year)) {
-      period_year <- lubridate::year(period_group_value(period_info, "start_date"))
-    }
-    if (is.na(period_year)) {
-      next
-    }
-
-    year_dates <- observation_dates[lubridate::year(observation_dates) == period_year]
-    if (length(year_dates) == 0) {
-      next
-    }
-
-    core_data$period_groups[[period_name]]$start_date <- as.POSIXct(
-      paste(min(year_dates), "00:00:00"),
-      tz = timezone
-    )
-    core_data$period_groups[[period_name]]$end_date <- as.POSIXct(
-      paste(max(year_dates), "23:59:59"),
-      tz = timezone
-    )
+  if (!is.null(core_data$period_groups$all$ALL)) {
+    core_data$period_groups$all$ALL$start_date <- min(observation_dates)
+    core_data$period_groups$all$ALL$end_date <- max(observation_dates)
   }
 
   core_data

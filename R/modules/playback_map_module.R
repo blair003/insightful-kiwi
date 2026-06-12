@@ -6,7 +6,7 @@ playback_map_module_ui <- function(id, view = "map", species_choices = NULL, spe
       tagList(
         selectizeInput(
           inputId = ns("selected_species"),
-          label = tagList(icon("paw"), "Species selection:"),
+          label = tagList(icon("paw"), "Species:"),
           choices = species_choices,
           selected = species_selected,
           multiple = TRUE,
@@ -14,7 +14,7 @@ playback_map_module_ui <- function(id, view = "map", species_choices = NULL, spe
         ),
         selectInput(
           inputId = ns("selected_localities"),
-          label = tagList(icon("location-dot"), "Locality selection:"),
+          label = tagList(icon("location-dot"), "Localities:"),
           choices = locality_choices,
           selected = locality_selected,
           multiple = TRUE,

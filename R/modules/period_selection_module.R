@@ -88,6 +88,7 @@ period_selection_module_server <- function(id,
                                            period_groups, 
                                            summary_output_ids = "dates_summary",
                                            selected = NULL) {
+  flat_period_groups <- flatten_period_groups(period_groups)
   
   moduleServer(id, function(input, output, session) {
 
@@ -106,10 +107,10 @@ period_selection_module_server <- function(id,
 
     valid_selected_periods <- function(period_selection) {
       selected_periods <- as.character(period_selection)
-      selected_periods <- selected_periods[selected_periods %in% names(period_groups)]
+      selected_periods <- selected_periods[selected_periods %in% names(flat_period_groups)]
 
       if (length(selected_periods) == 0) {
-        selected_periods <- names(period_groups)[[1]]
+        selected_periods <- names(flat_period_groups)[[1]]
       }
 
       selected_periods
@@ -117,7 +118,7 @@ period_selection_module_server <- function(id,
 
     set_selected_periods <- function(selected_periods) {
       selected_periods <- valid_selected_periods(selected_periods)
-      selected_groups <- period_groups[selected_periods]
+      selected_groups <- flat_period_groups[selected_periods]
 
       start_date(min(do.call(c, lapply(selected_groups, `[[`, "start_date")), na.rm = TRUE))
       end_date(max(do.call(c, lapply(selected_groups, `[[`, "end_date")), na.rm = TRUE))
@@ -128,15 +129,17 @@ period_selection_module_server <- function(id,
           period_name = period,
           start_date = selected_groups[[period]]$start_date,
           end_date = selected_groups[[period]]$end_date,
+          period_type = period_group_value(selected_groups[[period]], "period_type"),
+          period_family = period_group_value(selected_groups[[period]], "period_family"),
           stringsAsFactors = FALSE
         )
       })))
     }
 
-    initial_period_name <- if (!is.null(selected) && any(selected %in% names(period_groups))) {
-      selected[selected %in% names(period_groups)]
+    initial_period_name <- if (!is.null(selected) && any(selected %in% names(flat_period_groups))) {
+      selected[selected %in% names(flat_period_groups)]
     } else {
-      names(period_groups)[[1]]
+      names(flat_period_groups)[[1]]
     }
     
     set_selected_periods(initial_period_name)
@@ -145,7 +148,7 @@ period_selection_module_server <- function(id,
       logger::log_info(sprintf("period_selection_module_server() period_selection changing for %s, new period is %s",
                                module_namespace, paste(input$period_selection, collapse = ", ")))
       
-      if (any(input$period_selection %in% names(period_groups))) {
+      if (any(input$period_selection %in% names(flat_period_groups))) {
         set_selected_periods(input$period_selection)
         
         # Trigger Google Analytics event when the selection changes

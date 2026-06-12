@@ -169,7 +169,7 @@ dashboard_animal_detections_metric <- function(locality = NULL, period_name = NU
       return(NA_real_)
     }
 
-    period <- core_data$period_groups[[period_name]]
+    period <- period_group_by_name(core_data$period_groups, period_name)
     period_obs <- filter_detection_obs(filter_obs(core_data$obs, period$start_date, period$end_date))
     if (!is.null(locality)) {
       period_obs <- period_obs %>% dplyr::filter(.data$locality %in% !!locality)
@@ -358,13 +358,13 @@ sum_classifiable_observations <- function(obs) {
 
 summarise_dashboard_effort <- function(locality = NULL, period_name = NULL) {
   period_deps <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
-    period <- core_data$period_groups[[period_name]]
+    period <- period_group_by_name(core_data$period_groups, period_name)
     filter_deps(core_data$deps, period$start_date, period$end_date)
   } else {
     core_data$deps
   }
   period_obs <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
-    period <- core_data$period_groups[[period_name]]
+    period <- period_group_by_name(core_data$period_groups, period_name)
     filter_obs(core_data$obs, period$start_date, period$end_date)
   } else {
     core_data$obs
@@ -634,7 +634,7 @@ format_dashboard_classifier_label <- function(classified_by) {
 
 summarise_dashboard_classifiers <- function(locality = NULL, period_name = NULL) {
   period_obs <- if (!is.null(period_name) && period_name %in% names(core_data$period_groups)) {
-    period <- core_data$period_groups[[period_name]]
+    period <- period_group_by_name(core_data$period_groups, period_name)
     filter_obs(core_data$obs, period$start_date, period$end_date)
   } else {
     core_data$obs

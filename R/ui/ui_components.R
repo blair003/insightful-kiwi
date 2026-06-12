@@ -48,9 +48,9 @@ species_dashboard_sidebar_controls <- function() {
             period_selection_module_ui(
               id = paste0(dashboard_id, "-current_period"),
               view = "select",
-              choices = names(core_data$period_groups),
+              choices = period_selection_choices(core_data$period_groups, config = config),
               selected = period_defaults$current_period,
-              label = "Current season:"
+              label = "Current period:"
             )
           ),
           conditionalPanel(
@@ -58,9 +58,9 @@ species_dashboard_sidebar_controls <- function() {
             period_selection_module_ui(
               id = paste0(dashboard_id, "-prior_period"),
               view = "select",
-              choices = names(core_data$period_groups),
+              choices = period_selection_choices(core_data$period_groups, config = config),
               selected = period_defaults$prior_period,
-              label = "Prior season:"
+              label = "Prior period:"
             )
           ),
           conditionalPanel(
@@ -68,9 +68,9 @@ species_dashboard_sidebar_controls <- function() {
             period_selection_module_ui(
               id = paste0(dashboard_id, "-last_year_period"),
               view = "select",
-              choices = names(core_data$period_groups),
+              choices = period_selection_choices(core_data$period_groups, config = config),
               selected = period_defaults$last_year_period,
-              label = "Same season last year:"
+              label = "Same period last year:"
             )
           ),
           conditionalPanel(

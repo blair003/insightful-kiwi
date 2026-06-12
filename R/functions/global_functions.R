@@ -135,7 +135,7 @@ prepare_runtime_core_data <- function(core_data, trap_data = NULL, config) {
     core_data$app <- list()
   }
 
-  core_data <- update_year_period_bounds_from_observations(core_data, trap_data, config)
+  core_data <- update_all_period_bounds_from_observations(core_data, trap_data, config)
   core_data$app$period_defaults <- get_default_complete_period_selection(
     core_data$deps,
     core_data$period_groups,

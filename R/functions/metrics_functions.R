@@ -847,8 +847,8 @@ generate_rai_group_period_comparison <- function(obs,
                                                  lower_is_better = TRUE) {
   obs <- filter_detection_obs(obs)
 
-  period_names <- names(period_groups)
-  period_names <- period_names[period_names != "ALL"]
+  flat_period_groups <- flatten_period_groups(period_groups)
+  period_names <- period_names_without_all(period_groups)
 
   empty_period_metric <- function(period_name = NA_character_) {
     list(
@@ -1044,11 +1044,11 @@ generate_rai_group_period_comparison <- function(obs,
   }
 
   calculate_period_metric <- function(period_name) {
-    if (is.na(period_name) || !period_name %in% names(period_groups)) {
+    if (is.na(period_name) || !period_name %in% names(flat_period_groups)) {
       return(empty_period_metric(period_name))
     }
 
-    period <- period_groups[[period_name]]
+    period <- flat_period_groups[[period_name]]
     period_obs <- filter_obs(obs, period$start_date, period$end_date)
     period_deps <- filter_deps(deps, period$start_date, period$end_date)
 

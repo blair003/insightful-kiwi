@@ -107,7 +107,7 @@ activity_patterns_module_server <- function(id,
       localities <- activity_patterns_map$selected_localities()
       div(
         class = "dashboard-locality-heading",
-        paste("Locality selection:", paste(vapply(as.character(localities), locality_display_name, character(1)), collapse = ", "))
+        paste("Localities:", paste(vapply(as.character(localities), locality_display_name, character(1)), collapse = ", "))
       )
     })
 

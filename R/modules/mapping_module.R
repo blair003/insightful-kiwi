@@ -509,14 +509,15 @@ playback_monitoring_periods <- function(period_groups) {
     return(data.frame())
   }
 
-  period_names <- names(period_groups)
+  flat_period_groups <- flatten_period_groups(period_groups)
+  period_names <- names(flat_period_groups)
   period_names <- period_names[period_names != "ALL"]
   if (length(period_names) == 0) {
     return(data.frame())
   }
 
   periods <- lapply(period_names, function(period_name) {
-    period <- period_groups[[period_name]]
+    period <- flat_period_groups[[period_name]]
     if (is.null(period$start_date) || is.null(period$end_date)) {
       return(NULL)
     }
@@ -708,7 +709,7 @@ mapping_module_ui <- function(id,
                               choices,
                               selected = NULL,
                               multiple = TRUE,
-                              label = "Species selection:",
+                              label = "Species:",
                               include_prediction_option = TRUE,
                               include_marker_options = include_prediction_option,
                               include_monitoring_area_option = FALSE,
@@ -800,7 +801,7 @@ mapping_module_ui <- function(id,
       tagList(
         selectInput(
           inputId = ns("selected_localities"),
-          label = tagList(icon("location-dot"), "Locality selection:"),
+          label = tagList(icon("location-dot"), "Localities:"),
           choices = choices,
           selected = selected,
           multiple = multiple,
@@ -1107,7 +1108,7 @@ mapping_module_ui <- function(id,
               "Primary",
               comparison_data_panel(
                 map_id = primary_map_id,
-                title = "Primary season observations"
+                title = "Primary period observations"
               ),
               value = "primary"
             ),

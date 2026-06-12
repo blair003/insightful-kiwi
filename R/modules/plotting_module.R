@@ -3,7 +3,7 @@ plotting_module_ui <- function(id,
                                choices, 
                                selected = NULL,
                                multiple = TRUE,
-                               label = "Species selection:",
+                               label = "Species:",
                                include_combine_localities = TRUE) {
   ns <- NS(id)
   
@@ -56,7 +56,7 @@ plotting_module_ui <- function(id,
       tagList(
         selectInput(
           inputId = ns("selected_localities"),
-          label = tagList(icon("location-dot"), "Locality selection:"),
+          label = tagList(icon("location-dot"), "Localities:"),
           choices = choices,
           selected = selected,
           multiple = multiple,
@@ -426,7 +426,7 @@ plotting_module_server <- function(id,
       }
 
       build_metric_row <- function(period_name, rai_group_name, locality_filter = NULL) {
-        period <- core_data$period_groups[[period_name]]
+        period <- period_group_by_name(core_data$period_groups, period_name)
         period_obs <- filter_detection_obs(filter_obs(obs, period$start_date, period$end_date))
         period_deps <- filter_deps(deps, period$start_date, period$end_date)
 

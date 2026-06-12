@@ -9,14 +9,18 @@ build_core_data_from_source <- function(config) {
   core_data$period_groups <- create_period_groups(
     core_data$deps,
     config$globals$period_grouping,
-    config$globals$hemisphere,
-    include_years = isTRUE(config$globals$period_grouping_include_years)
+    config$globals$hemisphere
+  )
+  core_data$monitoring_period_groups <- create_monitoring_period_groups(
+    core_data$deps,
+    config$globals$hemisphere
   )
 
   enhanced_data <- enhance_core_data(
     core_data$obs,
     core_data$deps,
     core_data$period_groups,
+    monitoring_period_groups = core_data$monitoring_period_groups,
     include_weather = FALSE
   )
 
