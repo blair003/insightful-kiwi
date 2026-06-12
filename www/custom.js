@@ -110,6 +110,193 @@
         });
       });
 
+      (function() {
+        function cssEscape(value) {
+          if (window.CSS && window.CSS.escape) {
+            return window.CSS.escape(value);
+          }
+
+          return String(value).replace(/(:|\.|\[|\]|,|=|@)/g, "\\$1");
+        }
+
+        function leafletMapById(id) {
+          if (!window.HTMLWidgets || !HTMLWidgets.find || !id) {
+            return null;
+          }
+
+          try {
+            var widget = HTMLWidgets.find('#' + cssEscape(id));
+            if (widget && widget.getMap) {
+              return widget.getMap();
+            }
+          } catch (error) {
+            console.warn('Map comparison could not find Leaflet widget map:', error);
+          }
+
+          return null;
+        }
+
+        function setSwipePosition(container, position) {
+          var comparativeLayer = container.querySelector('.map-swipe-comparative-map');
+          var divider = container.querySelector('.map-swipe-divider');
+          var constrained = Math.max(0, Math.min(100, position));
+
+          if (comparativeLayer) {
+            comparativeLayer.style.clipPath = 'inset(0 0 0 ' + constrained + '%)';
+            comparativeLayer.style.webkitClipPath = 'inset(0 0 0 ' + constrained + '%)';
+          }
+
+          if (divider) {
+            divider.style.left = constrained + '%';
+            divider.setAttribute('aria-valuenow', String(Math.round(constrained)));
+          }
+
+          container.dataset.swipePosition = String(constrained);
+        }
+
+        function positionFromEvent(container, event) {
+          var point = event.touches && event.touches.length ? event.touches[0] : event;
+          var rect = container.getBoundingClientRect();
+          if (!rect.width) {
+            return 50;
+          }
+
+          return ((point.clientX - rect.left) / rect.width) * 100;
+        }
+
+        function syncLeafletMaps(primaryMap, comparativeMap) {
+          if (!primaryMap || !comparativeMap || primaryMap._insightfulKiwiSwipeSync || comparativeMap._insightfulKiwiSwipeSync) {
+            return;
+          }
+
+          var syncing = false;
+          function syncFrom(source, target) {
+            if (syncing || !source || !target) {
+              return;
+            }
+
+            syncing = true;
+            target.setView(source.getCenter(), source.getZoom(), { animate: false, reset: true });
+            syncing = false;
+          }
+
+          primaryMap.on('moveend zoomend', function() {
+            syncFrom(primaryMap, comparativeMap);
+          });
+          comparativeMap.on('moveend zoomend', function() {
+            syncFrom(comparativeMap, primaryMap);
+          });
+
+          comparativeMap.setView(primaryMap.getCenter(), primaryMap.getZoom(), { animate: false, reset: true });
+          primaryMap._insightfulKiwiSwipeSync = true;
+          comparativeMap._insightfulKiwiSwipeSync = true;
+        }
+
+        window.initMapSwipeComparison = function(config) {
+          var container = config && config.containerId ? document.getElementById(config.containerId) : null;
+          if (!container) {
+            return;
+          }
+
+          var divider = container.querySelector('.map-swipe-divider');
+          var position = Number(container.dataset.swipePosition || 50);
+
+          setSwipePosition(container, isFinite(position) ? position : 50);
+
+          function updateFromPointer(event) {
+            if (container.dataset.swipeDragging !== 'true') {
+              return;
+            }
+
+            event.preventDefault();
+            setSwipePosition(container, positionFromEvent(container, event));
+          }
+
+          if (divider && !divider.dataset.swipeBound) {
+            divider.dataset.swipeBound = 'true';
+            divider.addEventListener('mousedown', function(event) {
+              container.dataset.swipeDragging = 'true';
+              updateFromPointer(event);
+            });
+            divider.addEventListener('touchstart', function(event) {
+              container.dataset.swipeDragging = 'true';
+              updateFromPointer(event);
+            }, { passive: false });
+            divider.addEventListener('keydown', function(event) {
+              var current = Number(container.dataset.swipePosition || 50);
+              var step = event.shiftKey ? 10 : 2;
+
+              if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                setSwipePosition(container, current - step);
+              } else if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                setSwipePosition(container, current + step);
+              } else if (event.key === 'Home') {
+                event.preventDefault();
+                setSwipePosition(container, 0);
+              } else if (event.key === 'End') {
+                event.preventDefault();
+                setSwipePosition(container, 100);
+              }
+            });
+          }
+
+          if (!container.dataset.swipeDocumentBound) {
+            container.dataset.swipeDocumentBound = 'true';
+            document.addEventListener('mousemove', updateFromPointer);
+            document.addEventListener('touchmove', updateFromPointer, { passive: false });
+            document.addEventListener('mouseup', function() { container.dataset.swipeDragging = 'false'; });
+            document.addEventListener('touchend', function() { container.dataset.swipeDragging = 'false'; });
+            document.addEventListener('touchcancel', function() { container.dataset.swipeDragging = 'false'; });
+            document.addEventListener('shown.bs.tab', function() {
+              if (!document.body.contains(container)) {
+                return;
+              }
+
+              window.setTimeout(function() {
+                var rect = container.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) {
+                  return;
+                }
+
+                var primaryMap = leafletMapById(config.primaryMapId);
+                var comparativeMap = leafletMapById(config.comparativeMapId);
+                if (primaryMap && comparativeMap) {
+                  primaryMap.invalidateSize(false);
+                  comparativeMap.invalidateSize(false);
+                  comparativeMap.setView(primaryMap.getCenter(), primaryMap.getZoom(), { animate: false, reset: true });
+                }
+              }, 60);
+            });
+          }
+
+          function connectMaps(attemptsLeft) {
+            var primaryMap = leafletMapById(config.primaryMapId);
+            var comparativeMap = leafletMapById(config.comparativeMapId);
+
+            if (primaryMap && comparativeMap) {
+              try {
+                primaryMap.invalidateSize(false);
+                comparativeMap.invalidateSize(false);
+                syncLeafletMaps(primaryMap, comparativeMap);
+              } catch (error) {
+                console.warn('Map comparison could not initialise map sync:', error);
+              }
+              return;
+            }
+
+            if (attemptsLeft > 0) {
+              window.setTimeout(function() {
+                connectMaps(attemptsLeft - 1);
+              }, 250);
+            }
+          }
+
+          connectMaps(40);
+        };
+      })();
+
       $(document).on('shiny:connected', function(event) {
         function shinyInputValues() {
           return (window.Shiny && Shiny.shinyapp && Shiny.shinyapp.$inputValues) || {};
@@ -242,7 +429,7 @@
           var tabInputs = {
             dashboard: 'dashboard-main_dashboard_tabs',
             reporting: 'reporting_tabs',
-            density_map: 'density_map_tabs',
+            density_map: 'density_map_comparison-density_comparison_tabs',
             observation_map: 'observation_map-observation_map_tabs',
             activity_patterns: 'activity_patterns-activity_patterns_tabs',
             raw_data: 'raw_data_tabs'
@@ -272,8 +459,8 @@
           }
 
           if (nav === 'density_map') {
-            return /^density_map_primary-(selected_species|selected_localities)$/.test(id) ||
-              /^(primary_period|comparative_period)-period_selection$/.test(id);
+            return /^density_map_primary-(selected_species|selected_localities|exclude_possible_duplicates|show_density_location_markers|show_predicted_rai_surface|predicted_rai_surface_basis)$/.test(id) ||
+              /^(density_map_period|comparative_period)-period_selection$/.test(id);
           }
 
           if (nav === 'observation_map') {

@@ -16,7 +16,7 @@ ui <- function(request) {
       'density_timeline_map': true,
       'observation_map': true,
       'monitoring_trapping': true,
-      'trapping_performance': true,
+      'monitoring_trapping_analysis': true,
       'activity_patterns': true,
       'raw_data': false
     };
@@ -85,27 +85,22 @@ ui <- function(request) {
       ),
 
       conditionalPanel(
-        condition = "input.nav === 'density_map' && input.density_map_tabs === 'primary'",
+        condition = "input.nav === 'density_map'",
 
         period_selection_module_ui(
           id = "density_map_period",
           view = "select",
           choices = season_choices,
           selected = core_data$app$period_defaults$primary_period,
-          label = "Season selection:",
+          label = "Primary season:",
           multiple = TRUE
-        )
-      ),
-      
-      conditionalPanel(
-        condition = "input.nav === 'density_map' && input.density_map_tabs === 'comparative'",
-        
+        ),
         period_selection_module_ui(
-          "comparative_period",
+          id = "comparative_period",
           view = "select",
           choices = season_choices,
           selected = core_data$app$period_defaults$comparative_period,
-          label = "Season selection:",
+          label = "Compare with:",
           multiple = TRUE
         )
       ),
@@ -288,12 +283,12 @@ ui <- function(request) {
       
       conditionalPanel(
         condition = "input.nav === 'monitoring_trapping'",
-        monitoring_trapping_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
+        trapping_outcomes_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
       ),
 
       conditionalPanel(
-        condition = "input.nav === 'trapping_performance'",
-        trapping_performance_module_ui("trapping_performance", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
+        condition = "input.nav === 'monitoring_trapping_analysis'",
+        monitoring_trapping_module_ui("monitoring_trapping_analysis", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
       ),
 
       conditionalPanel(
@@ -386,18 +381,15 @@ ui <- function(request) {
             uiOutput("density_map_selection_heading")
           ),
 
-          navset_tab(
-            id = "density_map_tabs",
-            nav_panel(
-              div(textOutput("primary_season_name")),  # dynamic season name
-              mapping_module_ui("density_map_primary", view = "map"),
-              value = "primary"
-            ),
-            nav_panel(
-              div(textOutput("comparative_season_name")),  # dynamic comparative season name
-              mapping_module_ui("density_map_comparative", view = "map"),
-              value = "comparative"
-            )
+          mapping_module_ui(
+            id = "density_map_comparison",
+            view = "density_comparison_layout",
+            primary_map_id = "density_map_primary",
+            comparative_map_id = "density_map_comparative",
+            primary_heading_output_id = "primary_season_name",
+            comparative_heading_output_id = "comparative_season_name",
+            primary_meta_output_id = "primary_density_map_period_readout",
+            comparative_meta_output_id = "comparative_density_map_period_readout"
           )
         ),
 
@@ -430,23 +422,23 @@ ui <- function(request) {
           mapping_module_ui(id = "observation_map", view = "observation_map_layout")
         ),
 
-        ######### MONITORING VS TRAPPING OUTPUT #########
+        ######### MONITORING & TRAPPING OUTPUT #########
         if (!is.null(trap_data)) {
           nav_panel(
-            title = "Monitoring vs Trapping",
+            title = "Monitoring & Trapping",
             icon = icon("scale-balanced"),
             value = "monitoring_trapping",
-            monitoring_trapping_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "main")
+            trapping_outcomes_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "main")
           )
         },
 
-        ######### TRAPPING PERFORMANCE OUTPUT #########
+        ######### TRAPPING ANALYSIS REFERENCE OUTPUT #########
         if (!is.null(trap_data)) {
           nav_panel(
-            title = "Trap Performance",
-            icon = icon("gauge-high"),
-            value = "trapping_performance",
-            trapping_performance_module_ui("trapping_performance", core_data = core_data, config = config, trap_data = trap_data, view = "main")
+            title = "Trapping Analysis",
+            icon = icon("chart-simple"),
+            value = "monitoring_trapping_analysis",
+            monitoring_trapping_module_ui("monitoring_trapping_analysis", core_data = core_data, config = config, trap_data = trap_data, view = "main")
           )
         },
 

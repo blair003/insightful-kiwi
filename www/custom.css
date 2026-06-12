@@ -79,6 +79,194 @@
         margin: 0 0 0.45rem;
       }
 
+      .playback-single-point-slider .irs-bar,
+      .playback-single-point-slider .irs-handle,
+      .playback-single-point-slider .irs-single {
+        opacity: 0.85;
+      }
+
+      .map-swipe-comparison {
+        background: #e9ecef;
+        min-height: 420px;
+        overflow: hidden;
+        position: relative;
+        width: 100%;
+      }
+
+      .map-swipe-map {
+        inset: 0;
+        position: absolute;
+      }
+
+      .map-swipe-primary-map {
+        z-index: 1;
+      }
+
+      .map-swipe-comparative-map {
+        clip-path: inset(0 0 0 50%);
+        z-index: 2;
+      }
+
+      .map-swipe-map .html-widget,
+      .map-swipe-map .leaflet {
+        height: 100% !important;
+        width: 100% !important;
+      }
+
+      .map-swipe-comparative-map .leaflet-control-container {
+        display: none;
+      }
+
+      .map-swipe-label {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(33, 37, 41, 0.14);
+        border-radius: 4px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
+        color: #343a40;
+        max-width: min(330px, calc(50% - 1.4rem));
+        padding: 0.45rem 0.55rem;
+        position: absolute;
+        top: 0.7rem;
+        z-index: 4;
+      }
+
+      .map-swipe-label-primary {
+        left: 3.4rem;
+      }
+
+      .map-swipe-label-comparative {
+        right: 3.4rem;
+        text-align: right;
+      }
+
+      .map-swipe-label h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1.15;
+        margin: 0 0 0.2rem;
+      }
+
+      .map-swipe-label .playback-window-readout {
+        font-size: 0.78rem;
+        line-height: 1.2;
+        margin: 0;
+      }
+
+      .map-swipe-divider {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        bottom: 0;
+        cursor: ew-resize;
+        display: flex;
+        justify-content: center;
+        left: 50%;
+        padding: 0;
+        position: absolute;
+        top: 0;
+        transform: translateX(-50%);
+        width: 2rem;
+        z-index: 5;
+      }
+
+      .map-swipe-divider::before {
+        background: rgba(255, 255, 255, 0.9);
+        bottom: 0;
+        box-shadow: 0 0 0 1px rgba(33, 37, 41, 0.22), 0 1px 6px rgba(0, 0, 0, 0.24);
+        content: "";
+        position: absolute;
+        top: 0;
+        width: 3px;
+      }
+
+      .map-swipe-divider-grip {
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(33, 37, 41, 0.24);
+        border-radius: 999px;
+        box-shadow: 0 1px 7px rgba(0, 0, 0, 0.24);
+        height: 2.35rem;
+        position: relative;
+        width: 1.2rem;
+      }
+
+      .map-swipe-divider-grip::before,
+      .map-swipe-divider-grip::after {
+        background: #6c757d;
+        content: "";
+        height: 1.05rem;
+        position: absolute;
+        top: 0.58rem;
+        width: 2px;
+      }
+
+      .map-swipe-divider-grip::before {
+        left: 0.42rem;
+      }
+
+      .map-swipe-divider-grip::after {
+        right: 0.42rem;
+      }
+
+      .map-swipe-divider:focus-visible .map-swipe-divider-grip {
+        outline: 3px solid #0d6efd;
+        outline-offset: 2px;
+      }
+
+      .map-swipe-map #density_map_primary-map_display,
+      .map-swipe-map #density_map_comparative-map_display {
+        height: 100% !important;
+      }
+
+      .map-comparison-data-panel {
+        padding-top: 0.65rem;
+      }
+
+      .map-comparison-data-heading {
+        align-items: baseline;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem 0.75rem;
+        justify-content: space-between;
+        margin-bottom: 0.65rem;
+      }
+
+      .map-comparison-data-heading h3 {
+        color: #343a40;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.2;
+        margin: 0;
+      }
+
+      .map-comparison-data-heading .playback-window-readout {
+        font-size: 0.82rem;
+        margin: 0;
+      }
+
+      @media (max-width: 700px) {
+        .map-swipe-label {
+          max-width: calc(50% - 0.8rem);
+          padding: 0.35rem 0.45rem;
+          top: 0.45rem;
+        }
+
+        .map-swipe-label-primary {
+          left: 2.9rem;
+        }
+
+        .map-swipe-label-comparative {
+          right: 2.9rem;
+        }
+
+        .map-swipe-label h3 {
+          font-size: 0.82rem;
+        }
+
+        .map-swipe-label .playback-window-readout {
+          font-size: 0.68rem;
+        }
+      }
+
       .trap-marker-legend-control {
         background: rgba(255, 255, 255, 0.92);
         border-radius: 4px;
@@ -1546,4 +1734,43 @@
     gap: 0.5rem;
     padding-right: 0;
   }
+}
+
+.monitoring-trapping-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  margin: 0.35rem 0 0.75rem;
+}
+
+.monitoring-trapping-metric-card {
+  border: 1px solid #dee2e6;
+  border-left: 4px solid #6c757d;
+  border-radius: 4px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  min-height: 86px;
+}
+
+.monitoring-trapping-metric-label {
+  color: #6c757d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.monitoring-trapping-metric-value {
+  color: #212529;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin-top: 0.25rem;
+}
+
+.monitoring-trapping-metric-detail {
+  color: #6c757d;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  margin-top: 0.2rem;
 }

@@ -255,7 +255,7 @@ server <- function(input, output, session) {
       tab <- switch(nav,
         dashboard = input[["dashboard-main_dashboard_tabs"]],
         reporting = input$reporting_tabs,
-        density_map = input$density_map_tabs,
+        density_map = input[["density_map_comparison-density_comparison_tabs"]],
         density_timeline_map = input[["density_timeline_map-density_timeline_tabs"]],
         observation_map = input[["observation_map-observation_map_tabs"]],
         activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
@@ -987,7 +987,7 @@ server <- function(input, output, session) {
       tabset_id <- switch(query$nav,
         dashboard = "dashboard-main_dashboard_tabs",
         reporting = "reporting_tabs",
-        density_map = "density_map_tabs",
+        density_map = "density_map_comparison-density_comparison_tabs",
         density_timeline_map = "density_timeline_map-density_timeline_tabs",
         observation_map = "observation_map-observation_map_tabs",
         activity_patterns = "activity_patterns-activity_patterns_tabs",
@@ -1130,9 +1130,9 @@ server <- function(input, output, session) {
   
   density_map_primary <- NULL
   density_map_comparative <- NULL
-  loaded_density_tabs <- reactiveVal(character())
+  density_map_loaded <- reactiveVal(FALSE)
   
-  # Used for the tab names
+  # Used for the comparison panel headings
   output$primary_season_name <- renderText({
     density_map_period$period_name()
   })
@@ -1168,14 +1168,7 @@ server <- function(input, output, session) {
     paste(selected_species_heading(species), "at", selected_localities_heading(localities))
   }
 
-  density_map_period_readout <- function() {
-    current_tab <- input$density_map_tabs
-    period <- if (identical(current_tab, "comparative")) {
-      comparative_period
-    } else {
-      density_map_period
-    }
-
+  density_map_period_readout <- function(period) {
     req(period$start_date(), period$end_date())
 
     timezone <- if (exists("playback_actual_timezone", mode = "function", inherits = TRUE)) {
@@ -1206,13 +1199,18 @@ server <- function(input, output, session) {
     )
   }
 
+  output$primary_density_map_period_readout <- renderUI({
+    density_map_period_readout(density_map_period)
+  })
+
+  output$comparative_density_map_period_readout <- renderUI({
+    density_map_period_readout(comparative_period)
+  })
+
   output$density_map_selection_heading <- renderUI({
     species <- input[["density_map_primary-selected_species"]]
     localities <- input[["density_map_primary-selected_localities"]]
-    tagList(
-      div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities)),
-      density_map_period_readout()
-    )
+    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
 
   output$observation_map_selection_heading <- renderUI({
@@ -1227,59 +1225,40 @@ server <- function(input, output, session) {
     div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
   
-  observeEvent(list(input$nav, input$density_map_tabs), {
+  observeEvent(input$nav, {
     req(input$nav == "density_map")
 
-    current_tab <- input$density_map_tabs
-    if (!is.null(current_tab) && !(current_tab %in% loaded_density_tabs())) {
+    if (!density_map_loaded()) {
+      logger::log_debug("server.R, calling mapping_module_server() for density_map_primary")
+      density_map_primary <<- mapping_module_server(
+        id = "density_map_primary",
+        type = "density",
+        obs = filtered_obs_density_map,
+        deps = filtered_deps_density_map,
+        period_names = density_map_period$period_names,
+        period_start_date = density_map_period$start_date,
+        period_end_date = density_map_period$end_date,
+        use_net = global_use_net
+      )
 
-      if (current_tab == "primary") {
-        logger::log_debug("server.R, lazily calling mapping_module_server() for density_map_primary")
-        density_map_primary <<- mapping_module_server(
-          id = "density_map_primary",
-          type = "density",
-          obs = filtered_obs_density_map,
-          deps = filtered_deps_density_map,
-          period_names = density_map_period$period_names,
-          period_start_date = density_map_period$start_date,
-          period_end_date = density_map_period$end_date,
-          use_net = global_use_net
-        )
-      } else if (current_tab == "comparative") {
-        logger::log_debug("server.R, lazily calling mapping_module_server() for density_map_comparative")
-        # Ensure primary is initialized first if we need its reactive properties, or fallback
-        if (is.null(density_map_primary)) {
-          density_map_primary <<- mapping_module_server(
-            id = "density_map_primary",
-            type = "density",
-            obs = filtered_obs_density_map,
-            deps = filtered_deps_density_map,
-            period_names = density_map_period$period_names,
-            period_start_date = density_map_period$start_date,
-            period_end_date = density_map_period$end_date,
-            use_net = global_use_net
-          )
-          loaded_density_tabs(c(loaded_density_tabs(), "primary"))
-        }
+      logger::log_debug("server.R, calling mapping_module_server() for density_map_comparative")
+      density_map_comparative <<- mapping_module_server(
+        id = "density_map_comparative",
+        type = "density",
+        obs = filtered_obs_comparative,
+        deps = filtered_deps_comparative,
+        period_names = comparative_period$period_names,
+        period_start_date = comparative_period$start_date,
+        period_end_date = comparative_period$end_date,
+        species_override = density_map_primary$selected_species,
+        localities_override = density_map_primary$selected_localities,
+        prediction_surface_override = density_map_primary$show_predicted_rai_surface,
+        prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
+        location_markers_override = density_map_primary$show_density_location_markers,
+        use_net = global_use_net
+      )
 
-        density_map_comparative <<- mapping_module_server(
-          id = "density_map_comparative",
-          type = "density",
-          obs = filtered_obs_comparative,
-          deps = filtered_deps_comparative,
-          period_names = comparative_period$period_names,
-          period_start_date = comparative_period$start_date,
-          period_end_date = comparative_period$end_date,
-          species_override = density_map_primary$selected_species,
-          localities_override = density_map_primary$selected_localities,
-          prediction_surface_override = density_map_primary$show_predicted_rai_surface,
-          prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
-          location_markers_override = density_map_primary$show_density_location_markers,
-          use_net = global_use_net
-        )
-      }
-
-      loaded_density_tabs(c(loaded_density_tabs(), current_tab))
+      density_map_loaded(TRUE)
     }
   }, ignoreNULL = FALSE, ignoreInit = FALSE)
 
@@ -1366,14 +1345,14 @@ server <- function(input, output, session) {
       observation_map_loaded(TRUE)
     }
   })
-  ########### MONITORING VS TRAPPING FEATURE ###########
+  ########### MONITORING & TRAPPING FEATURE ###########
 
   monitoring_trapping_loaded <- reactiveVal(FALSE)
 
   observeEvent(input$nav, {
     if (input$nav == "monitoring_trapping" && !monitoring_trapping_loaded()) {
-      logger::log_debug("server.R, lazily calling monitoring_trapping_module_server()")
-      monitoring_trapping_module_server(
+      logger::log_debug("server.R, lazily calling trapping_outcomes_module_server() for Monitoring & Trapping")
+      trapping_outcomes_module_server(
         id = "monitoring_trapping",
         core_data = core_data,
         trap_data = trap_data,
@@ -1384,21 +1363,19 @@ server <- function(input, output, session) {
     }
   }, ignoreNULL = FALSE, ignoreInit = FALSE)
 
-  ########### TRAPPING PERFORMANCE FEATURE ###########
-
-  trapping_performance_loaded <- reactiveVal(FALSE)
+  monitoring_trapping_analysis_loaded <- reactiveVal(FALSE)
 
   observeEvent(input$nav, {
-    if (input$nav == "trapping_performance" && !trapping_performance_loaded()) {
-      logger::log_debug("server.R, lazily calling trapping_performance_module_server()")
-      trapping_performance_module_server(
-        id = "trapping_performance",
+    if (input$nav == "monitoring_trapping_analysis" && !monitoring_trapping_analysis_loaded()) {
+      logger::log_debug("server.R, lazily calling monitoring_trapping_module_server() for Trapping Analysis")
+      monitoring_trapping_module_server(
+        id = "monitoring_trapping_analysis",
         core_data = core_data,
         trap_data = trap_data,
         config = config,
         use_net = global_use_net
       )
-      trapping_performance_loaded(TRUE)
+      monitoring_trapping_analysis_loaded(TRUE)
     }
   }, ignoreNULL = FALSE, ignoreInit = FALSE)
 
@@ -1541,15 +1518,14 @@ server <- function(input, output, session) {
       return()
     }
 
-    # We need to know which period we are in. Check if we are on primary or comparative tab.
-    active_tab <- input$density_map_tabs
+    source_map_id <- action_data$map_id
 
-    if (is.null(active_tab) || active_tab == "primary") {
-      period_obs <- filtered_obs_primary()
-      selected_species <- density_map_primary$selected_species()
-    } else {
+    if (identical(source_map_id, "density_map_comparative")) {
       period_obs <- filtered_obs_comparative()
       selected_species <- density_map_comparative$selected_species()
+    } else {
+      period_obs <- filtered_obs_density_map()
+      selected_species <- density_map_primary$selected_species()
     }
 
     if (!is.null(period_obs) && !is.null(selected_species)) {

@@ -214,7 +214,7 @@ monitoring_trapping_default_supported_period <- function(core_data,
   core_data$app$period_defaults$primary_period
 }
 
-monitoring_trapping_performance_windows <- function(period_groups,
+monitoring_trapping_outcomes_windows <- function(period_groups,
                                                     period_names,
                                                     start_date,
                                                     end_date,
@@ -293,7 +293,7 @@ monitoring_trapping_group_kill_summary <- function(kill_rows, rai_groups) {
     dplyr::arrange(dplyr::desc(.data$selected_group_kills), .data$rai_group)
 }
 
-monitoring_trapping_trapping_performance_summary <- function(core_data,
+monitoring_trapping_trapping_outcomes_summary <- function(core_data,
                                                              trap_data,
                                                              period_names,
                                                              start_date,
@@ -302,7 +302,7 @@ monitoring_trapping_trapping_performance_summary <- function(core_data,
                                                              window_days = 21,
                                                              selected_localities = NULL,
                                                              max_locality_distance_km = 1) {
-  windows <- monitoring_trapping_performance_windows(
+  windows <- monitoring_trapping_outcomes_windows(
     period_groups = core_data$period_groups,
     period_names = period_names,
     start_date = start_date,

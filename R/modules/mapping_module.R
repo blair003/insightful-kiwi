@@ -5,23 +5,70 @@ playback_timeline_ui <- function(ns, points, value, step_size = "day") {
   selected_index <- playback_index_for_time(points, value)
   slider_id <- ns("time_slider")
   slider_labels <- playback_slider_labels(points, step_size)
+  transport <- div(
+    class = "playback-transport",
+    actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success playback-transport-btn"),
+    shinyjs::disabled(
+      actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning playback-transport-btn")
+    ),
+    actionButton(
+      ns("reset_btn"),
+      label = NULL,
+      icon = icon("rotate-left"),
+      class = "btn-danger playback-transport-btn playback-reset-btn",
+      title = "Reset progression"
+    )
+  )
+
+  if (point_count <= 1) {
+    return(div(
+      class = "playback-timeline",
+      transport,
+      div(
+        class = "playback-slider playback-single-point-slider",
+        sliderInput(
+          inputId = slider_id,
+          label = "Time progression",
+          min = 1,
+          max = 2,
+          value = 1,
+          step = 1,
+          width = "100%",
+          ticks = FALSE,
+          sep = ""
+        ),
+        tags$script(HTML(sprintf(
+          "(function() {
+            var sliderId = %s;
+            var label = %s;
+            var attempts = 0;
+            function applySinglePointSlider() {
+              var el = document.getElementById(sliderId);
+              var slider = el && window.jQuery ? window.jQuery(el).data('ionRangeSlider') : null;
+              if (!slider) {
+                if (attempts++ < 40) window.setTimeout(applySinglePointSlider, 50);
+                return;
+              }
+              slider.update({
+                from: 1,
+                disable: true,
+                prettify: function() { return label; }
+              });
+              window.jQuery(el).closest('.shiny-input-container').find('.irs-single').text(label);
+              Shiny.setInputValue(sliderId, 1, {priority: 'event'});
+            }
+            applySinglePointSlider();
+          })();",
+          jsonlite::toJSON(slider_id, auto_unbox = TRUE),
+          jsonlite::toJSON(slider_labels[[1]], auto_unbox = TRUE)
+        )))
+      )
+    ))
+  }
 
   div(
     class = "playback-timeline",
-    div(
-      class = "playback-transport",
-      actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success playback-transport-btn"),
-      shinyjs::disabled(
-        actionButton(ns("pause_btn"), "Pause", icon = icon("pause"), class = "btn-warning playback-transport-btn")
-      ),
-      actionButton(
-        ns("reset_btn"),
-        label = NULL,
-        icon = icon("rotate-left"),
-        class = "btn-danger playback-transport-btn playback-reset-btn",
-        title = "Reset progression"
-      )
-    ),
+    transport,
     div(
       class = "playback-slider",
       sliderInput(
@@ -329,23 +376,35 @@ playback_time_points <- function(start_time, end_time, step_size, view_mode = "c
   if (step_size %in% c("day_night", "diel")) {
     boundaries <- playback_weather_boundaries(step_size, weather_df, start_time, end_time)
     points <- boundaries[boundaries > start_time & boundaries <= end_time]
-    if (!identical(view_mode, "single")) {
-      points <- c(start_time, points)
-    }
     if (length(points) == 0) {
       points <- end_time
     }
     return(sort(unique(as.POSIXct(points, origin = "1970-01-01", tz = playback_actual_timezone()))))
   }
 
+  if (identical(step_size, "season")) {
+    season_start <- playback_date_midnight(start_time)
+    season_end <- playback_date_end(end_time)
+    periods <- playback_monitoring_periods(period_groups)
+    if (nrow(periods) > 0) {
+      season_points <- periods %>%
+        dplyr::filter(.data$start <= season_end, .data$end >= season_start) %>%
+        dplyr::mutate(point = pmin(.data$end, season_end)) %>%
+        dplyr::filter(.data$point >= season_start, .data$point <= season_end) %>%
+        dplyr::pull("point")
+
+      if (length(season_points) > 0) {
+        return(sort(unique(as.POSIXct(season_points, origin = "1970-01-01", tz = playback_actual_timezone()))))
+      }
+    }
+
+    return(as.POSIXct(season_end, origin = "1970-01-01", tz = playback_actual_timezone()))
+  }
+
   if (step_size %in% c("week", "month")) {
     step_seconds <- if (identical(step_size, "week")) 604800 else 2592000
     first_end <- min(start_time + step_seconds - 1, end_time)
-    points <- if (identical(view_mode, "single")) {
-      first_end
-    } else {
-      c(start_time, first_end)
-    }
+    points <- first_end
 
     repeat {
       next_time <- tail(points, 1) + step_seconds
@@ -362,11 +421,7 @@ playback_time_points <- function(start_time, end_time, step_size, view_mode = "c
     return(sort(unique(as.POSIXct(points, origin = "1970-01-01", tz = playback_actual_timezone()))))
   }
 
-  points <- if (identical(view_mode, "single")) {
-    playback_next_step_time(start_time, end_time, step_size, weather_df, period_groups)
-  } else {
-    start_time
-  }
+  points <- playback_next_step_time(start_time, end_time, step_size, weather_df, period_groups)
 
   repeat {
     next_time <- playback_next_step_time(tail(points, 1), end_time, step_size, weather_df, period_groups)
@@ -675,8 +730,51 @@ mapping_module_ui <- function(id,
                                 "Monthly" = "month",
                                 "Season" = "season"
                               ),
+                              primary_map_id = NULL,
+                              comparative_map_id = NULL,
+                              primary_heading_output_id = NULL,
+                              comparative_heading_output_id = NULL,
+                              primary_meta_output_id = NULL,
+                              comparative_meta_output_id = NULL,
+                              primary_title = "Selected season",
+                              comparative_title = "Comparison season",
                               map_height = config$globals$leaflet_height) { # Added map_height
   ns <- NS(id)
+
+  map_height_css <- function(value) {
+    if (is.numeric(value)) {
+      return(paste0(value, "px"))
+    }
+
+    as.character(value)
+  }
+
+  comparison_map_label <- function(heading_output_id, meta_output_id, title, side) {
+    div(
+      class = paste("map-swipe-label", paste0("map-swipe-label-", side)),
+      h3(
+        if (!is.null(heading_output_id)) {
+          textOutput(heading_output_id, inline = TRUE)
+        } else {
+          title
+        }
+      ),
+      if (!is.null(meta_output_id)) {
+        uiOutput(meta_output_id)
+      }
+    )
+  }
+
+  comparison_data_panel <- function(map_id, title) {
+    div(
+      class = "map-comparison-data-panel",
+      div(
+        class = "map-comparison-data-heading",
+        h3(title)
+      ),
+      DT::dataTableOutput(NS(map_id)("density_data_table"))
+    )
+  }
   
   if (view == "select_species") {
     return(
@@ -943,6 +1041,89 @@ mapping_module_ui <- function(id,
         leafletOutput(ns("map_display"), height = map_height)
       )
     )
+  } else if (view == "density_comparison_layout") {
+    if (is.null(primary_map_id) || is.null(comparative_map_id)) {
+      stop("primary_map_id and comparative_map_id must be provided when view is 'density_comparison_layout'.")
+    }
+
+    comparison_id <- ns("swipe_comparison")
+    primary_output_id <- paste0(primary_map_id, "-map_display")
+    comparative_output_id <- paste0(comparative_map_id, "-map_display")
+
+    map_panel <- div(
+      id = comparison_id,
+      class = "map-swipe-comparison",
+      style = paste0("height: ", map_height_css(map_height), ";"),
+      div(
+        class = "map-swipe-map map-swipe-primary-map",
+        mapping_module_ui(primary_map_id, view = "map", map_height = "100%")
+      ),
+      div(
+        class = "map-swipe-map map-swipe-comparative-map",
+        mapping_module_ui(comparative_map_id, view = "map", map_height = "100%")
+      ),
+      comparison_map_label(
+        heading_output_id = primary_heading_output_id,
+        meta_output_id = primary_meta_output_id,
+        title = primary_title,
+        side = "primary"
+      ),
+      comparison_map_label(
+        heading_output_id = comparative_heading_output_id,
+        meta_output_id = comparative_meta_output_id,
+        title = comparative_title,
+        side = "comparative"
+      ),
+      tags$button(
+        type = "button",
+        class = "map-swipe-divider",
+        `aria-label` = "Adjust season comparison",
+        `aria-valuemin` = "0",
+        `aria-valuemax` = "100",
+        `aria-valuenow` = "50",
+        tags$span(class = "map-swipe-divider-grip")
+      ),
+      tags$script(HTML(sprintf(
+        "(function initSwipe(attemptsLeft) { var config = {containerId:%s, primaryMapId:%s, comparativeMapId:%s}; if (window.initMapSwipeComparison) { window.initMapSwipeComparison(config); } else if (attemptsLeft > 0) { window.setTimeout(function() { initSwipe(attemptsLeft - 1); }, 100); } })(30);",
+        jsonlite::toJSON(comparison_id, auto_unbox = TRUE),
+        jsonlite::toJSON(primary_output_id, auto_unbox = TRUE),
+        jsonlite::toJSON(comparative_output_id, auto_unbox = TRUE)
+      )))
+    )
+
+    return(
+      navset_tab(
+        id = ns("density_comparison_tabs"),
+        nav_panel(
+          "Map",
+          map_panel,
+          value = "map"
+        ),
+        nav_panel(
+          "Data",
+          navset_tab(
+            id = ns("density_comparison_data_tabs"),
+            nav_panel(
+              "Primary",
+              comparison_data_panel(
+                map_id = primary_map_id,
+                title = "Primary season observations"
+              ),
+              value = "primary"
+            ),
+            nav_panel(
+              "Comparison",
+              comparison_data_panel(
+                map_id = comparative_map_id,
+                title = "Comparison season observations"
+              ),
+              value = "comparative"
+            )
+          ),
+          value = "data"
+        )
+      )
+    )
   } else if (view == "density_timeline_layout") {
     return(
       tagList(
@@ -1031,6 +1212,54 @@ mapping_module_ui <- function(id,
             DT::dataTableOutput(ns("observation_cumulative_data_table")),
             value = ns("cumulative_data_tab")
           )
+        )
+      )
+    )
+  } else if (view == "observation_map_only") {
+    return(
+      tagList(
+        div(
+          class = "playback-time-slider",
+          uiOutput(ns("playback_slider_ui")),
+          uiOutput(ns("playback_window_ui"))
+        ),
+        leafletOutput(ns("map_display"), height = map_height),
+        uiOutput(ns("observation_map_textoverlay_warning"))
+      )
+    )
+  } else if (view == "observation_map_monitoring_summary") {
+    return(
+      tagList(
+        h3("Monitoring summary"),
+        h4("By species"),
+        DT::dataTableOutput(ns("observation_species_summary_table")),
+        br(),
+        h4("By locality"),
+        DT::dataTableOutput(ns("observation_locality_summary_table"))
+      )
+    )
+  } else if (view == "observation_map_trapping_effort") {
+    return(
+      tagList(
+        h3("Trapping effort"),
+        DT::dataTableOutput(ns("observation_trap_summary_table"))
+      )
+    )
+  } else if (view == "observation_map_data_panel") {
+    return(
+      tagList(
+        div(
+          class = "mapping-data-actions",
+          downloadButton(ns("download_observation_map_export"), "Download CSV")
+        ),
+        h3("Current window records"),
+        DT::dataTableOutput(ns("observation_data_table")),
+        conditionalPanel(
+          condition = "input.playback_view_mode == 'single'",
+          ns = ns,
+          br(),
+          h3("Cumulative records"),
+          DT::dataTableOutput(ns("observation_cumulative_data_table"))
         )
       )
     )
@@ -1501,25 +1730,8 @@ mapping_module_server <- function(id,
       })
 
       playback_initial_value <- reactive({
-        req(playback_period_start(), playback_period_end())
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        if (identical(input$playback_view_mode, "single")) {
-          if (step_size %in% c("day_night", "diel")) {
-            return(min(
-              next_weather_boundary(playback_period_start(), playback_period_end(), playback_weather_data(), step_size),
-              playback_period_end()
-            ))
-          }
-          if (identical(step_size, "season")) {
-            return(playback_next_season_time(playback_period_start(), playback_period_end(), playback_period_groups()))
-          }
-          if (identical(step_size, "day")) {
-            return(playback_day_end(playback_period_start(), playback_period_end()))
-          }
-          min(playback_period_start() + playback_step_seconds(), playback_period_end())
-        } else {
-          playback_period_start()
-        }
+        req(playback_points())
+        playback_selected_time(1L, playback_points())
       })
 
       playback_points <- reactive({
@@ -1664,9 +1876,11 @@ mapping_module_server <- function(id,
       })
 
       observeEvent(list(session$rootScope()$input$nav, session$rootScope()$input$density_map_tabs), {
-        if (identical(playback_mode, "none") &&
-            (!identical(session$rootScope()$input$nav, "density_map") ||
-             !identical(session$rootScope()$input$density_map_tabs, sub("^.*_", "", id)))) {
+        density_tab <- session$rootScope()$input$density_map_tabs
+        density_summary_active <- identical(session$rootScope()$input$nav, "density_map") &&
+          (is.null(density_tab) || identical(density_tab, sub("^.*_", "", id)))
+
+        if (identical(playback_mode, "none") && !isTRUE(density_summary_active)) {
           playback_skip_resume_id(playback_skip_resume_id() + 1L)
           playback_gap_notice(NULL)
           is_playing(FALSE)
@@ -1701,6 +1915,14 @@ mapping_module_server <- function(id,
         }
 
         if (!is.null(skip_target)) {
+          step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+          if (step_size %in% c("month", "season")) {
+            playback_skip_slider_to_time(session, "time_slider", playback_points(), skip_target$target)
+            playback_gap_notice(NULL)
+            is_playing(TRUE)
+            return()
+          }
+
           is_playing(FALSE)
           playback_gap_notice(list(
             message = sprintf(
@@ -2175,7 +2397,8 @@ mapping_module_server <- function(id,
           marker_metric = data_for_map$marker_metric,
           weather_control_html = data_for_map$weather_control,
           period_control_html = data_for_map$period_control,
-          skip_notice_html = data_for_map$skip_notice
+          skip_notice_html = data_for_map$skip_notice,
+          source_map_id = id
         )
         if (isTRUE(needs_fit_bounds())) {
           apply_map_fit_bounds()
@@ -2183,6 +2406,23 @@ mapping_module_server <- function(id,
         }
       })
       
+      output$density_data_table <- DT::renderDataTable({
+        req(mapping_data_density())
+        table_data <- prepare_spec_table_data(
+          mapping_data_density()$obs_filtered,
+          table_id = "observationmap_observations_browse",
+          column_help = FALSE
+        )$table_data
+
+        DT::datatable(
+          table_data,
+          escape = FALSE,
+          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
+          class = 'display',
+          rownames = FALSE
+        )
+      })
+
       output$playback_window_ui <- renderUI({
         req(playback_active(), input$time_slider)
 
@@ -2282,14 +2522,17 @@ mapping_module_server <- function(id,
         )
       }
       
-      # Observer for auto-recentering density map on tab switch
-      # This assumes 'density_map_tabs' is an input in the parent UI controlling visibility
+      # Observer for auto-recentering density maps when the summary view becomes active.
       sub_tab_id <- sub("^.*_", "", id) # e.g., "primary" or "comparative"
       observe({
         main_nav <- session$rootScope()$input$nav
-        sub_tab  <- session$rootScope()$input$density_map_tabs # Input from parent UI
+        sub_tab  <- session$rootScope()$input$density_map_tabs
         
-        req(identical(playback_mode, "none"), main_nav == "density_map", sub_tab == sub_tab_id)
+        req(
+          identical(playback_mode, "none"),
+          main_nav == "density_map",
+          is.null(sub_tab) || sub_tab == sub_tab_id
+        )
         
         shinyjs::runjs(sprintf( # GA event
           "gtag('event','tab_switch',{
@@ -2692,7 +2935,7 @@ mapping_module_server <- function(id,
       }, ignoreInit = TRUE)
 
       observeEvent(list(session$rootScope()$input$nav, input$observation_map_tabs), {
-        if (!identical(session$rootScope()$input$nav, "observation_map") ||
+        if (!identical(session$rootScope()$input$nav, observation_nav_value) ||
             !is.null(input$observation_map_tabs) && !identical(input$observation_map_tabs, ns("map_tab"))) {
           playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
           playback_gap_notice_obs(NULL)
@@ -2701,6 +2944,10 @@ mapping_module_server <- function(id,
       }, ignoreInit = TRUE)
 
       observe({
+        if (is.null(input$observation_map_tabs)) {
+          return()
+        }
+
         if (identical(input$playback_view_mode, "single")) {
           shiny::showTab(
             inputId = "observation_map_tabs",
@@ -3126,7 +3373,7 @@ mapping_module_server <- function(id,
           no_obs_deployments = no_obs_locations_obsmap
         )
         
-        prepared_markers_list <- create_map_markers(marker_prep_input) 
+        prepared_markers_list <- create_map_markers(marker_prep_input, source_map_id = id)
 
         if (nrow(trap_obs_filtered) > 0) {
           prepared_markers_list$markers[["trapping"]] <- list(
@@ -3634,74 +3881,56 @@ mapping_module_server <- function(id,
       }
 
       prepare_observation_map_export <- function(observation_rows) {
-        if (is.null(observation_rows) || nrow(observation_rows) == 0) {
-          return(data.frame(
-            Location = character(),
-            Latitude = numeric(),
-            Longitude = numeric(),
-            Species = character(),
-            Count = numeric(),
-            Period = character(),
-            Timestamp = character(),
-            prior_check_date = character(),
-            check_interval = integer(),
-            `Data Source` = character(),
-            check.names = FALSE
-          ))
+        export_data <- prepare_observation_map_table(observation_rows)
+        row_count <- nrow(export_data)
+
+        empty_column <- function(value = NA_character_) {
+          rep(value, row_count)
         }
 
-        species_column <- config$globals$species_name_type
-        if (!species_column %in% names(observation_rows)) {
-          species_column <- if ("scientificName" %in% names(observation_rows)) {
-            "scientificName"
-          } else {
-            "scientificName_lower"
-          }
-        }
-
-        source_rows <- if ("observation_source" %in% names(observation_rows)) {
+        source_rows <- if (!is.null(observation_rows) &&
+                           "observation_source" %in% names(observation_rows) &&
+                           nrow(observation_rows) == row_count) {
           !is.na(observation_rows$observation_source) &
             observation_rows$observation_source == "trapping"
         } else {
-          rep(FALSE, nrow(observation_rows))
+          rep(FALSE, row_count)
         }
 
-        timestamp_values <- as.character(observation_rows$timestamp)
-        if ("check_date" %in% names(observation_rows) && any(source_rows, na.rm = TRUE)) {
-          timestamp_values[source_rows] <- as.character(as.Date(observation_rows$check_date[source_rows]))
+        export_data$latitude <- if (!is.null(observation_rows) &&
+                                    "latitude" %in% names(observation_rows) &&
+                                    nrow(observation_rows) == row_count) {
+          observation_rows$latitude
+        } else {
+          empty_column(NA_real_)
         }
 
-        prior_check_values <- if ("prior_check_date" %in% names(observation_rows)) {
+        export_data$longitude <- if (!is.null(observation_rows) &&
+                                     "longitude" %in% names(observation_rows) &&
+                                     nrow(observation_rows) == row_count) {
+          observation_rows$longitude
+        } else {
+          empty_column(NA_real_)
+        }
+
+        export_data$prior_check_date <- if (!is.null(observation_rows) &&
+                                            "prior_check_date" %in% names(observation_rows) &&
+                                            nrow(observation_rows) == row_count) {
           as.character(as.Date(observation_rows$prior_check_date))
         } else {
-          rep(NA_character_, nrow(observation_rows))
+          empty_column()
         }
 
-        check_interval_values <- if ("check_interval" %in% names(observation_rows)) {
+        export_data$check_interval <- if (!is.null(observation_rows) &&
+                                          "check_interval" %in% names(observation_rows) &&
+                                          nrow(observation_rows) == row_count) {
           suppressWarnings(as.integer(observation_rows$check_interval))
         } else {
-          rep(NA_integer_, nrow(observation_rows))
+          rep(NA_integer_, row_count)
         }
 
-        period_values <- if ("period" %in% names(observation_rows)) {
-          as.character(observation_rows$period)
-        } else {
-          rep(NA_character_, nrow(observation_rows))
-        }
-
-        data.frame(
-          Location = observation_rows$locationName,
-          Latitude = observation_rows$latitude,
-          Longitude = observation_rows$longitude,
-          Species = observation_rows[[species_column]],
-          Count = observation_rows$count,
-          Period = period_values,
-          Timestamp = timestamp_values,
-          prior_check_date = prior_check_values,
-          check_interval = check_interval_values,
-          `Data Source` = ifelse(source_rows, "trapping", "monitoring"),
-          check.names = FALSE
-        )
+        export_data$data_source <- ifelse(source_rows, "trapping", "monitoring")
+        export_data
       }
 
       collapse_selection_values <- function(values) {
@@ -3812,8 +4041,16 @@ mapping_module_server <- function(id,
         lapply(indexes - 1L, function(index) list(index, direction))
       }
 
+      observation_inner_tab_active <- function(tab_value, default_when_missing = TRUE) {
+        if (is.null(input$observation_map_tabs)) {
+          return(isTRUE(default_when_missing))
+        }
+
+        identical(input$observation_map_tabs, tab_value)
+      }
+
       output$observation_species_summary_table <- DT::renderDataTable({
-        req(identical(input$observation_map_tabs, ns("summary_tab")))
+        req(observation_inner_tab_active(ns("summary_tab")))
         processed_data <- req(observation_map_processed_data())
         rows <- prepare_observation_map_summary_tables(processed_data$observations_for_table)$species
 
@@ -3831,7 +4068,7 @@ mapping_module_server <- function(id,
       })
 
       output$observation_locality_summary_table <- DT::renderDataTable({
-        req(identical(input$observation_map_tabs, ns("summary_tab")))
+        req(observation_inner_tab_active(ns("summary_tab")))
         processed_data <- req(observation_map_processed_data())
         rows <- prepare_observation_map_summary_tables(processed_data$observations_for_table)$locality
 
@@ -3849,7 +4086,7 @@ mapping_module_server <- function(id,
       })
 
       output$observation_trap_summary_table <- DT::renderDataTable({
-        req(identical(input$observation_map_tabs, ns("summary_tab")))
+        req(observation_inner_tab_active(ns("summary_tab")))
         processed_data <- req(observation_map_processed_data())
         rows <- prepare_observation_map_summary_tables(processed_data$observations_for_table)$trap
 
@@ -3867,7 +4104,7 @@ mapping_module_server <- function(id,
       })
 
       output$observation_data_table <- DT::renderDataTable({
-        req(identical(input$observation_map_tabs, ns("data_tab")))
+        req(observation_inner_tab_active(ns("data_tab")))
         processed_data <- req(observation_map_processed_data())
         table_data <- prepare_observation_map_table(processed_data$observations_for_table)
 
@@ -3878,7 +4115,7 @@ mapping_module_server <- function(id,
       })
 
       output$observation_export_table <- DT::renderDataTable({
-        req(identical(input$observation_map_tabs, ns("export_tab")))
+        req(observation_inner_tab_active(ns("export_tab"), default_when_missing = FALSE))
         processed_data <- req(observation_map_processed_data())
         export_data <- prepare_observation_map_export(processed_data$observations_for_table)
 
@@ -3908,7 +4145,7 @@ mapping_module_server <- function(id,
       )
 
       output$observation_cumulative_data_table <- DT::renderDataTable({
-        req(identical(input$observation_map_tabs, ns("cumulative_data_tab")))
+        req(observation_inner_tab_active(ns("cumulative_data_tab")))
         processed_data <- req(observation_map_processed_data())
         table_data <- prepare_observation_map_table(processed_data$cumulative_observations_for_table)
 
@@ -3961,7 +4198,8 @@ update_density_map <- function(map_id = NULL,
                                marker_metric = "count",
                                weather_control_html = NULL,
                                period_control_html = NULL,
-                               skip_notice_html = NULL) {
+                               skip_notice_html = NULL,
+                               source_map_id = NULL) {
   #browser()
   max_scale <- 1
   radius_range <- c(10, 50)
@@ -4128,6 +4366,7 @@ update_density_map <- function(map_id = NULL,
       observation_ids <- observation_ids[!is.na(observation_ids) & nzchar(observation_ids)]
 
       payload <- list(
+        map_id = source_map_id,
         location_name = marker_field("locationName", i, ""),
         locality = marker_field("locality", i, ""),
         observation_ids = observation_ids
@@ -4374,7 +4613,7 @@ format_summary_count <- function(value) {
   format(round(value), big.mark = ",", trim = TRUE)
 }
 
-create_monitoring_summary_marker <- function(summary_record) {
+create_monitoring_summary_marker <- function(summary_record, source_map_id = NULL) {
   summary_record <- as.data.frame(summary_record, stringsAsFactors = FALSE)
   species_label <- safe_marker_value(summary_record$species_label, summary_record$scientificName_lower)
   count_label <- format_summary_count(summary_record$count)
@@ -4384,6 +4623,7 @@ create_monitoring_summary_marker <- function(summary_record) {
   review_link <- ""
   if (length(observation_ids) > 0) {
     payload <- list(
+      map_id = source_map_id,
       location_name = safe_marker_value(summary_record$locationName),
       locality = safe_marker_value(summary_record$locality),
       observation_ids = as.character(observation_ids)
@@ -4456,7 +4696,7 @@ create_no_obs_marker_from_record <- function(obs_record) {
   )
 }
 
-create_map_markers <- function(data) {
+create_map_markers <- function(data, source_map_id = NULL) {
   all_markers_data <- list()
   all_warnings <- list()
 
@@ -4493,7 +4733,7 @@ create_map_markers <- function(data) {
         dplyr::filter(.data$scientificName_lower == species)
 
       markers <- lapply(seq_len(nrow(species_data)), function(i) {
-        create_monitoring_summary_marker(species_data[i, ])
+        create_monitoring_summary_marker(species_data[i, ], source_map_id = source_map_id)
       })
 
       all_markers_data[[species]] <- list(
