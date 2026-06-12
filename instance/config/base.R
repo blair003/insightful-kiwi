@@ -43,8 +43,8 @@ config$globals <- list(
   # Default primary/comparative selections reference the assignable calendar-season
   # periods by index, ordered from most recent to oldest.
   default_primary_period = 1, # Most recent period
-  default_comparative_period = 5, # Same period prior year
-
+  default_comparative_period = 2, # Prior period
+                               # 5, # Same period prior year
   # Normalisation applied to all RAI calculations
   rai_norm_hours  = 2000,
   

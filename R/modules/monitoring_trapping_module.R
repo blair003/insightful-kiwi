@@ -47,17 +47,17 @@ trapping_outcomes_module_ui <- function(id,
                                            view = "main") {
   ns <- NS(id)
   locality_choices <- sort(unique(as.character(core_data$deps$locality)))
-  season_choices <- period_names_without_all(core_data$monitoring_period_groups, assignable_only = FALSE)
-  default_period <- monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21)
+  period_choices <- period_selection_choices(core_data$period_groups, config = config)
+  default_period <- core_data$app$period_defaults$primary_period
 
   if (identical(view, "sidebar")) {
     return(tagList(
       period_selection_module_ui(
         ns("period"),
         view = "select",
-        choices = season_choices,
+        choices = period_choices,
         selected = default_period,
-        label = "Monitoring season(s)",
+        label = "Period:",
         multiple = TRUE
       ),
       mapping_module_ui(
@@ -84,14 +84,19 @@ trapping_outcomes_module_ui <- function(id,
         view = "select_observation_map_options",
         include_monitoring_records_default = TRUE,
         include_trap_data_default = TRUE,
-        include_trap_between_seasons_default = FALSE
+        include_trap_between_seasons_default = FALSE,
+        include_trap_between_seasons_option = FALSE
       ),
-      mapping_module_ui(
-        id = ns("outcomes_map"),
-        view = "density_timeline_controls",
-        include_prediction_option = FALSE,
-        include_monitoring_area_option = TRUE,
-        include_observation_layer_options = TRUE
+      conditionalPanel(
+        condition = "input.monitoring_trapping_tabs === 'map' || (input.monitoring_trapping_tabs === 'records' && input.records_tabs === 'map_window_records')",
+        ns = ns,
+        mapping_module_ui(
+          id = ns("outcomes_map"),
+          view = "density_timeline_controls",
+          include_prediction_option = FALSE,
+          include_monitoring_area_option = TRUE,
+          include_observation_layer_options = TRUE
+        )
       )
     ))
   }
@@ -110,57 +115,92 @@ trapping_outcomes_module_ui <- function(id,
         mapping_module_ui(ns("outcomes_map"), view = "observation_map_only")
       ),
       nav_panel(
-        "Monitoring",
-        value = "monitoring",
+        "Effort",
+        value = "effort",
+        uiOutput(ns("period_scope_note_effort")),
+        h3("Monitoring effort"),
+        uiOutput(ns("monitoring_effort_cards")),
         navset_tab(
-          id = ns("monitoring_tabs"),
+          id = ns("monitoring_effort_tabs"),
           nav_panel(
-            "Effort",
-            value = "effort",
-            uiOutput(ns("monitoring_effort_cards")),
-            br(),
-            h3("Monitoring coverage by locality"),
+            "Locality",
+            value = "locality",
             DT::dataTableOutput(ns("monitoring_effort_table"))
           ),
           nav_panel(
-            "Outcomes",
-            value = "outcomes",
-            uiOutput(ns("monitoring_outcomes_cards")),
-            br(),
-            mapping_module_ui(ns("outcomes_map"), view = "observation_map_monitoring_summary")
-          )
-        )
-      ),
-      nav_panel(
-        "Trapping",
-        value = "trapping",
-        navset_tab(
-          id = ns("trapping_tabs"),
-          nav_panel(
-            "Effort",
-            value = "effort",
-            uiOutput(ns("trapping_effort_cards")),
-            br(),
-            h3("Trap effort by line"),
-            DT::dataTableOutput(ns("trapping_effort_table")),
-            br(),
-            h3("Trap effort by trap"),
-            mapping_module_ui(ns("outcomes_map"), view = "observation_map_trapping_effort")
+            "Line",
+            value = "line",
+            DT::dataTableOutput(ns("monitoring_effort_line_table"))
           ),
           nav_panel(
-            "Outcomes",
-            value = "outcomes",
-            uiOutput(ns("trapping_outcomes_cards")),
-            br(),
-            h3("Trap kills by monitoring line"),
-            DT::dataTableOutput(ns("trapping_outcomes_table"))
+            "Location",
+            value = "location",
+            DT::dataTableOutput(ns("monitoring_effort_location_table"))
+          )
+        ),
+        br(),
+        h3("Trapping effort"),
+        uiOutput(ns("trapping_effort_cards")),
+        navset_tab(
+          id = ns("trapping_effort_tabs"),
+          nav_panel(
+            "Locality",
+            value = "locality",
+            DT::dataTableOutput(ns("trapping_effort_locality_table"))
+          ),
+          nav_panel(
+            "Line",
+            value = "line",
+            DT::dataTableOutput(ns("trapping_effort_table"))
+          ),
+          nav_panel(
+            "Trap",
+            value = "trap",
+            DT::dataTableOutput(ns("trapping_effort_by_trap_table"))
           )
         )
       ),
       nav_panel(
-        "Data",
-        value = "data",
-        mapping_module_ui(ns("outcomes_map"), view = "observation_map_data_panel")
+        "Outcomes",
+        value = "outcomes",
+        uiOutput(ns("period_scope_note_outcomes")),
+        h3("Monitoring outcomes"),
+        uiOutput(ns("monitoring_outcomes_cards")),
+        br(),
+        h4("Monitoring observations by species"),
+        DT::dataTableOutput(ns("monitoring_outcomes_species_table")),
+        br(),
+        h4("Monitoring observations by locality"),
+        DT::dataTableOutput(ns("monitoring_outcomes_locality_table")),
+        br(),
+        h3("Trapping outcomes"),
+        uiOutput(ns("trapping_outcomes_cards")),
+        br(),
+        h4("Trap kills by trapping line"),
+        DT::dataTableOutput(ns("trapping_outcomes_table"))
+      ),
+      nav_panel(
+        "Records",
+        value = "records",
+        navset_tab(
+          id = ns("records_tabs"),
+          nav_panel(
+            "Period Records",
+            value = "period_records",
+            uiOutput(ns("period_scope_note_records")),
+            h3("Monitoring records"),
+            DT::dataTableOutput(ns("period_monitoring_records_table")),
+            br(),
+            h3("Trapping records"),
+            DT::dataTableOutput(ns("period_trapping_records_table"))
+          ),
+          nav_panel(
+            "Map Window Records",
+            value = "map_window_records",
+            uiOutput(ns("map_window_scope_note")),
+            mapping_module_ui(ns("outcomes_map"), view = "observation_map_data_panel")
+          )
+        )
       )
     )
   )
@@ -172,10 +212,10 @@ trapping_outcomes_module_server <- function(id,
                                                config,
                                                use_net = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
-    default_period <- monitoring_trapping_default_supported_period(core_data, trap_data, after_days = 21)
+    default_period <- core_data$app$period_defaults$primary_period
     period <- period_selection_module_server(
       id = "period",
-      period_groups = core_data$monitoring_period_groups,
+      period_groups = core_data$period_groups,
       selected = default_period
     )
 
@@ -230,24 +270,13 @@ trapping_outcomes_module_server <- function(id,
     })
 
     observe({
-      if (isTRUE(monitoring_records_enabled())) {
-        shiny::showTab("monitoring_trapping_tabs", "monitoring", session = session)
-      } else {
-        if (identical(input$monitoring_trapping_tabs, "monitoring")) {
-          updateTabsetPanel(session, "monitoring_trapping_tabs", selected = "map")
-        }
-        shiny::hideTab("monitoring_trapping_tabs", "monitoring", session = session)
-      }
-
-      if (isTRUE(trapping_records_enabled())) {
-        shiny::showTab("monitoring_trapping_tabs", "trapping", session = session)
-      } else {
-        if (identical(input$monitoring_trapping_tabs, "trapping")) {
-          updateTabsetPanel(session, "monitoring_trapping_tabs", selected = "map")
-        }
-        shiny::hideTab("monitoring_trapping_tabs", "trapping", session = session)
+      if (!isTRUE(monitoring_records_enabled()) &&
+          !isTRUE(trapping_records_enabled()) &&
+          input$monitoring_trapping_tabs %in% c("effort", "outcomes", "records")) {
+        updateTabsetPanel(session, "monitoring_trapping_tabs", selected = "map")
       }
     })
+
 
     selected_localities <- reactive({
       values <- input[["outcomes_map-selected_localities"]]
@@ -298,7 +327,13 @@ trapping_outcomes_module_server <- function(id,
 
     monitoring_deployments <- reactive({
       req(monitoring_records_enabled())
-      deps <- filter_deps(core_data$deps, map_start_date(), map_end_date())
+      deps <- filter_deps_by_period_names(
+        core_data$deps,
+        period$period_names(),
+        map_start_date(),
+        map_end_date(),
+        period$period_intervals()
+      )
       localities <- selected_localities()
       if (length(localities) > 0) {
         deps <- deps %>% dplyr::filter(.data$locality %in% localities)
@@ -319,6 +354,113 @@ trapping_outcomes_module_server <- function(id,
         windows = selected_period_windows()
       )
     })
+
+    trap_check_detail_rows <- reactive({
+      req(trapping_records_enabled(), trap_data)
+      monitoring_trapping_filtered_deployments(
+        trap_data = trap_data,
+        core_data = core_data,
+        start_date = map_start_date(),
+        end_date = map_end_date(),
+        selected_localities = selected_localities(),
+        max_locality_distance_km = 1,
+        windows = selected_period_windows()
+      )
+    })
+
+    trap_inventory_rows <- reactive({
+      req(trapping_records_enabled(), trap_data)
+      if (is.null(trap_data$deps) || nrow(trap_data$deps) == 0) {
+        return(dplyr::tibble())
+      }
+
+      rows <- trap_data$deps %>%
+        dplyr::mutate(
+          trap_code = if ("locationName" %in% names(.)) trimws(.data$locationName) else NA_character_,
+          trap_line = if ("deploymentGroups" %in% names(.)) as.character(.data$deploymentGroups) else NA_character_,
+          trap_locality = if ("locality" %in% names(.)) as.character(.data$locality) else NA_character_,
+          locality_match_type = if ("locality_match_type" %in% names(.)) as.character(.data$locality_match_type) else NA_character_,
+          locality_distance_km = suppressWarnings(as.numeric(if ("locality_distance_km" %in% names(.)) .data$locality_distance_km else NA_real_))
+        )
+
+      localities <- selected_localities()
+      if (length(localities) > 0) {
+        rows <- rows %>%
+          dplyr::filter(
+            .data$trap_locality %in% localities,
+            .data$locality_match_type == "within" |
+              suppressWarnings(as.numeric(.data$locality_distance_km)) <= 1
+          )
+      }
+
+      rows %>%
+        dplyr::filter(!is.na(.data$locationID)) %>%
+        dplyr::distinct(.data$trap_locality, .data$trap_line, .data$trap_code, .data$locationID, .keep_all = TRUE)
+    })
+
+    period_scope_ui <- function() {
+      req(map_start_date(), map_end_date())
+      div(
+        class = "playback-window-readout",
+        strong("Selected period:"),
+        sprintf(
+          "%s to %s. Effort and Outcomes use the full selected period; playback controls only affect the Map and Map Window Records.",
+          format(map_start_date(), "%d %b %Y"),
+          format(map_end_date(), "%d %b %Y")
+        )
+      )
+    }
+
+    output$period_scope_note_effort <- renderUI(period_scope_ui())
+    output$period_scope_note_outcomes <- renderUI(period_scope_ui())
+    output$period_scope_note_records <- renderUI(period_scope_ui())
+
+    output$map_window_scope_note <- renderUI({
+      div(
+        class = "playback-window-readout",
+        strong("Map window records:"),
+        "These records follow the Map tab playback slider, time step, and view mode. Use Period Records for the full selected period."
+      )
+    })
+
+    trapping_line_value <- function(rows) {
+      trap_line <- if ("trap_line" %in% names(rows)) as.character(rows$trap_line) else rep(NA_character_, nrow(rows))
+      monitoring_line <- if ("monitoring_line" %in% names(rows)) as.character(rows$monitoring_line) else rep(NA_character_, nrow(rows))
+      trap_line[is.na(trap_line) | !nzchar(trap_line)] <- monitoring_line[is.na(trap_line) | !nzchar(trap_line)]
+      trap_line[is.na(trap_line) | !nzchar(trap_line)] <- "Unspecified trapping line"
+      trap_line
+    }
+
+    trapping_locality_value <- function(rows) {
+      trap_locality <- if ("trap_locality" %in% names(rows)) as.character(rows$trap_locality) else rep(NA_character_, nrow(rows))
+      monitoring_locality <- if ("monitoring_locality" %in% names(rows)) as.character(rows$monitoring_locality) else rep(NA_character_, nrow(rows))
+      trap_locality[is.na(trap_locality) | !nzchar(trap_locality)] <- monitoring_locality[is.na(trap_locality) | !nzchar(trap_locality)]
+      trap_locality[is.na(trap_locality) | !nzchar(trap_locality)] <- "Unknown locality"
+      trap_locality
+    }
+
+    empty_message_table <- function(message) {
+      data.frame(Message = message, check.names = FALSE)
+    }
+
+    add_trap_inventory_count <- function(rows, inventory, by) {
+      if (nrow(inventory) == 0) {
+        rows$Traps <- 0L
+        return(rows)
+      }
+
+      inventory_counts <- inventory %>%
+        dplyr::mutate(
+          .trap_locality = trapping_locality_value(.),
+          .trap_line = trapping_line_value(.)
+        ) %>%
+        dplyr::group_by(dplyr::across(dplyr::all_of(by))) %>%
+        dplyr::summarise(Traps = dplyr::n_distinct(.data$locationID), .groups = "drop")
+
+      rows %>%
+        dplyr::left_join(inventory_counts, by = by) %>%
+        dplyr::mutate(Traps = dplyr::coalesce(.data$Traps, 0L))
+    }
 
     output$outcomes_heading <- renderUI({
       req(map_start_date(), map_end_date())
@@ -342,11 +484,15 @@ trapping_outcomes_module_server <- function(id,
     output$monitoring_effort_cards <- renderUI({
       deps <- monitoring_deployments()
       camera_hours <- if ("camera_hours" %in% names(deps)) sum(deps$camera_hours, na.rm = TRUE) else NA_real_
+      monitoring_lines <- deps %>%
+        dplyr::filter(!is.na(.data$locality), !is.na(.data$line)) %>%
+        dplyr::distinct(.data$locality, .data$line) %>%
+        nrow()
       monitoring_trapping_metric_grid(
-        monitoring_trapping_metric_card("Camera deployments", monitoring_trapping_format_number(nrow(deps))),
-        monitoring_trapping_metric_card("Camera hours", monitoring_trapping_format_number(camera_hours), paste(monitoring_trapping_format_number(camera_hours / 24, 1), "camera days")),
-        monitoring_trapping_metric_card("Localities", monitoring_trapping_format_number(dplyr::n_distinct(deps$locality))),
-        monitoring_trapping_metric_card("Monitoring lines", monitoring_trapping_format_number(dplyr::n_distinct(deps$line)))
+        monitoring_trapping_metric_card("Monitoring lines", monitoring_trapping_format_number(monitoring_lines)),
+        monitoring_trapping_metric_card("Camera locations", monitoring_trapping_format_number(dplyr::n_distinct(deps$locationID))),
+        monitoring_trapping_metric_card("Camera deployments", monitoring_trapping_format_number(dplyr::n_distinct(deps$deploymentID))),
+        monitoring_trapping_metric_card("Camera hours", monitoring_trapping_format_number(camera_hours), paste(monitoring_trapping_format_number(camera_hours / 24, 1), "camera days"))
       )
     })
 
@@ -357,9 +503,9 @@ trapping_outcomes_module_server <- function(id,
         dplyr::mutate(.camera_hours = suppressWarnings(as.numeric(camera_hours))) %>%
         dplyr::group_by(.data$locality) %>%
         dplyr::summarise(
-          `Camera deployments` = dplyr::n_distinct(.data$deploymentID),
           `Monitoring lines` = dplyr::n_distinct(.data$line),
           `Camera locations` = dplyr::n_distinct(.data$locationID),
+          `Camera deployments` = dplyr::n_distinct(.data$deploymentID),
           `Camera hours` = round(sum(.data$.camera_hours, na.rm = TRUE), 1),
           `Camera days` = round(sum(.data$.camera_hours, na.rm = TRUE) / 24, 1),
           .groups = "drop"
@@ -371,6 +517,59 @@ trapping_outcomes_module_server <- function(id,
         rows,
         rownames = FALSE,
         options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, dom = "tip")
+      )
+    })
+
+    output$monitoring_effort_line_table <- DT::renderDataTable({
+      deps <- monitoring_deployments()
+      camera_hours <- if ("camera_hours" %in% names(deps)) deps$camera_hours else rep(NA_real_, nrow(deps))
+      rows <- deps %>%
+        dplyr::mutate(.camera_hours = suppressWarnings(as.numeric(camera_hours))) %>%
+        dplyr::group_by(.data$locality, .data$line) %>%
+        dplyr::summarise(
+          `Camera locations` = dplyr::n_distinct(.data$locationID),
+          `Camera deployments` = dplyr::n_distinct(.data$deploymentID),
+          `Camera hours` = round(sum(.data$.camera_hours, na.rm = TRUE), 1),
+          `Camera days` = round(sum(.data$.camera_hours, na.rm = TRUE) / 24, 1),
+          .groups = "drop"
+        ) %>%
+        dplyr::rename(Locality = locality, `Monitoring line` = line) %>%
+        dplyr::arrange(.data$Locality, .data$`Monitoring line`)
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, dom = "tip")
+      )
+    })
+
+    output$monitoring_effort_location_table <- DT::renderDataTable({
+      deps <- monitoring_deployments()
+      camera_hours <- if ("camera_hours" %in% names(deps)) deps$camera_hours else rep(NA_real_, nrow(deps))
+      location_names <- if ("locationName" %in% names(deps)) as.character(deps$locationName) else as.character(deps$locationID)
+      rows <- deps %>%
+        dplyr::mutate(
+          .camera_hours = suppressWarnings(as.numeric(camera_hours)),
+          .location_name = location_names
+        ) %>%
+        dplyr::group_by(.data$locality, .data$line, .data$.location_name) %>%
+        dplyr::summarise(
+          `Camera deployments` = dplyr::n_distinct(.data$deploymentID),
+          `Camera hours` = round(sum(.data$.camera_hours, na.rm = TRUE), 1),
+          `Camera days` = round(sum(.data$.camera_hours, na.rm = TRUE) / 24, 1),
+          .groups = "drop"
+        ) %>%
+        dplyr::rename(
+          Locality = locality,
+          `Monitoring line` = line,
+          `Camera location` = .location_name
+        ) %>%
+        dplyr::arrange(.data$Locality, .data$`Monitoring line`, .data$`Camera location`)
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, scrollX = TRUE, dom = "tip")
       )
     })
 
@@ -387,9 +586,78 @@ trapping_outcomes_module_server <- function(id,
       )
     })
 
+    output$monitoring_outcomes_species_table <- DT::renderDataTable({
+      rows <- monitoring_rows()
+      if (nrow(rows) == 0) {
+        return(DT::datatable(empty_message_table("No monitoring observations match the selected period and filters."), rownames = FALSE, options = list(dom = "t")))
+      }
+
+      species_column <- config$globals$species_name_type
+      if (!species_column %in% names(rows)) {
+        species_column <- if ("scientificName" %in% names(rows)) "scientificName" else "scientificName_lower"
+      }
+      counts <- if ("count" %in% names(rows)) suppressWarnings(as.numeric(rows$count)) else rep(1, nrow(rows))
+      counts[is.na(counts) | !is.finite(counts)] <- 1
+
+      table_rows <- rows %>%
+        dplyr::mutate(
+          .species = as.character(.data[[species_column]]),
+          .species = dplyr::if_else(!is.na(.data$.species) & nzchar(.data$.species), .data$.species, "Unknown species"),
+          .count = counts
+        ) %>%
+        dplyr::group_by(.data$.species) %>%
+        dplyr::summarise(
+          `Observation records` = dplyr::n(),
+          `Individuals counted` = sum(.data$.count, na.rm = TRUE),
+          Localities = dplyr::n_distinct(.data$locality),
+          `Camera locations` = dplyr::n_distinct(.data$locationID),
+          .groups = "drop"
+        ) %>%
+        dplyr::rename(Species = .species) %>%
+        dplyr::arrange(dplyr::desc(.data$`Individuals counted`), .data$Species)
+
+      DT::datatable(
+        table_rows,
+        rownames = FALSE,
+        options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, dom = "tip")
+      )
+    })
+
+    output$monitoring_outcomes_locality_table <- DT::renderDataTable({
+      rows <- monitoring_rows()
+      if (nrow(rows) == 0) {
+        return(DT::datatable(empty_message_table("No monitoring observations match the selected period and filters."), rownames = FALSE, options = list(dom = "t")))
+      }
+
+      counts <- if ("count" %in% names(rows)) suppressWarnings(as.numeric(rows$count)) else rep(1, nrow(rows))
+      counts[is.na(counts) | !is.finite(counts)] <- 1
+      species_values <- if ("scientificName" %in% names(rows)) as.character(rows$scientificName) else as.character(rows$scientificName_lower)
+
+      table_rows <- rows %>%
+        dplyr::mutate(.count = counts, .species = species_values) %>%
+        dplyr::group_by(.data$locality) %>%
+        dplyr::summarise(
+          `Observation records` = dplyr::n(),
+          `Individuals counted` = sum(.data$.count, na.rm = TRUE),
+          `Species observed` = dplyr::n_distinct(.data$.species[!is.na(.data$.species) & nzchar(.data$.species)]),
+          `Camera locations` = dplyr::n_distinct(.data$locationID),
+          .groups = "drop"
+        ) %>%
+        dplyr::rename(Locality = locality) %>%
+        dplyr::arrange(.data$Locality)
+
+      DT::datatable(
+        table_rows,
+        rownames = FALSE,
+        options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, dom = "tip")
+      )
+    })
+
     output$trapping_effort_cards <- renderUI({
       rows <- trap_detail_rows()
+      inventory <- trap_inventory_rows()
       monitoring_trapping_metric_grid(
+        monitoring_trapping_metric_card("Traps", monitoring_trapping_format_number(dplyr::n_distinct(inventory$locationID))),
         monitoring_trapping_metric_card("Traps checked", monitoring_trapping_format_number(dplyr::n_distinct(rows$locationID))),
         monitoring_trapping_metric_card("Trap checks", monitoring_trapping_format_number(sum(rows$trap_checks, na.rm = TRUE))),
         monitoring_trapping_metric_card("Trap-days", monitoring_trapping_format_number(sum(rows$trap_days, na.rm = TRUE), 1)),
@@ -397,10 +665,16 @@ trapping_outcomes_module_server <- function(id,
       )
     })
 
-    output$trapping_effort_table <- DT::renderDataTable({
-      rows <- trap_detail_rows() %>%
-        dplyr::group_by(.data$monitoring_locality, .data$monitoring_line) %>%
+    output$trapping_effort_locality_table <- DT::renderDataTable({
+      detail_rows <- trap_detail_rows()
+      rows <- detail_rows %>%
+        dplyr::mutate(
+          .trap_locality = trapping_locality_value(.),
+          .trap_line = trapping_line_value(.)
+        ) %>%
+        dplyr::group_by(.data$.trap_locality) %>%
         dplyr::summarise(
+          `Trapping lines` = dplyr::n_distinct(.data$.trap_line),
           `Traps checked` = dplyr::n_distinct(.data$locationID),
           `Trap checks` = sum(.data$trap_checks, na.rm = TRUE),
           `Trap-days` = round(sum(.data$trap_days, na.rm = TRUE), 1),
@@ -408,8 +682,13 @@ trapping_outcomes_module_server <- function(id,
           `Mean days between checks` = round(sum(.data$trap_days, na.rm = TRUE) / sum(.data$trap_checks, na.rm = TRUE), 1),
           .groups = "drop"
         ) %>%
-        dplyr::rename(Locality = monitoring_locality, `Monitoring line` = monitoring_line) %>%
-        dplyr::arrange(.data$Locality, .data$`Monitoring line`)
+        add_trap_inventory_count(
+          trap_inventory_rows() %>% dplyr::mutate(.trap_locality = trapping_locality_value(.)),
+          by = ".trap_locality"
+        ) %>%
+        dplyr::rename(Locality = .trap_locality) %>%
+        dplyr::select("Locality", "Trapping lines", "Traps", "Traps checked", dplyr::everything()) %>%
+        dplyr::arrange(.data$Locality)
 
       rows$`Checks / 100 trap-days`[!is.finite(rows$`Checks / 100 trap-days`)] <- NA_real_
       rows$`Mean days between checks`[!is.finite(rows$`Mean days between checks`)] <- NA_real_
@@ -420,6 +699,134 @@ trapping_outcomes_module_server <- function(id,
         options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, dom = "tip")
       )
     })
+
+    output$trapping_effort_table <- DT::renderDataTable({
+      detail_rows <- trap_detail_rows()
+      rows <- detail_rows %>%
+        dplyr::mutate(
+          .trap_locality = trapping_locality_value(.),
+          .trap_line = trapping_line_value(.)
+        ) %>%
+        dplyr::group_by(.data$.trap_locality, .data$.trap_line) %>%
+        dplyr::summarise(
+          `Traps checked` = dplyr::n_distinct(.data$locationID),
+          `Trap checks` = sum(.data$trap_checks, na.rm = TRUE),
+          `Trap-days` = round(sum(.data$trap_days, na.rm = TRUE), 1),
+          `Checks / 100 trap-days` = round(100 * sum(.data$trap_checks, na.rm = TRUE) / sum(.data$trap_days, na.rm = TRUE), 1),
+          `Mean days between checks` = round(sum(.data$trap_days, na.rm = TRUE) / sum(.data$trap_checks, na.rm = TRUE), 1),
+          .groups = "drop"
+        ) %>%
+        add_trap_inventory_count(
+          trap_inventory_rows() %>%
+            dplyr::mutate(
+              .trap_locality = trapping_locality_value(.),
+              .trap_line = trapping_line_value(.)
+            ),
+          by = c(".trap_locality", ".trap_line")
+        ) %>%
+        dplyr::rename(Locality = .trap_locality, `Trapping line` = .trap_line) %>%
+        dplyr::select("Locality", "Trapping line", "Traps", "Traps checked", dplyr::everything()) %>%
+        dplyr::arrange(.data$Locality, .data$`Trapping line`)
+
+      rows$`Checks / 100 trap-days`[!is.finite(rows$`Checks / 100 trap-days`)] <- NA_real_
+      rows$`Mean days between checks`[!is.finite(rows$`Mean days between checks`)] <- NA_real_
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, dom = "tip")
+      )
+    })
+
+    trapping_effort_by_trap_rows <- reactive({
+      detail_rows <- trap_detail_rows()
+      detail_rows %>%
+        dplyr::mutate(
+          Locality = trapping_locality_value(.),
+          `Trapping line` = trapping_line_value(.),
+          Trap = dplyr::if_else(!is.na(.data$trap_code) & nzchar(.data$trap_code), .data$trap_code, as.character(.data$locationID)),
+          .locationID = as.character(.data$locationID),
+          `First check` = as.character(.data$first_check),
+          `Last check` = as.character(.data$last_check),
+          `Trap-days` = round(.data$trap_days, 1),
+          `Checks / 100 trap-days` = round(.data$trap_checks_per_100_trap_days, 1),
+          `Mean days between checks` = round(.data$mean_days_between_checks, 1)
+        ) %>%
+        dplyr::select(
+          "Locality",
+          "Trapping line",
+          "Trap",
+          ".locationID",
+          `Trap checks` = "trap_checks",
+          "Trap-days",
+          "Checks / 100 trap-days",
+          "Mean days between checks",
+          "First check",
+          "Last check"
+        ) %>%
+        dplyr::arrange(.data$Locality, .data$`Trapping line`, .data$Trap)
+    })
+
+    output$trapping_effort_by_trap_table <- DT::renderDataTable({
+      rows <- trapping_effort_by_trap_rows() %>%
+        dplyr::select(-".locationID")
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        selection = "single",
+        options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, scrollX = TRUE, dom = "tip")
+      )
+    })
+
+    observeEvent(input$trapping_effort_by_trap_table_rows_selected, {
+      selected_index <- input$trapping_effort_by_trap_table_rows_selected
+      rows <- trapping_effort_by_trap_rows()
+      req(length(selected_index) == 1, nrow(rows) >= selected_index)
+      selected <- rows[selected_index, , drop = FALSE]
+
+      check_rows <- trap_check_detail_rows() %>%
+        dplyr::filter(as.character(.data$locationID) == selected$.locationID[[1]]) %>%
+        dplyr::mutate(
+          `Prior check` = as.character(.data$prior_check_date),
+          `Check date` = as.character(.data$check_date),
+          `Covered from` = as.character(.data$overlap_start),
+          `Covered to` = as.character(.data$overlap_end),
+          `Covered days` = round(.data$overlap_days, 1),
+          `Check interval days` = round(suppressWarnings(as.numeric(.data$interval_days)), 1)
+        ) %>%
+        dplyr::transmute(
+          `Check date`,
+          `Prior check`,
+          `Covered from`,
+          `Covered to`,
+          `Covered days`,
+          `Check interval days`,
+          `Check ID` = .data$deploymentID
+        ) %>%
+        dplyr::arrange(.data$`Check date`)
+
+      if (nrow(check_rows) == 0) {
+        check_rows <- empty_message_table("No check records are available for this trap in the selected period.")
+      }
+
+      showModal(modalDialog(
+        title = sprintf("Trap check records: %s", selected$Trap[[1]]),
+        tags$p(sprintf(
+          "%s / %s",
+          selected$Locality[[1]],
+          selected$`Trapping line`[[1]]
+        )),
+        DT::datatable(
+          check_rows,
+          rownames = FALSE,
+          options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, scrollX = TRUE, dom = "tip")
+        ),
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        size = "l"
+      ))
+    }, ignoreInit = TRUE)
 
     output$trapping_outcomes_cards <- renderUI({
       rows <- trap_detail_rows()
@@ -435,8 +842,13 @@ trapping_outcomes_module_server <- function(id,
     })
 
     output$trapping_outcomes_table <- DT::renderDataTable({
-      rows <- trap_detail_rows() %>%
-        dplyr::group_by(.data$monitoring_locality, .data$monitoring_line) %>%
+      detail_rows <- trap_detail_rows()
+      rows <- detail_rows %>%
+        dplyr::mutate(
+          .trap_locality = trapping_locality_value(.),
+          .trap_line = trapping_line_value(.)
+        ) %>%
+        dplyr::group_by(.data$.trap_locality, .data$.trap_line) %>%
         dplyr::summarise(
           `Traps with kills` = dplyr::n_distinct(.data$locationID[.data$any_species_kill_count > 0]),
           `Total trap kills` = sum(.data$any_species_kill_count, na.rm = TRUE),
@@ -451,13 +863,84 @@ trapping_outcomes_module_server <- function(id,
           `Total kills / 100 trap-days` = round(.data$`Total kills / 100 trap-days`, 2),
           `Selected kills / 100 trap-days` = round(.data$`Selected kills / 100 trap-days`, 2)
         ) %>%
-        dplyr::rename(Locality = monitoring_locality, `Monitoring line` = monitoring_line) %>%
-        dplyr::arrange(.data$Locality, .data$`Monitoring line`)
+        dplyr::rename(Locality = .trap_locality, `Trapping line` = .trap_line) %>%
+        dplyr::arrange(.data$Locality, .data$`Trapping line`)
 
       DT::datatable(
         rows,
         rownames = FALSE,
         options = list(pageLength = 10, searching = FALSE, lengthChange = FALSE, scrollX = TRUE, dom = "tip")
+      )
+    })
+
+
+    output$period_monitoring_records_table <- DT::renderDataTable({
+      rows <- monitoring_rows()
+      if (nrow(rows) == 0) {
+        return(DT::datatable(empty_message_table("No monitoring records match the selected period and filters."), rownames = FALSE, options = list(dom = "t")))
+      }
+
+      table_rows <- tryCatch(
+        prepare_spec_table_data(
+          rows,
+          table_id = "observationmap_observations_browse",
+          column_help = FALSE
+        )$table_data,
+        error = function(e) rows
+      )
+
+      DT::datatable(
+        table_rows,
+        escape = FALSE,
+        rownames = FALSE,
+        options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, scrollX = TRUE)
+      )
+    })
+
+    output$period_trapping_records_table <- DT::renderDataTable({
+      detail_rows <- trap_detail_rows()
+      if (nrow(detail_rows) == 0) {
+        return(DT::datatable(empty_message_table("No trapping records match the selected period and filters."), rownames = FALSE, options = list(dom = "t")))
+      }
+
+      rows <- detail_rows %>%
+        dplyr::mutate(
+          Locality = trapping_locality_value(.),
+          `Trapping line` = trapping_line_value(.),
+          Trap = dplyr::if_else(!is.na(.data$trap_code) & nzchar(.data$trap_code), .data$trap_code, as.character(.data$locationID)),
+          `Nearest monitoring line` = as.character(.data$monitoring_line),
+          `First check` = as.character(.data$first_check),
+          `Last check` = as.character(.data$last_check),
+          `Trap-days` = round(.data$trap_days, 1),
+          `Checks / 100 trap-days` = round(.data$trap_checks_per_100_trap_days, 1),
+          `Mean days between checks` = round(.data$mean_days_between_checks, 1),
+          `Selected species kills` = round(.data$selected_species_kill_count, 0),
+          `Total trap kills` = round(.data$any_species_kill_count, 0),
+          `Selected kills / 100 trap-days` = round(.data$kills_per_100_trap_days_selected_species, 2),
+          `Total kills / 100 trap-days` = round(.data$kills_per_100_trap_days_any_species, 2)
+        ) %>%
+        dplyr::select(
+          "Locality",
+          "Trapping line",
+          "Trap",
+          "Nearest monitoring line",
+          `Trap checks` = "trap_checks",
+          "Trap-days",
+          "Checks / 100 trap-days",
+          "Mean days between checks",
+          "Selected species kills",
+          "Total trap kills",
+          "Selected kills / 100 trap-days",
+          "Total kills / 100 trap-days",
+          "First check",
+          "Last check"
+        ) %>%
+        dplyr::arrange(.data$Locality, .data$`Trapping line`, .data$Trap)
+
+      DT::datatable(
+        rows,
+        rownames = FALSE,
+        options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, scrollX = TRUE)
       )
     })
   })

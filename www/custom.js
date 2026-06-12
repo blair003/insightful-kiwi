@@ -137,9 +137,15 @@
         }
 
         function setSwipePosition(container, position) {
+          var primaryLayer = container.querySelector('.map-swipe-primary-map');
           var comparativeLayer = container.querySelector('.map-swipe-comparative-map');
           var divider = container.querySelector('.map-swipe-divider');
           var constrained = Math.max(0, Math.min(100, position));
+
+          if (primaryLayer) {
+            primaryLayer.style.clipPath = 'inset(0 ' + (100 - constrained) + '% 0 0)';
+            primaryLayer.style.webkitClipPath = 'inset(0 ' + (100 - constrained) + '% 0 0)';
+          }
 
           if (comparativeLayer) {
             comparativeLayer.style.clipPath = 'inset(0 0 0 ' + constrained + '%)';
@@ -459,7 +465,7 @@
           }
 
           if (nav === 'density_map') {
-            return /^density_map_primary-(selected_species|selected_localities|exclude_possible_duplicates|show_density_location_markers|show_predicted_rai_surface|predicted_rai_surface_basis)$/.test(id) ||
+            return /^density_map_primary-(selected_species|selected_localities|density_data_source|exclude_possible_duplicates|show_density_location_markers|show_predicted_rai_surface|predicted_rai_surface_basis|trap_locality_distance_km|show_trap_blank_checks|show_trap_unchecked_locations)$/.test(id) ||
               /^(density_map_period|comparative_period)-period_selection$/.test(id);
           }
 

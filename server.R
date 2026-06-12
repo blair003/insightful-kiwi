@@ -435,8 +435,13 @@ server <- function(input, output, session) {
     period_index = core_data$app$period_defaults$primary_period_index,
     period_name = core_data$app$period_defaults$primary_period
   )
-  dashboard_plot_deps <- core_data$deps %>%
-    dplyr::filter(as.character(period) %in% dashboard_plot_periods)
+  dashboard_plot_deps <- filter_deps_by_period_names(
+    core_data$deps,
+    dashboard_plot_periods,
+    NULL,
+    NULL,
+    period_intervals_for_names(core_data$period_groups, dashboard_plot_periods)
+  )
 
   plotting_module_server(
     id = "spp_obs_plot_visualisations",
@@ -1213,6 +1218,120 @@ server <- function(input, output, session) {
     density_map_period_readout(comparative_period)
   })
 
+
+
+
+  density_trap_distance <- reactive({
+    value <- suppressWarnings(as.numeric(input[["density_map_primary-trap_locality_distance_km"]]))
+    if (is.na(value) || value < 0) {
+      return(1)
+    }
+    value
+  })
+
+  density_show_trap_check_counters <- reactive({
+    isTRUE(input[["density_map_primary-show_trap_blank_checks"]])
+  })
+
+  density_show_unchecked_traps <- reactive({
+    isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]])
+  })
+
+  density_max_location_count <- function(observations, species, localities) {
+    if (is.null(observations) || nrow(observations) == 0 ||
+        is.null(species) || length(species) == 0 ||
+        is.null(localities) || length(localities) == 0) {
+      return(0)
+    }
+
+    species <- tolower(unname(as.character(species)))
+    counts <- observations %>%
+      dplyr::filter(
+        .data$scientificName_lower %in% species,
+        .data$locality %in% localities
+      )
+
+    if (isTRUE(input[["density_map_primary-exclude_possible_duplicates"]]) &&
+        "possible_duplicate" %in% names(counts)) {
+      counts <- counts %>%
+        dplyr::filter(is.na(.data$possible_duplicate) | !.data$possible_duplicate)
+    }
+
+    counts <- counts %>%
+      dplyr::group_by(.data$locationID) %>%
+      dplyr::summarise(count = sum(.data$count, na.rm = TRUE), .groups = "drop") %>%
+      dplyr::pull(.data$count)
+
+    if (length(counts) == 0 || all(is.na(counts))) {
+      return(0)
+    }
+
+    max(counts, na.rm = TRUE)
+  }
+
+  density_max_trap_kills <- function(period, species, localities) {
+    if (is.null(trap_data) || is.null(period) ||
+        is.null(species) || length(species) == 0 ||
+        is.null(localities) || length(localities) == 0) {
+      return(0)
+    }
+
+    trap_rows <- prepare_trap_observations_for_map(
+      trap_data,
+      period$start_date(),
+      period$end_date(),
+      tolower(unname(as.character(species))),
+      localities,
+      density_trap_distance(),
+      include_blank_checks = density_show_trap_check_counters(),
+      include_unchecked_locations = density_show_unchecked_traps(),
+      period_intervals = period$period_intervals()
+    )
+
+    kill_summary <- create_trap_kill_summary(trap_rows)
+    if (nrow(kill_summary) == 0) {
+      return(0)
+    }
+
+    counts <- kill_summary %>%
+      dplyr::group_by(.data$locationID) %>%
+      dplyr::summarise(count = sum(.data$kills, na.rm = TRUE), .groups = "drop") %>%
+      dplyr::pull(.data$count)
+
+    if (length(counts) == 0 || all(is.na(counts))) {
+      return(0)
+    }
+
+    max(counts, na.rm = TRUE)
+  }
+
+  density_comparison_scale_max <- reactive({
+    species <- input[["density_map_primary-selected_species"]]
+    localities <- input[["density_map_primary-selected_localities"]]
+    data_source <- input[["density_map_primary-density_data_source"]]
+    if (is.null(data_source) || !data_source %in% c("monitoring", "trapping")) {
+      data_source <- "monitoring"
+    }
+
+    max_values <- if (identical(data_source, "trapping")) {
+      c(
+        density_max_trap_kills(density_map_period, species, localities),
+        density_max_trap_kills(comparative_period, species, localities)
+      )
+    } else {
+      c(
+        density_max_location_count(filtered_obs_density_map(), species, localities),
+        density_max_location_count(filtered_obs_comparative(), species, localities)
+      )
+    }
+
+    max_value <- max(max_values, na.rm = TRUE)
+    if (is.na(max_value) || !is.finite(max_value)) {
+      return(0)
+    }
+    max_value
+  })
+
   output$density_map_selection_heading <- renderUI({
     species <- input[["density_map_primary-selected_species"]]
     localities <- input[["density_map_primary-selected_localities"]]
@@ -1244,7 +1363,10 @@ server <- function(input, output, session) {
         period_names = density_map_period$period_names,
         period_start_date = density_map_period$start_date,
         period_end_date = density_map_period$end_date,
-        use_net = global_use_net
+        period_intervals = density_map_period$period_intervals,
+        use_net = global_use_net,
+        trap_data = trap_data,
+        density_scale_max_override = density_comparison_scale_max
       )
 
       logger::log_debug("server.R, calling mapping_module_server() for density_map_comparative")
@@ -1256,12 +1378,19 @@ server <- function(input, output, session) {
         period_names = comparative_period$period_names,
         period_start_date = comparative_period$start_date,
         period_end_date = comparative_period$end_date,
+        period_intervals = comparative_period$period_intervals,
         species_override = density_map_primary$selected_species,
         localities_override = density_map_primary$selected_localities,
         prediction_surface_override = density_map_primary$show_predicted_rai_surface,
         prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
         location_markers_override = density_map_primary$show_density_location_markers,
-        use_net = global_use_net
+        density_data_source_override = density_map_primary$density_data_source,
+        trap_distance_override = density_trap_distance,
+        trap_check_counters_override = density_show_trap_check_counters,
+        unchecked_traps_override = density_show_unchecked_traps,
+        use_net = global_use_net,
+        trap_data = trap_data,
+        density_scale_max_override = density_comparison_scale_max
       )
 
       density_map_loaded(TRUE)
@@ -1321,8 +1450,10 @@ server <- function(input, output, session) {
         period_names = playback_period$period_names,
         period_start_date = playback_period$start_date,
         period_end_date = playback_period$end_date,
+        period_intervals = playback_period$period_intervals,
         playback_mode = "always",
-        use_net = global_use_net
+        use_net = global_use_net,
+        trap_data = trap_data
       )
       density_timeline_map_loaded(TRUE)
     }

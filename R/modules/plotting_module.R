@@ -242,8 +242,7 @@ plotting_module_server <- function(id,
       ))
       
       # Exclude 'ALL' group while preserving the order
-      periods_without_all <- names(core_data$period_groups)
-      periods_without_all <- periods_without_all[periods_without_all != "ALL"]
+      periods_without_all <- period_names_without_all(core_data$period_groups)
       
       # Select the species name type (either scientific or vernacular)
       species_name_column <- sym(config$globals$species_name_type)  # Dynamically select the species name column
@@ -412,9 +411,7 @@ plotting_module_server <- function(id,
         return(tibble::tibble())
       }
 
-      period_names <- names(core_data$period_groups)
-      period_names <- period_names[period_names != "ALL"]
-      period_names <- period_names[period_names %in% unique(as.character(deps$period))]
+      period_names <- period_names_with_deployments(deps, core_data$period_groups)
 
       if (length(period_names) == 0) {
         return(tibble::tibble())

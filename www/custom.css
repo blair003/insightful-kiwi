@@ -99,6 +99,7 @@
       }
 
       .map-swipe-primary-map {
+        clip-path: inset(0 50% 0 0);
         z-index: 1;
       }
 
@@ -113,9 +114,6 @@
         width: 100% !important;
       }
 
-      .map-swipe-comparative-map .leaflet-control-container {
-        display: none;
-      }
 
       .map-swipe-label {
         background: rgba(255, 255, 255, 0.94);
@@ -267,6 +265,90 @@
         }
       }
 
+
+      .map-density-summary-control-primary {
+        margin-left: 42px !important;
+        margin-top: 74px !important;
+      }
+
+      .map-density-summary-control-comparative {
+        margin-top: 74px !important;
+      }
+
+      .map-density-legend-primary {
+        margin-left: 8px !important;
+      }
+
+      .map-density-legend-comparative {
+        margin-right: 8px !important;
+      }
+
+      .density-summary-control-wrapper {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 4px;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28);
+        color: #212529;
+        font-size: 11px;
+        line-height: 1.2;
+        max-width: min(360px, calc(100vw - 32px));
+        overflow-x: auto;
+        padding: 7px 8px;
+      }
+
+      .density-summary-control strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .density-summary-control table {
+        border-collapse: collapse;
+        margin: 0;
+        width: 100%;
+      }
+
+      .density-summary-control th,
+      .density-summary-control td {
+        border-top: 1px solid rgba(33, 37, 41, 0.16);
+        padding: 2px 5px;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .density-summary-control th:first-child {
+        max-width: 110px;
+        overflow: hidden;
+        text-align: left;
+        text-overflow: ellipsis;
+      }
+
+      .density-summary-control .density-summary-locality,
+      .density-summary-control .density-summary-total {
+        background: rgba(222, 226, 230, 0.86);
+        color: #212529;
+        font-weight: 700;
+      }
+
+      .density-summary-control .density-summary-line {
+        background: rgba(248, 249, 250, 0.82);
+        color: #5c636a;
+        font-weight: 500;
+      }
+
+      .density-summary-control thead th {
+        border-top: 0;
+        font-weight: 700;
+      }
+
+      .density-summary-control tfoot th,
+      .density-summary-control tfoot td,
+      .density-summary-control .density-summary-total {
+        font-weight: 700;
+      }
+
+      .density-summary-control .density-summary-missing {
+        color: #6c757d;
+      }
+
       .trap-marker-legend-control {
         background: rgba(255, 255, 255, 0.92);
         border-radius: 4px;
@@ -382,8 +464,16 @@
       }
 
       .trap-check-count-label {
-        color: rgba(7, 89, 133, 0.72);
-        font-weight: 600;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid rgba(2, 132, 199, 0.42);
+        border-radius: 999px;
+        color: rgba(7, 89, 133, 0.86);
+        display: inline-flex;
+        font-weight: 700;
+        justify-content: center;
+        min-width: 16px;
+        padding: 1px 4px;
         text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
       }
 

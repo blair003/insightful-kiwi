@@ -160,8 +160,13 @@ dashboard_module_server <- function(id, core_data, config, use_net = reactive(co
       period_index = core_data$app$period_defaults$primary_period_index,
       period_name = period_defaults$current_period
     )
-    dashboard_plot_deps <- core_data$deps %>%
-      dplyr::filter(as.character(period) %in% dashboard_plot_periods)
+    dashboard_plot_deps <- filter_deps_by_period_names(
+      core_data$deps,
+      dashboard_plot_periods,
+      NULL,
+      NULL,
+      period_intervals_for_names(core_data$period_groups, dashboard_plot_periods)
+    )
 
     main_dashboard_current_period <- period_selection_module_server("main_dashboard_current_period", period_groups = core_data$period_groups, selected = period_defaults$current_period)
     main_dashboard_prior_period <- period_selection_module_server("main_dashboard_prior_period", period_groups = core_data$period_groups, selected = period_defaults$prior_period)
