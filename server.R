@@ -1373,6 +1373,7 @@ server <- function(input, output, session) {
         location_markers_override = density_map_primary$show_density_location_markers,
         density_data_source_override = density_data_source,
         trap_distance_override = density_trap_distance,
+        trap_kill_markers_override = density_map_primary$show_trap_kill_markers,
         trap_check_counters_override = density_show_trap_check_counters,
         unchecked_traps_override = density_show_unchecked_traps,
         use_net = global_use_net,

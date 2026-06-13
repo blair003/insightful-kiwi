@@ -1343,6 +1343,7 @@ mapping_module_server <- function(id,
                                   density_data_source_override = NULL, # Reactive: for comparative density map
                                   density_scale_max_override = NULL, # Reactive: shared density comparison max
                                   trap_distance_override = NULL, # Reactive: for comparative density map
+                                  trap_kill_markers_override = NULL, # Reactive: for comparative density map
                                   trap_check_counters_override = NULL, # Reactive: for comparative density map
                                   unchecked_traps_override = NULL, # Reactive: for comparative density map
                                   period_names = NULL,      # Reactive: selected period names
@@ -1502,6 +1503,9 @@ mapping_module_server <- function(id,
     })
 
     show_trap_kill_markers_selected <- reactive({
+      if (!is.null(trap_kill_markers_override) && !is.null(trap_kill_markers_override())) {
+        return(isTRUE(trap_kill_markers_override()))
+      }
       if (!is.null(input$show_trap_kill_markers)) {
         return(isTRUE(input$show_trap_kill_markers))
       }
@@ -2370,55 +2374,56 @@ mapping_module_server <- function(id,
           )
 
           if (use_playback && nrow(trap_observations_dens) > 0 && "trap_marker_type" %in% names(trap_observations_dens)) {
-            if (identical(species_display_mode_selected(), "separate")) {
-              trap_observations_dens <- trap_observations_dens %>%
-                dplyr::filter(
-                  .data$trap_marker_type %in% c("kill", "check", "unchecked"),
-                  .data$display_start_time <= current_time_dens,
-                  .data$display_end_time >= start_time_dens,
-                  trap_intervals_overlap_periods(
-                    .data$display_start_time,
-                    .data$display_end_time,
-                    selected_period_intervals_dens,
-                    start_time_dens,
-                    current_time_dens
-                  )
-                ) %>%
-                dplyr::mutate(
-                  display_start_time = dplyr::if_else(
-                    .data$trap_marker_type == "unchecked",
-                    start_time_dens,
-                    .data$display_start_time
-                  ),
-                  display_end_time = dplyr::if_else(
-                    .data$trap_marker_type == "unchecked",
-                    current_time_dens,
-                    .data$display_end_time
-                  ),
-                  first_check = dplyr::if_else(
-                    .data$trap_marker_type == "unchecked",
-                    playback_as_date(start_time_dens),
-                    .data$first_check
-                  ),
-                  last_check = dplyr::if_else(
-                    .data$trap_marker_type == "unchecked",
-                    playback_as_date(current_time_dens),
-                    .data$last_check
-                  ),
-                  check_span_days = dplyr::if_else(
-                    .data$trap_marker_type == "unchecked",
-                    pmax(as.integer(playback_as_date(current_time_dens) - playback_as_date(start_time_dens)), 0L),
-                    .data$check_span_days
-                  )
+            trap_observations_dens <- trap_observations_dens %>%
+              dplyr::filter(
+                .data$trap_marker_type %in% c("kill", "check", "unchecked"),
+                .data$display_start_time <= current_time_dens,
+                .data$display_end_time >= start_time_dens,
+                trap_intervals_overlap_periods(
+                  .data$display_start_time,
+                  .data$display_end_time,
+                  selected_period_intervals_dens,
+                  start_time_dens,
+                  current_time_dens
                 )
-            } else {
-              trap_observations_dens <- trap_observations_dens %>%
-                dplyr::filter(
-                  .data$trap_marker_type == "kill",
-                  .data$display_start_time <= current_time_dens,
-                  .data$display_end_time >= start_time_dens
+              ) %>%
+              dplyr::mutate(
+                display_start_time = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  start_time_dens,
+                  .data$display_start_time
+                ),
+                display_end_time = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  current_time_dens,
+                  .data$display_end_time
+                ),
+                first_check = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  playback_as_date(start_time_dens),
+                  .data$first_check
+                ),
+                last_check = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  playback_as_date(current_time_dens),
+                  .data$last_check
+                ),
+                check_span_days = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  pmax(as.integer(playback_as_date(current_time_dens) - playback_as_date(start_time_dens)), 0L),
+                  .data$check_span_days
                 )
-            }
+              )
+          }
+
+          if (nrow(trap_observations_dens) > 0 && "trap_marker_type" %in% names(trap_observations_dens)) {
+            enabled_trap_marker_types_dens <- c(
+              if (isTRUE(show_trap_kill_markers_selected())) "kill",
+              if (isTRUE(show_trap_blank_checks_selected())) "check",
+              if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
+            )
+            trap_observations_dens <- trap_observations_dens %>%
+              dplyr::filter(.data$trap_marker_type %in% enabled_trap_marker_types_dens)
           }
 
           trap_records_dens <- trap_observations_dens
@@ -3099,6 +3104,7 @@ mapping_module_server <- function(id,
         predicted_rai_surface_basis = predicted_rai_surface_basis_selected,
         species_display_mode = species_display_mode_selected,
         show_density_location_markers = show_density_location_markers_selected,
+        show_trap_kill_markers = show_trap_kill_markers_selected,
         density_data_source = density_data_source_selected,
         density_marker_scale = density_marker_scale,
         recenter_map = recenter_map_generic # Return the generic recenter function
@@ -6110,6 +6116,24 @@ prepare_trap_observations_for_map <- function(trap_data_value,
     character(0)
   }
 
+  normalise_trap_map_row_types <- function(data) {
+    if (is.null(data) || nrow(data) == 0) {
+      return(data)
+    }
+
+    character_columns <- c(
+      "observationID", "deploymentID", "mediaID", "eventID", "eventStart", "eventEnd",
+      "observation_source", "observationType", "scientificName", "scientificName_lower",
+      "vernacularNames.eng", "behavior", "species_class", "period", "day_night_class",
+      "diel_class", "trap_marker_type", "trap_kill_type", "source_observationType",
+      "source_scientificName", "outcome", "outcome_id", "locationID", "locationName",
+      "trap_line", "locality", "locality_match_type", "nearest_monitoring_locationName"
+    )
+
+    data %>%
+      dplyr::mutate(dplyr::across(dplyr::any_of(character_columns), as.character))
+  }
+
   add_trap_source_fields <- function(data) {
     if (is.null(data) || nrow(data) == 0) {
       return(data)
@@ -6327,11 +6351,14 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           nearest_monitoring_locationName
         )
 
-      trap_obs <- dplyr::bind_rows(trap_obs, unchecked_rows)
+      trap_obs <- dplyr::bind_rows(
+        normalise_trap_map_row_types(trap_obs),
+        normalise_trap_map_row_types(unchecked_rows)
+      )
     }
   }
 
-  trap_obs
+  normalise_trap_map_row_types(trap_obs)
 }
 
 align_trap_observation_types <- function(trap_observations, observation_template) {
