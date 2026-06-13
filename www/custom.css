@@ -277,10 +277,12 @@
 
       .map-density-legend-primary {
         margin-left: 8px !important;
+        white-space: nowrap;
       }
 
       .map-density-legend-comparative {
         margin-right: 8px !important;
+        white-space: nowrap;
       }
 
       .density-summary-control-wrapper {

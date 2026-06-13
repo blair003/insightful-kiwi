@@ -2383,7 +2383,7 @@ mapping_module_server <- function(id,
             period_intervals = selected_period_intervals_dens
           )
 
-          if (use_playback && nrow(trap_observations_dens) > 0) {
+          if (use_playback && nrow(trap_observations_dens) > 0 && "trap_marker_type" %in% names(trap_observations_dens)) {
             if (identical(species_display_mode_selected(), "separate")) {
               trap_observations_dens <- trap_observations_dens %>%
                 dplyr::filter(
@@ -3680,7 +3680,7 @@ mapping_module_server <- function(id,
               timestamp <= current_time_obsmap
             )
 
-          if (nrow(trap_cumulative_table) > 0) {
+          if (nrow(trap_cumulative_table) > 0 && "trap_marker_type" %in% names(trap_cumulative_table)) {
             trap_cumulative_table <- trap_cumulative_table %>%
               dplyr::filter(
                 (
@@ -3743,7 +3743,7 @@ mapping_module_server <- function(id,
               timestamp <= current_time_obsmap
             )
 
-          if (nrow(trap_obs_filtered) > 0) {
+          if (nrow(trap_obs_filtered) > 0 && "trap_marker_type" %in% names(trap_obs_filtered)) {
             # Trap kills and check counters are displayed when the check
             # interval overlaps the current playback window. The popup wording
             # reports the covered interval rather than implying exact kill time.
@@ -4824,10 +4824,13 @@ update_density_map <- function(map_id = NULL,
                                skip_notice_html = NULL,
                                source_map_id = NULL) {
 
-  density_base_radius <- 75
-  density_max_radius <- 150
-  density_min_fill_area <- 0.16
-  density_pre_full_alpha <- 0.62
+  density_base_radius <- if (!is.null(config$globals$density_base_radius)) config$globals$density_base_radius else 75
+  density_max_radius <- if (!is.null(config$globals$density_max_radius)) config$globals$density_max_radius else 150
+  density_min_fill_area <- if (!is.null(config$globals$density_min_fill_area)) config$globals$density_min_fill_area else 0.16
+  density_pre_full_alpha <- if (!is.null(config$globals$density_pre_full_alpha)) config$globals$density_pre_full_alpha else 0.62
+  
+  density_scale_gears <- if (!is.null(config$globals$density_scale_gears)) config$globals$density_scale_gears else c("100" = 30, "40" = 12, "0" = 4)
+  density_scale_gears <- density_scale_gears[order(as.numeric(names(density_scale_gears)), decreasing = TRUE)]
 
   marker_metric <- if (!is.null(marker_metric) && marker_metric %in% c("count", "rai")) marker_metric else "count"
   if (is.null(marker_value_label) || !nzchar(as.character(marker_value_label))) {
@@ -4927,18 +4930,18 @@ update_density_map <- function(map_id = NULL,
 
   can_scale_marker_radius <- !is.na(max_marker_value) && max_marker_value > 0
 
-  # Bucketed approach to maintain comparability across different time periods.
-  # Limits dynamic scaling to 3 predictable "gears".
+  # Bucketed dynamic scaling gears to maintain comparability across time periods.
   dynamic_base_count <- if (can_scale_marker_radius && identical(marker_metric, "count")) {
-    if (max_marker_value >= 100) {
-      30
-    } else if (max_marker_value >= 40) {
-      12
-    } else {
-      4
+    base_val <- density_scale_gears[[length(density_scale_gears)]]
+    for (i in seq_along(density_scale_gears)) {
+      if (max_marker_value >= as.numeric(names(density_scale_gears)[i])) {
+        base_val <- density_scale_gears[[i]]
+        break
+      }
     }
+    unname(base_val)
   } else {
-    4
+    unname(density_scale_gears[[length(density_scale_gears)]])
   }
 
   density_full_base_value <- if (identical(marker_metric, "count")) {
@@ -5297,11 +5300,40 @@ update_density_map <- function(map_id = NULL,
       if ("trap_kill" %in% visible_layers) {
         legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#dc2626;'></span>Trap kills</div>")
       }
-      legend_scale_text <- paste0(
-        "<div class='trap-marker-legend-note'>Larger/darker = more; max ",
-        htmltools::htmlEscape(format_density_summary_value(max_marker_value)),
-        "</div>"
-      )
+
+      format_scale_val <- function(val) {
+        if (identical(marker_metric, "rai")) {
+          format(round(as.numeric(val), 2), nsmall = 2, trim = TRUE)
+        } else {
+          format_density_summary_value(val)
+        }
+      }
+
+      legend_scale_text <- if (density_radius_growth_available) {
+        paste0(
+          "<div class='trap-marker-legend-note' style='margin-top: 6px; border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px;'>",
+          "<strong>Scale (", htmltools::htmlEscape(marker_value_label), "):</strong>",
+          "<div class='trap-marker-legend-row' style='margin-top: 4px;'>",
+          "<span style='display:inline-block; width:8px; height:8px; border-radius:50%; background:rgba(108,117,125,0.4); border:1px solid rgba(108,117,125,0.6); margin-left:2px; margin-right:3px;'></span>",
+          "<span style='white-space: nowrap;'>Colour darkens up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(density_full_base_value)), "</strong></span>",
+          "</div>",
+          "<div class='trap-marker-legend-row'>",
+          "<span style='display:inline-block; width:12px; height:12px; border-radius:50%; background:rgba(108,117,125,0.76); border:1px solid rgba(108,117,125,0.6);'></span>",
+          "<span style='white-space: nowrap;'>Circle grows up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(max_marker_value)), "</strong></span>",
+          "</div>",
+          "</div>"
+        )
+      } else {
+        paste0(
+          "<div class='trap-marker-legend-note' style='margin-top: 6px; border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px;'>",
+          "<strong>Scale (", htmltools::htmlEscape(marker_value_label), "):</strong>",
+          "<div class='trap-marker-legend-row' style='margin-top: 4px;'>",
+          "<span style='display:inline-block; width:10px; height:10px; border-radius:50%; background:rgba(108,117,125,0.76); border:1px solid rgba(108,117,125,0.6); margin-left:1px; margin-right:2px;'></span>",
+          "<span style='white-space: nowrap;'>Colour darkens up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(max_marker_value)), "</strong></span>",
+          "</div>",
+          "</div>"
+        )
+      }
       proxy %>%
         addControl(
           html = paste0("<div class='trap-marker-legend'><strong>Density key</strong>", paste(legend_rows, collapse = ""), legend_scale_text, "</div>"),
@@ -6335,7 +6367,8 @@ align_trap_observation_types <- function(trap_observations, observation_template
 
 annotate_unchecked_last_check <- function(trap_observations, trap_data_value, reference_time) {
   if (is.null(trap_observations) || nrow(trap_observations) == 0 ||
-      is.null(trap_data_value) || is.null(trap_data_value$obs) || is.null(trap_data_value$deps)) {
+      is.null(trap_data_value) || is.null(trap_data_value$obs) || is.null(trap_data_value$deps) ||
+      !"trap_marker_type" %in% names(trap_observations)) {
     return(trap_observations)
   }
 
@@ -6531,6 +6564,10 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
 
 
 normalise_trap_metric_rows <- function(trap_observations) {
+  if (is.null(trap_observations) || nrow(trap_observations) == 0 || !"trap_marker_type" %in% names(trap_observations)) {
+    return(dplyr::tibble())
+  }
+
   trap_rows <- trap_observations %>%
     dplyr::filter(.data$trap_marker_type != "unchecked")
 
@@ -6677,6 +6714,10 @@ create_trap_marker_summary <- function(trap_observations) {
 }
 
 create_trap_unchecked_summary <- function(trap_observations) {
+  if (is.null(trap_observations) || nrow(trap_observations) == 0 || !"trap_marker_type" %in% names(trap_observations)) {
+    return(dplyr::tibble())
+  }
+
   checked_location_ids <- trap_observations %>%
     dplyr::filter(.data$trap_marker_type != "unchecked") %>%
     dplyr::pull(.data$locationID) %>%
@@ -6754,6 +6795,10 @@ trap_metric_columns <- function() {
 }
 
 create_trap_kill_summary <- function(trap_observations) {
+  if (is.null(trap_observations) || nrow(trap_observations) == 0 || !"trap_marker_type" %in% names(trap_observations)) {
+    return(dplyr::tibble())
+  }
+
   kill_rows <- trap_observations %>%
     dplyr::filter(.data$trap_marker_type == "kill")
 
@@ -6933,7 +6978,7 @@ create_trap_map_markers <- function(trap_observations) {
 }
 
 render_trap_marker_legend <- function(trap_observations, monitoring_observations = NULL) {
-  has_trap_observations <- !is.null(trap_observations) && nrow(trap_observations) > 0
+  has_trap_observations <- !is.null(trap_observations) && nrow(trap_observations) > 0 && "trap_marker_type" %in% names(trap_observations)
   has_monitoring_observations <- !is.null(monitoring_observations) && nrow(monitoring_observations) > 0
   if (!has_trap_observations && !has_monitoring_observations) {
     return(NULL)

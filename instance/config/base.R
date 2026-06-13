@@ -301,6 +301,39 @@ config$globals <- list(
     mmRAI_SE_net = "Network RAI ± SE (Net)",
     encompassed_area_ha = "Coverage Area (ha)",
     camera_density_ha = "Camera Density (per ha)"
+  ),
+
+  # ==========================================
+  # Mapping module density circle settings
+  # ==========================================
+  
+  # Visual sizing bounds for the marker halos
+  # density_base_radius: Starting radius for marker halos.
+  # density_max_radius: Maximum possible radius for marker halos at the highest counts.
+  density_base_radius = 75,
+  density_max_radius = 150,
+  
+  # Fill area and transparency
+  # density_min_fill_area: Minimum visual size (proportion of full area) for the smallest counts (e.g., a count of 1). 0.16 = 16% of base area.
+  # density_pre_full_alpha: Opacity (0 to 1) of the marker before it hits the top-tier count threshold. Differentiates growing hotspots from maximum hotspots.
+  density_min_fill_area = 0.10, # 0.16
+  density_pre_full_alpha = 0.62,
+  
+  # Dynamic scaling "gears"
+  # These control how sensitive the map's marker sizes are to the volume of data.
+  # Represented as a named vector where names are the thresholds, and values are the base scales.
+  # The system checks from highest threshold to lowest and applies the corresponding base.
+  density_scale_gears = c(
+    "50" = 30,
+    "20"  = 6,
+    "0"   = 3
   )
+ # density_scale_gears = c(
+ #   "100" = 30,
+  #  "40"  = 12,
+  #  "0"   = 4
+ # )
+
+  
   
 ) # End of config list
