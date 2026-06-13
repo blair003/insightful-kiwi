@@ -296,14 +296,15 @@ ui <- function(request) {
         ),
 
         ######### MONITORING & TRAPPING OUTPUT #########
-        if (!is.null(trap_data)) {
-          nav_panel(
-            title = "Monitoring & Trapping",
-            icon = icon("scale-balanced"),
-            value = "monitoring_trapping",
-            trapping_outcomes_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "main")
-          )
-        },
+        # Supercded by new Density Map and Density Map Timeline
+      #  if (!is.null(trap_data)) {
+      #    nav_panel(
+      #      title = "Monitoring & Trapping",
+      #      icon = icon("scale-balanced"),
+      #      value = "monitoring_trapping",
+      #      trapping_outcomes_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "main")
+      #    )
+      #  },
 
         ######### TRAPPING ANALYSIS REFERENCE OUTPUT #########
         if (!is.null(trap_data)) {

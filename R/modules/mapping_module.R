@@ -1020,13 +1020,6 @@ mapping_module_ui <- function(id,
     return(
       tagList(
         hr(),
-        radioButtons(
-          inputId = ns("playback_view_mode"),
-          label = "Display records for:",
-          choices = c("Selected period only" = "single", "Cumulative to current date" = "cumulative"),
-          selected = playback_view_mode_selected
-        ),
-        hr(),
         tags$div(
           class = "map-display-layer-options",
           if (isTRUE(include_marker_options)) {
@@ -1101,6 +1094,18 @@ mapping_module_ui <- function(id,
             label = "Monitoring area boundaries"
           )
         },
+        radioButtons(
+          inputId = ns("playback_view_mode"),
+          label = "Time progression mode:",
+          choices = c("This step only" = "single", "Cumulative total to date" = "cumulative"),
+          selected = playback_view_mode_selected
+        ),
+        selectInput(
+          inputId = ns("playback_step_size"),
+          label = "Time step",
+          choices = playback_step_size_choices,
+          selected = playback_step_size_selected
+        ),
         div(
           class = "playback-speed-control",
           sliderInput(
@@ -1112,12 +1117,6 @@ mapping_module_ui <- function(id,
             class = "playback-speed-labels",
             tags$span("Faster"), tags$span("Slower")
           )
-        ),
-        selectInput(
-          inputId = ns("playback_step_size"),
-          label = "Time step",
-          choices = playback_step_size_choices,
-          selected = playback_step_size_selected
         )
       )
     )
@@ -4824,9 +4823,14 @@ update_density_map <- function(map_id = NULL,
                                summary_control_html = NULL,
                                skip_notice_html = NULL,
                                source_map_id = NULL) {
-  #browser()
-  max_scale <- 1
-  radius_range <- c(18, 200)
+
+  density_base_radius <- 75
+  density_max_radius <- 150
+  density_full_base_count <- 3
+  density_count_full_at <- density_full_base_count
+  density_min_fill_area <- 0.16
+  density_pre_full_alpha <- 0.62
+
   marker_metric <- if (!is.null(marker_metric) && marker_metric %in% c("count", "rai")) marker_metric else "count"
   if (is.null(marker_value_label) || !nzchar(as.character(marker_value_label))) {
     marker_value_label <- if (identical(marker_metric, "rai")) "Line RAI" else "Count"
@@ -4924,21 +4928,65 @@ update_density_map <- function(map_id = NULL,
   }
 
   can_scale_marker_radius <- !is.na(max_marker_value) && max_marker_value > 0
+
+  density_full_base_value <- if (identical(marker_metric, "count")) {
+    density_full_base_count
+  } else {
+    max_marker_value
+  }
+
+  density_radius_growth_available <- can_scale_marker_radius &&
+    is.finite(density_full_base_value) &&
+    max_marker_value > density_full_base_value
+    
+
+
   obs_summary_location <- obs_summary_location %>%
     mutate(
+      density_fill_area = dplyr::case_when(
+        marker_value <= 0 | !can_scale_marker_radius ~ 0,
+
+        identical(marker_metric, "count") ~ pmin(
+          1,
+          density_min_fill_area +
+            (1 - density_min_fill_area) *
+            ((pmin(marker_value, density_count_full_at) - 1) /
+              max(density_count_full_at - 1, 1))^1.25
+        ),
+
+        TRUE ~ pmin(
+          1,
+          pmax(
+            density_min_fill_area,
+            marker_value / density_full_base_value
+          )
+        )
+      ),
+
+      density_halo_radius = ifelse(
+        marker_value > density_full_base_value & density_radius_growth_available,
+        scales::rescale(
+          sqrt(marker_value),
+          to = c(density_base_radius, density_max_radius),
+          from = c(sqrt(density_full_base_value), sqrt(max_marker_value))
+        ),
+        density_base_radius
+      ),
+
       radius = ifelse(
-        marker_value > 0 & can_scale_marker_radius,
-        scales::rescale(sqrt(marker_value), to = radius_range, from = c(0, sqrt(max_marker_value))),
-        radius_range[1]
+        marker_value > density_full_base_value & density_radius_growth_available,
+        density_halo_radius,
+        density_base_radius * sqrt(density_fill_area)
       ),
-      density_opacity = ifelse(
-        marker_value > 0 & can_scale_marker_radius,
-        scales::rescale(sqrt(marker_value), to = c(0.30, 0.78), from = c(0, sqrt(max_marker_value))),
-        0.30
+
+      density_opacity = dplyr::case_when(
+        marker_value <= 0 | !can_scale_marker_radius ~ 0.26,
+        density_fill_area < 1 ~ density_pre_full_alpha,
+        TRUE ~ 0.76
       ),
-      density_halo_radius = pmax(radius, 75),
-      density_halo_opacity = pmax(density_opacity * 0.22, 0.08),
-      density_border_opacity = pmax(density_opacity * 0.72, 0.25)
+
+      density_halo_opacity = ifelse(marker_value > 0 & can_scale_marker_radius, 0.18, 0.08),
+      density_border_opacity = ifelse(marker_value > 0 & can_scale_marker_radius, 0.55, 0.25)
     )
 
   pal_domain <- if (!is.na(max_marker_value) && max_marker_value > 0) c(0, max_marker_value) else obs_summary_location$marker_value
@@ -4951,7 +4999,7 @@ update_density_map <- function(map_id = NULL,
     dplyr::mutate(
       marker_color = dplyr::case_when(
         .data$marker_dataset == "trap_kill" ~ "#dc2626",
-        .data$marker_dataset == "monitoring_trapped" ~ "#d9468f",
+        .data$marker_dataset == "monitoring_trapped" ~ "#9333ea",
         .data$marker_dataset == "monitoring_non_trapped" ~ "#16a34a",
         TRUE ~ density_marker_color
       )
