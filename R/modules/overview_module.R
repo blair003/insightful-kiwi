@@ -53,7 +53,7 @@ overview_module_ui <- function(id, view = "main", core_data, config) {
       nav_panel(
         "Overview",
         value = "overview",
-        icon = icon("summary"),
+        icon = icon("clipboard-list"),
         h2("Overview"),
         uiOutput(ns("main_overview_locality_heading")),
         navset_tab(

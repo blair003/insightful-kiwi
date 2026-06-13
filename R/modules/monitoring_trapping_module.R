@@ -84,8 +84,6 @@ trapping_outcomes_module_ui <- function(id,
         view = "select_observation_map_options",
         include_monitoring_records_default = TRUE,
         include_trap_data_default = TRUE,
-        include_trap_between_seasons_default = FALSE,
-        include_trap_between_seasons_option = FALSE
       ),
       conditionalPanel(
         condition = "input.monitoring_trapping_tabs === 'map' || (input.monitoring_trapping_tabs === 'records' && input.records_tabs === 'map_window_records')",

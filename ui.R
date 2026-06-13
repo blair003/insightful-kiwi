@@ -14,7 +14,6 @@ ui <- function(request) {
       'reporting': true,
       'density_map': true,
       'density_timeline_map': true,
-      'observation_map': true,
       'monitoring_trapping': true,
       'monitoring_trapping_analysis': true,
       'activity_patterns': true,
@@ -167,7 +166,8 @@ ui <- function(request) {
             core_data$app$spp_classes[[1]][1],  # First species from the first list
             core_data$app$spp_classes[[1]][2],  # Second species from the first list
             core_data$app$spp_classes[[1]][3]  # Third species from the first list
-          )
+          ),
+          include_species_display_mode = TRUE
         ),
         
         mapping_module_ui(
@@ -203,7 +203,8 @@ ui <- function(request) {
             core_data$app$spp_classes[[1]][1],
             core_data$app$spp_classes[[1]][2],
             core_data$app$spp_classes[[1]][3]
-          )
+          ),
+          include_species_display_mode = TRUE
         ),
 
         mapping_module_ui(
@@ -223,62 +224,10 @@ ui <- function(request) {
         mapping_module_ui(
           id = "density_timeline_map",
           view = "density_timeline_controls",
-          include_marker_options = TRUE
-        )
-      ),
-      
-      
-      ######### OBSERVATION MAP #########
-      # Global sidebar conditional content for Observation Map
-      conditionalPanel(
-        condition = "input.nav === 'observation_map'",
-
-        period_selection_module_ui(
-          id = "observation_map_period",
-          view = "select",
-          choices = period_choices,
-          selected = core_data$app$period_defaults$primary_period,
-          label = "Period:",
-          multiple = TRUE
-        ),
-        
-        # Call module UI for species selection
-        mapping_module_ui(
-          id = "observation_map", # Must match the server and main layout ID
-          view = "select_species",
-          choices = core_data$app$spp_classes, # Pass choices
-          selected = c( # Default selected
-            core_data$app$spp_classes[[1]][1],  # First species from the first list
-            core_data$app$spp_classes[[1]][2],  # Second species from the first list
-            core_data$app$spp_classes[[1]][3]  # Third species from the first list
-          ),
-          label = "Species:",
-          show_combined_species_note = FALSE
-        ),
-        # Call module UI for locality selection
-         mapping_module_ui(
-           id = "observation_map",
-           view = "select_localities",
-           choices = unique(core_data$deps$locality),
-           selected = unique(core_data$deps$locality),
-           label = "Localities:"
-         ),
-        
-        # Call module UI for other options
-        mapping_module_ui(
-          id = "observation_map",
-          view = "select_observation_map_options"
-        ),
-
-        mapping_module_ui(
-          id = "observation_map",
-          view = "density_timeline_controls",
-          include_prediction_option = FALSE,
-          include_monitoring_area_option = TRUE,
+          include_marker_options = TRUE,
           include_observation_layer_options = TRUE
         )
-        
-      ), # conditionalPanel
+      ),
       
       
       conditionalPanel(
@@ -344,22 +293,6 @@ ui <- function(request) {
             uiOutput("density_timeline_map_selection_heading")
           ),
           mapping_module_ui("density_timeline_map", view = "density_timeline_layout")
-        ),
-
-        ######### OBSERVATION MAP OUTPUT #########
-        nav_panel(
-          title = "Observation Timeline",
-          # icon = icon("bullseye"),
-          # icon = icon("layer-group"),
-          icon = icon("map-location-dot"), # Example new icon
-          value = "observation_map",
-          div(
-            class = "map-page-heading",
-            h2("Observation Timeline"),
-            uiOutput("observation_map_selection_heading")
-          ),
-          # Call the module UI for the main layout
-          mapping_module_ui(id = "observation_map", view = "observation_map_layout")
         ),
 
         ######### MONITORING & TRAPPING OUTPUT #########

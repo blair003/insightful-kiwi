@@ -257,7 +257,6 @@ server <- function(input, output, session) {
         reporting = input$reporting_tabs,
         density_map = input[["density_map_comparison-density_comparison_tabs"]],
         density_timeline_map = input[["density_timeline_map-density_timeline_tabs"]],
-        observation_map = input[["observation_map-observation_map_tabs"]],
         activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
         records = input$records_tabs,
         NULL
@@ -352,13 +351,6 @@ server <- function(input, output, session) {
     selected = core_data$app$period_defaults$comparative_period
   )
 
-  observation_map_period <- period_selection_module_server(
-    id = "observation_map_period",
-    period_groups = core_data$period_groups,
-    summary_output_ids = character(0),
-    selected = core_data$app$period_defaults$primary_period
-  )
-
   # Reactive filtering of deps and obs for primary/reporting and map periods
   filtered_deps_primary <- reactive({
     filter_deps(core_data$deps, primary_period$start_date(), primary_period$end_date())
@@ -405,26 +397,6 @@ server <- function(input, output, session) {
       comparative_period$start_date(),
       comparative_period$end_date(),
       comparative_period$period_intervals()
-    ))
-  })
-
-  filtered_deps_observation_map <- reactive({
-    filter_deps_by_period_names(
-      core_data$deps,
-      observation_map_period$period_names(),
-      observation_map_period$start_date(),
-      observation_map_period$end_date(),
-      observation_map_period$period_intervals()
-    )
-  })
-
-  filtered_obs_observation_map <- reactive({
-    filter_detection_obs(filter_obs_by_period_names(
-      core_data$obs,
-      observation_map_period$period_names(),
-      observation_map_period$start_date(),
-      observation_map_period$end_date(),
-      observation_map_period$period_intervals()
     ))
   })
 
@@ -1000,7 +972,6 @@ server <- function(input, output, session) {
         reporting = "reporting_tabs",
         density_map = "density_map_comparison-density_comparison_tabs",
         density_timeline_map = "density_timeline_map-density_timeline_tabs",
-        observation_map = "observation_map-observation_map_tabs",
         activity_patterns = "activity_patterns-activity_patterns_tabs",
         records = "records_tabs",
         NULL
@@ -1350,12 +1321,6 @@ server <- function(input, output, session) {
     div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
 
-  output$observation_map_selection_heading <- renderUI({
-    species <- input[["observation_map-selected_species"]]
-    localities <- input[["observation_map-selected_localities"]]
-    div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
-  })
-
   output$density_timeline_map_selection_heading <- renderUI({
     species <- input[["density_timeline_map-selected_species"]]
     localities <- input[["density_timeline_map-selected_localities"]]
@@ -1395,6 +1360,7 @@ server <- function(input, output, session) {
         localities_override = density_map_primary$selected_localities,
         prediction_surface_override = density_map_primary$show_predicted_rai_surface,
         prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
+        species_display_mode_override = density_map_primary$species_display_mode,
         location_markers_override = density_map_primary$show_density_location_markers,
         density_data_source_override = density_data_source,
         trap_distance_override = density_trap_distance,
@@ -1471,31 +1437,6 @@ server <- function(input, output, session) {
     }
   })
 
-  ########### OBSERVATION MAP FEATURE ###########
-  
-  observation_map <- NULL
-  observation_map_loaded <- reactiveVal(FALSE)
-  
-  observeEvent(input$nav, {
-    if (input$nav == "observation_map" && !observation_map_loaded()) {
-      logger::log_debug("server.R, lazily calling mapping_module_server() for observation_map")
-      observation_map <<- mapping_module_server(
-        id = "observation_map",
-        type = "observation",
-        obs = filtered_obs_observation_map,
-        deps = filtered_deps_observation_map,
-        period_start_date = observation_map_period$start_date,
-        period_end_date = observation_map_period$end_date,
-        period_intervals = observation_map_period$period_intervals,
-        playback_mode = "always",
-        use_net = global_use_net,
-        trap_data = reactive(trap_data)
-        # The module will use its own internal input$selected_species and input$enhance_map_details
-        # from the UI elements defined by mapping_module_ui in the sidebar.
-      )
-      observation_map_loaded(TRUE)
-    }
-  })
   ########### MONITORING & TRAPPING FEATURE ###########
 
   monitoring_trapping_loaded <- reactiveVal(FALSE)
