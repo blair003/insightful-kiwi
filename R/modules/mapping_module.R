@@ -926,7 +926,7 @@ mapping_module_ui <- function(id,
                 class = "trap-layer-options",
                 checkboxInput(
                   inputId = ns("show_trap_kill_markers"),
-                  label = "Trap kill markers",
+              label = "Trap capture markers",
                   value = TRUE
                 ),
                 checkboxInput(
@@ -1071,7 +1071,7 @@ mapping_module_ui <- function(id,
                 class = "observation-layer-options",
                 checkboxInput(
                   inputId = ns("show_trap_kill_markers"),
-                  label = "Trap kill markers",
+                label = "Trap capture markers",
                   value = TRUE
                 ),
                 checkboxInput(
@@ -1097,7 +1097,7 @@ mapping_module_ui <- function(id,
         radioButtons(
           inputId = ns("playback_view_mode"),
           label = "Time progression mode:",
-          choices = c("This step only" = "single", "Cumulative total to date" = "cumulative"),
+          choices = c("Discrete single step" = "single", "Cumulative total to date" = "cumulative"),
           selected = playback_view_mode_selected
         ),
         selectInput(
@@ -1439,7 +1439,7 @@ mapping_module_server <- function(id,
       showModal(modalDialog(
         title = "Include trapping records",
         tags$p("Includes trap records for the current map timeframe and locality selection. 
-        When checked, trap kills of the selected species will be shown (one icon per species per location)."),
+        When checked, trap captures of the selected species will be shown (one icon per species per location)."),
 
         tags$p("A record is included when the interval from the previous check to this check overlaps the 
         selected timeframe, even if the check date itself falls outside it."),
@@ -2496,7 +2496,7 @@ mapping_module_server <- function(id,
                 weighted_line_rai = NA_real_,
                 rai = NA_real_,
                 marker_dataset = "trap_kill",
-                marker_layer = "Trap kills"
+            marker_layer = "Trap captures"
               )
             if (isTRUE(show_monitoring_density)) {
               obs_summary_location_dens <- dplyr::bind_rows(obs_summary_location_dens, trap_density_summary_dens)
@@ -2755,7 +2755,7 @@ mapping_module_server <- function(id,
         density_marker_scale(shared_absolute_max)
 
         summary_title <- dplyr::case_when(
-          identical(density_source_dens, "trapping") ~ "Trapping kills",
+          identical(density_source_dens, "trapping") ~ "Trapping captures",
           identical(density_source_dens, "both") ~ "Density layers",
           TRUE ~ "Monitoring counts"
         )
@@ -2859,7 +2859,7 @@ mapping_module_server <- function(id,
           show_zero_markers = identical(density_source_dens, "monitoring"),
           density_data_source = density_source_dens,
           marker_value_label = dplyr::case_when(
-            identical(density_source_dens, "trapping") ~ "Trap kills",
+            identical(density_source_dens, "trapping") ~ "Trap captures",
             identical(density_source_dens, "both") ~ "Density count",
             TRUE ~ "Monitoring counts"
           ),
@@ -4231,7 +4231,7 @@ mapping_module_server <- function(id,
         empty_species <- data.frame(
           Species = character(),
           `Monitoring count` = numeric(),
-          `Trap kills` = numeric(),
+      `Trap captures` = numeric(),
           `Trap checks` = integer(),
           `Localities` = integer(),
           check.names = FALSE
@@ -4239,7 +4239,7 @@ mapping_module_server <- function(id,
         empty_locality <- data.frame(
           Locality = character(),
           `Monitoring count` = numeric(),
-          `Trap kills` = numeric(),
+      `Trap captures` = numeric(),
           `Trap checks` = integer(),
           `Species` = integer(),
           `Traps` = integer(),
@@ -4249,7 +4249,7 @@ mapping_module_server <- function(id,
           Locality = character(),
           `Trap line` = character(),
           Trap = character(),
-          `Trap kills` = numeric(),
+      `Trap captures` = numeric(),
           `Trap checks` = integer(),
           Species = character(),
           `First check` = character(),
@@ -4341,19 +4341,19 @@ mapping_module_server <- function(id,
               .data$.summary_species[.data$.summary_source == "trapping"]
             )),
             `Monitoring count` = sum(.data$.summary_count[.data$.summary_source == "monitoring"], na.rm = TRUE),
-            `Trap kills` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
+        `Trap captures` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
             `Trap checks` = dplyr::n_distinct(.data$.summary_trap_check_id[.data$.summary_source == "trapping" & !is.na(.data$.summary_trap_check_id)]),
             `Localities` = dplyr::n_distinct(.data$.summary_locality),
             .groups = "drop"
           ) %>%
           dplyr::select(-`.summary_species_key`) %>%
-          dplyr::arrange(dplyr::desc(.data$`Trap kills`), dplyr::desc(.data$`Monitoring count`), .data$Species)
+      dplyr::arrange(dplyr::desc(.data$`Trap captures`), dplyr::desc(.data$`Monitoring count`), .data$Species)
 
         locality_summary <- rows %>%
           dplyr::group_by(.data$.summary_locality) %>%
           dplyr::summarise(
             `Monitoring count` = sum(.data$.summary_count[.data$.summary_source == "monitoring"], na.rm = TRUE),
-            `Trap kills` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
+        `Trap captures` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
             `Trap checks` = dplyr::n_distinct(.data$.summary_trap_check_id[.data$.summary_source == "trapping" & !is.na(.data$.summary_trap_check_id)]),
             `Species` = dplyr::n_distinct(.data$.summary_species_key),
             `Traps` = dplyr::n_distinct(.data$.summary_location_id[.data$.summary_source == "trapping" & !is.na(.data$.summary_location_id)]),
@@ -4370,7 +4370,7 @@ mapping_module_server <- function(id,
           trap_rows %>%
             dplyr::group_by(.data$.summary_locality, .data$.summary_trap_line, .data$locationName) %>%
             dplyr::summarise(
-              `Trap kills` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
+            `Trap captures` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
               `Trap checks` = dplyr::n_distinct(.data$.summary_trap_check_id[!is.na(.data$.summary_trap_check_id)]),
               Species = collapse_summary_values(.data$.summary_species[.data$.summary_trap_marker_type == "kill"]),
               `First check` = {
@@ -4396,14 +4396,14 @@ mapping_module_server <- function(id,
         species_columns <- c(
           "Species",
           if (has_monitoring_rows) "Monitoring count",
-          if (has_trap_rows) "Trap kills",
+      if (has_trap_rows) "Trap captures",
           if (has_trap_check_rows) "Trap checks",
           "Localities"
         )
         locality_columns <- c(
           "Locality",
           if (has_monitoring_rows) "Monitoring count",
-          if (has_trap_rows) "Trap kills",
+      if (has_trap_rows) "Trap captures",
           if (has_trap_check_rows) "Trap checks",
           "Species",
           if (has_trap_rows) "Traps"
@@ -4412,7 +4412,7 @@ mapping_module_server <- function(id,
           "Locality",
           "Trap line",
           "Trap",
-          "Trap kills",
+      "Trap captures",
           if (has_trap_check_rows) "Trap checks",
           "Species",
           "First check",
@@ -4547,7 +4547,7 @@ mapping_module_server <- function(id,
             "Exclude possible duplicates",
             "Exclude untrapped species",
             "Include trapping records",
-            "Show trap kill markers",
+            "Show trap capture markers",
             "Show trap check counters",
             "Show unchecked traps",
             "Trap locality distance km",
@@ -4608,7 +4608,7 @@ mapping_module_server <- function(id,
             pageLength = 10,
             searching = TRUE,
             lengthChange = TRUE,
-            order = dt_order_for_columns(rows, c("Trap kills", "Monitoring count", "Species"), "desc")
+          order = dt_order_for_columns(rows, c("Trap captures", "Monitoring count", "Species"), "desc")
           )
         )
       })
@@ -5140,11 +5140,11 @@ update_density_map <- function(map_id = NULL,
           "<strong>Trap: ", location_text, "</strong>",
           if (nzchar(trap_locality_line)) paste0("<br>", trap_locality_line) else "",
           "<br><br><strong>Trapping:</strong>",
-          "<br>Selected-species kills: ", format_marker_value(marker_field("count", i), digits = 0),
+          "<br>Selected-species captures: ", format_marker_value(marker_field("count", i), digits = 0),
           "<br>Overlapping checks: ", format_marker_value(marker_field("trap_checks", i), digits = 0),
           "<br>Coverage: ", htmltools::htmlEscape(format_trap_date_range(marker_field("first_check", i), marker_field("last_check", i), marker_field("check_span_days", i))),
           "<br>Average interval: ", format_marker_value(marker_field("mean_check_interval_days", i), digits = 1), " days",
-          "<br>Kills / 100 trap-days: ", format_marker_value(marker_field("kills_per_100_trap_days_selected_species", i), digits = 2),
+          "<br>Captures / 100 trap-days: ", format_marker_value(marker_field("kills_per_100_trap_days_selected_species", i), digits = 2),
           review_link
         ))
       }
@@ -5298,7 +5298,7 @@ update_density_map <- function(map_id = NULL,
         legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#16a34a;'></span>Monitoring counts</div>")
       }
       if ("trap_kill" %in% visible_layers) {
-        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#dc2626;'></span>Trap kills</div>")
+        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#dc2626;'></span>Trap captures</div>")
       }
 
       format_scale_val <- function(val) {
@@ -6198,7 +6198,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         `vernacularNames.eng` = dplyr::case_when(
           .data$trap_marker_type == "check" & .data$source_kill_flag ~ .data$source_kill_label,
           .data$trap_marker_type == "check" ~
-            "No kill",
+            "No capture",
           TRUE ~ .data$source_kill_label
         ),
         species_class = dplyr::if_else(
@@ -6220,7 +6220,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           .data$trap_marker_type == "check" & .data$source_kill_flag ~
             dplyr::coalesce(outcome, .data$scientificName),
           .data$trap_marker_type == "check" ~
-            "No kill",
+            "No capture",
           TRUE ~ dplyr::coalesce(outcome, .data$scientificName)
         )
       ) %>%
@@ -6522,16 +6522,16 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
   trap_day_rates_html <- if (isTRUE(show_trap_day_rates)) {
     paste0(
       "<div class='trap-popup-metrics'>",
-      selected_label, " kills / 100 trap-days: <strong>",
+      selected_label, " captures / 100 trap-days: <strong>",
       format_trap_metric_rate(trap_record$kills_per_100_trap_days_selected_species), "</strong><br>",
-      "Total kills / 100 trap-days: <strong>",
+      "Total captures / 100 trap-days: <strong>",
       format_trap_metric_rate(trap_record$kills_per_100_trap_days_any_species), "</strong>",
       "</div>"
     )
   } else {
     paste0(
       "<div class='trap-popup-metrics'>",
-      "Kills / 100 trap-days: <strong>not shown</strong><br>",
+      "Captures / 100 trap-days: <strong>not shown</strong><br>",
       "<small>Requires at least 100 days of trap coverage.</small>",
       "</div>"
     )
@@ -6556,8 +6556,8 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
     "<p class='trap-popup-summary'>Overlapping checks: <strong>", check_count,
     "</strong><br>Coverage: <strong>", date_range,
     "</strong><br>Average interval: <strong>", avg_days,
-    " days</strong><br>", selected_label, " kills: <strong>", selected_kills,
-    "</strong><br>Total kills: <strong>", any_kills, "</strong></p>",
+    " days</strong><br>", selected_label, " captures: <strong>", selected_kills,
+    "</strong><br>Total captures: <strong>", any_kills, "</strong></p>",
     trap_day_rates_html
   )
 }
@@ -6896,7 +6896,7 @@ create_trap_kill_summary_marker <- function(trap_record, max_kills) {
   popup_content <- sprintf(
     paste0(
       "<div>",
-      "%s kills at this trap: <strong>%s</strong><br>",
+      "%s captures at this trap: <strong>%s</strong><br>",
       "Trap: %s<br>",
       "Line: %s<br>",
       "%s",
@@ -6910,7 +6910,7 @@ create_trap_kill_summary_marker <- function(trap_record, max_kills) {
     htmltools::htmlEscape(safe_marker_value(trap_record$trap_line)),
     locality_text,
     trap_metrics_popup_html(trap_record, species_label),
-    if (nzchar(kill_links)) paste0("<br><br>Kill records: ", kill_links) else ""
+    if (nzchar(kill_links)) paste0("<br><br>Capture records: ", kill_links) else ""
   )
 
   list(
@@ -7009,19 +7009,19 @@ render_trap_marker_legend <- function(trap_observations, monitoring_observations
   }
 
   group_labels <- c(
-    stoat = "Stoat trap kills",
-    weasel = "Weasel trap kills",
-    ferret = "Ferret trap kills",
-    rat = "Rat trap kills",
-    mouse = "Mouse trap kills",
-    cat = "Cat trap kills",
-    rabbit = "Rabbit trap kills",
-    hedgehog = "Hedgehog trap kills",
-    possum = "Possum trap kills",
-    weka = "Weka trap kills",
-    bird = "Bird trap kills",
-    mustelid = "Mustelid trap kills",
-    other = "Other trap kills"
+    stoat = "Stoat trap captures",
+    weasel = "Weasel trap captures",
+    ferret = "Ferret trap captures",
+    rat = "Rat trap captures",
+    mouse = "Mouse trap captures",
+    cat = "Cat trap captures",
+    rabbit = "Rabbit trap captures",
+    hedgehog = "Hedgehog trap captures",
+    possum = "Possum trap captures",
+    weka = "Weka trap captures",
+    bird = "Bird trap captures",
+    mustelid = "Mustelid trap captures",
+    other = "Other trap captures"
   )
 
   if (length(groups) > 0) {
@@ -7029,7 +7029,7 @@ render_trap_marker_legend <- function(trap_observations, monitoring_observations
       sprintf(
         "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch trap-marker-legend-swatch-%s'></span>%s</div>",
         group,
-        htmltools::htmlEscape(if (group %in% names(group_labels)) unname(group_labels[[group]]) else "Other trap kills")
+        htmltools::htmlEscape(if (group %in% names(group_labels)) unname(group_labels[[group]]) else "Other trap captures")
       )
     }, character(1), USE.NAMES = FALSE))
   }
