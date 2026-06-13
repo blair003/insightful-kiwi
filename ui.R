@@ -18,7 +18,7 @@ ui <- function(request) {
       'monitoring_trapping': true,
       'monitoring_trapping_analysis': true,
       'activity_patterns': true,
-      'raw_data': false
+      'records': false
     };
     
   ")),
@@ -292,8 +292,8 @@ ui <- function(request) {
       ),
 
       conditionalPanel(
-        condition = "input.nav === 'raw_data'",
-        tags$small("Raw data for the entire project across all periods is shown here.")
+        condition = "input.nav === 'records'",
+        tags$small("Records for the entire project across all periods are shown here.")
       ),
 
       species_dashboard_sidebar_controls(),
@@ -307,7 +307,7 @@ ui <- function(request) {
       species_dashboard_nav_menu(),
       
       nav_panel(
-        "Report",
+        "Reports",
         value = "reporting",
         icon = icon("book"),
         
@@ -364,10 +364,10 @@ ui <- function(request) {
         )
       ),
 
-      ######### VISUALISATIONS MENU #########
+      ######### MAP/VISUALISATIONS MENU #########
       nav_menu(
-        title = "Visualisations",
-        icon = icon("chart-bar"),
+        title = "Maps",
+        icon = icon("map"),
 
         ######### DENSITY MAP OUTPUT #########
         nav_panel(
@@ -463,12 +463,12 @@ ui <- function(request) {
         
     
       nav_panel(
-        "Raw Data",
-        value = "raw_data",
+        "Records",
+        value = "records",
         icon = icon("table"),
       
         navset_tab( 
-          id = "raw_data_tabs",
+          id = "records_tabs",
           nav_panel(
             "Observations",
             DT::dataTableOutput("rawdata_observations_browse"),

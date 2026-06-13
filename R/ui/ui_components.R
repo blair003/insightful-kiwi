@@ -25,7 +25,7 @@ species_dashboard_nav_menu <- function() {
     nav_menu,
     c(
       list(
-        title = "Species Dashboards",
+        title = "Species",
         icon = icon("paw")
       ),
       species_dashboard_panels

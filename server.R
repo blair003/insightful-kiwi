@@ -259,7 +259,7 @@ server <- function(input, output, session) {
         density_timeline_map = input[["density_timeline_map-density_timeline_tabs"]],
         observation_map = input[["observation_map-observation_map_tabs"]],
         activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
-        raw_data = input$raw_data_tabs,
+        records = input$records_tabs,
         NULL
       )
 
@@ -507,8 +507,8 @@ server <- function(input, output, session) {
                      table_type = "paged",
                      table_order = list(list(4, 'asc')),
                      render_when = function() {
-                       identical(input$nav, "raw_data") &&
-                         identical(input$raw_data_tabs, "deps")
+                       identical(input$nav, "records") &&
+                         identical(input$records_tabs, "deps")
                      },
                      cache_prepared_data = TRUE) 
   
@@ -519,8 +519,8 @@ server <- function(input, output, session) {
                      table_type = "paged",
                      table_order = list(list(4, 'asc')),
                      render_when = function() {
-                       identical(input$nav, "raw_data") &&
-                         identical(input$raw_data_tabs, "obs")
+                       identical(input$nav, "records") &&
+                         identical(input$records_tabs, "obs")
                      },
                      cache_prepared_data = TRUE) 
 
@@ -686,7 +686,7 @@ server <- function(input, output, session) {
       "state",
       "rawdata_obs_search",
       "rawdata_deps_search",
-      "raw_data_tabs",
+      "records_tabs",
       "observation_id",
       "view_mode",
       "rai_detail",
@@ -813,8 +813,8 @@ server <- function(input, output, session) {
 #    reporting_rendering_module_ui("current_tables", "reporting_camera_network_overview")
 #  })
 #  
-#  output$reporting_raw_data_browse <- renderUI({
-#    reporting_rendering_module_ui("current_tables", "reporting_raw_data_browse")
+#  output$reporting_records_browse <- renderUI({
+#    reporting_rendering_module_ui("current_tables", "reporting_records_browse")
 #  })
   
 
@@ -988,8 +988,8 @@ server <- function(input, output, session) {
 
     query_tab <- if (!is.null(query$tab) && nzchar(query$tab)) {
       query$tab
-    } else if (!is.null(query$raw_data_tabs) && nzchar(query$raw_data_tabs)) {
-      query$raw_data_tabs
+    } else if (!is.null(query$records_tabs) && nzchar(query$records_tabs)) {
+      query$records_tabs
     } else {
       NULL
     }
@@ -1002,7 +1002,7 @@ server <- function(input, output, session) {
         density_timeline_map = "density_timeline_map-density_timeline_tabs",
         observation_map = "observation_map-observation_map_tabs",
         activity_patterns = "activity_patterns-activity_patterns_tabs",
-        raw_data = "raw_data_tabs",
+        records = "records_tabs",
         NULL
       )
 
@@ -1237,6 +1237,15 @@ server <- function(input, output, session) {
     isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]])
   })
 
+  density_data_source <- reactive({
+    include_monitoring <- if (is.null(input[["density_map_primary-include_monitoring_records"]])) TRUE else isTRUE(input[["density_map_primary-include_monitoring_records"]])
+    include_trapping <- isTRUE(input[["density_map_primary-include_trap_data"]]) && !is.null(trap_data)
+    if (include_monitoring && include_trapping) return("both")
+    if (include_trapping) return("trapping")
+    if (include_monitoring) return("monitoring")
+    "none"
+  })
+
   density_max_location_count <- function(observations, species, localities) {
     if (is.null(observations) || nrow(observations) == 0 ||
         is.null(species) || length(species) == 0 ||
@@ -1308,21 +1317,24 @@ server <- function(input, output, session) {
   density_comparison_scale_max <- reactive({
     species <- input[["density_map_primary-selected_species"]]
     localities <- input[["density_map_primary-selected_localities"]]
-    data_source <- input[["density_map_primary-density_data_source"]]
-    if (is.null(data_source) || !data_source %in% c("monitoring", "trapping")) {
-      data_source <- "monitoring"
-    }
-
-    max_values <- if (identical(data_source, "trapping")) {
-      c(
-        density_max_trap_kills(density_map_period, species, localities),
-        density_max_trap_kills(comparative_period, species, localities)
-      )
-    } else {
-      c(
+    data_source <- density_data_source()
+    max_values <- c()
+    if (data_source %in% c("monitoring", "both")) {
+      max_values <- c(
+        max_values,
         density_max_location_count(filtered_obs_density_map(), species, localities),
         density_max_location_count(filtered_obs_comparative(), species, localities)
       )
+    }
+    if (data_source %in% c("trapping", "both")) {
+      max_values <- c(
+        max_values,
+        density_max_trap_kills(density_map_period, species, localities),
+        density_max_trap_kills(comparative_period, species, localities)
+      )
+    }
+    if (length(max_values) == 0) {
+      return(0)
     }
 
     max_value <- max(max_values, na.rm = TRUE)
@@ -1384,7 +1396,7 @@ server <- function(input, output, session) {
         prediction_surface_override = density_map_primary$show_predicted_rai_surface,
         prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
         location_markers_override = density_map_primary$show_density_location_markers,
-        density_data_source_override = density_map_primary$density_data_source,
+        density_data_source_override = density_data_source,
         trap_distance_override = density_trap_distance,
         trap_check_counters_override = density_show_trap_check_counters,
         unchecked_traps_override = density_show_unchecked_traps,
