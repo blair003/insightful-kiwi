@@ -8,7 +8,7 @@ if (!requireNamespace("pak", quietly = TRUE)) {
 }
 
 # Removed
-#   "shinydashboard",
+#   "shinyoverview",
 #   "leaflet.extras",
 #   "shinyWidgets",
 #   "purrr",

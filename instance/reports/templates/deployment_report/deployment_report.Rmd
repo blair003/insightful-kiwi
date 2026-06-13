@@ -230,7 +230,7 @@ for(locality in names(params$data$plots)) {
 
 # Results Summary, by Locality
 
-This section shows summary results grouped by Locality. The final row of each table showing overall aggregate data has been calculated based on the data across the entire the deployment selection period, it is not just an aggregation of the result shown for each Locality. This ensures aggregate mean and percentage calculations are accurate.
+This section shows summary results grouped by Locality. The final row of each table showing aggregate data has been calculated based on the data across the entire the deployment selection period, it is not just an aggregation of the result shown for each Locality. This ensures aggregate mean and percentage calculations are accurate.
 
 ```{r locality_deployments_overview, results='asis', echo=FALSE}
 # Extract the data, caption, and potentially other necessary information

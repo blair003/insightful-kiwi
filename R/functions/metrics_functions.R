@@ -959,7 +959,7 @@ generate_rai_group_period_comparison <- function(obs,
     )
   }
 
-  overall_state <- function(comparisons) {
+  alltime_state <- function(comparisons) {
     states <- vapply(comparisons, function(x) x$state, character(1))
     states <- states[states != "unavailable"]
 
@@ -1083,7 +1083,7 @@ generate_rai_group_period_comparison <- function(obs,
     prior_period = compare_periods(current_metric, prior_metric),
     matching_prior_season = compare_periods(current_metric, matching_prior_season_metric)
   )
-  comparison_state <- overall_state(comparisons)
+  comparison_state <- alltime_state(comparisons)
   comparison_message <- paste(
     vapply(comparisons, function(x) x$message, character(1)),
     collapse = "\n"

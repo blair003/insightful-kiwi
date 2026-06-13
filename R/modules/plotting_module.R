@@ -216,7 +216,7 @@ plotting_module_server <- function(id,
     selected_rai_group <- reactive({
       if ((is.null(input$selected_rai_group) || length(input$selected_rai_group) == 0) &&
           !is.null(rai_groups) && length(rai_groups) > 0) {
-        default_groups <- config$globals$dashboard_rai_history_default_groups
+        default_groups <- config$globals$overview_rai_history_default_groups
         default_groups <- intersect(default_groups, names(rai_groups))
         if (length(default_groups) > 0) {
           return(default_groups)

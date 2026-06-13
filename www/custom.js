@@ -428,12 +428,12 @@
         }
 
         function currentTabForNav(nav) {
-          if (nav && nav.indexOf('species_dashboard_') === 0) {
-            return inputValue(nav + '-dashboard_tabs');
+          if (nav && nav.indexOf('species_overview_') === 0) {
+            return inputValue(nav + '-overview_tabs');
           }
 
           var tabInputs = {
-            dashboard: 'dashboard-main_dashboard_tabs',
+            overview: 'overview-main_overview_tabs',
             reporting: 'reporting_tabs',
             density_map: 'density_map_comparison-density_comparison_tabs',
             observation_map: 'observation_map-observation_map_tabs',
@@ -449,9 +449,9 @@
             return false;
           }
 
-          if (nav === 'dashboard') {
-            return /^main_dashboard_(current|prior|last_year)_period-period_selection$/.test(id) ||
-              /^dashboard_rai_plot-/.test(id);
+          if (nav === 'overview') {
+            return /^main_overview_(current|prior|last_year)_period-period_selection$/.test(id) ||
+              /^overview_rai_plot-/.test(id);
           }
 
           if (nav === 'reporting') {
@@ -476,12 +476,12 @@
 
           if (nav === 'activity_patterns') {
             return /^activity_patterns_map-(selected_species|selected_localities)$/.test(id) ||
-              /^main_dashboard_(current|prior|last_year)_period-period_selection$/.test(id);
+              /^main_overview_(current|prior|last_year)_period-period_selection$/.test(id);
           }
 
-          if (nav && nav.indexOf('species_dashboard_') === 0) {
+          if (nav && nav.indexOf('species_overview_') === 0) {
             return id.indexOf(nav + '-') === 0 &&
-              id !== nav + '-dashboard_tabs' &&
+              id !== nav + '-overview_tabs' &&
               !/_rows_|_cell_|_state$|_columns_|_cells_/.test(id);
           }
 
@@ -643,7 +643,7 @@
             }
 
             var carouselElements = Array.prototype.slice.call(document.querySelectorAll(
-              '.dashboard-favourites-hero, #slickSlider'
+              '.overview-favourites-hero, #slickSlider'
             ));
             var hiddenElements = [];
 
@@ -653,7 +653,7 @@
               }
 
               var heading = element.previousElementSibling;
-              if (heading && heading.classList && heading.classList.contains('dashboard-section-heading')) {
+              if (heading && heading.classList && heading.classList.contains('overview-section-heading')) {
                 saveAndSetStyle(heading, { display: 'none' });
                 hiddenElements.push(heading);
               }
@@ -1097,9 +1097,9 @@
 
 function toggleSidebar(navValue, defaultSidebarState) {
   if (window.innerWidth > 768) {
-    if (navValue && navValue.indexOf('species_dashboard_') === 0) {
+    if (navValue && navValue.indexOf('species_overview_') === 0) {
       if ($('.collapse-toggle').attr('aria-expanded') === 'true') {
-        console.log('Collapsing the sidebar for species dashboard.');
+        console.log('Collapsing the sidebar for species overview.');
         $('.collapse-toggle').click();
       }
       return;
@@ -1156,14 +1156,14 @@ function initImageSlider(sliderId) {
   });
 }
 
-function dashboardHeroSliderById(sliderId) {
+function overviewHeroSliderById(sliderId) {
   var escapedId = $.escapeSelector ? $.escapeSelector(sliderId) : sliderId.replace(/(:|\.|\[|\]|,|=|@)/g, "\\$1");
   return $("#" + escapedId);
 }
 
-function initDashboardHeroSlider(sliderId) {
+function initOverviewHeroSlider(sliderId) {
   function initialize() {
-    var slider = dashboardHeroSliderById(sliderId);
+    var slider = overviewHeroSliderById(sliderId);
 
     if (!slider.length || !$.fn.slick) {
       return;
@@ -1221,8 +1221,8 @@ function initDashboardHeroSlider(sliderId) {
 
   $(document).ready(function() {
     window.setTimeout(initialize, 0);
-    $(document).off("shown.bs.tab.dashboardHero").on("shown.bs.tab.dashboardHero", function() {
-      var sliders = $(".dashboard-favourites-slider.slick-initialized");
+    $(document).off("shown.bs.tab.overviewHero").on("shown.bs.tab.overviewHero", function() {
+      var sliders = $(".overview-favourites-slider.slick-initialized");
       if (sliders.length) {
         window.setTimeout(function() {
           sliders.slick("setPosition");
@@ -1232,24 +1232,24 @@ function initDashboardHeroSlider(sliderId) {
   });
 }
 
-function pauseDashboardHeroSlider(sliderId) {
-  var slider = dashboardHeroSliderById(sliderId);
+function pauseOverviewHeroSlider(sliderId) {
+  var slider = overviewHeroSliderById(sliderId);
   if (slider.length && slider.hasClass("slick-initialized")) {
     slider.slick("slickPause");
     slider.data("pausedByReviewModal", true);
   }
 }
 
-function resumeDashboardHeroSlider(sliderId) {
-  var slider = dashboardHeroSliderById(sliderId);
+function resumeOverviewHeroSlider(sliderId) {
+  var slider = overviewHeroSliderById(sliderId);
   if (slider.length && slider.hasClass("slick-initialized") && slider.data("pausedByReviewModal")) {
     slider.slick("slickPlay");
     slider.data("pausedByReviewModal", false);
   }
 }
 
-function resumePausedDashboardHeroSliders() {
-  $(".dashboard-favourites-slider.slick-initialized").each(function() {
+function resumePausedOverviewHeroSliders() {
+  $(".overview-favourites-slider.slick-initialized").each(function() {
     var slider = $(this);
     if (slider.data("pausedByReviewModal")) {
       slider.slick("slickPlay");
@@ -1259,7 +1259,7 @@ function resumePausedDashboardHeroSliders() {
 }
 
 $(document).on("hidden.bs.modal", function() {
-  resumePausedDashboardHeroSliders();
+  resumePausedOverviewHeroSliders();
 });
 
 function copyToClipboard(text, btn) {

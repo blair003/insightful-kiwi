@@ -33,7 +33,7 @@ build_core_data_from_source <- function(config) {
     trapping_data_updated = empty_core_data_build_datetime(config),
     daylight_classification = "suncalc_v1",
     cache_invalidation_signature = core_data_cache_invalidation_signature(config),
-    diel_thresholds = config_species_dashboard_diel_thresholds(config),
+    diel_thresholds = config_species_overview_diel_thresholds(config),
     status = list(
       weather_data = list(status = "not_started", required = NA_integer_, available = 0L, missing = NA_integer_)
     )

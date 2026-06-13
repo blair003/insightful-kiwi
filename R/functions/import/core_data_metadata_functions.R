@@ -46,7 +46,7 @@ core_data_cache_invalidation_signature <- function(config) {
   )
 }
 
-default_species_dashboard_diel_thresholds <- function() {
+default_species_overview_diel_thresholds <- function() {
   list(
     insufficient_n = 30,
     normal_confidence_n = 60,
@@ -57,8 +57,8 @@ default_species_dashboard_diel_thresholds <- function() {
   )
 }
 
-normalise_species_dashboard_diel_thresholds <- function(thresholds = NULL) {
-  defaults <- default_species_dashboard_diel_thresholds()
+normalise_species_overview_diel_thresholds <- function(thresholds = NULL) {
+  defaults <- default_species_overview_diel_thresholds()
   if (is.null(thresholds)) {
     return(defaults)
   }
@@ -74,9 +74,9 @@ normalise_species_dashboard_diel_thresholds <- function(thresholds = NULL) {
   resolved
 }
 
-config_species_dashboard_diel_thresholds <- function(config) {
-  normalise_species_dashboard_diel_thresholds(
-    config_global_value(config, "species_dashboard_diel_thresholds")
+config_species_overview_diel_thresholds <- function(config) {
+  normalise_species_overview_diel_thresholds(
+    config_global_value(config, "species_overview_diel_thresholds")
   )
 }
 

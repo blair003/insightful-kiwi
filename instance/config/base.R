@@ -51,11 +51,11 @@ config$globals <- list(
   # in minutes (decimal), used for the possible duplicate logic
   dup_detect_threshold = 30.1,
 
-  # Near-miss window for species dashboard Kiwi co-occurrence checks, in minutes
+  # Near-miss window for species overview Kiwi co-occurrence checks, in minutes
   kiwi_near_miss_minutes = 60,
 
-  # Thresholds used by the species dashboard diel activity classification card.
-  species_dashboard_diel_thresholds = list(
+  # Thresholds used by the species overview diel activity classification card.
+  species_overview_diel_thresholds = list(
     insufficient_n = 30,
     normal_confidence_n = 60,
     dominant_share = 0.60,
@@ -64,22 +64,22 @@ config$globals <- list(
     cathemeral_day_night_share = 0.25
   ),
 
-  # TRUE shows dashboard weather cards separately for each locality when localities are
+  # TRUE shows overview weather cards separately for each locality when localities are
   # not combined. FALSE shows one weather summary for the selected network.
-  dashboard_weather_by_locality = FALSE,
+  overview_weather_by_locality = FALSE,
 
-  # Assumptions used by the dashboard estimate of volunteer time required to
+  # Assumptions used by the overview estimate of volunteer time required to
   # operate the project for the selected period/locality.
-  dashboard_volunteer_hours = list(
+  overview_volunteer_hours = list(
     deployment_setup_minutes = 30,
     deployment_retrieval_minutes = 25,
     data_check_upload_minutes_per_deployment = 15,
     annotation_seconds_per_observation = 12
   ),
 
-  # Optional override for classifier labels shown on the dashboard. Names should
+  # Optional override for classifier labels shown on the overview. Names should
   # match classifiedBy values; values should be short display labels.
-  dashboard_classifier_display_names = list(),
+  overview_classifier_display_names = list(),
   
   # Show RAI calculations based on net individuals count (excluding duplicates)
   use_net_data = TRUE,
@@ -254,8 +254,8 @@ config$globals <- list(
     )
   ),
 
-  # Initial species groups shown in the dashboard RAI history graph.
-  dashboard_rai_history_default_groups = c("Kiwi", "Mustelids"),
+  # Initial species groups shown in the overview RAI history graph.
+  overview_rai_history_default_groups = c("Kiwi", "Mustelids"),
   
   # Any species not in a class will be put into a class with this name
   spp_class_unclassified = "other",

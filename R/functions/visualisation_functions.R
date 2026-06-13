@@ -102,7 +102,7 @@ create_species_observation_density_grid <- function(obs, locality = NULL) {
 theme_insightful_report <- function(base_size = 12) {
   theme_minimal(base_size = base_size) %+replace%
     theme(
-      # Set the overall plot background
+      # Set the alltime plot background
       plot.background = element_rect(fill = "white", color = NA),  # Ensure full plot background is white
 
       # Title and padding adjustments

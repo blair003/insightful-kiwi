@@ -1,4 +1,4 @@
-species_dashboard_period_defaults <- function(core_data) {
+species_overview_period_defaults <- function(core_data) {
   period_names <- period_names_without_all(core_data$period_groups)
   current_period <- period_name_from_index(
     core_data$period_groups,
@@ -30,16 +30,16 @@ species_dashboard_period_defaults <- function(core_data) {
   )
 }
 
-species_dashboard_diel_levels <- c("Matutinal", "Diurnal", "Vespertine", "Nocturnal")
+species_overview_diel_levels <- c("Matutinal", "Diurnal", "Vespertine", "Nocturnal")
 
-species_dashboard_diel_colours <- c(
+species_overview_diel_colours <- c(
   Matutinal = "#f0ad4e",
   Diurnal = "#2b8cbe",
   Vespertine = "#d95f0e",
   Nocturnal = "#4b5563"
 )
 
-species_dashboard_diel_thresholds <- function(core_data) {
+species_overview_diel_thresholds <- function(core_data) {
   if (is.null(core_data) || is.null(core_data$app)) {
     stop("core_data$app$diel_thresholds is missing. Rebuild core_data.", call. = FALSE)
   }
@@ -49,12 +49,12 @@ species_dashboard_diel_thresholds <- function(core_data) {
     stop("core_data$app$diel_thresholds is missing. Rebuild core_data.", call. = FALSE)
   }
 
-  normalise_species_dashboard_diel_thresholds(thresholds)
+  normalise_species_overview_diel_thresholds(thresholds)
 }
 
-species_dashboard_empty_diel_summary <- function(reason = "No data") {
+species_overview_empty_diel_summary <- function(reason = "No data") {
   data.frame(
-    diel_class = species_dashboard_diel_levels,
+    diel_class = species_overview_diel_levels,
     observations = 0,
     effort_hours = 0,
     rate = 0,
@@ -70,7 +70,7 @@ species_dashboard_empty_diel_summary <- function(reason = "No data") {
     )
 }
 
-species_dashboard_diel_period_intervals <- function(daylight_row) {
+species_overview_diel_period_intervals <- function(daylight_row) {
   timezone <- if (exists("daylight_timezone", mode = "function", inherits = TRUE)) daylight_timezone() else weather_playback_timezone()
   day_start <- as.POSIXct(as.Date(daylight_row$date), tz = timezone)
   day_end <- day_start + 24 * 60 * 60
@@ -98,8 +98,8 @@ species_dashboard_diel_period_intervals <- function(daylight_row) {
   )
 }
 
-species_dashboard_diel_effort_hours <- function(deps_data, environment_daily, period_start = NULL, period_end = NULL) {
-  empty_effort <- stats::setNames(rep(0, length(species_dashboard_diel_levels)), species_dashboard_diel_levels)
+species_overview_diel_effort_hours <- function(deps_data, environment_daily, period_start = NULL, period_end = NULL) {
+  empty_effort <- stats::setNames(rep(0, length(species_overview_diel_levels)), species_overview_diel_levels)
   if (is.null(deps_data) || nrow(deps_data) == 0 ||
       is.null(environment_daily) || nrow(environment_daily) == 0 ||
       !all(c("locationID", "start", "end") %in% names(deps_data)) ||
@@ -150,7 +150,7 @@ species_dashboard_diel_effort_hours <- function(deps_data, environment_daily, pe
     }
 
     for (daylight_index in seq_len(nrow(deployment_daylight))) {
-      intervals <- species_dashboard_diel_period_intervals(deployment_daylight[daylight_index, ])
+      intervals <- species_overview_diel_period_intervals(deployment_daylight[daylight_index, ])
       if (is.null(intervals) || nrow(intervals) == 0) {
         next
       }
@@ -167,10 +167,10 @@ species_dashboard_diel_effort_hours <- function(deps_data, environment_daily, pe
     }
   }
 
-  effort_hours[species_dashboard_diel_levels]
+  effort_hours[species_overview_diel_levels]
 }
 
-species_dashboard_classify_diel_activity <- function(rate_share, sample_size, thresholds = species_dashboard_diel_thresholds()) {
+species_overview_classify_diel_activity <- function(rate_share, sample_size, thresholds = species_overview_diel_thresholds()) {
 
   if (sample_size < thresholds$insufficient_n) {
     return(list(
@@ -216,20 +216,20 @@ species_dashboard_classify_diel_activity <- function(rate_share, sample_size, th
   )
 }
 
-species_dashboard_diel_summary <- function(species_obs, deps_data, environment_daily, period_start = NULL, period_end = NULL, thresholds = species_dashboard_diel_thresholds()) {
+species_overview_diel_summary <- function(species_obs, deps_data, environment_daily, period_start = NULL, period_end = NULL, thresholds = species_overview_diel_thresholds()) {
   if (is.null(species_obs) || nrow(species_obs) == 0 || !"diel_class" %in% names(species_obs)) {
-    return(species_dashboard_empty_diel_summary("No observations in this selection"))
+    return(species_overview_empty_diel_summary("No observations in this selection"))
   }
 
   valid_obs <- species_obs %>%
-    dplyr::filter(.data$diel_class %in% species_dashboard_diel_levels)
+    dplyr::filter(.data$diel_class %in% species_overview_diel_levels)
   sample_size <- nrow(valid_obs)
   if (sample_size == 0) {
-    return(species_dashboard_empty_diel_summary("No classified diel observations in this selection"))
+    return(species_overview_empty_diel_summary("No classified diel observations in this selection"))
   }
 
-  observation_counts <- table(factor(valid_obs$diel_class, levels = species_dashboard_diel_levels))
-  effort_hours <- species_dashboard_diel_effort_hours(deps_data, environment_daily, period_start, period_end)
+  observation_counts <- table(factor(valid_obs$diel_class, levels = species_overview_diel_levels))
+  effort_hours <- species_overview_diel_effort_hours(deps_data, environment_daily, period_start, period_end)
   has_effort <- any(effort_hours > 0, na.rm = TRUE)
 
   rates <- if (has_effort) {
@@ -237,11 +237,11 @@ species_dashboard_diel_summary <- function(species_obs, deps_data, environment_d
   } else {
     as.numeric(observation_counts)
   }
-  names(rates) <- species_dashboard_diel_levels
+  names(rates) <- species_overview_diel_levels
 
   rate_total <- sum(rates, na.rm = TRUE)
   rate_share <- if (rate_total > 0) rates / rate_total else stats::setNames(rep(0, length(rates)), names(rates))
-  classification_info <- species_dashboard_classify_diel_activity(rate_share, sample_size, thresholds)
+  classification_info <- species_overview_classify_diel_activity(rate_share, sample_size, thresholds)
   confidence_note <- dplyr::case_when(
     identical(classification_info$confidence, "insufficient") ~ sprintf(
       "Fewer than %d observations in this selection.",
@@ -262,7 +262,7 @@ species_dashboard_diel_summary <- function(species_obs, deps_data, environment_d
   }
 
   data.frame(
-    diel_class = species_dashboard_diel_levels,
+    diel_class = species_overview_diel_levels,
     observations = as.integer(observation_counts),
     effort_hours = as.numeric(effort_hours),
     rate = as.numeric(rates),
@@ -278,7 +278,7 @@ species_dashboard_diel_summary <- function(species_obs, deps_data, environment_d
     )
 }
 
-species_dashboard_possible_duplicate_queue <- function(species_obs) {
+species_overview_possible_duplicate_queue <- function(species_obs) {
   if (is.null(species_obs) || nrow(species_obs) == 0 ||
       !"possible_duplicate" %in% names(species_obs) ||
       !"observationID" %in% names(species_obs) ||
@@ -345,7 +345,7 @@ species_dashboard_possible_duplicate_queue <- function(species_obs) {
     dplyr::pull(.data$observationID)
 }
 
-species_dashboard_observations_table_data <- function(species_obs) {
+species_overview_observations_table_data <- function(species_obs) {
   table_fields <- c(
     "locality",
     "line",
@@ -380,10 +380,10 @@ species_dashboard_observations_table_data <- function(species_obs) {
   )$table_data
 }
 
-species_dashboard_module_ui <- function(id) {
+species_overview_module_ui <- function(id) {
   ns <- NS(id)
 
-  species_dashboard_period_ui <- function(prefix, title, value, include_rai = FALSE, include_favourites = FALSE) {
+  species_overview_period_ui <- function(prefix, title, value, include_rai = FALSE, include_favourites = FALSE) {
     nav_panel(
       title = title,
       value = value,
@@ -398,39 +398,39 @@ species_dashboard_module_ui <- function(id) {
           br(),
           if (isTRUE(include_rai)) {
             card(
-              class = "dashboard-plot-card",
+              class = "overview-plot-card",
               card_header(tagList(
                 div(
-                  class = "dashboard-card-header-with-controls",
+                  class = "overview-card-header-with-controls",
                   div(
-                    class = "dashboard-card-header-title",
+                    class = "overview-card-header-title",
                     icon("chart-line"),
                     "RAI history"
                   ),
                   div(
-                    class = "dashboard-card-header-controls",
-                    plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot_inline_options")
+                    class = "overview-card-header-controls",
+                    plotting_module_ui(id = ns("alltime_rai_plot"), view = "rai_plot_inline_options")
                   )
                 )
               )),
               div(
                 class = "rai-plot-area-with-info",
-                uiOutput(ns("overall_rai_plot_basis_link"), inline = TRUE),
-                plotting_module_ui(id = ns("overall_rai_plot"), view = "rai_plot")
+                uiOutput(ns("alltime_rai_plot_basis_link"), inline = TRUE),
+                plotting_module_ui(id = ns("alltime_rai_plot"), view = "rai_plot")
               ),
-              uiOutput(ns("overall_rai_plot_count_basis_footer")),
+              uiOutput(ns("alltime_rai_plot_count_basis_footer")),
               full_screen = FALSE
             )
           },
           if (isTRUE(include_favourites)) {
-            uiOutput(ns("overall_favourite_images"))
+            uiOutput(ns("alltime_favourite_images"))
           }
         ),
         nav_panel(
           "Behaviour",
           value = "behaviour",
           br(),
-          div(class = "dashboard-section-heading", "BEHAVIOURAL ANALYSIS"),
+          div(class = "overview-section-heading", "BEHAVIOURAL ANALYSIS"),
           layout_column_wrap(
             width = 1/3,
             card(
@@ -453,14 +453,14 @@ species_dashboard_module_ui <- function(id) {
             class = "species-observations-card",
             card_header(
               div(
-                class = "dashboard-card-header-with-controls",
+                class = "overview-card-header-with-controls",
                 div(
-                  class = "dashboard-card-header-title",
+                  class = "overview-card-header-title",
                   icon("table"),
                   "Animal Observations"
                 ),
                 div(
-                  class = "dashboard-card-header-controls",
+                  class = "overview-card-header-controls",
                   uiOutput(ns(paste0(prefix, "_duplicate_review_control")))
                 )
               )
@@ -474,7 +474,7 @@ species_dashboard_module_ui <- function(id) {
           value = "map",
           br(),
           card(
-            class = "dashboard-plot-card",
+            class = "overview-plot-card",
             card_header(uiOutput(ns(paste0("species_density_map_", prefix, "_header")))),
             mapping_module_ui(id = ns(paste0("species_density_map_", prefix)), view = "map"),
             full_screen = FALSE
@@ -485,19 +485,19 @@ species_dashboard_module_ui <- function(id) {
   }
 
   tagList(
-    uiOutput(ns("dashboard_header")),
+    uiOutput(ns("overview_header")),
 
     navset_tab(
-      id = ns("dashboard_tabs"),
-      species_dashboard_period_ui("overall", "Overall", "overall", include_rai = TRUE, include_favourites = TRUE),
-      species_dashboard_period_ui("current", textOutput(ns("current_period_name"), inline = TRUE), "current_period"),
-      species_dashboard_period_ui("prior", textOutput(ns("prior_period_name"), inline = TRUE), "prior_period"),
-      species_dashboard_period_ui("last_year", textOutput(ns("last_year_period_name"), inline = TRUE), "last_year_period")
+      id = ns("overview_tabs"),
+      species_overview_period_ui("alltime", "All Time", "alltime", include_rai = TRUE, include_favourites = TRUE),
+      species_overview_period_ui("current", textOutput(ns("current_period_name"), inline = TRUE), "current_period"),
+      species_overview_period_ui("prior", textOutput(ns("prior_period_name"), inline = TRUE), "prior_period"),
+      species_overview_period_ui("last_year", textOutput(ns("last_year_period_name"), inline = TRUE), "last_year_period")
     )
   )
 }
 
-species_dashboard_module_server <- function(id,
+species_overview_module_server <- function(id,
                                             species_name,
                                             vernacular_name,
                                             obs,
@@ -508,10 +508,10 @@ species_dashboard_module_server <- function(id,
                                             initial_rai_detail = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    diel_threshold_config <- species_dashboard_diel_thresholds(core_data)
+    diel_threshold_config <- species_overview_diel_thresholds(core_data)
 
     selected_localities <- reactive({
-      localities <- input[["overall_rai_plot-selected_localities"]]
+      localities <- input[["alltime_rai_plot-selected_localities"]]
       if (is.null(localities) || length(localities) == 0) {
         return(unique(as.character(core_data$deps$locality)))
       }
@@ -519,11 +519,11 @@ species_dashboard_module_server <- function(id,
       as.character(localities)
     })
 
-    filter_dashboard_obs <- function(obs_data) {
+    filter_overview_obs <- function(obs_data) {
       obs_data %>% dplyr::filter(.data$locality %in% selected_localities())
     }
 
-    filter_dashboard_deps <- function(deps_data) {
+    filter_overview_deps <- function(deps_data) {
       deps_data %>% dplyr::filter(.data$locality %in% selected_localities())
     }
 
@@ -538,7 +538,7 @@ species_dashboard_module_server <- function(id,
     }
 
     combine_localities_selected <- reactive({
-      combine_localities <- input[["overall_rai_plot-combine_localities"]]
+      combine_localities <- input[["alltime_rai_plot-combine_localities"]]
       is.null(combine_localities) || isTRUE(combine_localities)
     })
 
@@ -568,16 +568,16 @@ species_dashboard_module_server <- function(id,
       )
     }
 
-    output$overall_rai_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
-    output$overall_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$alltime_rai_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
+    output$alltime_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
     output$current_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
     output$prior_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
     output$last_year_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
-    output$overall_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
+    output$alltime_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
     output$current_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
     output$prior_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
     output$last_year_observations_table_count_basis_footer <- renderUI({ render_species_observations_table_note() })
-    output$species_density_map_overall_header <- renderUI({ render_species_density_map_header() })
+    output$species_density_map_alltime_header <- renderUI({ render_species_density_map_header() })
     output$species_density_map_current_header <- renderUI({ render_species_density_map_header() })
     output$species_density_map_prior_header <- renderUI({ render_species_density_map_header() })
     output$species_density_map_last_year_header <- renderUI({ render_species_density_map_header() })
@@ -605,15 +605,15 @@ species_dashboard_module_server <- function(id,
       )
     }
 
-    output$overall_rai_plot_basis_link <- renderUI({
+    output$alltime_rai_plot_basis_link <- renderUI({
       rai_calculation_basis_link("ALL")
     })
 
-    output$overall_favourite_images <- renderUI({
-      hero <- render_dashboard_favourites_hero(
+    output$alltime_favourite_images <- renderUI({
+      hero <- render_overview_favourites_hero(
         context = "species",
         species = species_name,
-        slider_id = ns("overall_favourites_slider")
+        slider_id = ns("alltime_favourites_slider")
       )
 
       if (is.null(hero)) {
@@ -621,7 +621,7 @@ species_dashboard_module_server <- function(id,
       }
 
       tagList(
-        div(class = "dashboard-section-heading", "FAVOURITE IMAGES"),
+        div(class = "overview-section-heading", "FAVOURITE IMAGES"),
         hero
       )
     })
@@ -839,7 +839,7 @@ species_dashboard_module_server <- function(id,
           style = sprintf(
             "width: %.4f%%; background-color: %s;",
             width,
-            species_dashboard_diel_colours[[row$diel_class]]
+            species_overview_diel_colours[[row$diel_class]]
           ),
           title = sprintf(
             "%s: %.1f%% of effort-normalised rate",
@@ -861,7 +861,7 @@ species_dashboard_module_server <- function(id,
             class = "diel-activity-legend-item",
             tags$span(
               class = "diel-activity-legend-swatch",
-              style = sprintf("background-color: %s;", species_dashboard_diel_colours[[row$diel_class]])
+              style = sprintf("background-color: %s;", species_overview_diel_colours[[row$diel_class]])
             ),
             tags$span(row$diel_class),
             tags$span(sprintf("%.0f%%", row$rate_share * 100), class = "diel-activity-legend-value")
@@ -872,7 +872,7 @@ species_dashboard_module_server <- function(id,
 
     render_diel_activity_card <- function(summary_data) {
       if (is.null(summary_data) || nrow(summary_data) == 0) {
-        summary_data <- species_dashboard_empty_diel_summary()
+        summary_data <- species_overview_empty_diel_summary()
       }
 
       classification <- summary_data$classification[[1]]
@@ -909,7 +909,7 @@ species_dashboard_module_server <- function(id,
       showModal(modalDialog(
         title = "Diel activity classification",
         tags$p(
-          "This card classifies the selected species for the current dashboard selection. Observation counts use the same count basis as the dashboard: net observations when net data is enabled."
+          "This card classifies the selected species for the current overview selection. Observation counts use the same count basis as the overview: net observations when net data is enabled."
         ),
         tags$h5("Diel Periods"),
         tags$table(
@@ -977,7 +977,7 @@ species_dashboard_module_server <- function(id,
       } else {
         0
       }
-      review_ids <- species_dashboard_possible_duplicate_queue(species_obs)
+      review_ids <- species_overview_possible_duplicate_queue(species_obs)
 
       if (length(review_ids) == 0) {
         return(tags$button(
@@ -1017,7 +1017,7 @@ species_dashboard_module_server <- function(id,
     }
 
     render_species_observations_table <- function(species_obs) {
-      table_data <- species_dashboard_observations_table_data(species_obs)
+      table_data <- species_overview_observations_table_data(species_obs)
       table_options <- list(
         pageLength = 25,
         searching = TRUE,
@@ -1038,12 +1038,12 @@ species_dashboard_module_server <- function(id,
       )
     }
 
-    # Dashboard Header
-    output$dashboard_header <- renderUI({
+    # Overview Header
+    output$overview_header <- renderUI({
       tagList(
-        h2(sprintf("%s Dashboard", str_to_title(vernacular_name))),
+        h2(sprintf("%s Overview", str_to_title(vernacular_name))),
         h4(em(species_name)),
-        div(class = "dashboard-locality-heading", selected_locality_label())
+        div(class = "overview-locality-heading", selected_locality_label())
       )
     })
 
@@ -1141,8 +1141,8 @@ species_dashboard_module_server <- function(id,
                                !is.na(period_name_label) &&
                                period_name_label != "ALL" &&
                                period_name_label %in% names(core_data$period_groups)) {
-        render_dashboard_period_dates_card(
-          summarise_dashboard_effort(locality = selected_localities(), period_name = period_name_label)
+        render_overview_period_dates_card(
+          summarise_overview_effort(locality = selected_localities(), period_name = period_name_label)
         )
       } else {
         NULL
@@ -1302,39 +1302,39 @@ species_dashboard_module_server <- function(id,
     }
 
     # 1. OVERALL
-    overall_obs <- reactive({
-      filter_dashboard_obs(filter_detection_obs(core_data$obs))
+    alltime_obs <- reactive({
+      filter_overview_obs(filter_detection_obs(core_data$obs))
     })
-    overall_deps <- reactive({
-      filter_dashboard_deps(core_data$deps)
+    alltime_deps <- reactive({
+      filter_overview_deps(core_data$deps)
     })
-    overall_sobs <- reactive({
-      overall_obs() %>% dplyr::filter(tolower(scientificName) == tolower(species_name))
+    alltime_sobs <- reactive({
+      alltime_obs() %>% dplyr::filter(tolower(scientificName) == tolower(species_name))
     })
 
-    output$overall_metric_cards <- renderUI({ render_metric_cards(overall_sobs(), overall_deps(), "ALL") }) %>%
+    output$alltime_metric_cards <- renderUI({ render_metric_cards(alltime_sobs(), alltime_deps(), "ALL") }) %>%
       bindCache(species_name, locality_filter_token(), combine_localities_selected(), rai_norm_hours, use_net(), "ALL")
-    output$overall_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(overall_sobs(), use_net())) })
-    output$overall_diel_activity_card <- renderUI({
+    output$alltime_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(alltime_sobs(), use_net())) })
+    output$alltime_diel_activity_card <- renderUI({
       render_diel_activity_card(
-        species_dashboard_diel_summary(
-          filter_possible_duplicates_for_use_net(overall_sobs(), use_net()),
-          overall_deps(),
+        species_overview_diel_summary(
+          filter_possible_duplicates_for_use_net(alltime_sobs(), use_net()),
+          alltime_deps(),
           core_data$environment_daily,
           thresholds = diel_threshold_config
         )
       )
     }) %>%
       bindCache(species_name, locality_filter_token(), use_net(), "ALL", "diel_activity_card")
-    output$overall_cooccurrence_ui <- renderUI({ generate_cooccurrence(overall_sobs(), overall_obs()) })
-    output$overall_duplicate_review_control <- renderUI({ render_duplicate_review_control(overall_sobs()) })
-    output$overall_observations_table <- DT::renderDT({ render_species_observations_table(overall_sobs()) })
+    output$alltime_cooccurrence_ui <- renderUI({ generate_cooccurrence(alltime_sobs(), alltime_obs()) })
+    output$alltime_duplicate_review_control <- renderUI({ render_duplicate_review_control(alltime_sobs()) })
+    output$alltime_observations_table <- DT::renderDT({ render_species_observations_table(alltime_sobs()) })
 
-    period_defaults <- species_dashboard_period_defaults(core_data)
+    period_defaults <- species_overview_period_defaults(core_data)
 
-    # Overall RAI plot using plotting_module_server (we map this to overall)
+    # All Time RAI plot using plotting_module_server (we map this to alltime)
     plotting_module_server(
-      id = "overall_rai_plot",
+      id = "alltime_rai_plot",
       type = NULL,
       obs = filter_detection_obs(core_data$obs),
       deps = core_data$deps,
@@ -1345,14 +1345,14 @@ species_dashboard_module_server <- function(id,
     )
 
     # Track loaded map tabs for lazy loading
-    loaded_dashboard_tabs <- reactiveVal(character())
+    loaded_overview_tabs <- reactiveVal(character())
 
     observe({
-      req(input$dashboard_tabs)
-      current_tab <- input$dashboard_tabs
+      req(input$overview_tabs)
+      current_tab <- input$overview_tabs
       section_tab <- switch(
         current_tab,
-        overall = input$overall_section_tabs,
+        alltime = input$alltime_section_tabs,
         current_period = input$current_section_tabs,
         prior_period = input$prior_section_tabs,
         last_year_period = input$last_year_section_tabs,
@@ -1360,15 +1360,15 @@ species_dashboard_module_server <- function(id,
       )
       req(identical(section_tab, "map"))
 
-      if (!(current_tab %in% loaded_dashboard_tabs())) {
+      if (!(current_tab %in% loaded_overview_tabs())) {
 
-        if (current_tab == "overall") {
-          # Overall Density Map
+        if (current_tab == "alltime") {
+          # All Time Density Map
           mapping_module_server(
-            id = "species_density_map_overall",
+            id = "species_density_map_alltime",
             type = "density",
-            obs = overall_obs,
-            deps = overall_deps,
+            obs = alltime_obs,
+            deps = alltime_deps,
             species_override = reactive(species_name),
             localities_override = selected_localities,
             use_net = use_net
@@ -1409,8 +1409,8 @@ species_dashboard_module_server <- function(id,
         }
 
         # Add to loaded list
-        loaded_dashboard_tabs(c(loaded_dashboard_tabs(), current_tab))
-        logger::log_debug(sprintf("species_dashboard_module_server, lazily loaded map for tab %s", current_tab))
+        loaded_overview_tabs(c(loaded_overview_tabs(), current_tab))
+        logger::log_debug(sprintf("species_overview_module_server, lazily loaded map for tab %s", current_tab))
       }
     })
 
@@ -1418,14 +1418,14 @@ species_dashboard_module_server <- function(id,
     current_period_data <- period_selection_module_server("current_period", period_groups = core_data$period_groups, selected = period_defaults$current_period)
     current_sobs <- reactive({
       req(current_period_data$start_date(), current_period_data$end_date())
-      filter_obs(overall_sobs(), current_period_data$start_date(), current_period_data$end_date())
+      filter_obs(alltime_sobs(), current_period_data$start_date(), current_period_data$end_date())
     })
     current_deps <- reactive({
       req(current_period_data$start_date(), current_period_data$end_date())
-      filter_deps(overall_deps(), current_period_data$start_date(), current_period_data$end_date())
+      filter_deps(alltime_deps(), current_period_data$start_date(), current_period_data$end_date())
     })
     current_obs <- reactive({
-      filter_obs(overall_obs(), current_period_data$start_date(), current_period_data$end_date())
+      filter_obs(alltime_obs(), current_period_data$start_date(), current_period_data$end_date())
     })
 
     output$current_metric_cards <- renderUI({ render_metric_cards(current_sobs(), current_deps(), current_period_data$period_name()) }) %>%
@@ -1433,7 +1433,7 @@ species_dashboard_module_server <- function(id,
     output$current_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(current_sobs(), use_net())) })
     output$current_diel_activity_card <- renderUI({
       render_diel_activity_card(
-        species_dashboard_diel_summary(
+        species_overview_diel_summary(
           filter_possible_duplicates_for_use_net(current_sobs(), use_net()),
           current_deps(),
           core_data$environment_daily,
@@ -1453,14 +1453,14 @@ species_dashboard_module_server <- function(id,
     prior_period_data <- period_selection_module_server("prior_period", period_groups = core_data$period_groups, selected = period_defaults$prior_period)
     prior_sobs <- reactive({
       req(prior_period_data$start_date(), prior_period_data$end_date())
-      filter_obs(overall_sobs(), prior_period_data$start_date(), prior_period_data$end_date())
+      filter_obs(alltime_sobs(), prior_period_data$start_date(), prior_period_data$end_date())
     })
     prior_deps <- reactive({
       req(prior_period_data$start_date(), prior_period_data$end_date())
-      filter_deps(overall_deps(), prior_period_data$start_date(), prior_period_data$end_date())
+      filter_deps(alltime_deps(), prior_period_data$start_date(), prior_period_data$end_date())
     })
     prior_obs <- reactive({
-      filter_obs(overall_obs(), prior_period_data$start_date(), prior_period_data$end_date())
+      filter_obs(alltime_obs(), prior_period_data$start_date(), prior_period_data$end_date())
     })
 
     output$prior_metric_cards <- renderUI({ render_metric_cards(prior_sobs(), prior_deps(), prior_period_data$period_name()) }) %>%
@@ -1468,7 +1468,7 @@ species_dashboard_module_server <- function(id,
     output$prior_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(prior_sobs(), use_net())) })
     output$prior_diel_activity_card <- renderUI({
       render_diel_activity_card(
-        species_dashboard_diel_summary(
+        species_overview_diel_summary(
           filter_possible_duplicates_for_use_net(prior_sobs(), use_net()),
           prior_deps(),
           core_data$environment_daily,
@@ -1487,13 +1487,13 @@ species_dashboard_module_server <- function(id,
     # 4. LAST YEAR
     last_year_period_data <- period_selection_module_server("last_year_period", period_groups = core_data$period_groups, selected = period_defaults$last_year_period)
     ly_sobs <- reactive({
-      filter_obs(overall_sobs(), last_year_period_data$start_date(), last_year_period_data$end_date())
+      filter_obs(alltime_sobs(), last_year_period_data$start_date(), last_year_period_data$end_date())
     })
     ly_deps <- reactive({
-      filter_deps(overall_deps(), last_year_period_data$start_date(), last_year_period_data$end_date())
+      filter_deps(alltime_deps(), last_year_period_data$start_date(), last_year_period_data$end_date())
     })
     ly_obs <- reactive({
-      filter_obs(overall_obs(), last_year_period_data$start_date(), last_year_period_data$end_date())
+      filter_obs(alltime_obs(), last_year_period_data$start_date(), last_year_period_data$end_date())
     })
 
     output$last_year_metric_cards <- renderUI({ render_metric_cards(ly_sobs(), ly_deps(), last_year_period_data$period_name()) }) %>%
@@ -1501,7 +1501,7 @@ species_dashboard_module_server <- function(id,
     output$last_year_activity_plot <- renderPlot({ generate_activity_plot(filter_possible_duplicates_for_use_net(ly_sobs(), use_net())) })
     output$last_year_diel_activity_card <- renderUI({
       render_diel_activity_card(
-        species_dashboard_diel_summary(
+        species_overview_diel_summary(
           filter_possible_duplicates_for_use_net(ly_sobs(), use_net()),
           ly_deps(),
           core_data$environment_daily,

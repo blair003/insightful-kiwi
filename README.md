@@ -4,7 +4,7 @@ InsightfulKiwi is an R Shiny application designed for analyzing and visualizing 
 
 ## Features
 
-- **Dashboard**: A high-level overview displaying quick statistics like Kiwi Detections, Animal Detections, Camera Hours, and Species Observations grouped by time period.
+- **Overview**: A high-level overview displaying quick statistics like Kiwi Detections, Animal Detections, Camera Hours, and Species Observations grouped by time period.
 - **Reporting**: Automated generation of comprehensive reports (in HTML and PDF format) detailing executive summaries, results summaries, species summaries, and visualizations (e.g., daily species counts).
 - **Density Maps**: Visual representation of species density across primary and comparative deployment seasons.
 - **Observation Maps**: Interactive maps that pinpoint specific species observations across selected locations and time ranges.

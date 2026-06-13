@@ -10,27 +10,27 @@
         height: auto;        /* Allow card to expand based on content */
       }
 
-      .dashboard-page {
+      .overview-page {
         box-sizing: border-box;
         overflow-x: hidden;
         overflow-y: visible;
         padding-bottom: 1rem;
       }
 
-      .dashboard-page .card,
-      .dashboard-page .bslib-card {
+      .overview-page .card,
+      .overview-page .bslib-card {
         flex: 0 0 auto;
       }
 
-      .dashboard-page .card-body {
+      .overview-page .card-body {
         overflow-y: visible;
       }
 
-      .dashboard-plot-card .card-body {
+      .overview-plot-card .card-body {
         min-height: 390px;
       }
 
-      .dashboard-plot-card .shiny-plot-output {
+      .overview-plot-card .shiny-plot-output {
         min-height: 340px;
       }
 
@@ -47,7 +47,7 @@
         white-space: nowrap;
       }
 
-      .dashboard-section-heading {
+      .overview-section-heading {
         color: #6c757d;
         font-size: 0.8rem;
         font-weight: 700;
@@ -56,7 +56,7 @@
         text-transform: uppercase;
       }
 
-      .dashboard-locality-heading {
+      .overview-locality-heading {
         color: #495057;
         font-size: 0.95rem;
         font-weight: 700;
@@ -585,7 +585,7 @@
         min-width: 0;
       }
 
-      .dashboard-card-header-with-controls {
+      .overview-card-header-with-controls {
         align-items: center;
         display: flex;
         gap: 0.75rem;
@@ -594,8 +594,8 @@
         width: 100%;
       }
 
-      .dashboard-card-header-title,
-      .dashboard-card-header-with-controls > :first-child {
+      .overview-card-header-title,
+      .overview-card-header-with-controls > :first-child {
         align-items: center;
         display: inline-flex;
         flex: 0 1 auto;
@@ -604,7 +604,7 @@
         white-space: nowrap;
       }
 
-      .dashboard-card-header-controls {
+      .overview-card-header-controls {
         align-items: center;
         display: inline-flex;
         flex: 1 1 auto;
@@ -615,7 +615,7 @@
         text-align: right;
       }
 
-      .dashboard-card-header-controls .shiny-html-output {
+      .overview-card-header-controls .shiny-html-output {
         display: inline-flex;
         flex: 0 0 auto;
       }
@@ -624,31 +624,31 @@
         position: relative;
       }
 
-      .dashboard-favourites-hero {
+      .overview-favourites-hero {
         margin: 0.85rem 0 1rem;
         overflow: hidden;
         padding: 0.35rem 2.4rem 0.45rem;
         position: relative;
       }
 
-      .dashboard-favourites-slider {
+      .overview-favourites-slider {
         min-height: 300px;
       }
 
-      .dashboard-favourites-slider .slick-list {
+      .overview-favourites-slider .slick-list {
         overflow: visible;
       }
 
-      .dashboard-favourites-slider .slick-track {
+      .overview-favourites-slider .slick-track {
         align-items: center;
         display: flex;
       }
 
-      .dashboard-favourites-slide {
+      .overview-favourites-slide {
         padding: 0 0.5rem;
       }
 
-      .dashboard-favourites-image-button {
+      .overview-favourites-image-button {
         background: transparent;
         border: 0;
         display: block;
@@ -656,16 +656,16 @@
         width: 100%;
       }
 
-      .dashboard-favourites-image-button:focus-visible {
+      .overview-favourites-image-button:focus-visible {
         outline: 3px solid #0d6efd;
         outline-offset: 4px;
       }
 
-      .dashboard-favourites-image-static {
+      .overview-favourites-image-static {
         cursor: default;
       }
 
-      .dashboard-favourites-empty {
+      .overview-favourites-empty {
         background: #f8f9fa;
         border: 1px solid #dee2e6;
         border-radius: 6px;
@@ -674,7 +674,7 @@
         padding: 1rem 1.15rem;
       }
 
-      .dashboard-favourites-slide img {
+      .overview-favourites-slide img {
         aspect-ratio: 16 / 9;
         background: #f1f3f5;
         border-radius: 6px;
@@ -685,19 +685,19 @@
         width: 100%;
       }
 
-      .dashboard-favourites-slider .slick-slide {
+      .overview-favourites-slider .slick-slide {
         opacity: 0.55;
         transform: scale(0.82);
         transition: opacity 220ms ease, transform 220ms ease;
       }
 
-      .dashboard-favourites-slider .slick-center {
+      .overview-favourites-slider .slick-center {
         opacity: 1;
         transform: scale(1);
         z-index: 2;
       }
 
-      .dashboard-favourites-slider .slick-arrow {
+      .overview-favourites-slider .slick-arrow {
         background: rgba(33, 37, 41, 0.78);
         border: 0;
         border-radius: 999px;
@@ -706,44 +706,44 @@
         z-index: 3;
       }
 
-      .dashboard-favourites-slider .slick-prev {
+      .overview-favourites-slider .slick-prev {
         left: -2rem;
       }
 
-      .dashboard-favourites-slider .slick-next {
+      .overview-favourites-slider .slick-next {
         right: -2rem;
       }
 
-      .dashboard-favourites-slider .slick-arrow:before {
+      .overview-favourites-slider .slick-arrow:before {
         color: #fff;
         font-size: 1rem;
         opacity: 1;
       }
 
       @media (max-width: 560px) {
-        .dashboard-favourites-hero {
+        .overview-favourites-hero {
           margin-top: 0.65rem;
           padding-left: 1.9rem;
           padding-right: 1.9rem;
         }
 
-        .dashboard-favourites-slider {
+        .overview-favourites-slider {
           min-height: 210px;
         }
 
-        .dashboard-favourites-slide {
+        .overview-favourites-slide {
           padding: 0 0.25rem;
         }
 
-        .dashboard-favourites-slide img {
+        .overview-favourites-slide img {
           height: clamp(180px, 58vw, 230px);
         }
 
-        .dashboard-favourites-slider .slick-prev {
+        .overview-favourites-slider .slick-prev {
           left: -1.65rem;
         }
 
-        .dashboard-favourites-slider .slick-next {
+        .overview-favourites-slider .slick-next {
           right: -1.65rem;
         }
       }
@@ -950,28 +950,28 @@
         width: 100%;
       }
 
-      .dashboard-classifier-card .dashcard-output {
+      .overview-classifier-card .dashcard-output {
         line-height: 1.05;
       }
 
-      .dashboard-classifier-primary-name {
+      .overview-classifier-primary-name {
         font-size: 1.12rem;
         overflow-wrap: anywhere;
       }
 
-      .dashboard-classifier-top-label {
+      .overview-classifier-top-label {
         color: #212529;
         font-weight: 700;
       }
 
-      .dashboard-classifier-contributors {
+      .overview-classifier-contributors {
         display: grid;
         gap: 0.18rem;
         margin-top: 0.55rem;
         width: 100%;
       }
 
-      .dashboard-classifier-contributor {
+      .overview-classifier-contributor {
         align-items: baseline;
         display: grid;
         font-size: 0.76rem;
@@ -981,7 +981,7 @@
         text-align: left;
       }
 
-      .dashboard-classifier-name {
+      .overview-classifier-name {
         color: #495057;
         min-width: 0;
         overflow: hidden;
@@ -989,7 +989,7 @@
         white-space: nowrap;
       }
 
-      .dashboard-classifier-percent {
+      .overview-classifier-percent {
         color: #212529;
         font-weight: 700;
         white-space: nowrap;
@@ -1374,7 +1374,7 @@
         z-index: 100; /* Ensure it sits above other content */
       }
 
-        /* https://stackoverflow.com/questions/36469631/how-to-get-leaflet-for-r-use-100-of-shiny-dashboard-height
+        /* https://stackoverflow.com/questions/36469631/how-to-get-leaflet-for-r-use-100-of-shiny-overview-height
           Needed otherwise map will show 400px height being the leaflet default
 
           Applying it to all leaflets as that makes sense for now, could apply based on class
@@ -1792,13 +1792,13 @@
 }
 
 @media (max-width: 575.98px) {
-  .dashboard-card-header-with-controls {
+  .overview-card-header-with-controls {
     align-items: flex-start;
     gap: 0.5rem;
     flex-wrap: wrap;
   }
 
-  .dashboard-card-header-controls {
+  .overview-card-header-controls {
     flex-wrap: wrap;
     gap: 0.5rem;
     justify-content: flex-start;

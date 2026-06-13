@@ -17,7 +17,7 @@
 # We later convert the locality_code to Location e.g. KP to Kohi Point
 
 source("R/functions/metrics_functions.R")
-source("R/functions/dashboard_functions.R")
+source("R/functions/overview_functions.R")
 source("R/modules/reporting_data_module.R")
 source("R/modules/reporting_visualisations_module.R")
 source("R/modules/reporting_rendering_module.R")
@@ -124,7 +124,7 @@ server <- function(input, output, session) {
             tags$th(scope = "row", "Trapping data"),
             tags$td(format_core_data_build_datetime(core_data$app$trapping_data_updated, config))
           ),
-          render_dashboard_data_package_settings_rows(core_data)
+          render_overview_data_package_settings_rows(core_data)
         )
       ),
 
@@ -253,7 +253,7 @@ server <- function(input, output, session) {
 
     if (!is.null(nav) && nzchar(nav)) {
       tab <- switch(nav,
-        dashboard = input[["dashboard-main_dashboard_tabs"]],
+        overview = input[["overview-main_overview_tabs"]],
         reporting = input$reporting_tabs,
         density_map = input[["density_map_comparison-density_comparison_tabs"]],
         density_timeline_map = input[["density_timeline_map-density_timeline_tabs"]],
@@ -263,8 +263,8 @@ server <- function(input, output, session) {
         NULL
       )
 
-      if (startsWith(nav, "species_dashboard_")) {
-        tab <- input[[paste0(nav, "-dashboard_tabs")]]
+      if (startsWith(nav, "species_overview_")) {
+        tab <- input[[paste0(nav, "-overview_tabs")]]
       }
     }
 
@@ -428,40 +428,40 @@ server <- function(input, output, session) {
     ))
   })
 
-  dashboard_state <- dashboard_module_server("dashboard", core_data = core_data, config = config, use_net = global_use_net)
+  overview_state <- overview_module_server("overview", core_data = core_data, config = config, use_net = global_use_net)
 
-  dashboard_plot_periods <- period_names_from_index(
+  overview_plot_periods <- period_names_from_index(
     core_data$period_groups,
     period_index = core_data$app$period_defaults$primary_period_index,
     period_name = core_data$app$period_defaults$primary_period
   )
-  dashboard_plot_deps <- filter_deps_by_period_names(
+  overview_plot_deps <- filter_deps_by_period_names(
     core_data$deps,
-    dashboard_plot_periods,
+    overview_plot_periods,
     NULL,
     NULL,
-    period_intervals_for_names(core_data$period_groups, dashboard_plot_periods)
+    period_intervals_for_names(core_data$period_groups, overview_plot_periods)
   )
 
   plotting_module_server(
     id = "spp_obs_plot_visualisations",
     type = NULL,
     obs = filter_detection_obs(core_data$obs),
-    deps = dashboard_plot_deps,
+    deps = overview_plot_deps,
     species_override = NULL
   )
-  # Initialize species dashboards dynamically (Lazy Loading)
-  loaded_species_dashboards <- reactiveVal(character())
+  # Initialize species overviews dynamically (Lazy Loading)
+  loaded_species_overviews <- reactiveVal(character())
   pending_species_rai_detail <- reactiveVal(NULL)
 
   observeEvent(input$nav, {
     nav_item <- input$nav
 
-    if (startsWith(nav_item, "species_dashboard_")) {
-      sci_name_make_names <- sub("^species_dashboard_", "", nav_item)
+    if (startsWith(nav_item, "species_overview_")) {
+      sci_name_make_names <- sub("^species_overview_", "", nav_item)
 
       # Check if already loaded
-      if (!(sci_name_make_names %in% loaded_species_dashboards())) {
+      if (!(sci_name_make_names %in% loaded_species_overviews())) {
 
         # Find the full scientific and vernacular names
         found <- FALSE
@@ -472,8 +472,8 @@ server <- function(input, output, session) {
             if (make.names(s_sci_name) == sci_name_make_names) {
 
               # Initialize module
-              species_dashboard_module_server(
-                id = paste0("species_dashboard_", make.names(s_sci_name)),
+              species_overview_module_server(
+                id = paste0("species_overview_", make.names(s_sci_name)),
                 species_name = s_sci_name,
                 vernacular_name = s_name,
                 obs = filtered_obs_primary,
@@ -486,8 +486,8 @@ server <- function(input, output, session) {
               pending_species_rai_detail(NULL)
 
               # Add to loaded list
-              loaded_species_dashboards(c(loaded_species_dashboards(), sci_name_make_names))
-              logger::log_debug(sprintf("server.R, lazily loaded species dashboard for %s", s_sci_name))
+              loaded_species_overviews(c(loaded_species_overviews(), sci_name_make_names))
+              logger::log_debug(sprintf("server.R, lazily loaded species overview for %s", s_sci_name))
 
               found <- TRUE
               break
@@ -708,8 +708,8 @@ server <- function(input, output, session) {
   
   
     
-    # Render UI for the dashboard plot
-    output$dash_spp_obs_plot <- renderUI({
+    # Render UI for the overview plot
+    output$overview_spp_obs_plot <- renderUI({
 #      if (isTRUE(input$is_fullscreen)) {
 #        # Full-screen content: 2-tab layout with data tables and plot
 #        navset_card_tab(
@@ -829,9 +829,9 @@ server <- function(input, output, session) {
                   jsonlite::toJSON(paste0("/", nav_item), auto_unbox = TRUE)))
 
     
-    if (nav_item  == "dashboard") {
+    if (nav_item  == "overview") {
       # Run latest images
-      #message("observeEvent(input$nav, viewing dashboard page -- triggered image update")
+      #message("observeEvent(input$nav, viewing overview page -- triggered image update")
       # latest_images(get_latest_images())
     }
 
@@ -996,7 +996,7 @@ server <- function(input, output, session) {
 
     if (!is.null(query_tab) && !is.null(query$nav) && nzchar(query$nav)) {
       tabset_id <- switch(query$nav,
-        dashboard = "dashboard-main_dashboard_tabs",
+        overview = "overview-main_overview_tabs",
         reporting = "reporting_tabs",
         density_map = "density_map_comparison-density_comparison_tabs",
         density_timeline_map = "density_timeline_map-density_timeline_tabs",
@@ -1006,8 +1006,8 @@ server <- function(input, output, session) {
         NULL
       )
 
-      if (startsWith(query$nav, "species_dashboard_")) {
-        tabset_id <- paste0(query$nav, "-dashboard_tabs")
+      if (startsWith(query$nav, "species_overview_")) {
+        tabset_id <- paste0(query$nav, "-overview_tabs")
       }
 
       if (!is.null(tabset_id)) {
@@ -1030,7 +1030,7 @@ server <- function(input, output, session) {
     clean_share_query_params(query)
 
     if (!is.null(query$rai_detail) && nzchar(query$rai_detail)) {
-      dashboard_state$show_rai_detail_modal(query$rai_detail)
+      overview_state$show_rai_detail_modal(query$rai_detail)
     }
 
     if (!is.null(query$observation_id)) {
@@ -1347,19 +1347,19 @@ server <- function(input, output, session) {
   output$density_map_selection_heading <- renderUI({
     species <- input[["density_map_primary-selected_species"]]
     localities <- input[["density_map_primary-selected_localities"]]
-    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
+    div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
 
   output$observation_map_selection_heading <- renderUI({
     species <- input[["observation_map-selected_species"]]
     localities <- input[["observation_map-selected_localities"]]
-    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
+    div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
 
   output$density_timeline_map_selection_heading <- renderUI({
     species <- input[["density_timeline_map-selected_species"]]
     localities <- input[["density_timeline_map-selected_localities"]]
-    div(class = "dashboard-locality-heading map-selection-heading", selected_map_heading(species, localities))
+    div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
   
   observeEvent(input$nav, {
@@ -1415,9 +1415,9 @@ server <- function(input, output, session) {
     id = "activity_patterns",
     core_data = core_data,
     nav = reactive(input$nav),
-    current_period = dashboard_state$current_period,
-    prior_period = dashboard_state$prior_period,
-    last_year_period = dashboard_state$last_year_period,
+    current_period = overview_state$current_period,
+    prior_period = overview_state$prior_period,
+    last_year_period = overview_state$last_year_period,
     use_net = global_use_net
   )
 
@@ -1549,7 +1549,7 @@ server <- function(input, output, session) {
 
   
 
-  # Observe review sequences click from dashboard
+  # Observe review sequences click from overview
   observeEvent(input$review_sequences_click, {
     action_data <- input$review_sequences_click
 
@@ -1597,7 +1597,7 @@ server <- function(input, output, session) {
         filtered_obs <- filtered_obs %>% filter(locality %in% localities)
       }
 
-      # Apply species filter based on either a species dashboard click or an RAI group click.
+      # Apply species filter based on either a species overview click or an RAI group click.
       if (!is.null(species_name) && nzchar(species_name)) {
         filtered_obs <- filtered_obs %>% filter(tolower(scientificName) == tolower(species_name))
       } else {

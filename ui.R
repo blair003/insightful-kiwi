@@ -9,7 +9,7 @@ ui <- function(request) {
   # true = show sidebar open by default on this page
   tags$script(HTML("
     var defaultSidebarState = {
-      'dashboard': false,
+      'overview': false,
       'plots': true,
       'reporting': true,
       'density_map': true,
@@ -105,7 +105,7 @@ ui <- function(request) {
         )
       ),
       
-      dashboard_module_ui("dashboard", view = "sidebar", core_data = core_data, config = config),
+      overview_module_ui("overview", view = "sidebar", core_data = core_data, config = config),
       conditionalPanel(
         condition = "input.nav === 'plots'",
         plotting_module_ui(
@@ -296,75 +296,15 @@ ui <- function(request) {
         tags$small("Records for the entire project across all periods are shown here.")
       ),
 
-      species_dashboard_sidebar_controls(),
+      species_overview_sidebar_controls(),
       
       ), # End of global sidebar
       
       nav_spacer(),
 
-      dashboard_module_ui("dashboard", view = "main", core_data = core_data, config = config),
+      overview_module_ui("overview", view = "main", core_data = core_data, config = config),
 
-      species_dashboard_nav_menu(),
-      
-      nav_panel(
-        "Reports",
-        value = "reporting",
-        icon = icon("book"),
-        
-        # Main content area for Reporting
-        navset_card_tab(
-          id = "reporting_tabs",
-          selected = "exec_summary",
-          # Default selected panel
-          nav_panel(
-            title = "Executive summary",
-            value = "exec_summary",
-            h1("Executive Summary"),
-            #uiOutput("season_selection_text"),
-            div(
-              class = "inline-elements",
-              selectInput("report_format", "", choices = c("PDF" = "pdf", "HTML" = "html")),
-              downloadButton("download_report", "Download Report")
-            ),
-            
-            hr(),
-            uiOutput("reporting_executive_summary")
-          ),
-          nav_panel(
-            title = "Results summary",
-            value = "results_summary",
-            h1("Results Summary"),
-            p(
-              "This section summarises results, by Locality (most summarised), by Line and by Location (least summarised)."
-            ),
-            uiOutput("reporting_results_summary")
-          ),
-          nav_panel(
-            title = "Species summary",
-            value = "species_summary",
-            h1("Species Summary"),
-            p(
-              "This section shows species summary information, by Locality, by Line and by Location."
-            ),
-            uiOutput("reporting_species_summary")
-          ),
-          nav_panel(
-            title = "Visualisations",
-            value = "visualisations",
-            h1("Visualisations"),
-              nav_panel(
-                "Daily species counts",
-          #      p("plotly version, you can mouseover to see more data"),
-                plotlyOutput("locality_ggplotly_daily_species_count"),
-              )
-
-          ),
-          
-          nav_spacer()
-        )
-      ),
-
-      ######### MAP/VISUALISATIONS MENU #########
+            ######### MAP/VISUALISATIONS MENU #########
       nav_menu(
         title = "Maps",
         icon = icon("map"),
@@ -448,7 +388,7 @@ ui <- function(request) {
           icon = icon("chart-line"),
           value = "plots",
           card(
-            class = "dashboard-plot-card",
+            class = "overview-plot-card",
             card_header(
               tagList(icon("eye"), "Species observations, grouped by time period")
             ),
@@ -459,6 +399,66 @@ ui <- function(request) {
 
         ######### ACTIVITY PATTERNS OUTPUT #########
         activity_patterns_module_ui("activity_patterns", view = "main")
+      ),
+      
+      species_overview_nav_menu(),
+      
+      nav_panel(
+        "Reports",
+        value = "reporting",
+        icon = icon("book"),
+        
+        # Main content area for Reporting
+        navset_card_tab(
+          id = "reporting_tabs",
+          selected = "exec_summary",
+          # Default selected panel
+          nav_panel(
+            title = "Executive summary",
+            value = "exec_summary",
+            h1("Executive Summary"),
+            #uiOutput("season_selection_text"),
+            div(
+              class = "inline-elements",
+              selectInput("report_format", "", choices = c("PDF" = "pdf", "HTML" = "html")),
+              downloadButton("download_report", "Download Report")
+            ),
+            
+            hr(),
+            uiOutput("reporting_executive_summary")
+          ),
+          nav_panel(
+            title = "Results summary",
+            value = "results_summary",
+            h1("Results Summary"),
+            p(
+              "This section summarises results, by Locality (most summarised), by Line and by Location (least summarised)."
+            ),
+            uiOutput("reporting_results_summary")
+          ),
+          nav_panel(
+            title = "Species summary",
+            value = "species_summary",
+            h1("Species Summary"),
+            p(
+              "This section shows species summary information, by Locality, by Line and by Location."
+            ),
+            uiOutput("reporting_species_summary")
+          ),
+          nav_panel(
+            title = "Visualisations",
+            value = "visualisations",
+            h1("Visualisations"),
+              nav_panel(
+                "Daily species counts",
+          #      p("plotly version, you can mouseover to see more data"),
+                plotlyOutput("locality_ggplotly_daily_species_count"),
+              )
+
+          ),
+          
+          nav_spacer()
+        )
       ),
         
     

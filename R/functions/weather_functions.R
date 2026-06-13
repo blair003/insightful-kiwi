@@ -806,7 +806,7 @@ summarise_weather <- function(daily_data) {
   )
 }
 
-render_weather_info_link <- function(lat, lng, start_date, end_date, input_id = "dashboard_weather_details_clicked", locality = NULL) {
+render_weather_info_link <- function(lat, lng, start_date, end_date, input_id = "overview_weather_details_clicked", locality = NULL) {
   token <- list(
     lat = lat,
     lng = lng,
@@ -828,7 +828,7 @@ render_weather_info_link <- function(lat, lng, start_date, end_date, input_id = 
   )
 }
 
-render_weather_cards <- function(locality, start_date, end_date, info_input_id = "dashboard_weather_details_clicked") {
+render_weather_cards <- function(locality, start_date, end_date, info_input_id = "overview_weather_details_clicked") {
   # Compute average lat/lng for the deployments
   # core_data$deps is available globally in the environment
   if (!is.null(locality) && length(locality) > 0 && !all(locality == "ALL")) {
@@ -843,7 +843,7 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
   stored_weather <- environment_daily_from_core_data(deps, start_date, end_date)
   daily_data <- environment_daily_as_api_daily(stored_weather)
   if (is.null(daily_data)) {
-    request_weather_cache_refresh("dashboard weather cache miss")
+    request_weather_cache_refresh("overview weather cache miss")
   }
   summary <- summarise_weather(daily_data)
 
@@ -863,7 +863,7 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
     width = "180px",
 
     card(
-      card_header(render_dashboard_card_header(summary$condition$icon, "Predominant Weather")),
+      card_header(render_overview_card_header(summary$condition$icon, "Predominant Weather")),
       card_body(
         div(
           class = "dashcard-metric-state",
@@ -876,7 +876,7 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
     ),
 
     card(
-      card_header(render_dashboard_card_header("temperature-half", "Temperature")),
+      card_header(render_overview_card_header("temperature-half", "Temperature")),
       card_body(
         div(
           class = "dashcard-metric-state",
@@ -888,7 +888,7 @@ render_weather_cards <- function(locality, start_date, end_date, info_input_id =
     ),
 
     card(
-      card_header(render_dashboard_card_header("sun", "Daylight")),
+      card_header(render_overview_card_header("sun", "Daylight")),
       card_body(
         div(
           class = "dashcard-metric-state",

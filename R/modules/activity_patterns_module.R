@@ -42,8 +42,8 @@ activity_patterns_module_ui <- function(id,
         uiOutput(ns("activity_patterns_locality_heading")),
         navset_tab(
           id = ns("activity_patterns_tabs"),
-          selected = "overall",
-          nav_panel("Overall", value = "overall", plotOutput(ns("activity_patterns_overall"), height = "560px")),
+          selected = "alltime",
+          nav_panel("All Time", value = "alltime", plotOutput(ns("activity_patterns_alltime"), height = "560px")),
           nav_panel(title = textOutput(ns("activity_patterns_current_period_name"), inline = TRUE), value = "current_period", plotOutput(ns("activity_patterns_current"), height = "560px")),
           nav_panel(title = textOutput(ns("activity_patterns_prior_period_name"), inline = TRUE), value = "prior_period", plotOutput(ns("activity_patterns_prior"), height = "560px")),
           nav_panel(title = textOutput(ns("activity_patterns_last_year_period_name"), inline = TRUE), value = "last_year_period", plotOutput(ns("activity_patterns_last_year"), height = "560px"))
@@ -106,12 +106,12 @@ activity_patterns_module_server <- function(id,
       req(activity_patterns_loaded(), activity_patterns_map$selected_localities())
       localities <- activity_patterns_map$selected_localities()
       div(
-        class = "dashboard-locality-heading",
+        class = "overview-locality-heading",
         paste("Localities:", paste(vapply(as.character(localities), locality_display_name, character(1)), collapse = ", "))
       )
     })
 
-    output$activity_patterns_overall <- renderPlot({
+    output$activity_patterns_alltime <- renderPlot({
       req(activity_patterns_obs())
       generate_multi_species_activity_plot(activity_patterns_obs())
     })
