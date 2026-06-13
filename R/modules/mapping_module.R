@@ -1510,7 +1510,7 @@ mapping_module_server <- function(id,
       } else {
         value <- suppressWarnings(as.numeric(input$trap_locality_distance_km))
       }
-      if (is.na(value) || value < 0) {
+      if (length(value) == 0 || is.na(value) || value < 0) {
         return(1)
       }
       value
@@ -2017,7 +2017,7 @@ mapping_module_server <- function(id,
         req(playback_active())
         if (isTRUE(input$show_predicted_rai_surface)) {
           current_speed <- if (is.null(input$playback_speed)) 1 else as.numeric(input$playback_speed)
-          if (is.finite(current_speed) && current_speed < 2) {
+          if (length(current_speed) > 0 && is.finite(current_speed) && current_speed < 2) {
             updateSliderInput(session, "playback_speed", value = 2)
           }
           current_step <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
@@ -2748,7 +2748,7 @@ mapping_module_server <- function(id,
         shared_absolute_max <- absolute_max
         if (!is.null(density_scale_max_override) && is.function(density_scale_max_override)) {
           override_max <- suppressWarnings(as.numeric(density_scale_max_override()))
-          if (!is.na(override_max) && is.finite(override_max) && override_max > shared_absolute_max) {
+          if (length(override_max) > 0 && !is.na(override_max) && is.finite(override_max) && override_max > shared_absolute_max) {
             shared_absolute_max <- override_max
           }
         }
@@ -3147,7 +3147,7 @@ mapping_module_server <- function(id,
 
       trap_locality_distance_km_selected <- reactive({
         value <- suppressWarnings(as.numeric(input$trap_locality_distance_km))
-        if (is.na(value) || value < 0) {
+        if (length(value) == 0 || is.na(value) || value < 0) {
           return(1)
         }
         value
@@ -4826,8 +4826,6 @@ update_density_map <- function(map_id = NULL,
 
   density_base_radius <- 75
   density_max_radius <- 150
-  density_full_base_count <- 3
-  density_count_full_at <- density_full_base_count
   density_min_fill_area <- 0.16
   density_pre_full_alpha <- 0.62
 
@@ -4929,11 +4927,28 @@ update_density_map <- function(map_id = NULL,
 
   can_scale_marker_radius <- !is.na(max_marker_value) && max_marker_value > 0
 
+  # Bucketed approach to maintain comparability across different time periods.
+  # Limits dynamic scaling to 3 predictable "gears".
+  dynamic_base_count <- if (can_scale_marker_radius && identical(marker_metric, "count")) {
+    if (max_marker_value >= 100) {
+      30
+    } else if (max_marker_value >= 40) {
+      12
+    } else {
+      4
+    }
+  } else {
+    4
+  }
+
   density_full_base_value <- if (identical(marker_metric, "count")) {
-    density_full_base_count
+    dynamic_base_count
   } else {
     max_marker_value
   }
+
+  # Set the variable used in the density_fill_area calculation
+  density_count_full_at <- density_full_base_value
 
   density_radius_growth_available <- can_scale_marker_radius &&
     is.finite(density_full_base_value) &&
@@ -5274,7 +5289,7 @@ update_density_map <- function(map_id = NULL,
       visible_layers <- unique(circle_locations$marker_dataset)
       legend_rows <- c()
       if ("monitoring_trapped" %in% visible_layers) {
-        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#d9468f;'></span>Monitoring counts</div>")
+        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#9333ea;'></span>Monitoring counts</div>")
       }
       if ("monitoring_non_trapped" %in% visible_layers) {
         legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#16a34a;'></span>Monitoring counts</div>")
@@ -5895,7 +5910,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       length(selected_localities) > 0 &&
       all(c("locality", "locality_match_type", "locality_distance_km") %in% names(trap_deps))) {
     max_locality_distance_km <- suppressWarnings(as.numeric(max_locality_distance_km))
-    if (is.na(max_locality_distance_km) || max_locality_distance_km < 0) {
+    if (length(max_locality_distance_km) == 0 || is.na(max_locality_distance_km) || max_locality_distance_km < 0) {
       max_locality_distance_km <- 1
     }
 
