@@ -876,70 +876,73 @@ mapping_module_ui <- function(id,
         if (isTRUE(include_prediction_option) || isTRUE(include_marker_options)) {
           tags$hr()
         },
-        if (isTRUE(include_marker_options)) {
-          conditionalPanel(
-            condition = "input.include_monitoring_records",
-            ns = ns,
-            checkboxInput(
-              inputId = ns("show_density_location_markers"),
-              label = "Observation count markers",
-              value = TRUE
-            )
-          )
-        },
-        if (isTRUE(include_prediction_option)) {
-          conditionalPanel(
-            condition = prediction_condition,
-            ns = ns,
-            checkboxInput(
-              inputId = ns("show_predicted_rai_surface"),
-              label = "Predicted RAI surface",
-              value = FALSE
-            )
-          )
-        },
-        if (isTRUE(include_prediction_option)) {
-          conditionalPanel(
-            condition = prediction_basis_condition,
-            ns = ns,
-            tags$div(
-              class = "prediction-surface-options",
-              radioButtons(
-                inputId = ns("predicted_rai_surface_basis"),
-                label = surface_basis_label(ns),
-                choices = c(
-                  "Location-weighted RAI" = "weighted_line_rai",
-                  "Line RAI" = "line_rai"
-                ),
-                selected = "weighted_line_rai"
-              )
-            )
-          )
-        },
-        if (isTRUE(trap_data_available)) {
-          conditionalPanel(
-            condition = "input.include_trap_data",
-            ns = ns,
-            tags$div(
-              class = "trap-layer-options",
+        tags$div(
+          class = "map-display-layer-options",
+          if (isTRUE(include_marker_options)) {
+            conditionalPanel(
+              condition = "input.include_monitoring_records",
+              ns = ns,
               checkboxInput(
-                inputId = ns("show_trap_kill_markers"),
-                label = "Trap kill markers",
+                inputId = ns("show_density_location_markers"),
+                label = "Monitoring counts",
                 value = TRUE
-              ),
+              )
+            )
+          },
+          if (isTRUE(include_prediction_option)) {
+            conditionalPanel(
+              condition = prediction_condition,
+              ns = ns,
               checkboxInput(
-                inputId = ns("show_trap_blank_checks"),
-                label = trap_check_counters_label(ns),
-                value = FALSE
-              ),
-              checkboxInput(
-                inputId = ns("show_trap_unchecked_locations"),
-                label = unchecked_traps_label(ns),
+                inputId = ns("show_predicted_rai_surface"),
+                label = "Predicted RAI surface",
                 value = FALSE
               )
             )
-          )
-        }
+          },
+          if (isTRUE(include_prediction_option)) {
+            conditionalPanel(
+              condition = prediction_basis_condition,
+              ns = ns,
+              tags$div(
+                class = "prediction-surface-options",
+                radioButtons(
+                  inputId = ns("predicted_rai_surface_basis"),
+                  label = surface_basis_label(ns),
+                  choices = c(
+                    "Location-weighted RAI" = "weighted_line_rai",
+                    "Line RAI" = "line_rai"
+                  ),
+                  selected = "weighted_line_rai"
+                )
+              )
+            )
+          },
+          if (isTRUE(include_marker_options) && isTRUE(trap_data_available)) {
+            conditionalPanel(
+              condition = "input.include_trap_data",
+              ns = ns,
+              tags$div(
+                class = "trap-layer-options",
+                checkboxInput(
+                  inputId = ns("show_trap_kill_markers"),
+                  label = "Trap kill markers",
+                  value = TRUE
+                ),
+                checkboxInput(
+                  inputId = ns("show_trap_blank_checks"),
+                  label = trap_check_counters_label(ns),
+                  value = FALSE
+                ),
+                checkboxInput(
+                  inputId = ns("show_trap_unchecked_locations"),
+                  label = unchecked_traps_label(ns),
+                  value = FALSE
+                )
+              )
+            )
+          }
+        )
       )
     )
   } else if (view == "select_observation_map_options") { # New view for observation map specific options
@@ -1019,75 +1022,79 @@ mapping_module_ui <- function(id,
         hr(),
         radioButtons(
           inputId = ns("playback_view_mode"),
-          label = "Timeline mode:",
+          label = "Display records for:",
           choices = c("Selected period only" = "single", "Cumulative to current date" = "cumulative"),
           selected = playback_view_mode_selected
         ),
-        if (isTRUE(include_marker_options)) {
-          conditionalPanel(
-            condition = "input.include_monitoring_records",
-            ns = ns,
-            checkboxInput(
-              inputId = ns("show_density_location_markers"),
-              label = "Observation count markers",
-              value = TRUE
-            )
-          )
-        },
-        if (isTRUE(include_prediction_option)) {
-          conditionalPanel(
-            condition = "input.playback_view_mode === 'cumulative' && input.include_monitoring_records && (!input.species_display_mode || input.species_display_mode === 'combined')",
-            ns = ns,
-            checkboxInput(
-              inputId = ns("show_predicted_rai_surface"),
-              label = "Predicted RAI surface",
-              value = FALSE
-            )
-          )
-        },
-        if (isTRUE(include_prediction_option)) {
-          conditionalPanel(
-            condition = "input.playback_view_mode === 'cumulative' && input.include_monitoring_records && (!input.species_display_mode || input.species_display_mode === 'combined') && input.show_predicted_rai_surface",
-            ns = ns,
-            tags$div(
-              class = "prediction-surface-options",
-              radioButtons(
-                inputId = ns("predicted_rai_surface_basis"),
-                label = surface_basis_label(ns),
-                choices = c(
-                  "Location-weighted RAI" = "weighted_line_rai",
-                  "Line RAI" = "line_rai"
-                ),
-                selected = "weighted_line_rai"
-              ),
-              tags$small("RAI surface is calculated/updated monthly.")
-            )
-          )
-        },
-        if (isTRUE(include_observation_layer_options)) {
-          conditionalPanel(
-            condition = "input.include_trap_data",
-            ns = ns,
-            tags$div(
-              class = "observation-layer-options",
+        hr(),
+        tags$div(
+          class = "map-display-layer-options",
+          if (isTRUE(include_marker_options)) {
+            conditionalPanel(
+              condition = "input.include_monitoring_records",
+              ns = ns,
               checkboxInput(
-                inputId = ns("show_trap_kill_markers"),
-                label = "Trap kill markers",
+                inputId = ns("show_density_location_markers"),
+                label = "Monitoring counts",
                 value = TRUE
-              ),
+              )
+            )
+          },
+          if (isTRUE(include_prediction_option)) {
+            conditionalPanel(
+              condition = "input.playback_view_mode === 'cumulative' && input.include_monitoring_records && (!input.species_display_mode || input.species_display_mode === 'combined')",
+              ns = ns,
               checkboxInput(
-                inputId = ns("show_trap_blank_checks"),
-                label = trap_check_counters_label(ns),
-                value = FALSE
-              ),
-              checkboxInput(
-                inputId = ns("show_trap_unchecked_locations"),
-                label = unchecked_traps_label(ns),
+                inputId = ns("show_predicted_rai_surface"),
+                label = "Predicted RAI surface",
                 value = FALSE
               )
             )
-          )
-        },
+          },
+          if (isTRUE(include_prediction_option)) {
+            conditionalPanel(
+              condition = "input.playback_view_mode === 'cumulative' && input.include_monitoring_records && (!input.species_display_mode || input.species_display_mode === 'combined') && input.show_predicted_rai_surface",
+              ns = ns,
+              tags$div(
+                class = "prediction-surface-options",
+                radioButtons(
+                  inputId = ns("predicted_rai_surface_basis"),
+                  label = surface_basis_label(ns),
+                  choices = c(
+                    "Location-weighted RAI" = "weighted_line_rai",
+                    "Line RAI" = "line_rai"
+                  ),
+                  selected = "weighted_line_rai"
+                ),
+                tags$small("RAI surface is calculated/updated monthly.")
+              )
+            )
+          },
+          if (isTRUE(include_observation_layer_options)) {
+            conditionalPanel(
+              condition = "input.include_trap_data",
+              ns = ns,
+              tags$div(
+                class = "observation-layer-options",
+                checkboxInput(
+                  inputId = ns("show_trap_kill_markers"),
+                  label = "Trap kill markers",
+                  value = TRUE
+                ),
+                checkboxInput(
+                  inputId = ns("show_trap_blank_checks"),
+                  label = trap_check_counters_label(ns),
+                  value = FALSE
+                ),
+                checkboxInput(
+                  inputId = ns("show_trap_unchecked_locations"),
+                  label = unchecked_traps_label(ns),
+                  value = FALSE
+                )
+              )
+            )
+          }
+        ),
         if (isTRUE(include_monitoring_area_option)) {
           checkboxInput(
             inputId = ns("enhance_map_details"),
@@ -2759,9 +2766,11 @@ mapping_module_server <- function(id,
           render_density_line_summary_control(obs_summary_location_dens, title = summary_title)
         }
 
+        show_monitoring_marker_layer <- isTRUE(show_monitoring_density) &&
+          isTRUE(show_density_location_markers_selected())
         separate_marker_input <- list(
-          observations = if (isTRUE(show_monitoring_density)) obs_filtered_dens else obs_filtered_dens[0, , drop = FALSE],
-          no_obs_deployments = if (isTRUE(show_monitoring_density)) {
+          observations = if (isTRUE(show_monitoring_marker_layer)) obs_filtered_dens else obs_filtered_dens[0, , drop = FALSE],
+          no_obs_deployments = if (isTRUE(show_monitoring_marker_layer)) {
             active_locations_dens %>%
               dplyr::filter(!.data$locationName %in% obs_filtered_dens$locationName)
           } else {
@@ -3863,9 +3872,20 @@ mapping_module_server <- function(id,
           active_locations_obsmap[0, , drop = FALSE]
         }
         
+        visible_monitoring_markers_obsmap <- if (isTRUE(show_density_location_markers_selected())) {
+          visible_monitoring_obsmap
+        } else {
+          visible_monitoring_obsmap[0, , drop = FALSE]
+        }
+        no_obs_markers_obsmap <- if (isTRUE(show_density_location_markers_selected())) {
+          no_obs_locations_obsmap
+        } else {
+          no_obs_locations_obsmap[0, , drop = FALSE]
+        }
+
         marker_prep_input <- list(
-          observations = visible_monitoring_obsmap,
-          no_obs_deployments = no_obs_locations_obsmap
+          observations = visible_monitoring_markers_obsmap,
+          no_obs_deployments = no_obs_markers_obsmap
         )
         
         prepared_markers_list <- create_map_markers(marker_prep_input, source_map_id = id)
@@ -4098,26 +4118,48 @@ mapping_module_server <- function(id,
       }, ignoreNULL = FALSE, ignoreInit = TRUE)
       
       # --- Observation-specific outputs (UI elements other than the map) ---
+      normalize_trap_record_dates_for_table <- function(observation_rows) {
+        if (is.null(observation_rows) || nrow(observation_rows) == 0 ||
+            !"observation_source" %in% names(observation_rows) ||
+            !"timestamp" %in% names(observation_rows)) {
+          return(observation_rows)
+        }
+
+        source_rows <- !is.na(observation_rows$observation_source) &
+          observation_rows$observation_source == "trapping"
+        if (any(source_rows, na.rm = TRUE)) {
+          observation_rows$timestamp[source_rows] <- as.Date(observation_rows$timestamp[source_rows])
+        }
+
+        observation_rows
+      }
+
       prepare_observation_map_table <- function(observation_rows) {
+        observation_rows <- normalize_trap_record_dates_for_table(observation_rows)
         table_data <- prepare_spec_table_data(
           observation_rows,
           table_id = "observationmap_observations_browse",
           column_help = FALSE
         )$table_data
 
-        source_rows <- if ("observation_source" %in% names(observation_rows)) {
-          !is.na(observation_rows$observation_source) &
+        observation_id_column <- intersect(c("Observation Id", "Observation ID", "observationID"), names(table_data))
+        if (length(observation_id_column) > 0) {
+          observation_id_column <- observation_id_column[[1]]
+          source_rows <- grepl(
+            "trap-observation-link|wkt-trap-observation-|trap-unchecked-",
+            as.character(table_data[[observation_id_column]])
+          )
+        } else if ("observation_source" %in% names(observation_rows) &&
+                   nrow(observation_rows) == nrow(table_data)) {
+          source_rows <- !is.na(observation_rows$observation_source) &
             observation_rows$observation_source == "trapping"
         } else {
-          rep(FALSE, nrow(observation_rows))
+          source_rows <- rep(FALSE, nrow(table_data))
         }
         timestamp_column <- intersect(c("Timestamp", "timestamp"), names(table_data))
         if (length(timestamp_column) > 0 && any(source_rows, na.rm = TRUE)) {
           timestamp_column <- timestamp_column[[1]]
-          table_data[[timestamp_column]][source_rows] <- format(
-            as.Date(observation_rows$timestamp[source_rows]),
-            "%Y-%m-%d"
-          )
+          table_data[[timestamp_column]][source_rows] <- substr(as.character(table_data[[timestamp_column]][source_rows]), 1, 10)
         }
 
         table_data
@@ -4831,6 +4873,9 @@ update_density_map <- function(map_id = NULL,
     )
   }
   
+  has_trap_support_data <- density_data_source %in% c("trapping", "both") &&
+    !is.null(trap_support_locations) && nrow(trap_support_locations) > 0
+
   # Check if obs_summary_location has any rows
   if (nrow(obs_summary_location) > 0) {
     max_count <- max(obs_summary_location$count, na.rm = TRUE)
@@ -4842,7 +4887,7 @@ update_density_map <- function(map_id = NULL,
     max_count <- if (!is.null(absolute_max)) absolute_max else NA
     
     # Show "No results!" message 
-    if (!show_zero || nrow(active_locations) == 0) {
+    if ((!show_zero || nrow(active_locations) == 0) && !isTRUE(has_trap_support_data)) {
       logger::log_debug(sprintf("mapping_module_server, %s update_density_map() creating popup saying no results", map_id))
       proxy %>% addControl(
         html = "<strong>No markers to show! Check your selection filter criteria.</strong>", 
@@ -4906,7 +4951,7 @@ update_density_map <- function(map_id = NULL,
     dplyr::mutate(
       marker_color = dplyr::case_when(
         .data$marker_dataset == "trap_kill" ~ "#dc2626",
-        .data$marker_dataset == "monitoring_trapped" ~ "#2563eb",
+        .data$marker_dataset == "monitoring_trapped" ~ "#d9468f",
         .data$marker_dataset == "monitoring_non_trapped" ~ "#16a34a",
         TRUE ~ density_marker_color
       )
@@ -5056,7 +5101,10 @@ update_density_map <- function(map_id = NULL,
     }, character(1))
   }
 
-  if (isTRUE(show_location_markers)) {
+  has_trap_density_layers <- density_data_source %in% c("trapping", "both") &&
+    any(obs_summary_location$marker_dataset == "trap_kill", na.rm = TRUE)
+  has_trap_support_layers <- isTRUE(has_trap_support_data)
+  if (isTRUE(show_location_markers) || isTRUE(has_trap_density_layers) || isTRUE(has_trap_support_layers)) {
     obs_summary_location$popup_content <- marker_popup_html(obs_summary_location, include_review_link = TRUE)
     obs_summary_location$label_content <- marker_popup_html(obs_summary_location, include_review_link = FALSE)
 
@@ -5064,6 +5112,9 @@ update_density_map <- function(map_id = NULL,
       obs_summary_location %>% filter(is.finite(marker_value))
     } else {
       obs_summary_location %>% filter(count > 0)
+    }
+    if (!isTRUE(show_location_markers)) {
+      circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset == "trap_kill")
     }
 
     add_density_circles <- function(locations) {
@@ -5106,7 +5157,7 @@ update_density_map <- function(map_id = NULL,
     trap_kill_circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset == "trap_kill")
     add_density_circles(non_trap_circle_locations)
 
-    if (show_zero && identical(marker_metric, "count")) {
+    if (isTRUE(show_location_markers) && show_zero && identical(marker_metric, "count")) {
       zero_locations <- obs_summary_location %>% filter(count == 0)
       if (nrow(zero_locations) > 0) {
         proxy %>%
@@ -5175,10 +5226,10 @@ update_density_map <- function(map_id = NULL,
       visible_layers <- unique(circle_locations$marker_dataset)
       legend_rows <- c()
       if ("monitoring_trapped" %in% visible_layers) {
-        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#2563eb;'></span>Observation counts</div>")
+        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#d9468f;'></span>Monitoring counts</div>")
       }
       if ("monitoring_non_trapped" %in% visible_layers) {
-        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#16a34a;'></span>Observation counts</div>")
+        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#16a34a;'></span>Monitoring counts</div>")
       }
       if ("trap_kill" %in% visible_layers) {
         legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#dc2626;'></span>Trap kills</div>")

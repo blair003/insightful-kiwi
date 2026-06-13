@@ -491,10 +491,21 @@
         padding: 0 0 0 12px;
       }
 
+      .map-display-layer-options {
+        margin-top: -4px;
+      }
+
+      .map-display-layer-options > .shiny-bound-output,
+      .map-display-layer-options > div,
+      .map-display-layer-options .shiny-input-container,
+      .map-display-layer-options .form-group {
+        margin-bottom: 4px;
+      }
+
       .prediction-surface-options {
         border-left: 2px solid rgba(20, 83, 45, 0.22);
-        margin: -2px 0 10px 10px;
-        padding: 2px 0 0 12px;
+        margin: -10px 0 4px 10px;
+        padding: 0 0 0 10px;
       }
 
       .monitoring-record-options .shiny-input-container,
@@ -505,11 +516,20 @@
       }
 
       .prediction-surface-options .shiny-input-container {
-        margin-bottom: 8px;
+        margin-bottom: 4px;
+      }
+
+      .prediction-surface-options label,
+      .prediction-surface-options .control-label,
+      .prediction-surface-options .radio label,
+      .prediction-surface-options small {
+        font-size: 0.82rem;
+        line-height: 1.2;
       }
 
       .monitoring-record-options .checkbox,
       .trap-data-options .checkbox,
+      .trap-layer-options .checkbox,
       .observation-layer-options .checkbox {
         margin-bottom: 6px;
       }
@@ -520,20 +540,23 @@
         line-height: 1.25;
       }
 
+      .trap-layer-options,
       .observation-layer-options {
-        margin: -2px 0 8px 0;
+        margin: -2px 0 4px 0;
       }
 
+      .trap-layer-options .shiny-input-container,
+      .trap-layer-options .form-group,
       .observation-layer-options .shiny-input-container,
       .observation-layer-options .form-group {
-        margin-bottom: 6px;
+        margin-bottom: 4px;
       }
 
       .prediction-surface-options small {
         color: #6c757d;
         display: block;
-        line-height: 1.25;
-        margin-bottom: 8px;
+        line-height: 1.2;
+        margin: -2px 0 4px;
       }
 
       .surface-basis-label {
