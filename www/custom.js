@@ -465,7 +465,7 @@
           }
 
           if (nav === 'density_map') {
-            return /^density_map_primary-(selected_species|selected_localities|include_monitoring_records|include_trap_data|exclude_possible_duplicates|show_density_location_markers|show_predicted_rai_surface|predicted_rai_surface_basis|trap_locality_distance_km|show_trap_blank_checks|show_trap_unchecked_locations)$/.test(id) ||
+            return /^density_map_primary-(selected_species|selected_localities|exclude_possible_duplicates|show_density_location_markers|show_predicted_rai_surface|predicted_rai_surface_basis|trap_locality_distance_km|show_trap_kill_markers|show_trap_blank_checks|show_trap_unchecked_locations)$/.test(id) ||
               /^(density_map_period|comparative_period)-period_selection$/.test(id);
           }
 

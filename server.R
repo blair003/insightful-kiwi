@@ -1209,8 +1209,17 @@ server <- function(input, output, session) {
   })
 
   density_data_source <- reactive({
-    include_monitoring <- if (is.null(input[["density_map_primary-include_monitoring_records"]])) TRUE else isTRUE(input[["density_map_primary-include_monitoring_records"]])
-    include_trapping <- isTRUE(input[["density_map_primary-include_trap_data"]]) && !is.null(trap_data)
+    include_monitoring <- if (is.null(input[["density_map_primary-show_density_location_markers"]]) &&
+                              is.null(input[["density_map_primary-show_predicted_rai_surface"]])) {
+      TRUE
+    } else {
+      isTRUE(input[["density_map_primary-show_density_location_markers"]]) ||
+        isTRUE(input[["density_map_primary-show_predicted_rai_surface"]])
+    }
+    include_trapping <- !is.null(trap_data) && (
+      isTRUE(input[["density_map_primary-show_trap_kill_markers"]]) ||
+        isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]])
+    )
     if (include_monitoring && include_trapping) return("both")
     if (include_trapping) return("trapping")
     if (include_monitoring) return("monitoring")
