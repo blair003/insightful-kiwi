@@ -509,7 +509,8 @@ server <- function(input, output, session) {
                      table_order = list(list(4, 'asc')),
                      render_when = function() {
                        identical(input$nav, "records") &&
-                         identical(input$records_tabs, "deps")
+                         identical(input$records_tabs, "monitoring") &&
+                         identical(input$monitoring_records_tabs, "deps")
                      },
                      cache_prepared_data = TRUE) 
   
@@ -521,7 +522,8 @@ server <- function(input, output, session) {
                      table_order = list(list(4, 'asc')),
                      render_when = function() {
                        identical(input$nav, "records") &&
-                         identical(input$records_tabs, "obs")
+                         identical(input$records_tabs, "monitoring") &&
+                         identical(input$monitoring_records_tabs, "obs")
                      },
                      cache_prepared_data = TRUE) 
 
@@ -1594,7 +1596,13 @@ server <- function(input, output, session) {
   activity_patterns_module_server(
     id = "activity_patterns",
     core_data = core_data,
-    nav = reactive(input$nav),
+    nav = reactive({
+      if (identical(input$nav, "reporting") && identical(input$reporting_tabs, "activity_patterns")) {
+        return("activity_patterns")
+      }
+
+      input$nav
+    }),
     current_period = overview_state$current_period,
     prior_period = overview_state$prior_period,
     last_year_period = overview_state$last_year_period,

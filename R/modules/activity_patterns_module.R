@@ -9,7 +9,7 @@ activity_patterns_module_ui <- function(id,
   if (view == "sidebar") {
     return(
       conditionalPanel(
-        condition = "input.nav === 'activity_patterns'",
+        condition = "input.nav === 'activity_patterns' || (input.nav === 'reporting' && input.reporting_tabs === 'activity_patterns')",
         mapping_module_ui(
           id = ns("activity_patterns_map"),
           view = "select_species",

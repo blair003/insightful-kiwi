@@ -5174,13 +5174,6 @@ update_density_map <- function(map_id = NULL,
       observation_ids <- as.character(observation_ids)
       observation_ids <- observation_ids[!is.na(observation_ids) & nzchar(observation_ids)]
 
-      payload <- list(
-        map_id = source_map_id,
-        location_name = marker_field("locationName", i, ""),
-        locality = marker_field("locality", i, ""),
-        observation_ids = observation_ids
-      )
-
       safe_marker_text <- function(value) {
         if (is.null(value) || length(value) == 0 || is.na(value)) {
           return("")
@@ -5199,8 +5192,29 @@ update_density_map <- function(map_id = NULL,
       locality_text <- safe_marker_text(marker_field("locality", i, ""))
       locality_line_text <- paste(c(locality_text, line_text)[nzchar(c(locality_text, line_text))], collapse = ", ")
 
+      marker_dataset <- marker_field("marker_dataset", i, density_data_source)
+      if (identical(marker_dataset, "trap_kill")) {
+        trap_record <- marker_data[i, , drop = FALSE]
+        trap_record$trap_line <- line_value
+        trap_record$selected_species_kill_count <- dplyr::coalesce(
+          suppressWarnings(as.numeric(marker_field("selected_species_kill_count", i, NA_real_))),
+          suppressWarnings(as.numeric(marker_field("count", i, NA_real_)))
+        )
+
+        return(create_trap_location_popup_content(
+          trap_record,
+          capture_links_html = trap_capture_records_html(observation_ids)
+        ))
+      }
+
       review_link <- ""
       if (isTRUE(include_review_link) && length(observation_ids) > 0) {
+        payload <- list(
+          map_id = source_map_id,
+          location_name = marker_field("locationName", i, ""),
+          locality = marker_field("locality", i, ""),
+          observation_ids = observation_ids
+        )
         payload_json <- jsonlite::toJSON(payload, auto_unbox = TRUE)
         encoded_payload <- utils::URLencode(payload_json, reserved = TRUE)
         onclick_js <- sprintf(
@@ -5208,23 +5222,6 @@ update_density_map <- function(map_id = NULL,
           encoded_payload
         )
         review_link <- sprintf("<br><a href='#' onclick=\"%s\" title='Review Sequences'>Review Sequences</a>", onclick_js)
-      }
-
-      marker_dataset <- marker_field("marker_dataset", i, density_data_source)
-      if (identical(marker_dataset, "trap_kill")) {
-        trap_line_text <- if (nzchar(as.character(line_value))) paste0("Trap line ", safe_marker_text(line_value)) else ""
-        trap_locality_line <- paste(c(locality_text, trap_line_text)[nzchar(c(locality_text, trap_line_text))], collapse = ", ")
-        return(paste0(
-          "<strong>Trap: ", location_text, "</strong>",
-          if (nzchar(trap_locality_line)) paste0("<br>", trap_locality_line) else "",
-          "<br><br><strong>Trapping:</strong>",
-          "<br>Selected-species captures: ", format_marker_value(marker_field("count", i), digits = 0),
-          "<br>Overlapping checks: ", format_marker_value(marker_field("trap_checks", i), digits = 0),
-          "<br>Coverage: ", htmltools::htmlEscape(format_trap_date_range(marker_field("first_check", i), marker_field("last_check", i), marker_field("check_span_days", i))),
-          "<br>Average interval: ", format_marker_value(marker_field("mean_check_interval_days", i), digits = 1), " days",
-          "<br>Captures / 100 trap-days: ", format_marker_value(marker_field("kills_per_100_trap_days_selected_species", i), digits = 2),
-          review_link
-        ))
       }
 
       paste0(
@@ -6572,6 +6569,89 @@ format_trap_metric_rate <- function(value) {
   format(round(value, 2), nsmall = 2, trim = TRUE)
 }
 
+trap_capture_records_html <- function(observation_ids) {
+  observation_ids <- as.character(unlist(observation_ids, use.names = FALSE))
+  observation_ids <- unique(observation_ids[!is.na(observation_ids) & nzchar(observation_ids)])
+  if (length(observation_ids) == 0) {
+    return("")
+  }
+
+  links <- vapply(observation_ids, function(observation_id) {
+    safe_id_text <- htmltools::htmlEscape(observation_id)
+    safe_id_attr <- htmltools::htmlEscape(observation_id, attribute = TRUE)
+    sprintf(
+      "<a href='javascript:void(0);' class='trap-observation-link' data-observationid='%s'>%s</a>",
+      safe_id_attr,
+      safe_id_text
+    )
+  }, character(1), USE.NAMES = FALSE)
+
+  paste(links, collapse = ", ")
+}
+
+create_trap_location_popup_content <- function(trap_record, capture_links_html = "") {
+  trap_record <- as.data.frame(trap_record, stringsAsFactors = FALSE)
+
+  record_field <- function(field, default = NA) {
+    if (!field %in% names(trap_record)) {
+      return(default)
+    }
+
+    trap_record[[field]][[1]]
+  }
+
+  first_available <- function(fields, default = NA) {
+    for (field in fields) {
+      value <- record_field(field, default = NA)
+      if (!is.null(value) && length(value) > 0 && !is.na(value) && nzchar(as.character(value))) {
+        return(value)
+      }
+    }
+
+    default
+  }
+
+  location_text <- htmltools::htmlEscape(safe_marker_value(record_field("locationName")))
+  locality_text <- htmltools::htmlEscape(safe_marker_value(record_field("locality")))
+  line_value <- first_available(c("trap_line", "line"), "")
+  line_text <- if (nzchar(as.character(line_value))) {
+    paste0("Trap line ", htmltools::htmlEscape(as.character(line_value)))
+  } else {
+    ""
+  }
+  locality_line <- paste(c(locality_text, line_text)[nzchar(c(locality_text, line_text))], collapse = ", ")
+
+  selected_captures <- dplyr::coalesce(
+    suppressWarnings(as.numeric(record_field("selected_species_kill_count", NA_real_))),
+    suppressWarnings(as.numeric(record_field("kills", NA_real_))),
+    suppressWarnings(as.numeric(record_field("count", NA_real_)))
+  )
+
+  capture_links_html <- safe_marker_value(capture_links_html)
+  capture_records <- if (nzchar(capture_links_html)) {
+    paste0("<br><br>Capture records: ", capture_links_html)
+  } else {
+    ""
+  }
+
+  paste0(
+    "<div>",
+    "<strong>Trap: ", location_text, "</strong>",
+    if (nzchar(locality_line)) paste0("<br>", locality_line) else "",
+    "<br>Selected-species captures: ", format_trap_metric_number(selected_captures),
+    "<br><br>Overlapping checks: ", format_trap_metric_number(record_field("trap_checks", NA_real_)),
+    "<br>Coverage: ", htmltools::htmlEscape(format_trap_date_range(
+      record_field("first_check", NA),
+      record_field("last_check", NA),
+      record_field("check_span_days", NA)
+    )),
+    "<br>Average interval: ", format_trap_metric_number(record_field("mean_check_interval_days", NA_real_), 1), " days",
+    "<br>Captures / 100 trap-days: ", format_trap_metric_rate(record_field("kills_per_100_trap_days_selected_species", NA_real_)),
+    capture_records,
+    "</div>"
+  )
+}
+
 format_trap_date_range <- function(first_date, last_date, span_days) {
   first_date <- as.Date(first_date)
   last_date <- as.Date(last_date)
@@ -6908,6 +6988,12 @@ create_trap_kill_summary <- function(trap_observations) {
   metric_columns <- trap_metric_columns()
   metric_summary <- summarise_visible_trap_metrics(trap_observations) %>%
     dplyr::select(locationID, dplyr::all_of(metric_columns))
+  location_capture_ids <- kill_rows %>%
+    dplyr::group_by(.data$locationID) %>%
+    dplyr::summarise(
+      capture_observation_ids = list(unique(.data$observationID)),
+      .groups = "drop"
+    )
 
   kill_rows %>%
     dplyr::group_by(.data$locationID, .data$locationName, .data$scientificName_lower) %>%
@@ -6926,7 +7012,8 @@ create_trap_kill_summary <- function(trap_observations) {
       observation_ids = list(unique(.data$observationID)),
       .groups = "drop"
     ) %>%
-    dplyr::left_join(metric_summary, by = "locationID")
+    dplyr::left_join(metric_summary, by = "locationID") %>%
+    dplyr::left_join(location_capture_ids, by = "locationID")
 }
 
 create_trap_check_effort_marker <- function(trap_record, max_checks) {
@@ -6974,42 +7061,18 @@ create_trap_kill_summary_marker <- function(trap_record, max_kills) {
   trap_record <- as.data.frame(trap_record, stringsAsFactors = FALSE)
   species_label <- safe_marker_value(trap_record$species_label, trap_record$scientificName_lower)
   kill_label <- format_summary_count(trap_record$kills)
-  locality_text <- format_trap_locality_text(trap_record)
-  kill_ids <- unlist(trap_record$observation_ids[[1]], use.names = FALSE)
-  kill_ids <- kill_ids[!is.na(kill_ids) & nzchar(kill_ids)]
-
-  kill_links <- if (length(kill_ids) > 0) {
-    links <- vapply(kill_ids, function(observation_id) {
-      sprintf(
-        "<a href='javascript:void(0);' class='trap-observation-link' data-observationid='%s'>%s</a>",
-        observation_id,
-        observation_id
-      )
-    }, character(1), USE.NAMES = FALSE)
-    paste(links, collapse = ", ")
+  capture_ids <- if ("capture_observation_ids" %in% names(trap_record) && is.list(trap_record$capture_observation_ids)) {
+    trap_record$capture_observation_ids[[1]]
+  } else if ("observation_ids" %in% names(trap_record) && is.list(trap_record$observation_ids)) {
+    trap_record$observation_ids[[1]]
   } else {
-    ""
+    character(0)
   }
 
   marker_color <- observation_marker_color(trap_record$scientificName_lower)
-  popup_content <- sprintf(
-    paste0(
-      "<div>",
-      "%s captures at this trap: <strong>%s</strong><br>",
-      "Trap: %s<br>",
-      "Line: %s<br>",
-      "%s",
-      "%s",
-      "%s",
-      "</div>"
-    ),
-    htmltools::htmlEscape(str_to_title(species_label)),
-    kill_label,
-    htmltools::htmlEscape(safe_marker_value(trap_record$locationName)),
-    htmltools::htmlEscape(safe_marker_value(trap_record$trap_line)),
-    locality_text,
-    trap_metrics_popup_html(trap_record, species_label),
-    if (nzchar(kill_links)) paste0("<br><br>Capture records: ", kill_links) else ""
+  popup_content <- create_trap_location_popup_content(
+    trap_record,
+    capture_links_html = trap_capture_records_html(capture_ids)
   )
 
   list(

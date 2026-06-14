@@ -73,7 +73,7 @@ ui <- function(request) {
       id = "global_sidebar",
       
       conditionalPanel(
-        condition = "input.nav === 'reporting'",
+        condition = "input.nav === 'reporting' && ['exec_summary', 'results_summary', 'species_summary', 'visualisations'].indexOf(input.reporting_tabs) !== -1",
 
         period_selection_module_ui(
           id = "primary_period",
@@ -107,7 +107,7 @@ ui <- function(request) {
       
       overview_module_ui("overview", view = "sidebar", core_data = core_data, config = config),
       conditionalPanel(
-        condition = "input.nav === 'plots'",
+        condition = "input.nav === 'reporting' && input.reporting_tabs === 'plots'",
         plotting_module_ui(
           id = "spp_obs_plot_visualisations",
           view = "select_species",
@@ -145,7 +145,7 @@ ui <- function(request) {
       
       # Conditional content for Report
       conditionalPanel(
-        condition = "input.nav === 'reporting'",
+        condition = "input.nav === 'reporting' && ['exec_summary', 'results_summary', 'species_summary', 'visualisations'].indexOf(input.reporting_tabs) !== -1",
         
         period_selection_module_ui(id = "primary_period", 
                                    view = "summary", 
@@ -384,25 +384,7 @@ ui <- function(request) {
             value = "monitoring_trapping_analysis",
             monitoring_trapping_module_ui("monitoring_trapping_analysis", core_data = core_data, config = config, trap_data = trap_data, view = "main")
           )
-        },
-
-        ######### PLOTS OUTPUT #########
-        nav_panel(
-          title = "Plots",
-          icon = icon("chart-line"),
-          value = "plots",
-          card(
-            class = "overview-plot-card",
-            card_header(
-              tagList(icon("eye"), "Species observations, grouped by time period")
-            ),
-            plotting_module_ui(id = "spp_obs_plot_visualisations", view = "plot"),
-            full_screen = FALSE
-          )
-        ),
-
-        ######### ACTIVITY PATTERNS OUTPUT #########
-        activity_patterns_module_ui("activity_patterns", view = "main")
+        }
       ),
       
       species_overview_nav_menu(),
@@ -460,6 +442,24 @@ ui <- function(request) {
               )
 
           ),
+
+          ######### PLOTS OUTPUT #########
+          nav_panel(
+            title = "Plots",
+            icon = icon("chart-line"),
+            value = "plots",
+            card(
+              class = "overview-plot-card",
+              card_header(
+                tagList(icon("eye"), "Species observations, grouped by time period")
+              ),
+              plotting_module_ui(id = "spp_obs_plot_visualisations", view = "plot"),
+              full_screen = FALSE
+            )
+          ),
+
+          ######### ACTIVITY PATTERNS OUTPUT #########
+          activity_patterns_module_ui("activity_patterns", view = "main"),
           
           nav_spacer()
         )
@@ -473,29 +473,37 @@ ui <- function(request) {
       
         navset_tab( 
           id = "records_tabs",
+          selected = "monitoring",
           nav_panel(
-            "Observations",
-            DT::dataTableOutput("rawdata_observations_browse"),
-            value = "obs"
-          ),
-          nav_panel(
-            "Deployments",
-            DT::dataTableOutput("rawdata_deployments_browse"),
-            value = "deps"
+            "Monitoring",
+            value = "monitoring",
+            navset_tab(
+              id = "monitoring_records_tabs",
+              nav_panel(
+                "Observations",
+                DT::dataTableOutput("rawdata_observations_browse"),
+                value = "obs"
+              ),
+              nav_panel(
+                "Deployments",
+                DT::dataTableOutput("rawdata_deployments_browse"),
+                value = "deps"
+              )
+            )
           ),
           if (!is.null(trap_data)) {
             nav_panel(
-              "Trap Data",
-              value = "trap_data",
+              "Trapping",
+              value = "trapping",
               navset_tab(
-                id = "trap_data_tabs",
+                id = "trapping_records_tabs",
                 nav_panel(
-                  "Trap observations",
+                  "Observations",
                   DT::dataTableOutput("trapdata_observations_browse"),
                   value = "trap_obs"
                 ),
                 nav_panel(
-                  "Trap deployments",
+                  "Deployments",
                   DT::dataTableOutput("trapdata_deployments_browse"),
                   value = "trap_deps"
                 ),
