@@ -70,7 +70,6 @@ activity_patterns_module_server <- function(id,
         logger::log_debug("activity_patterns_module_server, lazily calling mapping_module_server()")
         activity_patterns_map <<- mapping_module_server(
           id = "activity_patterns_map",
-          type = "observation",
           obs = reactive({ filter_detection_obs(core_data$obs) }),
           deps = reactive({ core_data$deps }),
           enable_map_outputs = FALSE

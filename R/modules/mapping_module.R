@@ -976,7 +976,7 @@ mapping_module_ui <- function(id,
         }
       )
     )
-  } else if (view == "select_observation_map_options") { # New view for observation map specific options
+  } else if (view == "select_map_record_options") {
     trap_data_available <- exists("trap_data", inherits = TRUE) &&
       !is.null(get("trap_data", inherits = TRUE))
     trap_distance_max <- 5
@@ -1258,13 +1258,13 @@ mapping_module_ui <- function(id,
             value = "map"
           ),
           nav_panel(
-            "Data",
+            "Records",
             h3("Observations data in current window"),
             DT::dataTableOutput(ns("playback_data_table")),
             value = "data"
           ),
           nav_panel(
-            "Cumulative Data",
+            "Cumulative Records",
             h3("Cumulative observations"),
             DT::dataTableOutput(ns("playback_cumulative_data_table")),
             value = "cumulative_data"
@@ -1272,7 +1272,7 @@ mapping_module_ui <- function(id,
         )
       )
     )
-  } else if (view == "observation_map_layout") { # New view for the observation map page layout
+  } else if (view == "map_records_layout") {
     return(
       tagList(
         div(
@@ -1281,59 +1281,59 @@ mapping_module_ui <- function(id,
           uiOutput(ns("playback_window_ui"))
         ),
         navset_tab(
-          id = ns("observation_map_tabs"),
-          selected = ns("map_tab"),
+          id = ns("map_tabs"),
+          selected = "map_tab",
           nav_panel(
             "Map",
-            leafletOutput(ns("map_display"), height = map_height), # Distinct ID for this map
-            uiOutput(ns("observation_map_textoverlay_warning")), # For warnings
-            value = ns("map_tab")
+            leafletOutput(ns("map_display"), height = map_height),
+            uiOutput(ns("map_textoverlay_warning")),
+            value = "map_tab"
           ),
           nav_panel(
             "Summary",
-            h3("Observation summary"),
+            h3("Map records summary"),
             h4("By species"),
-            DT::dataTableOutput(ns("observation_species_summary_table")),
+            DT::dataTableOutput(ns("map_species_summary_table")),
             br(),
             h4("By locality"),
-            DT::dataTableOutput(ns("observation_locality_summary_table")),
+            DT::dataTableOutput(ns("map_locality_summary_table")),
             br(),
             h4("By trap"),
-            DT::dataTableOutput(ns("observation_trap_summary_table")),
-            value = ns("summary_tab")
+            DT::dataTableOutput(ns("map_trap_summary_table")),
+            value = "summary_tab"
           ),
           nav_panel(
-            "Data",
-            h3("Browse observations shown on the map"),
+            "Records",
+            h3("Browse records shown on the map"),
             p(
-              "This table shows the observations in the current playback window."
+              "This table shows the records in the current playback window."
             ),
-            DT::dataTableOutput(ns("observation_data_table")),
-            value = ns("data_tab")
+            DT::dataTableOutput(ns("map_data_table")),
+            value = "data_tab"
           ),
           nav_panel(
             "Export",
-            h3("Export observations shown on the map"),
+            h3("Export records shown on the map"),
             p(
-              "This table contains the export fields for observations in the current playback window."
+              "This table contains the export fields for records in the current playback window."
             ),
-            downloadButton(ns("download_observation_map_export"), "Download CSV"),
-            DT::dataTableOutput(ns("observation_export_table")),
-            value = ns("export_tab")
+            downloadButton(ns("download_map_records_export"), "Download CSV"),
+            DT::dataTableOutput(ns("map_export_table")),
+            value = "export_tab"
           ),
           nav_panel(
-            "Cumulative Data",
+            "Cumulative Records",
             h3("Browse cumulative observations"),
             p(
-              "This table shows observations from the start of the selected season up to the current playback time."
+              "This table shows records from the start of the selected season up to the current playback time."
             ),
-            DT::dataTableOutput(ns("observation_cumulative_data_table")),
-            value = ns("cumulative_data_tab")
+            DT::dataTableOutput(ns("map_cumulative_data_table")),
+            value = "cumulative_data_tab"
           )
         )
       )
     )
-  } else if (view == "observation_map_only") {
+  } else if (view == "map_only") {
     return(
       tagList(
         div(
@@ -1342,42 +1342,42 @@ mapping_module_ui <- function(id,
           uiOutput(ns("playback_window_ui"))
         ),
         leafletOutput(ns("map_display"), height = map_height),
-        uiOutput(ns("observation_map_textoverlay_warning"))
+        uiOutput(ns("map_textoverlay_warning"))
       )
     )
-  } else if (view == "observation_map_monitoring_summary") {
+  } else if (view == "map_monitoring_summary") {
     return(
       tagList(
         h3("Monitoring summary"),
         h4("By species"),
-        DT::dataTableOutput(ns("observation_species_summary_table")),
+        DT::dataTableOutput(ns("map_species_summary_table")),
         br(),
         h4("By locality"),
-        DT::dataTableOutput(ns("observation_locality_summary_table"))
+        DT::dataTableOutput(ns("map_locality_summary_table"))
       )
     )
-  } else if (view == "observation_map_trapping_effort") {
+  } else if (view == "map_trapping_effort") {
     return(
       tagList(
         h3("Trapping effort"),
-        DT::dataTableOutput(ns("observation_trap_summary_table"))
+        DT::dataTableOutput(ns("map_trap_summary_table"))
       )
     )
-  } else if (view == "observation_map_data_panel") {
+  } else if (view == "map_record_data_panel") {
     return(
       tagList(
         div(
           class = "mapping-data-actions",
-          downloadButton(ns("download_observation_map_export"), "Download CSV")
+          downloadButton(ns("download_map_records_export"), "Download CSV")
         ),
         h3("Current window records"),
-        DT::dataTableOutput(ns("observation_data_table")),
+        DT::dataTableOutput(ns("map_data_table")),
         conditionalPanel(
           condition = "input.playback_view_mode == 'single'",
           ns = ns,
           br(),
           h3("Cumulative records"),
-          DT::dataTableOutput(ns("observation_cumulative_data_table"))
+          DT::dataTableOutput(ns("map_cumulative_data_table"))
         )
       )
     )
@@ -1386,7 +1386,6 @@ mapping_module_ui <- function(id,
 
 
 mapping_module_server <- function(id,
-                                  type = "density", # "density" or "observation"
                                   obs = NULL, # Reactive: obs filtered by period
                                   deps = NULL, # Reactive: deps filtered by period
                                   species_override = NULL, # Reactive: for comparative density map
@@ -1409,21 +1408,19 @@ mapping_module_server <- function(id,
                                   enable_map_outputs = TRUE,
                                   use_net = reactive(config$globals$use_net_data),
                                   trap_data = NULL,
-                                  observation_nav_value = "observation_map",
                                   period_groups_override = NULL
 ) {
   playback_mode <- match.arg(playback_mode, choices = c("none", "always"))
   
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    logger::log_debug(sprintf("mapping_module_server, %s moduleServer() running for type: %s", id, type))
+    logger::log_debug(sprintf("mapping_module_server, %s moduleServer() running", id))
     
     MAP_ID <- ns("map_display") 
     current_bounds <- reactiveVal(NULL) # Unified reactiveVal for map bounds
     needs_fit_bounds <- reactiveVal(FALSE)
     predicted_rai_surface_cache <- reactiveVal(NULL)
     last_density_map_update_key <- reactiveVal(NULL)
-    last_observation_map_update_key <- reactiveVal(NULL)
     density_marker_scale <- reactiveVal(0)
 
     current_trap_data <- reactive({
@@ -1506,9 +1503,33 @@ mapping_module_server <- function(id,
       ))
     }, ignoreInit = TRUE)
 
+    include_monitoring_records_selected <- reactive({
+      if (is.null(input$include_monitoring_records)) {
+        return(TRUE)
+      }
+
+      isTRUE(input$include_monitoring_records)
+    })
+
+    include_trap_data_selected <- reactive({
+      if (is.null(current_trap_data())) {
+        return(FALSE)
+      }
+      if (is.null(input$include_trap_data)) {
+        return(TRUE)
+      }
+
+      isTRUE(input$include_trap_data)
+    })
+
+    exclude_untrapped_species_selected <- reactive({
+      isTRUE(input$exclude_untrapped_species) &&
+        isTRUE(include_trap_data_selected()) &&
+        !is.null(current_trap_data())
+    })
+
     density_data_source_selected <- reactive({
-      if (type == "density" &&
-          !is.null(density_data_source_override) &&
+      if (!is.null(density_data_source_override) &&
           !is.null(density_data_source_override())) {
         source <- density_data_source_override()
         if (!source %in% c("monitoring", "trapping", "both", "none")) {
@@ -1523,14 +1544,20 @@ mapping_module_server <- function(id,
         return(source)
       }
 
-      include_monitoring <- if (is.null(input$show_density_location_markers) && is.null(input$show_predicted_rai_surface)) {
+      include_monitoring_layer <- if (is.null(input$show_density_location_markers) && is.null(input$show_predicted_rai_surface)) {
         TRUE
       } else {
         isTRUE(input$show_density_location_markers) || isTRUE(input$show_predicted_rai_surface)
       }
-      include_trapping <- !is.null(current_trap_data()) && (
-        isTRUE(input$show_trap_kill_markers) ||
-          isTRUE(input$show_trap_unchecked_locations)
+      include_monitoring <- isTRUE(include_monitoring_records_selected()) && include_monitoring_layer
+
+      unchecked_requested <- if (!is.null(unchecked_traps_override) && !is.null(unchecked_traps_override())) {
+        isTRUE(unchecked_traps_override())
+      } else {
+        isTRUE(input$show_trap_unchecked_locations)
+      }
+      include_trapping <- isTRUE(include_trap_data_selected()) && (
+        isTRUE(show_trap_kill_markers_selected()) || unchecked_requested
       )
 
       if (include_monitoring && include_trapping) {
@@ -1568,7 +1595,7 @@ mapping_module_server <- function(id,
     })
 
     show_trap_blank_checks_selected <- reactive({
-      if (!density_data_source_selected() %in% c("trapping", "both") ||
+      if (!isTRUE(include_trap_data_selected()) ||
           !isTRUE(show_trap_kill_markers_selected())) {
         return(FALSE)
       }
@@ -1579,7 +1606,7 @@ mapping_module_server <- function(id,
     })
 
     show_trap_unchecked_locations_selected <- reactive({
-      if (!density_data_source_selected() %in% c("trapping", "both")) {
+      if (!isTRUE(include_trap_data_selected())) {
         return(FALSE)
       }
       if (!is.null(unchecked_traps_override) && !is.null(unchecked_traps_override())) {
@@ -1601,8 +1628,7 @@ mapping_module_server <- function(id,
         return(FALSE)
       }
 
-      if (type == "density" &&
-          !is.null(prediction_surface_override) &&
+      if (!is.null(prediction_surface_override) &&
           !is.null(prediction_surface_override())) {
         return(isTRUE(prediction_surface_override()))
       }
@@ -1611,8 +1637,7 @@ mapping_module_server <- function(id,
     })
 
     predicted_rai_surface_basis_selected <- reactive({
-      if (type == "density" &&
-          !is.null(prediction_surface_basis_override) &&
+      if (!is.null(prediction_surface_basis_override) &&
           !is.null(prediction_surface_basis_override())) {
         basis <- prediction_surface_basis_override()
       } else {
@@ -1627,8 +1652,7 @@ mapping_module_server <- function(id,
     })
 
     species_display_mode_selected <- reactive({
-      if (type == "density" &&
-          !is.null(species_display_mode_override) &&
+      if (!is.null(species_display_mode_override) &&
           !is.null(species_display_mode_override())) {
         mode <- species_display_mode_override()
       } else {
@@ -1643,8 +1667,7 @@ mapping_module_server <- function(id,
     })
 
     show_density_location_markers_selected <- reactive({
-      if (type == "density" &&
-          !is.null(location_markers_override) &&
+      if (!is.null(location_markers_override) &&
           !is.null(location_markers_override())) {
         return(isTRUE(location_markers_override()))
       }
@@ -1659,12 +1682,11 @@ mapping_module_server <- function(id,
     
     # --- Common Reactives ---
     current_selected_species <- reactive({
-      # For density map, species_override can be used for the comparative map
       if (!is.null(species_override) && !is.null(species_override())) {
-        logger::log_debug(sprintf("mapping_module_server [%s], %s species_override provided.", type, id))
+        logger::log_debug(sprintf("mapping_module_server, %s species_override provided.", id))
         species_override()
       } else {
-        logger::log_debug(sprintf("mapping_module_server [%s], %s using input$selected_species.", type, id))
+        logger::log_debug(sprintf("mapping_module_server, %s using input$selected_species.", id))
         req(input$selected_species)
         as.character(input$selected_species)
       }
@@ -1672,19 +1694,10 @@ mapping_module_server <- function(id,
     
     current_selected_localities <- reactive({
       if (!is.null(localities_override) && !is.null(localities_override())) {
-        logger::log_debug(sprintf("mapping_module_server [%s], %s localities_override provided.", type, id))
+        logger::log_debug(sprintf("mapping_module_server, %s localities_override provided.", id))
         localities_override()
-      } else if (type == "observation") {
-        if (!is.null(input$selected_localities)) { # This is ns("selected_localities")
-          logger::log_debug(sprintf("mapping_module_server [observation], %s using input$selected_localities: %s", id, paste(input$selected_localities, collapse=", ")))
-          as.character(input$selected_localities)
-        } #else {
-        #  # Fallback to all unique localities from the period's deployments if no explicit selection
-        #  req(deps())
-         # unique(deps()$locality)
-       # }
-      } else { # density type, primary map
-        logger::log_debug(sprintf("mapping_module_server [density], %s using input$selected_localities.", id))
+      } else {
+        logger::log_debug(sprintf("mapping_module_server, %s using input$selected_localities.", id))
         req(input$selected_localities)
         as.character(input$selected_localities)
       }
@@ -1696,9 +1709,9 @@ mapping_module_server <- function(id,
     #'
     #' @param active_locs_df Data frame of active locations, must contain 'longitude' and 'latitude'.
     #' @param context_id_log The module ID for logging.
-    #' @param type_log The map type ("density" or "observation") for logging.
+    #' @param context_label Short label used in bounds log messages.
     #' @return A list with min_lng, max_lng, min_lat, max_lat, or NULL if bounds cannot be calculated.
-    calculate_bounds_from_locations <- function(active_locs_df, context_id_log, type_log) {
+    calculate_bounds_from_locations <- function(active_locs_df, context_id_log, context_label) {
       if (nrow(active_locs_df) > 0 &&
           all(c("longitude", "latitude") %in% names(active_locs_df)) &&
           !any(is.na(active_locs_df$longitude)) && !any(is.na(active_locs_df$latitude))) {
@@ -1709,11 +1722,11 @@ mapping_module_server <- function(id,
         if(all(!is.infinite(c(min_lng, max_lng, min_lat, max_lat)))){
           return(list(min_lng = min_lng, max_lng = max_lng, min_lat = min_lat, max_lat = max_lat))
         } else {
-          logger::log_warn(sprintf("mapping_module_server [%s], ID: %s - Invalid (Infinite) bounds calculated.", type_log, context_id_log))
+          logger::log_warn(sprintf("mapping_module_server [%s], ID: %s - Invalid (Infinite) bounds calculated.", context_label, context_id_log))
           return(NULL)
         }
       } else {
-        logger::log_warn(sprintf("mapping_module_server [%s], ID: %s - Insufficient data for bounds calculation (active_locs_df empty or missing lat/lon).", type_log, context_id_log))
+        logger::log_warn(sprintf("mapping_module_server [%s], ID: %s - Insufficient data for bounds calculation (active_locs_df empty or missing lat/lon).", context_label, context_id_log))
         return(NULL)
       }
     }
@@ -1721,10 +1734,10 @@ mapping_module_server <- function(id,
     #' Invalidate Map Size
     #' (Targets the unified MAP_ID)
     invalidate_map_size <- function() {
-      logger::log_debug(sprintf("mapping_module_server [%s], ID: %s calling invalidateSize for map: %s", type, id, MAP_ID))
+      logger::log_debug(sprintf("mapping_module_server, ID: %s calling invalidateSize for map: %s", id, MAP_ID))
       map_id_selector_json <- jsonlite::toJSON(paste0("#", MAP_ID), auto_unbox = TRUE)
       map_id_json <- jsonlite::toJSON(MAP_ID, auto_unbox = TRUE)
-      type_json <- jsonlite::toJSON(type, auto_unbox = TRUE)
+      type_json <- jsonlite::toJSON("map", auto_unbox = TRUE)
       shinyjs::runjs(sprintf(
         'setTimeout(function() {
            var mapWidget = HTMLWidgets.find(%s);
@@ -1743,23 +1756,23 @@ mapping_module_server <- function(id,
     #' (Uses current_bounds() and targets MAP_ID)
     apply_map_fit_bounds <- function() {
       bounds_val <- current_bounds() # Uses the unified bounds reactiveVal
-      logger::log_debug(sprintf("mapping_module_server [%s], ID: %s apply_map_fit_bounds. Bounds are: %s", type, id, paste(capture.output(str(bounds_val)), collapse=",")))
+      logger::log_debug(sprintf("mapping_module_server, ID: %s apply_map_fit_bounds. Bounds are: %s", id, paste(capture.output(str(bounds_val)), collapse=",")))
       if (!is.null(bounds_val) && !is.null(bounds_val$min_lng) && !is.na(bounds_val$min_lng)) { # Added NA check for robustness
         leafletProxy(MAP_ID) %>%
           fitBounds(
             lng1 = bounds_val$min_lng, lat1 = bounds_val$min_lat,
             lng2 = bounds_val$max_lng, lat2 = bounds_val$max_lat
           )
-        logger::log_info(sprintf("mapping_module_server [%s], ID: %s fitBounds applied to %s map.", type, id, type))
+        logger::log_info(sprintf("mapping_module_server, ID: %s fitBounds applied.", id))
       } else {
-        logger::log_warn(sprintf("mapping_module_server [%s], ID: %s no valid bounds for fitBounds on %s map.", type, id, type))
+        logger::log_warn(sprintf("mapping_module_server, ID: %s no valid bounds for fitBounds.", id))
       }
     }
     
     #' Recenter Map (Generic)
     #' (Calls invalidate_map_size and apply_map_fit_bounds)
     recenter_map_generic <- function() {
-      logger::log_info(sprintf("mapping_module_server [%s], ID: %s recenter_map_generic called.", type, id))
+      logger::log_info(sprintf("mapping_module_server, ID: %s recenter_map_generic called.", id))
       invalidate_map_size()
       shinyjs::delay(150, { # Delay as in original code
         apply_map_fit_bounds()
@@ -1796,11 +1809,9 @@ mapping_module_server <- function(id,
       ))
     }
     
-    # --- Unified Map Output ---
-    # This single output will be used for both density and observation maps.
-    # The content will be updated by type-specific observers.
+    # --- Map Output ---
     output$map_display <- renderLeaflet({
-      logger::log_debug(sprintf("mapping_module_server [%s], %s renderLeaflet for unified map_display: %s", type, id, MAP_ID))
+      logger::log_debug(sprintf("mapping_module_server, %s renderLeaflet for map_display: %s", id, MAP_ID))
       leaflet::leaflet() %>%
         leaflet::addTiles(
           group = "Street",
@@ -1824,8 +1835,16 @@ mapping_module_server <- function(id,
     }, ignoreInit = TRUE)
     
     
-    # --- Density Map Specific Logic ---
-    if (type == "density") {
+    # --- Map Logic ---
+    if (!isTRUE(enable_map_outputs)) {
+      return(list(
+        selected_species = current_selected_species,
+        selected_localities = current_selected_localities,
+        recenter_map = recenter_map_generic
+      ))
+    }
+
+    {
       is_playing <- reactiveVal(FALSE)
       playback_gap_notice <- reactiveVal(NULL)
       playback_skip_resume_id <- reactiveVal(0L)
@@ -2411,6 +2430,7 @@ mapping_module_server <- function(id,
           obs_summary_location_dens <- obs_summary_location_dens[0, , drop = FALSE]
         }
         trap_records_dens <- dplyr::tibble()
+        trap_cumulative_records_dens <- dplyr::tibble()
         trap_support_locations_dens <- dplyr::tibble()
 
         if (isTRUE(show_trapping_density)) {
@@ -2436,6 +2456,50 @@ mapping_module_server <- function(id,
             include_unchecked_locations = show_trap_unchecked_locations_selected(),
             period_intervals = selected_period_intervals_dens
           )
+          trap_cumulative_records_dens <- trap_observations_dens
+
+          if (use_playback && nrow(trap_cumulative_records_dens) > 0 && "trap_marker_type" %in% names(trap_cumulative_records_dens)) {
+            trap_cumulative_records_dens <- trap_cumulative_records_dens %>%
+              dplyr::filter(
+                .data$trap_marker_type %in% c("kill", "check", "unchecked"),
+                .data$display_start_time <= current_time_dens,
+                .data$display_end_time >= playback_period_start(),
+                trap_intervals_overlap_periods(
+                  .data$display_start_time,
+                  .data$display_end_time,
+                  selected_period_intervals_dens,
+                  playback_period_start(),
+                  current_time_dens
+                )
+              ) %>%
+              dplyr::mutate(
+                display_start_time = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  playback_period_start(),
+                  .data$display_start_time
+                ),
+                display_end_time = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  current_time_dens,
+                  .data$display_end_time
+                ),
+                first_check = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  playback_as_date(playback_period_start()),
+                  .data$first_check
+                ),
+                last_check = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  playback_as_date(current_time_dens),
+                  .data$last_check
+                ),
+                check_span_days = dplyr::if_else(
+                  .data$trap_marker_type == "unchecked",
+                  pmax(as.integer(playback_as_date(current_time_dens) - playback_as_date(playback_period_start())), 0L),
+                  .data$check_span_days
+                )
+              )
+          }
 
           if (use_playback && nrow(trap_observations_dens) > 0 && "trap_marker_type" %in% names(trap_observations_dens)) {
             trap_observations_dens <- trap_observations_dens %>%
@@ -2487,6 +2551,8 @@ mapping_module_server <- function(id,
               if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
             )
             trap_observations_dens <- trap_observations_dens %>%
+              dplyr::filter(.data$trap_marker_type %in% enabled_trap_marker_types_dens)
+            trap_cumulative_records_dens <- trap_cumulative_records_dens %>%
               dplyr::filter(.data$trap_marker_type %in% enabled_trap_marker_types_dens)
           }
 
@@ -2870,6 +2936,15 @@ mapping_module_server <- function(id,
 
         skip_notice <- render_playback_skip_notice(playback_gap_notice())
 
+        observations_for_table <- dplyr::bind_rows(
+          if (isTRUE(show_monitoring_density)) obs_filtered_dens else obs_filtered_dens[0, , drop = FALSE],
+          visible_trap_records_dens
+        )
+        cumulative_observations_for_table <- dplyr::bind_rows(
+          if (isTRUE(show_monitoring_density)) obs_cumulative_dens else obs_cumulative_dens[0, , drop = FALSE],
+          trap_cumulative_records_dens
+        )
+
         list(
           active_locations = active_locations_dens,
           obs_summary_location = obs_summary_location_dens,
@@ -2878,6 +2953,8 @@ mapping_module_server <- function(id,
           absolute_max = shared_absolute_max,
           obs_filtered = obs_filtered_dens,
           obs_cumulative = obs_cumulative_dens,
+          observations_for_table = observations_for_table,
+          cumulative_observations_for_table = cumulative_observations_for_table,
           trap_records = visible_trap_records_dens,
           trap_support_locations = trap_support_locations_dens,
           separate_markers = separate_markers,
@@ -2897,6 +2974,9 @@ mapping_module_server <- function(id,
             if (is.null(start_time_dens)) "no-start" else format(start_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
             if (is.null(current_time_dens)) "no-current" else format(current_time_dens, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
             exclude_possible_duplicates_selected(),
+            include_monitoring_records_selected(),
+            include_trap_data_selected(),
+            exclude_untrapped_species_selected(),
             shared_absolute_max,
             trap_locality_distance_km_selected(),
             show_trap_kill_markers_selected(),
@@ -2926,10 +3006,10 @@ mapping_module_server <- function(id,
         )
       })
       
-      # Observer to update the content of the density map on the unified map display
+      # Observer to update the content of the map display
       observe({
         req(mapping_data_density())
-        logger::log_debug(sprintf("mapping_module_server [density], %s observer updating density map content on %s", id, MAP_ID))
+        logger::log_debug(sprintf("mapping_module_server [density], %s observer updating map content on %s", id, MAP_ID))
         data_for_map <- mapping_data_density()
 
         if (!is.null(data_for_map$map_update_key) &&
@@ -3002,7 +3082,7 @@ mapping_module_server <- function(id,
 
         prepare_spec_table_data(
           rows,
-          table_id = "observationmap_observations_browse",
+          table_id = "map_records_browse",
           column_help = FALSE
         )$table_data
       }
@@ -3020,1181 +3100,7 @@ mapping_module_server <- function(id,
         )
       })
 
-      output$playback_window_ui <- renderUI({
-        req(playback_active(), input$time_slider)
-
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        current_time <- playback_effective_current_time(
-          input$time_slider,
-          step_size,
-          playback_period_end(),
-          playback_points()
-        )
-        view_mode <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
-        start_time <- if (identical(view_mode, "single")) {
-          if (step_size %in% c("day_night", "diel")) {
-            previous_weather_boundary(current_time, playback_period_start(), playback_weather_data(), step_size)
-          } else if (identical(step_size, "season")) {
-            playback_current_season_start(current_time, playback_period_groups(), playback_period_start())
-          } else {
-            playback_single_window_start(
-              current_time,
-              playback_period_start(),
-              step_size,
-              playback_step_seconds()
-            )
-          }
-        } else {
-          playback_period_start()
-        }
-
-        HTML(playback_window_readout(
-          start_time,
-          current_time,
-          step_size,
-          playback_weather_data(),
-          view_mode
-        ))
-      })
-
-      output$playback_data_table <- DT::renderDataTable({
-        req(playback_active(), mapping_data_density())
-        table_data <- prepare_spec_table_data(
-          mapping_data_density()$obs_filtered,
-          table_id = "observationmap_observations_browse",
-          column_help = FALSE
-        )$table_data
-
-        DT::datatable(
-          table_data,
-          escape = FALSE,
-          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
-          class = 'display',
-          rownames = FALSE
-        )
-      })
-
-      output$playback_cumulative_data_table <- DT::renderDataTable({
-        req(playback_active(), mapping_data_density())
-        table_data <- prepare_spec_table_data(
-          mapping_data_density()$obs_cumulative,
-          table_id = "observationmap_observations_browse",
-          column_help = FALSE
-        )$table_data
-
-        DT::datatable(
-          table_data,
-          escape = FALSE,
-          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
-          class = 'display',
-          rownames = FALSE
-        )
-      })
-
-      root_session <- session$rootScope()
-      if (is.null(root_session$userData$pdf_export_density_map_renderers)) {
-        root_session$userData$pdf_export_density_map_renderers <- list()
-      }
-
-      root_session$userData$pdf_export_density_map_renderers[[MAP_ID]] <- function(width = NULL, height = NULL, export_dir = NULL) {
-        data_for_map <- isolate(mapping_data_density())
-        export_map <- create_pdf_export_density_map(
-          active_locations = data_for_map$active_locations,
-          obs_summary_location = data_for_map$obs_summary_location,
-          show_zero = TRUE,
-          predicted_rai_surface = data_for_map$predicted_rai_surface,
-          show_location_markers = data_for_map$show_location_markers,
-          marker_metric = data_for_map$marker_metric,
-          width = width,
-          height = height
-        )
-
-        render_pdf_export_leaflet_png(
-          map = export_map,
-          map_id = MAP_ID,
-          export_dir = export_dir,
-          width = width,
-          height = height,
-          config = config
-        )
-      }
-      
-      # Observer for auto-recentering density maps when the summary view becomes active.
-      observe({
-        main_nav <- session$rootScope()$input$nav
-        sub_tab <- if (identical(main_nav, "monitoring_trapping_map")) {
-          session$rootScope()$input[["monitoring_trapping_map_comparison-density_comparison_tabs"]]
-        } else {
-          session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]]
-        }
-        
-        req(
-          identical(playback_mode, "none"),
-          main_nav %in% c("density_map", "monitoring_trapping_map"),
-          is.null(sub_tab) || sub_tab == "map"
-        )
-        
-        shinyjs::runjs(sprintf( # GA event
-          "gtag('event','tab_switch',{
-             'event_category':'sub_tab_navigation',
-             'event_label': %s,
-             'value': %s
-           });",
-          jsonlite::toJSON(paste0("main_menu_", main_nav, "_tab_switch"), auto_unbox = TRUE),
-          jsonlite::toJSON(sub_tab, auto_unbox = TRUE)
-        ))
-        
-        logger::log_debug(sprintf(
-          "mapping_module_server [density], %s auto-recenter due to tab switch to '%s' tab",
-          id, sub_tab
-        ))
-        recenter_map_generic() # Use the generic recenter function
-      })
-
-      observe({
-        main_nav <- session$rootScope()$input$nav
-        playback_tab <- input$density_timeline_tabs
-
-        req(identical(playback_mode, "always"), main_nav == "density_timeline_map")
-        req(is.null(playback_tab) || identical(playback_tab, "map"))
-
-        logger::log_debug(sprintf(
-          "mapping_module_server [density timeline], %s auto-recenter due to navigation/tab switch",
-          id
-        ))
-        recenter_map_generic()
-      })
-      
-      return(list(
-        selected_species = current_selected_species,
-        selected_localities = current_selected_localities,
-        show_predicted_rai_surface = show_predicted_rai_surface_selected,
-        predicted_rai_surface_basis = predicted_rai_surface_basis_selected,
-        species_display_mode = species_display_mode_selected,
-        show_density_location_markers = show_density_location_markers_selected,
-        show_trap_kill_markers = show_trap_kill_markers_selected,
-        density_data_source = density_data_source_selected,
-        density_marker_scale = density_marker_scale,
-        recenter_map = recenter_map_generic # Return the generic recenter function
-      ))
-      
-      
-      # --- Observation Map Specific Logic ---
-    } else if (type == "observation") {
-      if (!isTRUE(enable_map_outputs)) {
-        return(list(
-          selected_species = current_selected_species,
-          selected_localities = current_selected_localities,
-          recenter_map = recenter_map_generic
-        ))
-      }
-
-      on.exit({ # Specific to observation type, as in original
-        print(paste0("DEBUG: The fully namespaced ID for observation_map_tabs is: '", ns("observation_map_tabs"), "'"))
-      })
-      
-      observation_map_warning_content <- reactiveVal(NULL) # Specific to observation map
-      playback_gap_notice_obs <- reactiveVal(NULL)
-      selected_playback_time_obs <- reactiveVal(NULL)
-
-      include_trap_data_selected <- reactive({
-        isTRUE(input$include_trap_data) && !is.null(current_trap_data())
-      })
-
-      include_monitoring_records_selected <- reactive({
-        if (is.null(input$include_monitoring_records)) {
-          return(TRUE)
-        }
-
-        isTRUE(input$include_monitoring_records)
-      })
-
-      exclude_untrapped_species_selected <- reactive({
-        isTRUE(input$exclude_untrapped_species) &&
-          isTRUE(include_trap_data_selected()) &&
-          !is.null(current_trap_data())
-      })
-
-      show_trap_blank_checks_selected <- reactive({
-        isTRUE(include_trap_data_selected()) && isTRUE(input$show_trap_blank_checks)
-      })
-
-      show_trap_unchecked_locations_selected <- reactive({
-        isTRUE(include_trap_data_selected()) && isTRUE(input$show_trap_unchecked_locations)
-      })
-
-      trap_locality_distance_km_selected <- reactive({
-        value <- suppressWarnings(as.numeric(input$trap_locality_distance_km))
-        if (length(value) == 0 || is.na(value) || value < 0) {
-          return(2)
-        }
-        value
-      })
-
-      floor_posix_hour_obs <- function(value) {
-        value <- as.POSIXct(value, tz = playback_actual_timezone())
-        as.POSIXct(
-          floor(as.numeric(value) / 3600) * 3600,
-          origin = "1970-01-01",
-          tz = playback_actual_timezone()
-        )
-      }
-
-      ceiling_posix_hour_obs <- function(value) {
-        timezone <- playback_actual_timezone()
-        value <- as.POSIXct(value, tz = timezone)
-        if (!is.na(value) && identical(format(value, "%H:%M:%S", tz = timezone), "23:59:59")) {
-          return(value)
-        }
-
-        as.POSIXct(
-          ceiling(as.numeric(value) / 3600) * 3600,
-          origin = "1970-01-01",
-          tz = timezone
-        )
-      }
-
-      playback_bounds_obs <- function(start, end) {
-        start <- floor_posix_hour_obs(start)
-        end <- ceiling_posix_hour_obs(end)
-
-        if (is.na(start) || is.na(end)) {
-          return(NULL)
-        }
-
-        if (end <= start) {
-          end <- start + 3600
-        }
-
-        list(start = start, end = end)
-      }
-
-      playback_active_obs <- reactive({
-        identical(playback_mode, "always")
-      })
-
-      skip_playback_gaps_obs <- reactive({
-        TRUE
-      })
-
-      playback_period_groups_obs <- reactive({
-        if (!is.null(period_groups_override)) {
-          value <- if (is.function(period_groups_override)) period_groups_override() else period_groups_override
-          if (!is.null(value) && length(value) > 0) {
-            return(value)
-          }
-        }
-
-        if (exists("core_data", inherits = TRUE) && !is.null(core_data$period_groups)) {
-          return(core_data$period_groups)
-        }
-
-        NULL
-      })
-
-      playback_observation_bounds_obs <- reactive({
-        obs_data <- obs()
-
-        fallback_start <- if (is.function(period_start_date)) {
-          playback_date_midnight(period_start_date())
-        } else {
-          suppressWarnings(as.POSIXct(min(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
-        }
-
-        fallback_end <- if (is.function(period_end_date)) {
-          playback_date_end(period_end_date())
-        } else {
-          suppressWarnings(as.POSIXct(max(obs_data$timestamp, na.rm = TRUE), tz = playback_actual_timezone()))
-        }
-
-        req(fallback_start, fallback_end)
-
-        if (is.function(period_start_date) && is.function(period_end_date)) {
-          return(playback_bounds_obs(fallback_start, fallback_end))
-        }
-
-        period_obs <- obs_data %>% dplyr::filter(!is.na(timestamp))
-        if (nrow(period_obs) > 0) {
-          return(playback_bounds_obs(
-            min(period_obs$timestamp, na.rm = TRUE),
-            max(period_obs$timestamp, na.rm = TRUE)
-          ))
-        }
-
-        playback_bounds_obs(fallback_start, fallback_end)
-      })
-
-      playback_period_start_obs <- reactive({
-        req(playback_observation_bounds_obs())
-        playback_observation_bounds_obs()$start
-      })
-
-      playback_period_end_obs <- reactive({
-        req(playback_observation_bounds_obs())
-        playback_observation_bounds_obs()$end
-      })
-
-      playback_weather_data_obs <- reactive({
-        req(playback_period_start_obs(), playback_period_end_obs(), current_selected_localities(), deps())
-        active_locations <- deps() %>%
-          dplyr::filter(locality %in% current_selected_localities()) %>%
-          dplyr::distinct(locationID, .keep_all = TRUE)
-
-        playback_weather_for_deployments(
-          active_locations,
-          playback_as_date(playback_period_start_obs()),
-          playback_as_date(playback_period_end_obs())
-        )
-      })
-
-      playback_step_seconds_obs <- reactive({
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        switch(step_size,
-          "hour" = 3600,
-          "day_night" = 3600,
-          "diel" = 3600,
-          "day" = 86400,
-          "week" = 604800,
-          "month" = 2592000,
-          "season" = 604800,
-          86400
-        )
-      })
-
-      playback_initial_value_obs <- reactive({
-        req(playback_period_start_obs(), playback_period_end_obs())
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        if (identical(input$playback_view_mode, "single")) {
-          if (step_size %in% c("day_night", "diel")) {
-            return(min(
-              next_weather_boundary(playback_period_start_obs(), playback_period_end_obs(), playback_weather_data_obs(), step_size),
-              playback_period_end_obs()
-            ))
-          }
-          if (identical(step_size, "season")) {
-            return(playback_next_season_time(
-              playback_period_start_obs(),
-              playback_period_end_obs(),
-              playback_period_groups_obs()
-            ))
-          }
-          if (identical(step_size, "day")) {
-            return(playback_day_end(playback_period_start_obs(), playback_period_end_obs()))
-          }
-          min(playback_period_start_obs() + playback_step_seconds_obs(), playback_period_end_obs())
-        } else {
-          playback_period_start_obs()
-        }
-      })
-
-      playback_points_obs <- reactive({
-        req(playback_period_start_obs(), playback_period_end_obs())
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        view_mode <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
-        playback_time_points(
-          playback_period_start_obs(),
-          playback_period_end_obs(),
-          step_size,
-          view_mode,
-          playback_weather_data_obs(),
-          playback_period_groups_obs()
-        )
-      })
-
-      playback_period_key_obs <- reactive({
-        start_date <- if (is.function(period_start_date)) {
-          period_start_date()
-        } else {
-          playback_as_date(playback_period_start_obs())
-        }
-        end_date <- if (is.function(period_end_date)) {
-          period_end_date()
-        } else {
-          playback_as_date(playback_period_end_obs())
-        }
-
-        req(start_date, end_date)
-        paste(as.character(playback_as_date(start_date)), as.character(playback_as_date(end_date)), sep = "|")
-      })
-
-      playback_slider_value_obs <- function() {
-        selected_time <- isolate(selected_playback_time_obs())
-        if (is.null(selected_time) || length(selected_time) == 0 || is.na(selected_time)) {
-          return(playback_initial_value_obs())
-        }
-
-        selected_time
-      }
-
-      reset_playback_slider_obs <- function() {
-        req(playback_points_obs())
-        initial_value <- playback_initial_value_obs()
-        selected_playback_time_obs(initial_value)
-        playback_update_slider(session, "time_slider", playback_points_obs(), initial_value)
-      }
-
-      output$playback_slider_ui <- renderUI({
-        req(playback_active_obs(), playback_points_obs())
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        playback_timeline_ui(
-          ns = ns,
-          points = playback_points_obs(),
-          value = playback_slider_value_obs(),
-          step_size = step_size
-        )
-      })
-
-      is_playing_obs <- reactiveVal(FALSE)
-      playback_skip_resume_id_obs <- reactiveVal(0L)
-
-      set_playback_button_state_obs <- function(playing) {
-        if (!playback_active_obs()) {
-          return()
-        }
-
-        if (isTRUE(playing)) {
-          shinyjs::disable(selector = paste0("#", ns("play_btn")))
-          shinyjs::enable(selector = paste0("#", ns("pause_btn")))
-        } else {
-          shinyjs::enable(selector = paste0("#", ns("play_btn")))
-          shinyjs::disable(selector = paste0("#", ns("pause_btn")))
-        }
-      }
-
-      send_playback_timer_obs <- function() {
-        if (!playback_active_obs()) {
-          return()
-        }
-
-        playback_speed <- if (is.null(input$playback_speed)) 1 else input$playback_speed
-        interval_ms <- max(50, as.numeric(playback_speed) * 1000)
-        session$sendCustomMessage(
-          "densityPlaybackTimer",
-          list(
-            id = ns("playback_tick"),
-            enabled = isTRUE(is_playing_obs() && playback_active_obs()),
-            interval = interval_ms
-          )
-        )
-      }
-
-      observe({
-        set_playback_button_state_obs(is_playing_obs())
-        send_playback_timer_obs()
-      })
-
-      observeEvent(input$play_btn, {
-        req(playback_active_obs())
-        is_playing_obs(TRUE)
-      })
-
-      observeEvent(input$pause_btn, {
-        playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
-        playback_gap_notice_obs(NULL)
-        is_playing_obs(FALSE)
-      })
-
-      observeEvent(input$time_slider, {
-        req(playback_active_obs(), playback_points_obs())
-        selected_playback_time_obs(playback_selected_time(input$time_slider, playback_points_obs()))
-      }, ignoreInit = FALSE)
-
-      observeEvent(playback_period_key_obs(), {
-        selected_playback_time_obs(NULL)
-      }, ignoreInit = TRUE, priority = 100)
-
-      observeEvent(input$reset_btn, {
-        playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
-        playback_gap_notice_obs(NULL)
-        is_playing_obs(FALSE)
-        reset_playback_slider_obs()
-      })
-
-      observeEvent(list(input$playback_step_size, input$playback_view_mode), {
-        if (playback_active_obs()) {
-          playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
-          is_playing_obs(FALSE)
-          playback_gap_notice_obs(NULL)
-          reset_playback_slider_obs()
-        }
-      }, ignoreInit = TRUE)
-
-      observeEvent(list(session$rootScope()$input$nav, input$observation_map_tabs), {
-        if (!identical(session$rootScope()$input$nav, observation_nav_value) ||
-            !is.null(input$observation_map_tabs) && !identical(input$observation_map_tabs, ns("map_tab"))) {
-          playback_skip_resume_id_obs(playback_skip_resume_id_obs() + 1L)
-          playback_gap_notice_obs(NULL)
-          is_playing_obs(FALSE)
-        }
-      }, ignoreInit = TRUE)
-
-      observe({
-        if (is.null(input$observation_map_tabs)) {
-          return()
-        }
-
-        if (identical(input$playback_view_mode, "single")) {
-          shiny::showTab(
-            inputId = "observation_map_tabs",
-            target = ns("cumulative_data_tab"),
-            session = session
-          )
-        } else {
-          if (identical(input$observation_map_tabs, ns("cumulative_data_tab"))) {
-            updateTabsetPanel(
-              session,
-              "observation_map_tabs",
-              selected = ns("data_tab")
-            )
-          }
-          shiny::hideTab(
-            inputId = "observation_map_tabs",
-            target = ns("cumulative_data_tab"),
-            session = session
-          )
-        }
-      })
-
-      observeEvent(input$playback_tick, {
-        req(is_playing_obs(), playback_active_obs(), input$time_slider, playback_points_obs())
-        current_index <- playback_selected_index(input$time_slider, length(playback_points_obs()))
-        current_val <- playback_selected_time(current_index, playback_points_obs())
-        next_index <- current_index + 1L
-        next_val <- if (next_index <= length(playback_points_obs())) {
-          playback_selected_time(next_index, playback_points_obs())
-        } else {
-          playback_period_end_obs() + 1
-        }
-
-        skip_target <- if (skip_playback_gaps_obs()) {
-          playback_gap_skip_target(current_val, next_val, playback_period_end_obs(), playback_period_groups_obs())
-        } else {
-          NULL
-        }
-
-        if (!is.null(skip_target)) {
-          is_playing_obs(FALSE)
-          playback_gap_notice_obs(list(
-            message = sprintf(
-              "Skipping to %s",
-              if (!is.null(skip_target$next_name) && !is.na(skip_target$next_name)) {
-                skip_target$next_name
-              } else {
-                "next monitoring season"
-              }
-            )
-          ))
-          resume_id <- playback_skip_resume_id_obs() + 1L
-          playback_skip_resume_id_obs(resume_id)
-          shinyjs::delay(3000, {
-            if (!isTRUE(playback_active_obs()) ||
-                !identical(playback_skip_resume_id_obs(), resume_id)) {
-              return()
-            }
-            playback_skip_slider_to_time(session, "time_slider", playback_points_obs(), skip_target$target)
-            playback_gap_notice_obs(NULL)
-            is_playing_obs(TRUE)
-          })
-          return()
-        }
-
-        if (next_val <= playback_period_end_obs()) {
-          playback_gap_notice_obs(NULL)
-          playback_update_slider(session, "time_slider", playback_points_obs(), next_val)
-        } else {
-          playback_gap_notice_obs(NULL)
-          is_playing_obs(FALSE)
-        }
-      }, ignoreInit = TRUE)
-      
-      prepared_trap_observations_obs <- shiny::debounce(reactive({
-        req(current_selected_species(), current_selected_localities())
-
-        start_date <- if (is.function(period_start_date)) {
-          period_start_date()
-        } else {
-          req(obs())
-          suppressWarnings(min(as.Date(obs()$timestamp), na.rm = TRUE))
-        }
-
-        end_date <- if (is.function(period_end_date)) {
-          period_end_date()
-        } else {
-          req(obs())
-          suppressWarnings(max(as.Date(obs()$timestamp), na.rm = TRUE))
-        }
-
-        req(start_date, end_date)
-
-        species_to_map <- tolower(unname(current_selected_species()))
-        localities_to_map <- current_selected_localities()
-        selected_period_intervals <- if (is.function(period_intervals)) {
-          period_intervals()
-        } else {
-          NULL
-        }
-        active_trap_period_intervals <- selected_period_intervals
-        trap_observations <- if (isTRUE(include_trap_data_selected())) {
-          prepare_trap_observations_for_map(
-            current_trap_data(),
-            start_date,
-            end_date,
-            species_to_map,
-            localities_to_map,
-            trap_locality_distance_km_selected(),
-            include_blank_checks = show_trap_blank_checks_selected(),
-            include_unchecked_locations = show_trap_unchecked_locations_selected(),
-            period_intervals = active_trap_period_intervals
-          )
-        } else {
-          dplyr::tibble()
-        }
-
-        list(
-          start_date = start_date,
-          end_date = end_date,
-          species_to_map = species_to_map,
-          localities_to_map = localities_to_map,
-          active_trap_period_intervals = active_trap_period_intervals,
-          trap_observations = trap_observations
-        )
-      }), 500)
-
-      observation_map_processed_data <- reactive({
-        req(obs(), deps(), current_selected_species(), current_selected_localities())
-        if (playback_active_obs()) {
-          req(input$time_slider)
-        }
-
-        trap_selection <- req(prepared_trap_observations_obs())
-        start_date <- trap_selection$start_date
-        end_date <- trap_selection$end_date
-        species_to_map <- trap_selection$species_to_map
-        localities_to_map <- trap_selection$localities_to_map
-        active_trap_period_intervals <- trap_selection$active_trap_period_intervals
-        trap_obs_filtered <- trap_selection$trap_observations
-        
-        logger::log_debug(sprintf(
-          "mapping_module_server [observation] ID: %s - observation_map_processed_data: Processing for species: [%s], localities: [%s]",
-          id, paste(species_to_map, collapse=", "), paste(localities_to_map, collapse=", ")
-        ))
-        
-        # Note: distinct criteria for observation map active locations
-        active_locations_obsmap <- deps() %>%
-          dplyr::filter(locality %in% localities_to_map) %>%
-          dplyr::distinct(locationID, .keep_all = TRUE) 
-
-        bounds_locations_obsmap <- active_locations_obsmap
-        if (nrow(trap_obs_filtered) > 0) {
-          bounds_locations_obsmap <- dplyr::bind_rows(
-            bounds_locations_obsmap %>%
-              dplyr::select(locationID, locationName, latitude, longitude),
-            trap_obs_filtered %>%
-              dplyr::select(locationID, locationName, latitude, longitude) %>%
-              dplyr::distinct(locationID, .keep_all = TRUE)
-          )
-        }
-        
-        new_map_bounds <- calculate_bounds_from_locations(bounds_locations_obsmap, id, "observation")
-        new_bounds_key <- if (nrow(bounds_locations_obsmap) > 0) {
-          paste(sort(unique(bounds_locations_obsmap$locationID)), collapse = "|")
-        } else {
-          ""
-        }
-        old_bounds <- current_bounds()
-        old_bounds_key <- if (!is.null(old_bounds$key)) old_bounds$key else NULL
-        if (!identical(new_bounds_key, old_bounds_key)) {
-          if (!is.null(new_map_bounds)) {
-            new_map_bounds$key <- new_bounds_key
-          }
-          current_bounds(new_map_bounds)
-          needs_fit_bounds(TRUE)
-        }
-        
-        obs_filtered_obsmap <- obs() %>%
-          dplyr::filter(tolower(scientificName) %in% species_to_map,
-                        locality %in% localities_to_map)
-
-        if (isTRUE(exclude_possible_duplicates_selected()) &&
-            "possible_duplicate" %in% names(obs_filtered_obsmap)) {
-          obs_filtered_obsmap <- obs_filtered_obsmap %>%
-            dplyr::filter(is.na(possible_duplicate) | !possible_duplicate)
-        }
-
-        trap_obs_filtered <- align_trap_observation_types(trap_obs_filtered, obs_filtered_obsmap)
-        obs_cumulative_table <- obs_filtered_obsmap
-        trap_cumulative_table <- trap_obs_filtered
-
-        start_time_obsmap <- NULL
-        current_time_obsmap <- NULL
-        if (playback_active_obs()) {
-          step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-          current_time_obsmap <- playback_effective_current_time(
-            input$time_slider,
-            step_size,
-            playback_period_end_obs(),
-            playback_points_obs()
-          )
-          start_time_obsmap <- if (identical(input$playback_view_mode, "single")) {
-            if (step_size %in% c("day_night", "diel")) {
-              previous_weather_boundary(current_time_obsmap, playback_period_start_obs(), playback_weather_data_obs(), step_size)
-            } else if (identical(step_size, "season")) {
-              playback_current_season_start(current_time_obsmap, playback_period_groups_obs(), playback_period_start_obs())
-            } else {
-              playback_single_window_start(
-                current_time_obsmap,
-                playback_period_start_obs(),
-                step_size,
-                playback_step_seconds_obs()
-              )
-            }
-          } else {
-            playback_period_start_obs()
-          }
-
-          obs_cumulative_table <- obs_cumulative_table %>%
-            dplyr::filter(
-              timestamp >= playback_period_start_obs(),
-              timestamp <= current_time_obsmap
-            )
-
-          if (nrow(trap_cumulative_table) > 0 && "trap_marker_type" %in% names(trap_cumulative_table)) {
-            trap_cumulative_table <- trap_cumulative_table %>%
-              dplyr::filter(
-                (
-                  .data$trap_marker_type %in% c("kill", "check") &
-                    .data$display_start_time <= current_time_obsmap &
-                    .data$display_end_time >= playback_period_start_obs() &
-                    trap_intervals_overlap_periods(
-                      .data$display_start_time,
-                      .data$display_end_time,
-                      active_trap_period_intervals,
-                      playback_period_start_obs(),
-                      current_time_obsmap
-                    )
-                ) |
-                  (
-                    .data$trap_marker_type == "unchecked" &
-                      .data$display_start_time <= current_time_obsmap &
-                      .data$display_end_time >= playback_period_start_obs() &
-                      trap_intervals_overlap_periods(
-                        .data$display_start_time,
-                        .data$display_end_time,
-                        active_trap_period_intervals,
-                        playback_period_start_obs(),
-                        current_time_obsmap
-                      )
-                  )
-              ) %>%
-              dplyr::mutate(
-                display_start_time = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  playback_period_start_obs(),
-                  .data$display_start_time
-                ),
-                display_end_time = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  current_time_obsmap,
-                  .data$display_end_time
-                ),
-                first_check = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  playback_as_date(playback_period_start_obs()),
-                  .data$first_check
-                ),
-                last_check = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  playback_as_date(current_time_obsmap),
-                  .data$last_check
-                ),
-                check_span_days = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  pmax(as.integer(playback_as_date(current_time_obsmap) - playback_as_date(playback_period_start_obs())), 0L),
-                  .data$check_span_days
-                )
-              )
-          }
-
-          obs_filtered_obsmap <- obs_filtered_obsmap %>%
-            dplyr::filter(
-              timestamp >= start_time_obsmap,
-              timestamp <= current_time_obsmap
-            )
-
-          if (nrow(trap_obs_filtered) > 0 && "trap_marker_type" %in% names(trap_obs_filtered)) {
-            # Trap kills and check counters are displayed when the check
-            # interval overlaps the current playback window. The popup wording
-            # reports the covered interval rather than implying exact kill time.
-            trap_obs_filtered <- trap_obs_filtered %>%
-              dplyr::filter(
-                (
-                  .data$trap_marker_type %in% c("kill", "check") &
-                    .data$display_start_time <= current_time_obsmap &
-                    .data$display_end_time >= start_time_obsmap &
-                    trap_intervals_overlap_periods(
-                      .data$display_start_time,
-                      .data$display_end_time,
-                      active_trap_period_intervals,
-                      start_time_obsmap,
-                      current_time_obsmap
-                    )
-                ) |
-                  (
-                    .data$trap_marker_type == "unchecked" &
-                      .data$display_start_time <= current_time_obsmap &
-                      .data$display_end_time >= start_time_obsmap &
-                      trap_intervals_overlap_periods(
-                        .data$display_start_time,
-                        .data$display_end_time,
-                        active_trap_period_intervals,
-                        start_time_obsmap,
-                        current_time_obsmap
-                      )
-                  )
-              ) %>%
-              dplyr::mutate(
-                display_start_time = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  start_time_obsmap,
-                  .data$display_start_time
-                ),
-                display_end_time = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  current_time_obsmap,
-                  .data$display_end_time
-                ),
-                first_check = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  playback_as_date(start_time_obsmap),
-                  .data$first_check
-                ),
-                last_check = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  playback_as_date(current_time_obsmap),
-                  .data$last_check
-                ),
-                check_span_days = dplyr::if_else(
-                  .data$trap_marker_type == "unchecked",
-                  pmax(as.integer(playback_as_date(current_time_obsmap) - playback_as_date(start_time_obsmap)), 0L),
-                  .data$check_span_days
-                )
-              )
-          }
-        }
-        
-        if (nrow(trap_obs_filtered) > 0 && isTRUE(include_trap_data_selected())) {
-          trap_last_check_reference <- if (!is.null(current_time_obsmap) && !is.na(current_time_obsmap)) {
-            current_time_obsmap
-          } else {
-            playback_date_end(end_date)
-          }
-          trap_obs_filtered <- annotate_unchecked_last_check(
-            trap_obs_filtered,
-            current_trap_data(),
-            trap_last_check_reference
-          )
-        }
-
-        trapped_species_current <- if (nrow(trap_obs_filtered) > 0 && "trap_marker_type" %in% names(trap_obs_filtered)) {
-          trap_obs_filtered %>%
-            dplyr::filter(
-              .data$trap_marker_type == "kill",
-              !is.na(.data$scientificName_lower),
-              nzchar(as.character(.data$scientificName_lower))
-            ) %>%
-            dplyr::pull(.data$scientificName_lower) %>%
-            as.character() %>%
-            unique()
-        } else {
-          character()
-        }
-
-        trapped_species_cumulative <- if (nrow(trap_cumulative_table) > 0 && "trap_marker_type" %in% names(trap_cumulative_table)) {
-          trap_cumulative_table %>%
-            dplyr::filter(
-              .data$trap_marker_type == "kill",
-              !is.na(.data$scientificName_lower),
-              nzchar(as.character(.data$scientificName_lower))
-            ) %>%
-            dplyr::pull(.data$scientificName_lower) %>%
-            as.character() %>%
-            unique()
-        } else {
-          character()
-        }
-
-        if (isTRUE(exclude_untrapped_species_selected())) {
-          obs_filtered_obsmap <- obs_filtered_obsmap %>%
-            dplyr::filter(tolower(.data$scientificName) %in% trapped_species_current)
-          obs_cumulative_table <- obs_cumulative_table %>%
-            dplyr::filter(tolower(.data$scientificName) %in% trapped_species_cumulative)
-        }
-
-        visible_monitoring_obsmap <- if (isTRUE(include_monitoring_records_selected())) {
-          obs_filtered_obsmap
-        } else {
-          obs_filtered_obsmap[0, , drop = FALSE]
-        }
-
-        visible_obs_cumulative_table <- if (isTRUE(include_monitoring_records_selected())) {
-          obs_cumulative_table
-        } else {
-          obs_cumulative_table[0, , drop = FALSE]
-        }
-
-        no_obs_locations_obsmap <- if (isTRUE(include_monitoring_records_selected())) {
-          active_locations_obsmap %>%
-            dplyr::filter(!locationName %in% visible_monitoring_obsmap$locationName)
-        } else {
-          active_locations_obsmap[0, , drop = FALSE]
-        }
-        
-        visible_monitoring_markers_obsmap <- if (isTRUE(show_density_location_markers_selected())) {
-          visible_monitoring_obsmap
-        } else {
-          visible_monitoring_obsmap[0, , drop = FALSE]
-        }
-        no_obs_markers_obsmap <- if (isTRUE(show_density_location_markers_selected())) {
-          no_obs_locations_obsmap
-        } else {
-          no_obs_locations_obsmap[0, , drop = FALSE]
-        }
-
-        marker_prep_input <- list(
-          observations = visible_monitoring_markers_obsmap,
-          no_obs_deployments = no_obs_markers_obsmap
-        )
-        
-        prepared_markers_list <- create_map_markers(marker_prep_input, source_map_id = id)
-
-        visible_trap_obs_filtered <- trap_obs_filtered
-        if (nrow(visible_trap_obs_filtered) > 0 && "trap_marker_type" %in% names(visible_trap_obs_filtered)) {
-          enabled_trap_marker_types_obsmap <- c(
-            if (isTRUE(show_trap_kill_markers_selected())) "kill",
-            if (isTRUE(show_trap_blank_checks_selected())) "check",
-            if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
-          )
-          visible_trap_obs_filtered <- visible_trap_obs_filtered %>%
-            dplyr::filter(.data$trap_marker_type %in% enabled_trap_marker_types_obsmap)
-        }
-        if (nrow(visible_trap_obs_filtered) > 0) {
-          prepared_markers_list$markers[["trapping"]] <- list(
-            species = "trapping",
-            markers = create_trap_map_markers(visible_trap_obs_filtered),
-            warning = NULL
-          )
-        }
-        
-        if (!is.null(prepared_markers_list$warnings) && length(prepared_markers_list$warnings) > 0) {
-          concatenated_warnings <- paste("Warning: ", prepared_markers_list$warnings, collapse = "<br>")
-          observation_map_warning_content(concatenated_warnings)
-        } else {
-          observation_map_warning_content(NULL)
-        }
-        
-        # config$globals$species_name_type is assumed to be defined elsewhere
-        observations_for_table <- dplyr::bind_rows(visible_monitoring_obsmap, trap_obs_filtered)
-        cumulative_observations_for_table <- dplyr::bind_rows(visible_obs_cumulative_table, trap_cumulative_table)
-
-        weather_control <- if (playback_active_obs()) {
-          step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-          view_mode_obsmap <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
-          weather_time_obsmap <- playback_window_reference_time(start_time_obsmap, current_time_obsmap, step_size, view_mode_obsmap)
-          render_weather_map_control(
-            weather_row_for_time(playback_weather_data_obs(), weather_time_obsmap),
-            time_info = playback_time_info_for_window(playback_weather_data_obs(), start_time_obsmap, current_time_obsmap, step_size, view_mode_obsmap)
-          )
-        } else {
-          NULL
-        }
-
-        period_control <- if (playback_active_obs()) {
-          render_playback_period_control(playback_period_status(current_time_obsmap, playback_period_groups_obs()))
-        } else {
-          NULL
-        }
-
-        skip_notice <- render_playback_skip_notice(playback_gap_notice_obs())
-
-        list(
-          observations_for_table = observations_for_table,
-          cumulative_observations_for_table = cumulative_observations_for_table,
-          prepared_markers = prepared_markers_list,
-          active_locations = active_locations_obsmap,
-          trap_legend = render_trap_marker_legend(trap_obs_filtered, obs_filtered_obsmap),
-          start_time = start_time_obsmap,
-          current_time = current_time_obsmap,
-          weather_control = weather_control,
-          period_control = period_control,
-          skip_notice = skip_notice,
-          map_update_key = paste(
-            id,
-            paste(sort(species_to_map), collapse = ","),
-            paste(sort(localities_to_map), collapse = ","),
-            as.character(as.Date(start_date)),
-            as.character(as.Date(end_date)),
-            if (is.null(start_time_obsmap)) "no-start" else format(start_time_obsmap, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
-            if (is.null(current_time_obsmap)) "no-current" else format(current_time_obsmap, "%Y-%m-%d %H:%M:%S", tz = playback_actual_timezone()),
-            exclude_possible_duplicates_selected(),
-            include_trap_data_selected(),
-            show_trap_kill_markers_selected(),
-            include_monitoring_records_selected(),
-            exclude_untrapped_species_selected(),
-            show_trap_blank_checks_selected(),
-            show_trap_unchecked_locations_selected(),
-            trap_locality_distance_km_selected(),
-            new_bounds_key,
-            nrow(obs_filtered_obsmap),
-            nrow(trap_obs_filtered),
-            if (is.null(skip_notice)) "no-skip-notice" else skip_notice,
-            sep = "|"
-          )
-        )
-      })
-
-      playback_window_times_obs <- reactive({
-        if (!playback_active_obs()) {
-          return(NULL)
-        }
-
-        req(input$time_slider)
-        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
-        current_time_obsmap <- playback_effective_current_time(
-          input$time_slider,
-          step_size,
-          playback_period_end_obs(),
-          playback_points_obs()
-        )
-        start_time_obsmap <- if (identical(input$playback_view_mode, "single")) {
-          if (step_size %in% c("day_night", "diel")) {
-            previous_weather_boundary(
-              current_time_obsmap,
-              playback_period_start_obs(),
-              playback_weather_data_obs(),
-              step_size
-            )
-          } else if (identical(step_size, "season")) {
-            playback_current_season_start(current_time_obsmap, playback_period_groups_obs(), playback_period_start_obs())
-          } else {
-            playback_single_window_start(
-              current_time_obsmap,
-              playback_period_start_obs(),
-              step_size,
-              playback_step_seconds_obs()
-            )
-          }
-        } else {
-          playback_period_start_obs()
-        }
-
-        list(
-          start_time = start_time_obsmap,
-          current_time = current_time_obsmap,
-          step_size = step_size
-        )
-      })
-      
-      # Reactive to check if the observation map's "map_tab" is active.
-      # This assumes the observation map section in the UI might have its own sub-tabs
-      # (e.g., one for map, one for data table), controlled by input$observation_map_tabs.
-      is_observation_map_with_map_tab_active <- reactive({
-        main_nav <- session$rootScope()$input$nav
-        req(main_nav == observation_nav_value) # Ensure we are on the correct main page
-        
-        module_tab_value <- input$observation_map_tabs # Input from UI, specific to observation map section
-        expected_tab_value <- ns("map_tab") # Assumes a tab named "map_tab" within the observation module's UI
-        
-        if (is.null(module_tab_value)) {
-          logger::log_debug(sprintf("is_observation_map_with_map_tab_active (ID: %s): main_nav is '%s', input$observation_map_tabs is NULL. Assuming default value '%s' is active.", id, observation_nav_value, expected_tab_value))
-          return(TRUE) # Defaulting to TRUE if input is NULL, assuming map tab is default
-        } else {
-          logger::log_debug(sprintf("is_observation_map_with_map_tab_active (ID: %s): main_nav is '%s', input$observation_map_tabs is '%s'. Checking if it's '%s'.", id, observation_nav_value, module_tab_value, expected_tab_value))
-          return(module_tab_value == expected_tab_value)
-        }
-      })
-      
-      # Observer to update the content of the observation map on the unified map display
-      observe({
-        # logger::log_error(sprintf("VERY_BASIC_OBSERVER_ENTRY (ID: %s): This observer has been entered.", id)) # Original log
-        
-        if (!is_observation_map_with_map_tab_active()) {
-          logger::log_debug(sprintf("OBSERVER_STATE (ID: %s): Not on observation_map page OR map_tab is not active. Skipping map update.", id))
-          return()
-        }
-        logger::log_debug(sprintf("OBSERVER_STATE (ID: %s): On observation_map page AND map_tab is active. Proceeding to check data.", id))
-        
-        processed_data_val <- req(observation_map_processed_data())
-        req(current_selected_localities()) # As in original
-        active_locs <- processed_data_val$active_locations
-        
-        sync_monitoring_area_overlay <- function() {
-          if (!is.null(input$enhance_map_details) && input$enhance_map_details) {
-            update_map_area(MAP_ID, active_locs)
-          } else {
-            clear_map_area(MAP_ID)
-          }
-        }
-
-        if (!is.null(processed_data_val$map_update_key) &&
-            identical(last_observation_map_update_key(), processed_data_val$map_update_key)) {
-          sync_monitoring_area_overlay()
-          if (isTRUE(needs_fit_bounds())) {
-            recenter_map_generic()
-            needs_fit_bounds(FALSE)
-          }
-          logger::log_debug(sprintf("MAP_UPDATE_ACTION (ID: %s): Skipping duplicate observation map update for %s.", id, MAP_ID))
-          return()
-        }
-        last_observation_map_update_key(processed_data_val$map_update_key)
-
-        logger::log_info(sprintf("MAP_UPDATE_ACTION (ID: %s): Conditions met (page, tab, data). Updating map content on %s.", id, MAP_ID))
-        
-        all_markers_data <- processed_data_val$prepared_markers
-        
-        # update_map is a function specific to rendering observation data.
-        # It now targets the unified MAP_ID.
-        update_map(
-          all_markers_data,
-          MAP_ID,
-          active_locs,
-          weather_control_html = processed_data_val$weather_control,
-          period_control_html = processed_data_val$period_control,
-          skip_notice_html = processed_data_val$skip_notice,
-          trap_legend_html = processed_data_val$trap_legend
-        ) 
-        
-        if (isTRUE(needs_fit_bounds())) {
-          recenter_map_generic()
-          needs_fit_bounds(FALSE)
-        }
-        
-        sync_monitoring_area_overlay()
-      })
-      
-      # Observer for tab switches within the observation map's own UI (if applicable)
-      observeEvent(input$observation_map_tabs, {
-        logger::log_warn(sprintf(
-          "TAB_SWITCH_EVENT (ID: %s): User switched tabs within the module. New active tab input: '%s'. Expected map tab ID: '%s'",
-          id,
-          if (is.null(input$observation_map_tabs)) "NULL" else input$observation_map_tabs,
-          ns("map_tab")
-        ))
-        
-        if (is_observation_map_with_map_tab_active()) { # If switched TO the map_tab
-          logger::log_info(sprintf(
-            "TAB_SWITCH_EVENT (ID: %s): Switched TO the 'map_tab'. Calling recenter_map_generic().",
-            id
-          ))
-          recenter_map_generic() # Use the generic recenter function
-        } else {
-          logger::log_debug(sprintf(
-            "TAB_SWITCH_EVENT (ID: %s): Switched to a tab other than 'map_tab', or main page context is no longer 'observation_map'. No map-specific action by this event observer.",
-            id
-          ))
-        }
-      }, ignoreNULL = FALSE, ignoreInit = TRUE)
-      
-      # --- Observation-specific outputs (UI elements other than the map) ---
+      # --- Map record outputs ---
       normalize_trap_record_dates_for_table <- function(observation_rows) {
         if (is.null(observation_rows) || nrow(observation_rows) == 0 ||
             !"observation_source" %in% names(observation_rows) ||
@@ -4211,11 +3117,11 @@ mapping_module_server <- function(id,
         observation_rows
       }
 
-      prepare_observation_map_table <- function(observation_rows) {
+      prepare_map_records_table <- function(observation_rows) {
         observation_rows <- normalize_trap_record_dates_for_table(observation_rows)
         table_data <- prepare_spec_table_data(
           observation_rows,
-          table_id = "observationmap_observations_browse",
+          table_id = "map_records_browse",
           column_help = FALSE
         )$table_data
 
@@ -4242,7 +3148,7 @@ mapping_module_server <- function(id,
         table_data
       }
 
-      observation_summary_species_key <- function(rows) {
+      map_records_summary_species_key <- function(rows) {
         if (is.null(rows) || nrow(rows) == 0) {
           return(character())
         }
@@ -4266,7 +3172,7 @@ mapping_module_server <- function(id,
         values
       }
 
-      observation_summary_species_label <- function(rows) {
+      map_records_summary_species_label <- function(rows) {
         if (is.null(rows) || nrow(rows) == 0) {
           return(character())
         }
@@ -4283,7 +3189,7 @@ mapping_module_server <- function(id,
         label
       }
 
-      observation_summary_count <- function(rows, default = 1) {
+      map_records_summary_count <- function(rows, default = 1) {
         if (is.null(rows) || nrow(rows) == 0) {
           return(numeric())
         }
@@ -4305,7 +3211,7 @@ mapping_module_server <- function(id,
         paste(values, collapse = "; ")
       }
 
-      prepare_observation_map_summary_tables <- function(observation_rows) {
+      prepare_map_records_summary_tables <- function(observation_rows) {
         empty_species <- data.frame(
           Species = character(),
           `Monitoring count` = numeric(),
@@ -4361,7 +3267,7 @@ mapping_module_server <- function(id,
         trap_source_counts <- if ("source_any_species_kill_count" %in% names(observation_rows)) {
           suppressWarnings(as.numeric(observation_rows$source_any_species_kill_count))
         } else {
-          observation_summary_count(observation_rows)
+          map_records_summary_count(observation_rows)
         }
         trap_source_counts[is.na(trap_source_counts) | !is.finite(trap_source_counts)] <- 0
 
@@ -4393,9 +3299,9 @@ mapping_module_server <- function(id,
 
         rows <- observation_rows %>%
           dplyr::mutate(
-            .summary_species_key = observation_summary_species_key(.),
-            .summary_species = observation_summary_species_label(.),
-            .summary_count = observation_summary_count(.),
+            .summary_species_key = map_records_summary_species_key(.),
+            .summary_species = map_records_summary_species_label(.),
+            .summary_count = map_records_summary_count(.),
             .summary_source = dplyr::if_else(source_rows, "trapping", "monitoring"),
             .summary_trap_marker_type = trap_marker_type,
             .summary_trap_source_count = trap_source_counts,
@@ -4504,8 +3410,8 @@ mapping_module_server <- function(id,
         )
       }
 
-      prepare_observation_map_export <- function(observation_rows) {
-        export_data <- prepare_observation_map_table(observation_rows)
+      prepare_map_records_export <- function(observation_rows) {
+        export_data <- prepare_map_records_table(observation_rows)
         row_count <- nrow(export_data)
 
         empty_column <- function(value = NA_character_) {
@@ -4583,7 +3489,7 @@ mapping_module_server <- function(id,
         as.character(as.Date(value, tz = playback_actual_timezone()))
       }
 
-      prepare_observation_map_export_metadata <- function(processed_data, export_data) {
+      prepare_map_records_export_metadata <- function(processed_data, export_data) {
         period_intervals_value <- if (is.function(period_intervals)) {
           period_intervals()
         } else {
@@ -4665,18 +3571,18 @@ mapping_module_server <- function(id,
         lapply(indexes - 1L, function(index) list(index, direction))
       }
 
-      observation_inner_tab_active <- function(tab_value, default_when_missing = TRUE) {
-        if (is.null(input$observation_map_tabs)) {
+      map_records_tab_active <- function(tab_value, default_when_missing = TRUE) {
+        if (is.null(input$map_tabs)) {
           return(isTRUE(default_when_missing))
         }
 
-        identical(input$observation_map_tabs, tab_value)
+        identical(input$map_tabs, tab_value)
       }
 
-      output$observation_species_summary_table <- DT::renderDataTable({
-        req(observation_inner_tab_active(ns("summary_tab")))
-        processed_data <- req(observation_map_processed_data())
-        rows <- prepare_observation_map_summary_tables(processed_data$observations_for_table)$species
+      output$map_species_summary_table <- DT::renderDataTable({
+        req(map_records_tab_active("summary_tab"))
+        processed_data <- req(mapping_data_density())
+        rows <- prepare_map_records_summary_tables(processed_data$observations_for_table)$species
 
         DT::datatable(
           rows,
@@ -4691,10 +3597,10 @@ mapping_module_server <- function(id,
         )
       })
 
-      output$observation_locality_summary_table <- DT::renderDataTable({
-        req(observation_inner_tab_active(ns("summary_tab")))
-        processed_data <- req(observation_map_processed_data())
-        rows <- prepare_observation_map_summary_tables(processed_data$observations_for_table)$locality
+      output$map_locality_summary_table <- DT::renderDataTable({
+        req(map_records_tab_active("summary_tab"))
+        processed_data <- req(mapping_data_density())
+        rows <- prepare_map_records_summary_tables(processed_data$observations_for_table)$locality
 
         DT::datatable(
           rows,
@@ -4709,10 +3615,10 @@ mapping_module_server <- function(id,
         )
       })
 
-      output$observation_trap_summary_table <- DT::renderDataTable({
-        req(observation_inner_tab_active(ns("summary_tab")))
-        processed_data <- req(observation_map_processed_data())
-        rows <- prepare_observation_map_summary_tables(processed_data$observations_for_table)$trap
+      output$map_trap_summary_table <- DT::renderDataTable({
+        req(map_records_tab_active("summary_tab"))
+        processed_data <- req(mapping_data_density())
+        rows <- prepare_map_records_summary_tables(processed_data$observations_for_table)$trap
 
         DT::datatable(
           rows,
@@ -4727,10 +3633,10 @@ mapping_module_server <- function(id,
         )
       })
 
-      output$observation_data_table <- DT::renderDataTable({
-        req(observation_inner_tab_active(ns("data_tab")))
-        processed_data <- req(observation_map_processed_data())
-        table_data <- prepare_observation_map_table(processed_data$observations_for_table)
+      output$map_data_table <- DT::renderDataTable({
+        req(map_records_tab_active("data_tab"))
+        processed_data <- req(mapping_data_density())
+        table_data <- prepare_map_records_table(processed_data$observations_for_table)
 
         DT::datatable( table_data, escape = FALSE,
                        options = list( pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc')) ),
@@ -4738,10 +3644,10 @@ mapping_module_server <- function(id,
         )
       })
 
-      output$observation_export_table <- DT::renderDataTable({
-        req(observation_inner_tab_active(ns("export_tab"), default_when_missing = FALSE))
-        processed_data <- req(observation_map_processed_data())
-        export_data <- prepare_observation_map_export(processed_data$observations_for_table)
+      output$map_export_table <- DT::renderDataTable({
+        req(map_records_tab_active("export_tab", default_when_missing = FALSE))
+        processed_data <- req(mapping_data_density())
+        export_data <- prepare_map_records_export(processed_data$observations_for_table)
 
         DT::datatable(
           export_data,
@@ -4752,14 +3658,14 @@ mapping_module_server <- function(id,
         )
       })
 
-      output$download_observation_map_export <- downloadHandler(
+      output$download_map_records_export <- downloadHandler(
         filename = function() {
-          paste0("observation-map-export-", format(Sys.Date(), "%Y-%m-%d"), ".csv")
+          paste0("map-records-export-", format(Sys.Date(), "%Y-%m-%d"), ".csv")
         },
         content = function(file) {
-          processed_data <- req(observation_map_processed_data())
-          export_data <- prepare_observation_map_export(processed_data$observations_for_table)
-          metadata <- prepare_observation_map_export_metadata(processed_data, export_data)
+          processed_data <- req(mapping_data_density())
+          export_data <- prepare_map_records_export(processed_data$observations_for_table)
+          metadata <- prepare_map_records_export_metadata(processed_data, export_data)
           connection <- file(file, open = "w")
           on.exit(close(connection), add = TRUE)
           utils::write.csv(metadata, connection, row.names = FALSE, na = "")
@@ -4768,10 +3674,10 @@ mapping_module_server <- function(id,
         }
       )
 
-      output$observation_cumulative_data_table <- DT::renderDataTable({
-        req(observation_inner_tab_active(ns("cumulative_data_tab")))
-        processed_data <- req(observation_map_processed_data())
-        table_data <- prepare_observation_map_table(processed_data$cumulative_observations_for_table)
+      output$map_cumulative_data_table <- DT::renderDataTable({
+        req(map_records_tab_active("cumulative_data_tab"))
+        processed_data <- req(mapping_data_density())
+        table_data <- prepare_map_records_table(processed_data$cumulative_observations_for_table)
 
         DT::datatable( table_data, escape = FALSE,
                        options = list( pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc')) ),
@@ -4779,33 +3685,172 @@ mapping_module_server <- function(id,
         )
       })
 
+      output$map_textoverlay_warning <- renderUI({
+        data <- req(mapping_data_density())
+        warnings <- data$separate_markers$warnings
+        if (!is.null(warnings) && length(warnings) > 0) {
+          div(class = "map-overlay-warning", HTML(paste("Warning: ", warnings, collapse = "<br>")))
+        }
+      })
+
       output$playback_window_ui <- renderUI({
-        if (!playback_active_obs()) {
-          return(NULL)
+        req(playback_active(), input$time_slider)
+
+        step_size <- if (is.null(input$playback_step_size)) "day" else input$playback_step_size
+        current_time <- playback_effective_current_time(
+          input$time_slider,
+          step_size,
+          playback_period_end(),
+          playback_points()
+        )
+        view_mode <- if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+        start_time <- if (identical(view_mode, "single")) {
+          if (step_size %in% c("day_night", "diel")) {
+            previous_weather_boundary(current_time, playback_period_start(), playback_weather_data(), step_size)
+          } else if (identical(step_size, "season")) {
+            playback_current_season_start(current_time, playback_period_groups(), playback_period_start())
+          } else {
+            playback_single_window_start(
+              current_time,
+              playback_period_start(),
+              step_size,
+              playback_step_seconds()
+            )
+          }
+        } else {
+          playback_period_start()
         }
 
-        window_times <- req(playback_window_times_obs())
         HTML(playback_window_readout(
-          window_times$start_time,
-          window_times$current_time,
-          window_times$step_size,
-          playback_weather_data_obs(),
-          if (is.null(input$playback_view_mode)) "cumulative" else input$playback_view_mode
+          start_time,
+          current_time,
+          step_size,
+          playback_weather_data(),
+          view_mode
         ))
       })
-      outputOptions(output, "playback_window_ui", suspendWhenHidden = FALSE)
+
+      output$playback_data_table <- DT::renderDataTable({
+        req(playback_active(), mapping_data_density())
+        table_data <- prepare_spec_table_data(
+          mapping_data_density()$obs_filtered,
+          table_id = "map_records_browse",
+          column_help = FALSE
+        )$table_data
+
+        DT::datatable(
+          table_data,
+          escape = FALSE,
+          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
+          class = 'display',
+          rownames = FALSE
+        )
+      })
+
+      output$playback_cumulative_data_table <- DT::renderDataTable({
+        req(playback_active(), mapping_data_density())
+        table_data <- prepare_spec_table_data(
+          mapping_data_density()$obs_cumulative,
+          table_id = "map_records_browse",
+          column_help = FALSE
+        )$table_data
+
+        DT::datatable(
+          table_data,
+          escape = FALSE,
+          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
+          class = 'display',
+          rownames = FALSE
+        )
+      })
+
+      root_session <- session$rootScope()
+      if (is.null(root_session$userData$pdf_export_density_map_renderers)) {
+        root_session$userData$pdf_export_density_map_renderers <- list()
+      }
+
+      root_session$userData$pdf_export_density_map_renderers[[MAP_ID]] <- function(width = NULL, height = NULL, export_dir = NULL) {
+        data_for_map <- isolate(mapping_data_density())
+        export_map <- create_pdf_export_density_map(
+          active_locations = data_for_map$active_locations,
+          obs_summary_location = data_for_map$obs_summary_location,
+          show_zero = TRUE,
+          predicted_rai_surface = data_for_map$predicted_rai_surface,
+          show_location_markers = data_for_map$show_location_markers,
+          marker_metric = data_for_map$marker_metric,
+          width = width,
+          height = height
+        )
+
+        render_pdf_export_leaflet_png(
+          map = export_map,
+          map_id = MAP_ID,
+          export_dir = export_dir,
+          width = width,
+          height = height,
+          config = config
+        )
+      }
       
-      output$observation_map_textoverlay_warning <- renderUI({
-        if (!is.null(observation_map_warning_content())) {
-          div(class = "map-overlay-warning", HTML(observation_map_warning_content()))
+      # Observer for auto-recentering maps when the summary view becomes active.
+      observe({
+        main_nav <- session$rootScope()$input$nav
+        sub_tab <- if (identical(main_nav, "monitoring_trapping_map")) {
+          session$rootScope()$input[["monitoring_trapping_map_comparison-density_comparison_tabs"]]
+        } else {
+          session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]]
         }
+        
+        req(
+          identical(playback_mode, "none"),
+          main_nav %in% c("density_map", "monitoring_trapping_map"),
+          is.null(sub_tab) || sub_tab == "map"
+        )
+        
+        shinyjs::runjs(sprintf( # GA event
+          "gtag('event','tab_switch',{
+             'event_category':'sub_tab_navigation',
+             'event_label': %s,
+             'value': %s
+           });",
+          jsonlite::toJSON(paste0("main_menu_", main_nav, "_tab_switch"), auto_unbox = TRUE),
+          jsonlite::toJSON(sub_tab, auto_unbox = TRUE)
+        ))
+        
+        logger::log_debug(sprintf(
+          "mapping_module_server [density], %s auto-recenter due to tab switch to '%s' tab",
+          id, sub_tab
+        ))
+        recenter_map_generic() # Use the generic recenter function
+      })
+
+      observe({
+        main_nav <- session$rootScope()$input$nav
+        playback_tab <- input$density_timeline_tabs
+
+        req(identical(playback_mode, "always"), main_nav == "density_timeline_map")
+        req(is.null(playback_tab) || identical(playback_tab, "map"))
+
+        logger::log_debug(sprintf(
+          "mapping_module_server [density timeline], %s auto-recenter due to navigation/tab switch",
+          id
+        ))
+        recenter_map_generic()
       })
       
       return(list(
         selected_species = current_selected_species,
         selected_localities = current_selected_localities,
+        show_predicted_rai_surface = show_predicted_rai_surface_selected,
+        predicted_rai_surface_basis = predicted_rai_surface_basis_selected,
+        species_display_mode = species_display_mode_selected,
+        show_density_location_markers = show_density_location_markers_selected,
+        show_trap_kill_markers = show_trap_kill_markers_selected,
+        density_data_source = density_data_source_selected,
+        density_marker_scale = density_marker_scale,
         recenter_map = recenter_map_generic # Return the generic recenter function
       ))
+
     }
   })
 }

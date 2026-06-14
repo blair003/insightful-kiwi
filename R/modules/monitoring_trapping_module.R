@@ -81,7 +81,7 @@ trapping_outcomes_module_ui <- function(id,
       ),
       mapping_module_ui(
         id = ns("outcomes_map"),
-        view = "select_observation_map_options",
+        view = "select_map_record_options",
         include_monitoring_records_default = TRUE,
         include_trap_data_default = TRUE,
       ),
@@ -110,7 +110,7 @@ trapping_outcomes_module_ui <- function(id,
       nav_panel(
         "Map",
         value = "map",
-        mapping_module_ui(ns("outcomes_map"), view = "observation_map_only")
+        mapping_module_ui(ns("outcomes_map"), view = "map_only")
       ),
       nav_panel(
         "Effort",
@@ -196,7 +196,7 @@ trapping_outcomes_module_ui <- function(id,
             "Map Window Records",
             value = "map_window_records",
             uiOutput(ns("map_window_scope_note")),
-            mapping_module_ui(ns("outcomes_map"), view = "observation_map_data_panel")
+            mapping_module_ui(ns("outcomes_map"), view = "map_record_data_panel")
           )
         )
       )
@@ -239,16 +239,15 @@ trapping_outcomes_module_server <- function(id,
 
     outcomes_map_state <- mapping_module_server(
       id = "outcomes_map",
-      type = "observation",
       obs = map_obs,
       deps = map_deps,
       period_start_date = map_start_date,
       period_end_date = map_end_date,
       period_intervals = period$period_intervals,
+      species_display_mode_override = reactive("separate"),
       playback_mode = "always",
       use_net = use_net,
-      trap_data = reactive(trap_data),
-      observation_nav_value = "monitoring_trapping"
+      trap_data = reactive(trap_data)
     )
 
     monitoring_records_enabled <- reactive({

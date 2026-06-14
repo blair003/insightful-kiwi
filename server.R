@@ -1497,7 +1497,6 @@ server <- function(input, output, session) {
       logger::log_debug("server.R, calling mapping_module_server() for density_map_primary")
       density_map_primary <<- mapping_module_server(
         id = "density_map_primary",
-        type = "density",
         obs = filtered_obs_density_map,
         deps = filtered_deps_density_map,
         period_names = density_map_period$period_names,
@@ -1512,7 +1511,6 @@ server <- function(input, output, session) {
       logger::log_debug("server.R, calling mapping_module_server() for density_map_comparative")
       density_map_comparative <<- mapping_module_server(
         id = "density_map_comparative",
-        type = "density",
         obs = filtered_obs_comparative,
         deps = filtered_deps_comparative,
         period_names = comparative_period$period_names,
@@ -1546,7 +1544,6 @@ server <- function(input, output, session) {
       logger::log_debug("server.R, calling mapping_module_server() for monitoring_trapping_map_monitoring")
       monitoring_trapping_map_monitoring <<- mapping_module_server(
         id = "monitoring_trapping_map_monitoring",
-        type = "density",
         obs = filtered_obs_monitoring_trapping_map,
         deps = filtered_deps_monitoring_trapping_map,
         period_names = monitoring_trapping_map_period$period_names,
@@ -1565,7 +1562,6 @@ server <- function(input, output, session) {
       logger::log_debug("server.R, calling mapping_module_server() for monitoring_trapping_map_trapping")
       monitoring_trapping_map_trapping <<- mapping_module_server(
         id = "monitoring_trapping_map_trapping",
-        type = "density",
         obs = filtered_obs_monitoring_trapping_map,
         deps = filtered_deps_monitoring_trapping_map,
         period_names = monitoring_trapping_map_period$period_names,
@@ -1644,7 +1640,6 @@ server <- function(input, output, session) {
       logger::log_debug("server.R, lazily calling mapping_module_server() for density_timeline_map")
       mapping_module_server(
         id = "density_timeline_map",
-        type = "density",
         obs = filtered_obs_playback_map,
         deps = filtered_deps_playback_map,
         period_names = playback_period$period_names,

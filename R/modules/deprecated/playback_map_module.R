@@ -67,7 +67,7 @@ playback_map_module_ui <- function(id, view = "map", species_choices = NULL, spe
             leafletOutput(ns("map_display"), height = map_height)
           ),
           nav_panel(
-            "Data",
+            "Records",
             h3("Observations Data in Current Slice"),
             p("This table shows the raw observations for the time slice currently shown on the map."),
             DT::dataTableOutput(ns("playback_data_table"))

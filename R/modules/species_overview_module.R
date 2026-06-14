@@ -759,7 +759,6 @@ species_overview_module_server <- function(id,
         do.call(mapping_module_server, c(
           list(
             id = base_id,
-            type = "density",
             obs = obs_reactive,
             deps = deps_reactive,
             species_override = reactive(species_name),
@@ -775,7 +774,6 @@ species_overview_module_server <- function(id,
       do.call(mapping_module_server, c(
         list(
           id = paste0(base_id, "_monitoring"),
-          type = "density",
           obs = obs_reactive,
           deps = deps_reactive,
           species_override = reactive(species_name),
@@ -790,7 +788,6 @@ species_overview_module_server <- function(id,
       do.call(mapping_module_server, c(
         list(
           id = paste0(base_id, "_trapping"),
-          type = "density",
           obs = obs_reactive,
           deps = deps_reactive,
           species_override = reactive(species_name),
