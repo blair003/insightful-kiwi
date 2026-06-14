@@ -256,6 +256,7 @@ server <- function(input, output, session) {
         overview = input[["overview-main_overview_tabs"]],
         reporting = input$reporting_tabs,
         density_map = input[["density_map_comparison-density_comparison_tabs"]],
+        monitoring_trapping_map = input[["monitoring_trapping_map_comparison-density_comparison_tabs"]],
         density_timeline_map = input[["density_timeline_map-density_timeline_tabs"]],
         activity_patterns = input[["activity_patterns-activity_patterns_tabs"]],
         records = input$records_tabs,
@@ -351,6 +352,13 @@ server <- function(input, output, session) {
     selected = core_data$app$period_defaults$comparative_period
   )
 
+  monitoring_trapping_map_period <- period_selection_module_server(
+    id = "monitoring_trapping_map_period",
+    period_groups = core_data$period_groups,
+    summary_output_ids = character(0),
+    selected = core_data$app$period_defaults$primary_period
+  )
+
   # Reactive filtering of deps and obs for primary/reporting and map periods
   filtered_deps_primary <- reactive({
     filter_deps(core_data$deps, primary_period$start_date(), primary_period$end_date())
@@ -397,6 +405,26 @@ server <- function(input, output, session) {
       comparative_period$start_date(),
       comparative_period$end_date(),
       comparative_period$period_intervals()
+    ))
+  })
+
+  filtered_deps_monitoring_trapping_map <- reactive({
+    filter_deps_by_period_names(
+      core_data$deps,
+      monitoring_trapping_map_period$period_names(),
+      monitoring_trapping_map_period$start_date(),
+      monitoring_trapping_map_period$end_date(),
+      monitoring_trapping_map_period$period_intervals()
+    )
+  })
+
+  filtered_obs_monitoring_trapping_map <- reactive({
+    filter_detection_obs(filter_obs_by_period_names(
+      core_data$obs,
+      monitoring_trapping_map_period$period_names(),
+      monitoring_trapping_map_period$start_date(),
+      monitoring_trapping_map_period$end_date(),
+      monitoring_trapping_map_period$period_intervals()
     ))
   })
 
@@ -972,6 +1000,7 @@ server <- function(input, output, session) {
         overview = "overview-main_overview_tabs",
         reporting = "reporting_tabs",
         density_map = "density_map_comparison-density_comparison_tabs",
+        monitoring_trapping_map = "monitoring_trapping_map_comparison-density_comparison_tabs",
         density_timeline_map = "density_timeline_map-density_timeline_tabs",
         activity_patterns = "activity_patterns-activity_patterns_tabs",
         records = "records_tabs",
@@ -1337,6 +1366,128 @@ server <- function(input, output, session) {
     div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
   
+  monitoring_trapping_map_monitoring <- NULL
+  monitoring_trapping_map_trapping <- NULL
+  monitoring_trapping_map_loaded <- reactiveVal(FALSE)
+
+  monitoring_trapping_map_source_monitoring <- reactive("monitoring")
+  monitoring_trapping_map_source_trapping <- reactive("trapping")
+  monitoring_trapping_map_show_true <- reactive(TRUE)
+  monitoring_trapping_map_combined_species <- reactive("combined")
+
+  monitoring_trapping_map_trap_distance <- reactive({
+    value <- suppressWarnings(as.numeric(input[["monitoring_trapping_map_monitoring-trap_locality_distance_km"]]))
+    if (is.na(value) || value < 0) {
+      return(2)
+    }
+    value
+  })
+
+  monitoring_trapping_map_show_trap_check_counters <- reactive({
+    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_blank_checks"]])
+  })
+
+  monitoring_trapping_map_show_unchecked_traps <- reactive({
+    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_unchecked_locations"]])
+  })
+
+  monitoring_trapping_map_max_location_count <- function(observations, species, localities) {
+    if (is.null(observations) || nrow(observations) == 0 ||
+        is.null(species) || length(species) == 0 ||
+        is.null(localities) || length(localities) == 0) {
+      return(0)
+    }
+
+    species <- tolower(unname(as.character(species)))
+    counts <- observations %>%
+      dplyr::filter(
+        .data$scientificName_lower %in% species,
+        .data$locality %in% localities
+      )
+
+    if (isTRUE(input[["monitoring_trapping_map_monitoring-exclude_possible_duplicates"]]) &&
+        "possible_duplicate" %in% names(counts)) {
+      counts <- counts %>%
+        dplyr::filter(is.na(.data$possible_duplicate) | !.data$possible_duplicate)
+    }
+
+    counts <- counts %>%
+      dplyr::group_by(.data$locationID) %>%
+      dplyr::summarise(count = sum(.data$count, na.rm = TRUE), .groups = "drop") %>%
+      dplyr::pull(.data$count)
+
+    if (length(counts) == 0 || all(is.na(counts))) {
+      return(0)
+    }
+
+    max(counts, na.rm = TRUE)
+  }
+
+  monitoring_trapping_map_max_trap_kills <- function(species, localities) {
+    if (is.null(trap_data) ||
+        is.null(species) || length(species) == 0 ||
+        is.null(localities) || length(localities) == 0) {
+      return(0)
+    }
+
+    trap_rows <- prepare_trap_observations_for_map(
+      trap_data,
+      monitoring_trapping_map_period$start_date(),
+      monitoring_trapping_map_period$end_date(),
+      tolower(unname(as.character(species))),
+      localities,
+      monitoring_trapping_map_trap_distance(),
+      include_blank_checks = FALSE,
+      include_unchecked_locations = FALSE,
+      period_intervals = monitoring_trapping_map_period$period_intervals()
+    )
+
+    kill_summary <- create_trap_kill_summary(trap_rows)
+    if (nrow(kill_summary) == 0) {
+      return(0)
+    }
+
+    counts <- kill_summary %>%
+      dplyr::group_by(.data$locationID) %>%
+      dplyr::summarise(count = sum(.data$kills, na.rm = TRUE), .groups = "drop") %>%
+      dplyr::pull(.data$count)
+
+    if (length(counts) == 0 || all(is.na(counts))) {
+      return(0)
+    }
+
+    max(counts, na.rm = TRUE)
+  }
+
+  monitoring_trapping_map_scale_max <- reactive({
+    species <- input[["monitoring_trapping_map_monitoring-selected_species"]]
+    localities <- input[["monitoring_trapping_map_monitoring-selected_localities"]]
+    max_value <- max(
+      monitoring_trapping_map_max_location_count(filtered_obs_monitoring_trapping_map(), species, localities),
+      monitoring_trapping_map_max_trap_kills(species, localities),
+      na.rm = TRUE
+    )
+
+    if (is.na(max_value) || !is.finite(max_value)) {
+      return(0)
+    }
+    max_value
+  })
+
+  output$monitoring_trapping_map_selection_heading <- renderUI({
+    species <- input[["monitoring_trapping_map_monitoring-selected_species"]]
+    localities <- input[["monitoring_trapping_map_monitoring-selected_localities"]]
+    div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
+  })
+
+  output$monitoring_trapping_map_monitoring_period_readout <- renderUI({
+    density_map_period_readout(monitoring_trapping_map_period)
+  })
+
+  output$monitoring_trapping_map_trapping_period_readout <- renderUI({
+    density_map_period_readout(monitoring_trapping_map_period)
+  })
+
   observeEvent(input$nav, {
     req(input$nav == "density_map")
 
@@ -1383,6 +1534,58 @@ server <- function(input, output, session) {
       )
 
       density_map_loaded(TRUE)
+    }
+  }, ignoreNULL = FALSE, ignoreInit = FALSE)
+
+  observeEvent(input$nav, {
+    req(input$nav == "monitoring_trapping_map")
+
+    if (!monitoring_trapping_map_loaded()) {
+      logger::log_debug("server.R, calling mapping_module_server() for monitoring_trapping_map_monitoring")
+      monitoring_trapping_map_monitoring <<- mapping_module_server(
+        id = "monitoring_trapping_map_monitoring",
+        type = "density",
+        obs = filtered_obs_monitoring_trapping_map,
+        deps = filtered_deps_monitoring_trapping_map,
+        period_names = monitoring_trapping_map_period$period_names,
+        period_start_date = monitoring_trapping_map_period$start_date,
+        period_end_date = monitoring_trapping_map_period$end_date,
+        period_intervals = monitoring_trapping_map_period$period_intervals,
+        density_data_source_override = monitoring_trapping_map_source_monitoring,
+        prediction_surface_override = reactive(FALSE),
+        species_display_mode_override = monitoring_trapping_map_combined_species,
+        location_markers_override = monitoring_trapping_map_show_true,
+        use_net = global_use_net,
+        trap_data = trap_data,
+        density_scale_max_override = monitoring_trapping_map_scale_max
+      )
+
+      logger::log_debug("server.R, calling mapping_module_server() for monitoring_trapping_map_trapping")
+      monitoring_trapping_map_trapping <<- mapping_module_server(
+        id = "monitoring_trapping_map_trapping",
+        type = "density",
+        obs = filtered_obs_monitoring_trapping_map,
+        deps = filtered_deps_monitoring_trapping_map,
+        period_names = monitoring_trapping_map_period$period_names,
+        period_start_date = monitoring_trapping_map_period$start_date,
+        period_end_date = monitoring_trapping_map_period$end_date,
+        period_intervals = monitoring_trapping_map_period$period_intervals,
+        species_override = monitoring_trapping_map_monitoring$selected_species,
+        localities_override = monitoring_trapping_map_monitoring$selected_localities,
+        prediction_surface_override = reactive(FALSE),
+        species_display_mode_override = monitoring_trapping_map_combined_species,
+        location_markers_override = monitoring_trapping_map_show_true,
+        density_data_source_override = monitoring_trapping_map_source_trapping,
+        trap_distance_override = monitoring_trapping_map_trap_distance,
+        trap_kill_markers_override = monitoring_trapping_map_show_true,
+        trap_check_counters_override = monitoring_trapping_map_show_trap_check_counters,
+        unchecked_traps_override = monitoring_trapping_map_show_unchecked_traps,
+        use_net = global_use_net,
+        trap_data = trap_data,
+        density_scale_max_override = monitoring_trapping_map_scale_max
+      )
+
+      monitoring_trapping_map_loaded(TRUE)
     }
   }, ignoreNULL = FALSE, ignoreInit = FALSE)
 

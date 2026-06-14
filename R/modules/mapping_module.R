@@ -925,6 +925,57 @@ mapping_module_ui <- function(id,
         )
       )
     )
+  } else if (view == "monitoring_trapping_density_options") {
+    trap_data_available <- exists("trap_data", inherits = TRUE) &&
+      !is.null(get("trap_data", inherits = TRUE))
+    trap_distance_max <- 10
+    if (isTRUE(trap_data_available)) {
+      trap_data_value <- get("trap_data", inherits = TRUE)
+      if (!is.null(trap_data_value$deps) && "locality_distance_km" %in% names(trap_data_value$deps)) {
+        distances <- suppressWarnings(as.numeric(trap_data_value$deps$locality_distance_km))
+        distances <- distances[is.finite(distances)]
+        if (length(distances) > 0) {
+          trap_distance_max <- max(10, ceiling(max(distances, na.rm = TRUE)))
+        }
+      }
+    }
+
+    return(
+      tagList(
+        checkboxInput(
+          inputId = ns("exclude_possible_duplicates"),
+          label = tags$small("Exclude monitoring 'possible duplicate observations'"),
+          value = isTRUE(config$globals$use_net_data)
+        ),
+        if (isTRUE(trap_data_available)) {
+          sliderInput(
+            inputId = ns("trap_locality_distance_km"),
+            label = tags$small("Include traps up to this distance (km) from selected localities"),
+            min = 0,
+            max = trap_distance_max,
+            value = min(2, trap_distance_max),
+            step = 0.25
+          )
+        },
+        if (isTRUE(trap_data_available)) {
+          tags$div(
+            class = "map-display-layer-options",
+            tags$hr(),
+            tags$strong("Trapping records:"),
+            checkboxInput(
+              inputId = ns("show_trap_blank_checks"),
+              label = trap_check_counters_label(ns),
+              value = FALSE
+            ),
+            checkboxInput(
+              inputId = ns("show_trap_unchecked_locations"),
+              label = unchecked_traps_label(ns),
+              value = FALSE
+            )
+          )
+        }
+      )
+    )
   } else if (view == "select_observation_map_options") { # New view for observation map specific options
     trap_data_available <- exists("trap_data", inherits = TRUE) &&
       !is.null(get("trap_data", inherits = TRUE))
@@ -2071,9 +2122,18 @@ mapping_module_server <- function(id,
         }
       })
 
-      observeEvent(list(session$rootScope()$input$nav, session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]]), {
-        density_tab <- session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]]
-        density_summary_active <- identical(session$rootScope()$input$nav, "density_map") &&
+      observeEvent(list(
+        session$rootScope()$input$nav,
+        session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]],
+        session$rootScope()$input[["monitoring_trapping_map_comparison-density_comparison_tabs"]]
+      ), {
+        main_nav <- session$rootScope()$input$nav
+        density_tab <- if (identical(main_nav, "monitoring_trapping_map")) {
+          session$rootScope()$input[["monitoring_trapping_map_comparison-density_comparison_tabs"]]
+        } else {
+          session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]]
+        }
+        density_summary_active <- main_nav %in% c("density_map", "monitoring_trapping_map") &&
           (is.null(density_tab) || identical(density_tab, "map"))
 
         if (identical(playback_mode, "none") && !isTRUE(density_summary_active)) {
@@ -3062,11 +3122,15 @@ mapping_module_server <- function(id,
       # Observer for auto-recentering density maps when the summary view becomes active.
       observe({
         main_nav <- session$rootScope()$input$nav
-        sub_tab  <- session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]]
+        sub_tab <- if (identical(main_nav, "monitoring_trapping_map")) {
+          session$rootScope()$input[["monitoring_trapping_map_comparison-density_comparison_tabs"]]
+        } else {
+          session$rootScope()$input[["density_map_comparison-density_comparison_tabs"]]
+        }
         
         req(
           identical(playback_mode, "none"),
-          main_nav == "density_map",
+          main_nav %in% c("density_map", "monitoring_trapping_map"),
           is.null(sub_tab) || sub_tab == "map"
         )
         
@@ -4850,7 +4914,7 @@ update_density_map <- function(map_id = NULL,
   if (is.null(marker_value_label) || !nzchar(as.character(marker_value_label))) {
     marker_value_label <- if (identical(marker_metric, "rai")) "Line RAI" else "Count"
   }
-  density_side <- if (!is.null(source_map_id) && grepl("primary", source_map_id)) "primary" else "comparative"
+  density_side <- if (!is.null(source_map_id) && grepl("primary|monitoring$|_monitoring$", source_map_id)) "primary" else "comparative"
   summary_position <- if (identical(density_side, "primary")) "topleft" else "topright"
   legend_position <- if (identical(density_side, "primary")) "bottomleft" else "bottomright"
 

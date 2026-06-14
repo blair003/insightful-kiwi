@@ -13,6 +13,7 @@ ui <- function(request) {
       'plots': true,
       'reporting': true,
       'density_map': true,
+      'monitoring_trapping_map': true,
       'density_timeline_map': true,
       'monitoring_trapping': true,
       'monitoring_trapping_analysis': true,
@@ -183,6 +184,45 @@ ui <- function(request) {
         )
       ), # conditionalPanel
       
+      if (!is.null(trap_data)) {
+        conditionalPanel(
+          condition = "input.nav === 'monitoring_trapping_map'",
+
+          period_selection_module_ui(
+            id = "monitoring_trapping_map_period",
+            view = "select",
+            choices = period_choices,
+            selected = core_data$app$period_defaults$primary_period,
+            label = "Period:",
+            multiple = TRUE
+          ),
+
+          mapping_module_ui(
+            id = "monitoring_trapping_map_monitoring",
+            view = "select_species",
+            choices = core_data$app$spp_classes,
+            selected = c(
+              core_data$app$spp_classes[[1]][1],
+              core_data$app$spp_classes[[1]][2],
+              core_data$app$spp_classes[[1]][3]
+            ),
+            show_combined_species_note = FALSE
+          ),
+
+          mapping_module_ui(
+            id = "monitoring_trapping_map_monitoring",
+            view = "select_localities",
+            choices = unique(core_data$deps$locality),
+            selected = unique(core_data$deps$locality)
+          ),
+
+          mapping_module_ui(
+            id = "monitoring_trapping_map_monitoring",
+            view = "monitoring_trapping_density_options"
+          )
+        )
+      },
+      
       conditionalPanel(
         condition = "input.nav === 'density_timeline_map'",
 
@@ -282,7 +322,7 @@ ui <- function(request) {
           )
         ),
 
-        ######### DENSITY TIMELINE MAP OUTPUT #########
+                ######### DENSITY TIMELINE MAP OUTPUT #########
         nav_panel(
           title = "Density Timeline",
           icon = icon("play-circle"),
@@ -294,6 +334,36 @@ ui <- function(request) {
           ),
           mapping_module_ui("density_timeline_map", view = "density_timeline_layout")
         ),
+
+
+        ######### MONITORING VS TRAPPING MAP OUTPUT #########
+        if (!is.null(trap_data)) {
+          nav_panel(
+            title = "Monitoring vs Trapping",
+            icon = icon("scale-balanced"),
+            value = "monitoring_trapping_map",
+            div(
+              class = "map-page-heading",
+              h2("Monitoring vs Trapping"),
+              uiOutput("monitoring_trapping_map_selection_heading")
+            ),
+            mapping_module_ui(
+              id = "monitoring_trapping_map_comparison",
+              view = "density_comparison_layout",
+              primary_map_id = "monitoring_trapping_map_monitoring",
+              comparative_map_id = "monitoring_trapping_map_trapping",
+              primary_meta_output_id = "monitoring_trapping_map_monitoring_period_readout",
+              comparative_meta_output_id = "monitoring_trapping_map_trapping_period_readout",
+              primary_title = "Monitoring data",
+              comparative_title = "Trapping data",
+              primary_data_label = "Monitoring",
+              comparative_data_label = "Trapping",
+              primary_data_title = "Monitoring records",
+              comparative_data_title = "Trapping records"
+            )
+          )
+        },
+
 
         ######### MONITORING & TRAPPING OUTPUT #########
         # Supercded by new Density Map and Density Map Timeline

@@ -625,7 +625,7 @@ species_overview_module_server <- function(id,
 
     render_species_density_map_ui <- function(prefix) {
       base_id <- paste0("species_density_map_", prefix)
-      if (!isTRUE(trapped_species)) {
+      if (!isTRUE(species_is_trapped())) {
         return(mapping_module_ui(id = ns(base_id), view = "map"))
       }
 
@@ -755,7 +755,7 @@ species_overview_module_server <- function(id,
         )
       }
 
-      if (!isTRUE(species_is_trapped())) {
+      if (!isTRUE(trapped_species)) {
         do.call(mapping_module_server, c(
           list(
             id = base_id,
@@ -1608,15 +1608,17 @@ species_overview_module_server <- function(id,
         loaded_overview_tabs(c(loaded_overview_tabs(), tab_to_load))
 
         session$onFlushed(function() {
-          if (tab_to_load == "alltime") {
-            load_species_density_map("alltime", alltime_obs, alltime_deps, trapped_species = trapped_species_for_tab)
-          } else if (tab_to_load == "current_period") {
-            load_species_density_map("current", current_obs, current_deps, current_period_data, trapped_species = trapped_species_for_tab)
-          } else if (tab_to_load == "prior_period") {
-            load_species_density_map("prior", prior_obs, prior_deps, prior_period_data, trapped_species = trapped_species_for_tab)
-          } else if (tab_to_load == "last_year_period") {
-            load_species_density_map("last_year", ly_obs, ly_deps, last_year_period_data, trapped_species = trapped_species_for_tab)
-          }
+          shiny::withReactiveDomain(session, {
+            if (tab_to_load == "alltime") {
+              load_species_density_map("alltime", alltime_obs, alltime_deps, trapped_species = trapped_species_for_tab)
+            } else if (tab_to_load == "current_period") {
+              load_species_density_map("current", current_obs, current_deps, current_period_data, trapped_species = trapped_species_for_tab)
+            } else if (tab_to_load == "prior_period") {
+              load_species_density_map("prior", prior_obs, prior_deps, prior_period_data, trapped_species = trapped_species_for_tab)
+            } else if (tab_to_load == "last_year_period") {
+              load_species_density_map("last_year", ly_obs, ly_deps, last_year_period_data, trapped_species = trapped_species_for_tab)
+            }
+          })
 
           logger::log_debug(sprintf("species_overview_module_server, lazily loaded map for tab %s", tab_to_load))
         }, once = TRUE)
