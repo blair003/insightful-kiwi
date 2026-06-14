@@ -740,6 +740,10 @@ mapping_module_ui <- function(id,
                               comparative_meta_output_id = NULL,
                               primary_title = "Selected season",
                               comparative_title = "Comparison season",
+                              primary_data_label = "Primary",
+                              comparative_data_label = "Comparison",
+                              primary_data_title = "Primary period records",
+                              comparative_data_title = "Comparison season records",
                               map_height = config$globals$leaflet_height) { # Added map_height
   ns <- NS(id)
 
@@ -842,7 +846,7 @@ mapping_module_ui <- function(id,
             label = tags$small("Include traps up to this distance (km) from selected localities"),
             min = 0,
             max = 10,
-            value = 1,
+            value = 2,
             step = 0.25
           )
         },
@@ -924,14 +928,14 @@ mapping_module_ui <- function(id,
   } else if (view == "select_observation_map_options") { # New view for observation map specific options
     trap_data_available <- exists("trap_data", inherits = TRUE) &&
       !is.null(get("trap_data", inherits = TRUE))
-    trap_distance_max <- 1
+    trap_distance_max <- 5
     if (isTRUE(trap_data_available)) {
       trap_data_value <- get("trap_data", inherits = TRUE)
       if (!is.null(trap_data_value$deps) && "locality_distance_km" %in% names(trap_data_value$deps)) {
         distances <- suppressWarnings(as.numeric(trap_data_value$deps$locality_distance_km))
         distances <- distances[is.finite(distances)]
         if (length(distances) > 0) {
-          trap_distance_max <- max(1, ceiling(max(distances, na.rm = TRUE)))
+          trap_distance_max <- max(5, ceiling(max(distances, na.rm = TRUE)))
         }
       }
     }
@@ -984,7 +988,7 @@ mapping_module_ui <- function(id,
                 label = tags$small("Maximum distance (km) from selected localities"),
                 min = 0,
                 max = trap_distance_max,
-                value = min(1.0, trap_distance_max),
+                value = min(2.0, trap_distance_max),
                 step = 0.25
               )
             )
@@ -1075,7 +1079,7 @@ mapping_module_ui <- function(id,
         radioButtons(
           inputId = ns("playback_view_mode"),
           label = "Time progression mode:",
-          choices = c("Discrete single step" = "single", "Cumulative total to date" = "cumulative"),
+          choices = c("Discrete (single step)" = "single", "Cumulative total to date" = "cumulative"),
           selected = playback_view_mode_selected
         ),
         selectInput(
@@ -1167,18 +1171,18 @@ mapping_module_ui <- function(id,
           navset_tab(
             id = ns("density_comparison_data_tabs"),
             nav_panel(
-              "Primary",
+              primary_data_label,
               comparison_data_panel(
                 map_id = primary_map_id,
-                title = "Primary period records"
+                title = primary_data_title
               ),
               value = "primary"
             ),
             nav_panel(
-              "Comparison",
+              comparative_data_label,
               comparison_data_panel(
                 map_id = comparative_map_id,
-                title = "Comparison season records"
+                title = comparative_data_title
               ),
               value = "comparative"
             )
@@ -1497,7 +1501,7 @@ mapping_module_server <- function(id,
         value <- suppressWarnings(as.numeric(input$trap_locality_distance_km))
       }
       if (length(value) == 0 || is.na(value) || value < 0) {
-        return(1)
+          return(2)
       }
       value
     })
@@ -3158,7 +3162,7 @@ mapping_module_server <- function(id,
       trap_locality_distance_km_selected <- reactive({
         value <- suppressWarnings(as.numeric(input$trap_locality_distance_km))
         if (length(value) == 0 || is.na(value) || value < 0) {
-          return(1)
+          return(2)
         }
         value
       })

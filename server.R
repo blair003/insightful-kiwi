@@ -453,6 +453,7 @@ server <- function(input, output, session) {
                 core_data = core_data,
                 rai_norm_hours = config$globals$rai_norm_hours,
                 use_net = global_use_net,
+                trap_data = trap_data,
                 initial_rai_detail = pending_species_rai_detail()
               )
               pending_species_rai_detail(NULL)
@@ -1195,7 +1196,7 @@ server <- function(input, output, session) {
   density_trap_distance <- reactive({
     value <- suppressWarnings(as.numeric(input[["density_map_primary-trap_locality_distance_km"]]))
     if (is.na(value) || value < 0) {
-      return(1)
+      return(5)
     }
     value
   })

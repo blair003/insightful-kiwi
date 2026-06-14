@@ -476,7 +476,7 @@ species_overview_module_ui <- function(id) {
           card(
             class = "overview-plot-card",
             card_header(uiOutput(ns(paste0("species_density_map_", prefix, "_header")))),
-            mapping_module_ui(id = ns(paste0("species_density_map_", prefix)), view = "map"),
+            uiOutput(ns(paste0("species_density_map_", prefix, "_ui"))),
             full_screen = FALSE
           )
         )
@@ -505,6 +505,7 @@ species_overview_module_server <- function(id,
                                             core_data,
                                             rai_norm_hours = config$globals$rai_norm_hours,
                                             use_net = reactive(config$globals$use_net_data),
+                                            trap_data = NULL,
                                             initial_rai_detail = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -546,11 +547,48 @@ species_overview_module_server <- function(id,
       render_count_basis_footer(use_net())
     }
 
+    current_trap_data <- reactive({
+      if (is.null(trap_data)) {
+        return(NULL)
+      }
+
+      trap_data_value <- if (is.function(trap_data)) trap_data() else trap_data
+      if (is.null(trap_data_value) ||
+          is.null(trap_data_value$obs) ||
+          is.null(trap_data_value$deps)) {
+        return(NULL)
+      }
+
+      trap_data_value
+    })
+
+    species_is_trapped <- reactive({
+      trap_data_value <- current_trap_data()
+      if (is.null(trap_data_value) || is.null(trap_data_value$obs) || nrow(trap_data_value$obs) == 0) {
+        return(FALSE)
+      }
+
+      species_values <- if ("scientificName_lower" %in% names(trap_data_value$obs)) {
+        trap_data_value$obs$scientificName_lower
+      } else if ("scientificName" %in% names(trap_data_value$obs)) {
+        trap_data_value$obs$scientificName
+      } else {
+        character(0)
+      }
+
+      any(tolower(as.character(species_values)) == tolower(species_name), na.rm = TRUE)
+    })
+
     render_species_density_map_header <- function() {
-      title <- if (isTRUE(use_net())) {
-        "Species Density Map (net data used)"
+      title_prefix <- if (isTRUE(species_is_trapped())) {
+        "Species Monitoring / Trapping Density Map"
       } else {
         "Species Density Map"
+      }
+      title <- if (isTRUE(use_net())) {
+        paste0(title_prefix, " (net data used)")
+      } else {
+        title_prefix
       }
 
       tagList(
@@ -568,6 +606,204 @@ species_overview_module_server <- function(id,
       )
     }
 
+    species_density_period_readout <- function(period_data = NULL) {
+      if (is.null(period_data)) {
+        return(div(class = "playback-window-readout", strong("Timeframe:"), "All available monitoring data"))
+      }
+
+      req(period_data$start_date(), period_data$end_date())
+      div(
+        class = "playback-window-readout",
+        strong("Timeframe:"),
+        paste(
+          format(as.Date(period_data$start_date()), "%Y-%m-%d"),
+          "to",
+          format(as.Date(period_data$end_date()), "%Y-%m-%d")
+        )
+      )
+    }
+
+    render_species_density_map_ui <- function(prefix) {
+      base_id <- paste0("species_density_map_", prefix)
+      if (!isTRUE(trapped_species)) {
+        return(mapping_module_ui(id = ns(base_id), view = "map"))
+      }
+
+      mapping_module_ui(
+        id = ns(paste0(base_id, "_comparison")),
+        view = "density_comparison_layout",
+        primary_map_id = ns(paste0(base_id, "_monitoring")),
+        comparative_map_id = ns(paste0(base_id, "_trapping")),
+        primary_meta_output_id = ns(paste0(base_id, "_monitoring_period_readout")),
+        comparative_meta_output_id = ns(paste0(base_id, "_trapping_period_readout")),
+        primary_title = "Monitoring data",
+        comparative_title = "Trapping data",
+        primary_data_label = "Monitoring",
+        comparative_data_label = "Trapping",
+        primary_data_title = "Monitoring records",
+        comparative_data_title = "Trapping records"
+      )
+    }
+
+    density_source_monitoring <- reactive("monitoring")
+    density_source_trapping <- reactive("trapping")
+
+    species_density_max_location_count <- function(observations) {
+      if (is.null(observations) || nrow(observations) == 0) {
+        return(0)
+      }
+
+      counts <- observations %>%
+        dplyr::filter(
+          tolower(.data$scientificName) == tolower(species_name),
+          .data$locality %in% selected_localities()
+        )
+
+      if (isTRUE(use_net()) && "possible_duplicate" %in% names(counts)) {
+        counts <- counts %>%
+          dplyr::filter(is.na(.data$possible_duplicate) | !.data$possible_duplicate)
+      }
+
+      counts <- counts %>%
+        dplyr::group_by(.data$locationID) %>%
+        dplyr::summarise(count = sum(.data$count, na.rm = TRUE), .groups = "drop") %>%
+        dplyr::pull(.data$count)
+
+      if (length(counts) == 0 || all(is.na(counts))) {
+        return(0)
+      }
+
+      max(counts, na.rm = TRUE)
+    }
+
+    species_density_max_trap_kills <- function(observations, period_data = NULL) {
+      trap_data_value <- current_trap_data()
+      if (is.null(trap_data_value)) {
+        return(0)
+      }
+
+      trap_start_date <- if (!is.null(period_data)) {
+        period_data$start_date()
+      } else if (!is.null(observations) && nrow(observations) > 0 && "timestamp" %in% names(observations)) {
+        suppressWarnings(min(as.Date(observations$timestamp), na.rm = TRUE))
+      } else {
+        NA
+      }
+      trap_end_date <- if (!is.null(period_data)) {
+        period_data$end_date()
+      } else if (!is.null(observations) && nrow(observations) > 0 && "timestamp" %in% names(observations)) {
+        suppressWarnings(max(as.Date(observations$timestamp), na.rm = TRUE))
+      } else {
+        NA
+      }
+
+      if (is.na(trap_start_date) || is.na(trap_end_date)) {
+        return(0)
+      }
+
+      period_intervals_value <- if (!is.null(period_data)) period_data$period_intervals() else NULL
+      trap_rows <- prepare_trap_observations_for_map(
+        trap_data_value,
+        trap_start_date,
+        trap_end_date,
+        tolower(species_name),
+        selected_localities(),
+        max_locality_distance_km = 1,
+        include_blank_checks = FALSE,
+        include_unchecked_locations = FALSE,
+        period_intervals = period_intervals_value
+      )
+
+      kill_summary <- create_trap_kill_summary(trap_rows)
+      if (nrow(kill_summary) == 0) {
+        return(0)
+      }
+
+      counts <- kill_summary %>%
+        dplyr::group_by(.data$locationID) %>%
+        dplyr::summarise(count = sum(.data$kills, na.rm = TRUE), .groups = "drop") %>%
+        dplyr::pull(.data$count)
+
+      if (length(counts) == 0 || all(is.na(counts))) {
+        return(0)
+      }
+
+      max(counts, na.rm = TRUE)
+    }
+
+    species_density_scale_max <- function(obs_reactive, period_data = NULL) {
+      reactive({
+        observations <- obs_reactive()
+        max(
+          species_density_max_location_count(observations),
+          species_density_max_trap_kills(observations, period_data),
+          na.rm = TRUE
+        )
+      })
+    }
+
+    load_species_density_map <- function(prefix, obs_reactive, deps_reactive, period_data = NULL, trapped_species = FALSE) {
+      base_id <- paste0("species_density_map_", prefix)
+      period_args <- if (is.null(period_data)) {
+        list()
+      } else {
+        list(
+          period_names = period_data$period_names,
+          period_start_date = period_data$start_date,
+          period_end_date = period_data$end_date,
+          period_intervals = period_data$period_intervals
+        )
+      }
+
+      if (!isTRUE(species_is_trapped())) {
+        do.call(mapping_module_server, c(
+          list(
+            id = base_id,
+            type = "density",
+            obs = obs_reactive,
+            deps = deps_reactive,
+            species_override = reactive(species_name),
+            localities_override = selected_localities,
+            use_net = use_net
+          ),
+          period_args
+        ))
+        return()
+      }
+
+      scale_max <- species_density_scale_max(obs_reactive, period_data)
+      do.call(mapping_module_server, c(
+        list(
+          id = paste0(base_id, "_monitoring"),
+          type = "density",
+          obs = obs_reactive,
+          deps = deps_reactive,
+          species_override = reactive(species_name),
+          localities_override = selected_localities,
+          density_data_source_override = density_source_monitoring,
+          use_net = use_net,
+          trap_data = trap_data,
+          density_scale_max_override = scale_max
+        ),
+        period_args
+      ))
+      do.call(mapping_module_server, c(
+        list(
+          id = paste0(base_id, "_trapping"),
+          type = "density",
+          obs = obs_reactive,
+          deps = deps_reactive,
+          species_override = reactive(species_name),
+          localities_override = selected_localities,
+          density_data_source_override = density_source_trapping,
+          use_net = use_net,
+          trap_data = trap_data,
+          density_scale_max_override = scale_max
+        ),
+        period_args
+      ))
+    }
+
     output$alltime_rai_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
     output$alltime_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
     output$current_activity_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })
@@ -581,6 +817,12 @@ species_overview_module_server <- function(id,
     output$species_density_map_current_header <- renderUI({ render_species_density_map_header() })
     output$species_density_map_prior_header <- renderUI({ render_species_density_map_header() })
     output$species_density_map_last_year_header <- renderUI({ render_species_density_map_header() })
+    output$species_density_map_alltime_ui <- renderUI({ render_species_density_map_ui("alltime") })
+    output$species_density_map_current_ui <- renderUI({ render_species_density_map_ui("current") })
+    output$species_density_map_prior_ui <- renderUI({ render_species_density_map_ui("prior") })
+    output$species_density_map_last_year_ui <- renderUI({ render_species_density_map_ui("last_year") })
+    output$species_density_map_alltime_monitoring_period_readout <- renderUI({ species_density_period_readout() })
+    output$species_density_map_alltime_trapping_period_readout <- renderUI({ species_density_period_readout() })
 
     rai_calculation_basis_link <- function(period_name_label, locality_token = locality_filter_token()) {
       onclick_payload <- jsonlite::toJSON(
@@ -1361,61 +1603,30 @@ species_overview_module_server <- function(id,
       req(identical(section_tab, "map"))
 
       if (!(current_tab %in% loaded_overview_tabs())) {
+        tab_to_load <- current_tab
+        trapped_species_for_tab <- isTRUE(species_is_trapped())
+        loaded_overview_tabs(c(loaded_overview_tabs(), tab_to_load))
 
-        if (current_tab == "alltime") {
-          # All Time Density Map
-          mapping_module_server(
-            id = "species_density_map_alltime",
-            type = "density",
-            obs = alltime_obs,
-            deps = alltime_deps,
-            species_override = reactive(species_name),
-            localities_override = selected_localities,
-            use_net = use_net
-          )
-        } else if (current_tab == "current_period") {
-          # Current Period Density Map
-          mapping_module_server(
-            id = "species_density_map_current",
-            type = "density",
-            obs = current_obs,
-            deps = current_deps,
-            species_override = reactive(species_name),
-            localities_override = selected_localities,
-            use_net = use_net
-          )
-        } else if (current_tab == "prior_period") {
-          # Prior Period Density Map
-          mapping_module_server(
-            id = "species_density_map_prior",
-            type = "density",
-            obs = prior_obs,
-            deps = prior_deps,
-            species_override = reactive(species_name),
-            localities_override = selected_localities,
-            use_net = use_net
-          )
-        } else if (current_tab == "last_year_period") {
-          # Last Year Period Density Map
-          mapping_module_server(
-            id = "species_density_map_last_year",
-            type = "density",
-            obs = ly_obs,
-            deps = ly_deps,
-            species_override = reactive(species_name),
-            localities_override = selected_localities,
-            use_net = use_net
-          )
-        }
+        session$onFlushed(function() {
+          if (tab_to_load == "alltime") {
+            load_species_density_map("alltime", alltime_obs, alltime_deps, trapped_species = trapped_species_for_tab)
+          } else if (tab_to_load == "current_period") {
+            load_species_density_map("current", current_obs, current_deps, current_period_data, trapped_species = trapped_species_for_tab)
+          } else if (tab_to_load == "prior_period") {
+            load_species_density_map("prior", prior_obs, prior_deps, prior_period_data, trapped_species = trapped_species_for_tab)
+          } else if (tab_to_load == "last_year_period") {
+            load_species_density_map("last_year", ly_obs, ly_deps, last_year_period_data, trapped_species = trapped_species_for_tab)
+          }
 
-        # Add to loaded list
-        loaded_overview_tabs(c(loaded_overview_tabs(), current_tab))
-        logger::log_debug(sprintf("species_overview_module_server, lazily loaded map for tab %s", current_tab))
+          logger::log_debug(sprintf("species_overview_module_server, lazily loaded map for tab %s", tab_to_load))
+        }, once = TRUE)
       }
     })
 
     # 2. CURRENT PERIOD
     current_period_data <- period_selection_module_server("current_period", period_groups = core_data$period_groups, selected = period_defaults$current_period)
+    output$species_density_map_current_monitoring_period_readout <- renderUI({ species_density_period_readout(current_period_data) })
+    output$species_density_map_current_trapping_period_readout <- renderUI({ species_density_period_readout(current_period_data) })
     current_sobs <- reactive({
       req(current_period_data$start_date(), current_period_data$end_date())
       filter_obs(alltime_sobs(), current_period_data$start_date(), current_period_data$end_date())
@@ -1451,6 +1662,8 @@ species_overview_module_server <- function(id,
 
     # 3. PRIOR PERIOD
     prior_period_data <- period_selection_module_server("prior_period", period_groups = core_data$period_groups, selected = period_defaults$prior_period)
+    output$species_density_map_prior_monitoring_period_readout <- renderUI({ species_density_period_readout(prior_period_data) })
+    output$species_density_map_prior_trapping_period_readout <- renderUI({ species_density_period_readout(prior_period_data) })
     prior_sobs <- reactive({
       req(prior_period_data$start_date(), prior_period_data$end_date())
       filter_obs(alltime_sobs(), prior_period_data$start_date(), prior_period_data$end_date())
@@ -1486,6 +1699,8 @@ species_overview_module_server <- function(id,
 
     # 4. LAST YEAR
     last_year_period_data <- period_selection_module_server("last_year_period", period_groups = core_data$period_groups, selected = period_defaults$last_year_period)
+    output$species_density_map_last_year_monitoring_period_readout <- renderUI({ species_density_period_readout(last_year_period_data) })
+    output$species_density_map_last_year_trapping_period_readout <- renderUI({ species_density_period_readout(last_year_period_data) })
     ly_sobs <- reactive({
       filter_obs(alltime_sobs(), last_year_period_data$start_date(), last_year_period_data$end_date())
     })
