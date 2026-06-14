@@ -437,7 +437,6 @@
             reporting: 'reporting_tabs',
             density_map: 'density_map_comparison-density_comparison_tabs',
             monitoring_trapping_map: 'monitoring_trapping_map_comparison-density_comparison_tabs',
-            observation_map: 'observation_map-observation_map_tabs',
             activity_patterns: 'activity_patterns-activity_patterns_tabs',
             records: 'records_tabs'
           };
@@ -473,11 +472,6 @@
           if (nav === 'monitoring_trapping_map') {
             return /^monitoring_trapping_map_monitoring-(selected_species|selected_localities|exclude_possible_duplicates|trap_locality_distance_km|show_trap_blank_checks|show_trap_unchecked_locations)$/.test(id) ||
               /^monitoring_trapping_map_period-period_selection$/.test(id);
-          }
-
-          if (nav === 'observation_map') {
-            return /^observation_map-(selected_species|selected_localities|enhance_map_details|include_trap_data|show_trap_blank_checks|show_trap_unchecked_locations|trap_locality_distance_km)$/.test(id) ||
-              id === 'primary_period-period_selection';
           }
 
           if (nav === 'activity_patterns') {
