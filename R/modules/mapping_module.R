@@ -1259,7 +1259,7 @@ mapping_module_ui <- function(id,
           ),
           nav_panel(
             "Records",
-            h3("Observations data in current window"),
+            h3("Observations records in current window"),
             DT::dataTableOutput(ns("playback_data_table")),
             value = "data"
           ),
