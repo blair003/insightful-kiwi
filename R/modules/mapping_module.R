@@ -1272,67 +1272,6 @@ mapping_module_ui <- function(id,
         )
       )
     )
-  } else if (view == "map_records_layout") {
-    return(
-      tagList(
-        div(
-          class = "playback-time-slider",
-          uiOutput(ns("playback_slider_ui")),
-          uiOutput(ns("playback_window_ui"))
-        ),
-        navset_tab(
-          id = ns("map_tabs"),
-          selected = "map_tab",
-          nav_panel(
-            "Map",
-            leafletOutput(ns("map_display"), height = map_height),
-            uiOutput(ns("map_textoverlay_warning")),
-            value = "map_tab"
-          ),
-          nav_panel(
-            "Summary",
-            h3("Map records summary"),
-            h4("By species"),
-            DT::dataTableOutput(ns("map_species_summary_table")),
-            br(),
-            h4("By locality"),
-            DT::dataTableOutput(ns("map_locality_summary_table")),
-            br(),
-            h4("By trap"),
-            DT::dataTableOutput(ns("map_trap_summary_table")),
-            value = "summary_tab"
-          ),
-          nav_panel(
-            "Records",
-            h3("Browse records shown on the map"),
-            p(
-              "This table shows the records in the current playback window."
-            ),
-            DT::dataTableOutput(ns("map_data_table")),
-            value = "data_tab"
-          ),
-          nav_panel(
-            "Export",
-            h3("Export records shown on the map"),
-            p(
-              "This table contains the export fields for records in the current playback window."
-            ),
-            downloadButton(ns("download_map_records_export"), "Download CSV"),
-            DT::dataTableOutput(ns("map_export_table")),
-            value = "export_tab"
-          ),
-          nav_panel(
-            "Cumulative Records",
-            h3("Browse cumulative observations"),
-            p(
-              "This table shows records from the start of the selected season up to the current playback time."
-            ),
-            DT::dataTableOutput(ns("map_cumulative_data_table")),
-            value = "cumulative_data_tab"
-          )
-        )
-      )
-    )
   } else if (view == "map_only") {
     return(
       tagList(
@@ -1343,24 +1282,6 @@ mapping_module_ui <- function(id,
         ),
         leafletOutput(ns("map_display"), height = map_height),
         uiOutput(ns("map_textoverlay_warning"))
-      )
-    )
-  } else if (view == "map_monitoring_summary") {
-    return(
-      tagList(
-        h3("Monitoring summary"),
-        h4("By species"),
-        DT::dataTableOutput(ns("map_species_summary_table")),
-        br(),
-        h4("By locality"),
-        DT::dataTableOutput(ns("map_locality_summary_table"))
-      )
-    )
-  } else if (view == "map_trapping_effort") {
-    return(
-      tagList(
-        h3("Trapping effort"),
-        DT::dataTableOutput(ns("map_trap_summary_table"))
       )
     )
   } else if (view == "map_record_data_panel") {
@@ -3148,268 +3069,6 @@ mapping_module_server <- function(id,
         table_data
       }
 
-      map_records_summary_species_key <- function(rows) {
-        if (is.null(rows) || nrow(rows) == 0) {
-          return(character())
-        }
-
-        values <- if ("scientificName" %in% names(rows)) {
-          as.character(rows$scientificName)
-        } else if ("scientificName_lower" %in% names(rows)) {
-          as.character(rows$scientificName_lower)
-        } else {
-          rep(NA_character_, nrow(rows))
-        }
-
-        fallback <- if ("scientificName_lower" %in% names(rows)) {
-          as.character(rows$scientificName_lower)
-        } else {
-          rep(NA_character_, nrow(rows))
-        }
-        values[is.na(values) | !nzchar(values)] <- fallback[is.na(values) | !nzchar(values)]
-        values <- tolower(trimws(values))
-        values[is.na(values) | !nzchar(values)] <- "unknown species"
-        values
-      }
-
-      map_records_summary_species_label <- function(rows) {
-        if (is.null(rows) || nrow(rows) == 0) {
-          return(character())
-        }
-
-        species_column <- config$globals$species_name_type
-        if (!species_column %in% names(rows)) {
-          species_column <- if ("scientificName" %in% names(rows)) "scientificName" else "scientificName_lower"
-        }
-
-        label <- as.character(rows[[species_column]])
-        fallback <- if ("scientificName" %in% names(rows)) as.character(rows$scientificName) else label
-        label[is.na(label) | !nzchar(label)] <- fallback[is.na(label) | !nzchar(label)]
-        label[is.na(label) | !nzchar(label)] <- "Unknown species"
-        label
-      }
-
-      map_records_summary_count <- function(rows, default = 1) {
-        if (is.null(rows) || nrow(rows) == 0) {
-          return(numeric())
-        }
-
-        values <- if ("count" %in% names(rows)) suppressWarnings(as.numeric(rows$count)) else rep(default, nrow(rows))
-        values[is.na(values) | !is.finite(values)] <- default
-        values
-      }
-
-      first_non_empty_summary_value <- function(values) {
-        values <- as.character(values)
-        values <- values[!is.na(values) & nzchar(values)]
-        if (length(values) == 0) "Unknown species" else values[[1]]
-      }
-
-      collapse_summary_values <- function(values) {
-        values <- sort(unique(as.character(values)))
-        values <- values[!is.na(values) & nzchar(values)]
-        paste(values, collapse = "; ")
-      }
-
-      prepare_map_records_summary_tables <- function(observation_rows) {
-        empty_species <- data.frame(
-          Species = character(),
-          `Monitoring count` = numeric(),
-      `Trap captures` = numeric(),
-          `Trap checks` = integer(),
-          `Localities` = integer(),
-          check.names = FALSE
-        )
-        empty_locality <- data.frame(
-          Locality = character(),
-          `Monitoring count` = numeric(),
-      `Trap captures` = numeric(),
-          `Trap checks` = integer(),
-          `Species` = integer(),
-          `Traps` = integer(),
-          check.names = FALSE
-        )
-        empty_trap <- data.frame(
-          Locality = character(),
-          `Trap line` = character(),
-          Trap = character(),
-      `Trap captures` = numeric(),
-          `Trap checks` = integer(),
-          Species = character(),
-          `First check` = character(),
-          `Last check` = character(),
-          check.names = FALSE
-        )
-
-        if (is.null(observation_rows) || nrow(observation_rows) == 0) {
-          return(list(species = empty_species, locality = empty_locality, trap = empty_trap))
-        }
-
-        source_rows <- if ("observation_source" %in% names(observation_rows)) {
-          !is.na(observation_rows$observation_source) & observation_rows$observation_source == "trapping"
-        } else {
-          rep(FALSE, nrow(observation_rows))
-        }
-        trap_marker_type <- if ("trap_marker_type" %in% names(observation_rows)) {
-          as.character(observation_rows$trap_marker_type)
-        } else {
-          rep(NA_character_, nrow(observation_rows))
-        }
-        has_monitoring_rows <- any(!source_rows, na.rm = TRUE)
-        has_trap_rows <- any(source_rows, na.rm = TRUE)
-        has_trap_check_rows <- any(source_rows & trap_marker_type == "check", na.rm = TRUE)
-
-        select_summary_columns <- function(data, columns) {
-          columns <- columns[columns %in% names(data)]
-          data[, columns, drop = FALSE]
-        }
-
-        trap_source_counts <- if ("source_any_species_kill_count" %in% names(observation_rows)) {
-          suppressWarnings(as.numeric(observation_rows$source_any_species_kill_count))
-        } else {
-          map_records_summary_count(observation_rows)
-        }
-        trap_source_counts[is.na(trap_source_counts) | !is.finite(trap_source_counts)] <- 0
-
-        locality_values <- if ("locality" %in% names(observation_rows)) {
-          as.character(observation_rows$locality)
-        } else {
-          rep(NA_character_, nrow(observation_rows))
-        }
-        locality_values[is.na(locality_values) | !nzchar(locality_values)] <- "Unknown locality"
-
-        trap_line_values <- if ("trap_line" %in% names(observation_rows)) {
-          as.character(observation_rows$trap_line)
-        } else {
-          rep(NA_character_, nrow(observation_rows))
-        }
-
-        trap_check_ids <- if ("deploymentID" %in% names(observation_rows)) {
-          as.character(observation_rows$deploymentID)
-        } else {
-          rep(NA_character_, nrow(observation_rows))
-        }
-        trap_check_ids[!source_rows] <- NA_character_
-
-        location_ids <- if ("locationID" %in% names(observation_rows)) {
-          as.character(observation_rows$locationID)
-        } else {
-          rep(NA_character_, nrow(observation_rows))
-        }
-
-        rows <- observation_rows %>%
-          dplyr::mutate(
-            .summary_species_key = map_records_summary_species_key(.),
-            .summary_species = map_records_summary_species_label(.),
-            .summary_count = map_records_summary_count(.),
-            .summary_source = dplyr::if_else(source_rows, "trapping", "monitoring"),
-            .summary_trap_marker_type = trap_marker_type,
-            .summary_trap_source_count = trap_source_counts,
-            .summary_trap_kill_count = dplyr::if_else(
-              .data$.summary_source == "trapping" & .data$.summary_trap_marker_type == "kill",
-              .data$.summary_trap_source_count,
-              0
-            ),
-            .summary_trap_kill_count = dplyr::coalesce(.data$.summary_trap_kill_count, 0),
-            .summary_locality = locality_values,
-            .summary_trap_line = trap_line_values,
-            .summary_trap_check_id = trap_check_ids,
-            .summary_location_id = location_ids
-          )
-
-        species_summary <- rows %>%
-          dplyr::group_by(.data$.summary_species_key) %>%
-          dplyr::summarise(
-            Species = first_non_empty_summary_value(c(
-              .data$.summary_species[.data$.summary_source == "monitoring"],
-              .data$.summary_species[.data$.summary_source == "trapping"]
-            )),
-            `Monitoring count` = sum(.data$.summary_count[.data$.summary_source == "monitoring"], na.rm = TRUE),
-        `Trap captures` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
-            `Trap checks` = dplyr::n_distinct(.data$.summary_trap_check_id[.data$.summary_source == "trapping" & !is.na(.data$.summary_trap_check_id)]),
-            `Localities` = dplyr::n_distinct(.data$.summary_locality),
-            .groups = "drop"
-          ) %>%
-          dplyr::select(-`.summary_species_key`) %>%
-      dplyr::arrange(dplyr::desc(.data$`Trap captures`), dplyr::desc(.data$`Monitoring count`), .data$Species)
-
-        locality_summary <- rows %>%
-          dplyr::group_by(.data$.summary_locality) %>%
-          dplyr::summarise(
-            `Monitoring count` = sum(.data$.summary_count[.data$.summary_source == "monitoring"], na.rm = TRUE),
-        `Trap captures` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
-            `Trap checks` = dplyr::n_distinct(.data$.summary_trap_check_id[.data$.summary_source == "trapping" & !is.na(.data$.summary_trap_check_id)]),
-            `Species` = dplyr::n_distinct(.data$.summary_species_key),
-            `Traps` = dplyr::n_distinct(.data$.summary_location_id[.data$.summary_source == "trapping" & !is.na(.data$.summary_location_id)]),
-            .groups = "drop"
-          ) %>%
-          dplyr::rename(Locality = `.summary_locality`) %>%
-          dplyr::arrange(.data$Locality)
-
-        trap_rows <- rows %>%
-          dplyr::filter(.data$.summary_source == "trapping")
-        trap_summary <- if (nrow(trap_rows) == 0) {
-          empty_trap
-        } else {
-          trap_rows %>%
-            dplyr::group_by(.data$.summary_locality, .data$.summary_trap_line, .data$locationName) %>%
-            dplyr::summarise(
-            `Trap captures` = sum(.data$.summary_trap_kill_count, na.rm = TRUE),
-              `Trap checks` = dplyr::n_distinct(.data$.summary_trap_check_id[!is.na(.data$.summary_trap_check_id)]),
-              Species = collapse_summary_values(.data$.summary_species[.data$.summary_trap_marker_type == "kill"]),
-              `First check` = {
-                values <- as.Date(.data$check_date)
-                values <- values[!is.na(values)]
-                if (length(values) == 0) "" else as.character(min(values))
-              },
-              `Last check` = {
-                values <- as.Date(.data$check_date)
-                values <- values[!is.na(values)]
-                if (length(values) == 0) "" else as.character(max(values))
-              },
-              .groups = "drop"
-            ) %>%
-            dplyr::rename(
-              Locality = `.summary_locality`,
-              `Trap line` = `.summary_trap_line`,
-              Trap = locationName
-            ) %>%
-            dplyr::arrange(.data$Locality, .data$`Trap line`, .data$Trap)
-        }
-
-        species_columns <- c(
-          "Species",
-          if (has_monitoring_rows) "Monitoring count",
-      if (has_trap_rows) "Trap captures",
-          if (has_trap_check_rows) "Trap checks",
-          "Localities"
-        )
-        locality_columns <- c(
-          "Locality",
-          if (has_monitoring_rows) "Monitoring count",
-      if (has_trap_rows) "Trap captures",
-          if (has_trap_check_rows) "Trap checks",
-          "Species",
-          if (has_trap_rows) "Traps"
-        )
-        trap_columns <- c(
-          "Locality",
-          "Trap line",
-          "Trap",
-      "Trap captures",
-          if (has_trap_check_rows) "Trap checks",
-          "Species",
-          "First check",
-          "Last check"
-        )
-
-        list(
-          species = select_summary_columns(species_summary, species_columns),
-          locality = select_summary_columns(locality_summary, locality_columns),
-          trap = select_summary_columns(trap_summary, trap_columns)
-        )
-      }
-
       prepare_map_records_export <- function(observation_rows) {
         export_data <- prepare_map_records_table(observation_rows)
         row_count <- nrow(export_data)
@@ -3561,100 +3220,13 @@ mapping_module_server <- function(id,
         )
       }
 
-      dt_order_for_columns <- function(rows, preferred_columns, direction = "desc") {
-        indexes <- match(preferred_columns, names(rows))
-        indexes <- indexes[!is.na(indexes)]
-        if (length(indexes) == 0) {
-          return(list(list(0, "asc")))
-        }
-
-        lapply(indexes - 1L, function(index) list(index, direction))
-      }
-
-      map_records_tab_active <- function(tab_value, default_when_missing = TRUE) {
-        if (is.null(input$map_tabs)) {
-          return(isTRUE(default_when_missing))
-        }
-
-        identical(input$map_tabs, tab_value)
-      }
-
-      output$map_species_summary_table <- DT::renderDataTable({
-        req(map_records_tab_active("summary_tab"))
-        processed_data <- req(mapping_data_density())
-        rows <- prepare_map_records_summary_tables(processed_data$observations_for_table)$species
-
-        DT::datatable(
-          rows,
-          rownames = FALSE,
-          filter = "top",
-          options = list(
-            pageLength = 10,
-            searching = TRUE,
-            lengthChange = TRUE,
-          order = dt_order_for_columns(rows, c("Trap captures", "Monitoring count", "Species"), "desc")
-          )
-        )
-      })
-
-      output$map_locality_summary_table <- DT::renderDataTable({
-        req(map_records_tab_active("summary_tab"))
-        processed_data <- req(mapping_data_density())
-        rows <- prepare_map_records_summary_tables(processed_data$observations_for_table)$locality
-
-        DT::datatable(
-          rows,
-          rownames = FALSE,
-          filter = "top",
-          options = list(
-            pageLength = 10,
-            searching = TRUE,
-            lengthChange = TRUE,
-            order = dt_order_for_columns(rows, c("Locality"), "asc")
-          )
-        )
-      })
-
-      output$map_trap_summary_table <- DT::renderDataTable({
-        req(map_records_tab_active("summary_tab"))
-        processed_data <- req(mapping_data_density())
-        rows <- prepare_map_records_summary_tables(processed_data$observations_for_table)$trap
-
-        DT::datatable(
-          rows,
-          rownames = FALSE,
-          filter = "top",
-          options = list(
-            pageLength = 10,
-            searching = TRUE,
-            lengthChange = TRUE,
-            order = dt_order_for_columns(rows, c("Locality", "Trap line", "Trap"), "asc")
-          )
-        )
-      })
-
       output$map_data_table <- DT::renderDataTable({
-        req(map_records_tab_active("data_tab"))
         processed_data <- req(mapping_data_density())
         table_data <- prepare_map_records_table(processed_data$observations_for_table)
 
         DT::datatable( table_data, escape = FALSE,
                        options = list( pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc')) ),
                        class = 'display', rownames = FALSE
-        )
-      })
-
-      output$map_export_table <- DT::renderDataTable({
-        req(map_records_tab_active("export_tab", default_when_missing = FALSE))
-        processed_data <- req(mapping_data_density())
-        export_data <- prepare_map_records_export(processed_data$observations_for_table)
-
-        DT::datatable(
-          export_data,
-          escape = TRUE,
-          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE),
-          class = 'display',
-          rownames = FALSE
         )
       })
 
@@ -3675,7 +3247,6 @@ mapping_module_server <- function(id,
       )
 
       output$map_cumulative_data_table <- DT::renderDataTable({
-        req(map_records_tab_active("cumulative_data_tab"))
         processed_data <- req(mapping_data_density())
         table_data <- prepare_map_records_table(processed_data$cumulative_observations_for_table)
 
@@ -6242,7 +5813,7 @@ render_trap_marker_legend <- function(trap_observations, monitoring_observations
   }
 
   paste0(
-    "<div class='trap-marker-legend'><strong>Observation Map</strong>",
+    "<div class='trap-marker-legend'><strong>Map key</strong>",
     paste(rows, collapse = ""),
     "</div>"
   )
