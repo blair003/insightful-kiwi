@@ -1089,7 +1089,6 @@ mapping_module_ui <- function(id,
                   ),
                   selected = "weighted_line_rai"
                 ),
-                tags$small("RAI surface is calculated/updated monthly.")
               )
             )
           },
@@ -2603,15 +2602,6 @@ mapping_module_server <- function(id,
 
           if (use_timeline) {
             req(current_time_dens, timeline_period_start(), timeline_period_end())
-            if (current_time_dens >= timeline_period_end()) {
-              surface_time_dens <- timeline_period_end()
-            } else {
-              surface_time_dens <- lubridate::floor_date(current_time_dens, unit = "month")
-              if (surface_time_dens < timeline_period_start()) {
-                surface_time_dens <- timeline_period_start()
-              }
-              surface_time_dens <- as.POSIXct(surface_time_dens, tz = timeline_actual_timezone())
-            }
           }
 
           surface_time_key <- if (use_timeline && !is.null(surface_time_dens)) {
@@ -2622,7 +2612,7 @@ mapping_module_server <- function(id,
 
           surface_cache_key <- paste(
             id,
-            if (use_timeline) "timeline-monthly" else "static",
+            if (use_timeline) "timeline-step" else "static",
             paste(sort(species_dens), collapse = ","),
             paste(sort(localities_dens), collapse = ","),
             period_key_dens,
