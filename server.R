@@ -1367,7 +1367,13 @@ server <- function(input, output, session) {
     localities <- input[["density_timeline_map-selected_localities"]]
     div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
   })
-  
+
+  output$activity_pattern_map_selection_heading <- renderUI({
+    species <- input[["activity_pattern_map-selected_species"]]
+    localities <- input[["activity_pattern_map-selected_localities"]]
+    div(class = "overview-locality-heading map-selection-heading", selected_map_heading(species, localities))
+  })
+
   monitoring_trapping_map_monitoring <- NULL
   monitoring_trapping_map_trapping <- NULL
   monitoring_trapping_map_loaded <- reactiveVal(FALSE)
@@ -1651,6 +1657,59 @@ server <- function(input, output, session) {
         trap_data = trap_data
       )
       density_timeline_map_loaded(TRUE)
+    }
+  })
+
+  ########### ACTIVITY PATTERN MAP FEATURE ###########
+
+  activity_pattern_period <- period_selection_module_server(
+    id = "activity_pattern_period",
+    period_groups = core_data$period_groups,
+    selected = core_data$app$period_defaults$primary_period
+  )
+
+  filtered_deps_activity_pattern_map <- reactive({
+    filter_deps_by_period_names(
+      core_data$deps,
+      activity_pattern_period$period_names(),
+      activity_pattern_period$start_date(),
+      activity_pattern_period$end_date(),
+      activity_pattern_period$period_intervals()
+    )
+  })
+
+  filtered_obs_activity_pattern_map <- reactive({
+    filter_detection_obs(filter_obs_by_period_names(
+      core_data$obs,
+      activity_pattern_period$period_names(),
+      activity_pattern_period$start_date(),
+      activity_pattern_period$end_date(),
+      activity_pattern_period$period_intervals()
+    ))
+  })
+
+  activity_pattern_map_loaded <- reactiveVal(FALSE)
+
+  observeEvent(input$nav, {
+    if (input$nav == "activity_pattern_map" && !activity_pattern_map_loaded()) {
+      logger::log_debug("server.R, lazily calling mapping_module_server() for activity_pattern_map")
+      mapping_module_server(
+        id = "activity_pattern_map",
+        obs = filtered_obs_activity_pattern_map,
+        deps = filtered_deps_activity_pattern_map,
+        period_names = activity_pattern_period$period_names,
+        period_start_date = activity_pattern_period$start_date,
+        period_end_date = activity_pattern_period$end_date,
+        period_intervals = activity_pattern_period$period_intervals,
+        timeline_mode = "always",
+        activity_pattern_mode = TRUE,
+        density_data_source_override = reactive("monitoring"),
+        prediction_surface_override = reactive(FALSE),
+        location_markers_override = reactive(TRUE),
+        use_net = global_use_net,
+        trap_data = trap_data
+      )
+      activity_pattern_map_loaded(TRUE)
     }
   })
 

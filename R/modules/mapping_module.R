@@ -21,11 +21,48 @@ timeline_view_mode_label <- function(view_mode) {
   if (identical(view_mode, "single")) "Discrete" else "Cumulative"
 }
 
-timeline_ui <- function(ns, points, value, step_size = "day", view_mode = "cumulative") {
+activity_pattern_bins <- function(step_size) {
+  switch(step_size,
+    "hour" = sprintf("%02d", 0:23),
+    "diel" = c("Matutinal", "Diurnal", "Vespertine", "Nocturnal"),
+    "day_night" = c("Day", "Night"),
+    character(0)
+  )
+}
+
+activity_pattern_bin_labels <- function(step_size) {
+  if (identical(step_size, "hour")) sprintf("%02d:00", 0:23) else activity_pattern_bins(step_size)
+}
+
+activity_pattern_bin_column <- function(step_size) {
+  switch(step_size,
+    "hour" = "activity_pattern_hour_bin",
+    "diel" = "diel_class",
+    "day_night" = "day_night_class",
+    NA_character_
+  )
+}
+
+activity_pattern_window_label <- function(step_size, view_mode, current_index) {
+  labels <- activity_pattern_bin_labels(step_size)
+  current_label <- labels[[current_index]]
+  if (identical(view_mode, "single") || identical(current_index, 1L)) {
+    current_label
+  } else {
+    sprintf("%s to %s", labels[[1]], current_label)
+  }
+}
+
+timeline_ui <- function(ns, points, value, step_size = "day", view_mode = "cumulative", activity_pattern_mode = FALSE) {
   point_count <- length(points)
-  selected_index <- timeline_index_for_time(points, value)
+  if (isTRUE(activity_pattern_mode) && step_size %in% c("hour", "diel", "day_night")) {
+    selected_index <- 1L
+    slider_labels <- activity_pattern_bin_labels(step_size)
+  } else {
+    selected_index <- timeline_index_for_time(points, value)
+    slider_labels <- timeline_slider_labels(points, step_size)
+  }
   slider_id <- ns("time_slider")
-  slider_labels <- timeline_slider_labels(points, step_size)
   slider_label <- sprintf(
     "Time progression (%s, %s)",
     timeline_step_size_label(step_size),
@@ -391,12 +428,17 @@ timeline_next_step_time <- function(current_time, timeline_end, step_size, weath
 }
 
 timeline_time_points <- function(start_time, end_time, step_size, view_mode = "cumulative",
-                                 weather_df = NULL, period_groups = NULL) {
+                                 weather_df = NULL, period_groups = NULL, activity_pattern_mode = FALSE) {
   start_time <- as.POSIXct(start_time, tz = timeline_actual_timezone())
   end_time <- as.POSIXct(end_time, tz = timeline_actual_timezone())
 
   if (is.null(start_time) || is.null(end_time) || is.na(start_time) || is.na(end_time) || end_time < start_time) {
     return(start_time)
+  }
+
+  if (isTRUE(activity_pattern_mode) && step_size %in% c("hour", "diel", "day_night")) {
+    n <- length(activity_pattern_bins(step_size))
+    return(as.POSIXct("1970-01-01", tz = timeline_actual_timezone()) + seq_len(n) * 3600)
   }
 
   if (step_size %in% c("day_night", "diel")) {
@@ -732,7 +774,15 @@ timeline_current_season_start <- function(current_time, period_groups, fallback_
   max(candidate$start[[1]], fallback_start)
 }
 
-timeline_window_readout <- function(start_time, current_time, step_size, weather_df, view_mode = "single") {
+timeline_window_readout <- function(start_time, current_time, step_size, weather_df, view_mode = "single",
+                                     activity_pattern_mode = FALSE, activity_pattern_index = NULL) {
+  if (isTRUE(activity_pattern_mode) && step_size %in% c("hour", "diel", "day_night")) {
+    return(sprintf(
+      "<div class='timeline-window-readout'><strong>Timeframe:</strong> %s</div>",
+      weather_html_escape(activity_pattern_window_label(step_size, view_mode, activity_pattern_index))
+    ))
+  }
+
   if (is.null(start_time) || is.null(current_time) || is.na(start_time) || is.na(current_time)) {
     return(NULL)
   }
@@ -830,6 +880,7 @@ mapping_module_ui <- function(id,
                               comparative_data_label = "Comparison",
                               primary_data_title = "Primary period records",
                               comparative_data_title = "Comparison season records",
+                              lock_observation_markers = FALSE,
                               map_height = config$globals$leaflet_height) { # Added map_height
   ns <- NS(id)
 
@@ -1142,11 +1193,21 @@ mapping_module_ui <- function(id,
           if (isTRUE(include_marker_options)) {
             tagList(
               tags$strong("Monitoring records:"),
-              checkboxInput(
-                inputId = ns("show_density_location_markers"),
-                label = "Observation counts",
-                value = TRUE
-              )
+              if (isTRUE(lock_observation_markers)) {
+                shinyjs::disabled(
+                  checkboxInput(
+                    inputId = ns("show_density_location_markers"),
+                    label = "Observation counts",
+                    value = TRUE
+                  )
+                )
+              } else {
+                checkboxInput(
+                  inputId = ns("show_density_location_markers"),
+                  label = "Observation counts",
+                  value = TRUE
+                )
+              }
             )
           },
           if (isTRUE(include_prediction_option)) {
@@ -1402,7 +1463,8 @@ mapping_module_server <- function(id,
                                   enable_map_outputs = TRUE,
                                   use_net = reactive(config$globals$use_net_data),
                                   trap_data = NULL,
-                                  period_groups_override = NULL
+                                  period_groups_override = NULL,
+                                  activity_pattern_mode = FALSE
 ) {
   timeline_mode <- match.arg(timeline_mode, choices = c("none", "always"))
   
@@ -2034,7 +2096,11 @@ mapping_module_server <- function(id,
 
       timeline_points <- reactive({
         req(timeline_period_start(), timeline_period_end())
-        step_size <- if (is.null(input$timeline_step_size)) "day" else input$timeline_step_size
+        step_size <- if (is.null(input$timeline_step_size)) {
+          if (activity_pattern_mode) "hour" else "day"
+        } else {
+          input$timeline_step_size
+        }
         view_mode <- if (is.null(input$timeline_view_mode)) "cumulative" else input$timeline_view_mode
         timeline_time_points(
           timeline_period_start(),
@@ -2042,7 +2108,8 @@ mapping_module_server <- function(id,
           step_size,
           view_mode,
           timeline_weather_data(),
-          timeline_period_groups()
+          timeline_period_groups(),
+          activity_pattern_mode = activity_pattern_mode
         )
       })
 
@@ -2053,14 +2120,19 @@ mapping_module_server <- function(id,
 
       output$timeline_slider_ui <- renderUI({
         req(timeline_active(), timeline_points())
-        step_size <- if (is.null(input$timeline_step_size)) "day" else input$timeline_step_size
+        step_size <- if (is.null(input$timeline_step_size)) {
+          if (activity_pattern_mode) "hour" else "day"
+        } else {
+          input$timeline_step_size
+        }
         view_mode <- if (is.null(input$timeline_view_mode)) "cumulative" else input$timeline_view_mode
         timeline_ui(
           ns = ns,
           points = timeline_points(),
           value = timeline_initial_value(),
           step_size = step_size,
-          view_mode = view_mode
+          view_mode = view_mode,
+          activity_pattern_mode = activity_pattern_mode
         )
       })
 
@@ -2113,7 +2185,7 @@ mapping_module_server <- function(id,
 
       observeEvent(input$show_predicted_rai_surface, {
         req(timeline_active())
-        if (isTRUE(input$show_predicted_rai_surface)) {
+        if (!activity_pattern_mode && isTRUE(input$show_predicted_rai_surface)) {
           current_speed <- if (is.null(input$playback_speed)) 1 else as.numeric(input$playback_speed)
           if (length(current_speed) > 0 && is.finite(current_speed) && current_speed < 2) {
             updateSliderInput(session, "playback_speed", value = 2)
@@ -2127,7 +2199,7 @@ mapping_module_server <- function(id,
 
       observeEvent(input$show_density_location_markers, {
         req(timeline_active())
-        if (!isTRUE(input$show_density_location_markers)) {
+        if (!activity_pattern_mode && !isTRUE(input$show_density_location_markers)) {
           current_step <- if (is.null(input$timeline_step_size)) "day" else input$timeline_step_size
           if (current_step %in% c("hour", "day_night", "diel", "day")) {
             updateSelectInput(session, "timeline_step_size", selected = "week")
@@ -2208,6 +2280,21 @@ mapping_module_server <- function(id,
 
       observeEvent(input$playback_tick, {
         req(is_playing(), timeline_active(), input$time_slider, timeline_points())
+
+        if (activity_pattern_mode) {
+          step_size <- if (is.null(input$timeline_step_size)) "hour" else input$timeline_step_size
+          if (step_size %in% c("hour", "diel", "day_night")) {
+            bins <- activity_pattern_bins(step_size)
+            current_index <- timeline_selected_index(input$time_slider, length(bins))
+            if (current_index < length(bins)) {
+              updateSliderInput(session, "time_slider", value = current_index + 1)
+            } else {
+              is_playing(FALSE)
+            }
+            return()
+          }
+        }
+
         current_index <- timeline_selected_index(input$time_slider, length(timeline_points()))
         current_val <- timeline_selected_time(current_index, timeline_points())
         next_index <- current_index + 1L
@@ -2323,49 +2410,84 @@ mapping_module_server <- function(id,
 
         start_time_dens <- NULL
         current_time_dens <- NULL
+        timeline_window_text_dens <- NULL
         obs_cumulative_dens <- obs_filtered_dens
         if (use_timeline) {
-          step_size <- if (is.null(input$timeline_step_size)) "day" else input$timeline_step_size
-          current_time_dens <- timeline_effective_current_time(
-            input$time_slider,
-            step_size,
-            timeline_period_end(),
-            timeline_points()
-          )
-          start_time_dens <- if (identical(input$timeline_view_mode, "single")) {
-            if (step_size %in% c("day_night", "diel")) {
-              previous_weather_boundary(current_time_dens, timeline_period_start(), timeline_weather_data(), step_size)
-            } else if (identical(step_size, "season")) {
-              timeline_current_season_start(current_time_dens, timeline_period_groups(), timeline_period_start())
-            } else {
-              timeline_single_window_start(
-                current_time_dens,
-                timeline_period_start(),
-                step_size,
-                timeline_step_seconds()
-              )
-            }
+          step_size <- if (is.null(input$timeline_step_size)) {
+            if (activity_pattern_mode) "hour" else "day"
           } else {
-            timeline_period_start()
+            input$timeline_step_size
           }
+          view_mode_dens <- if (is.null(input$timeline_view_mode)) "cumulative" else input$timeline_view_mode
 
-          obs_cumulative_dens <- obs_cumulative_dens %>%
-            dplyr::filter(
-              timestamp >= timeline_period_start(),
-              timestamp <= current_time_dens
-            )
+          if (activity_pattern_mode && step_size %in% c("hour", "diel", "day_night")) {
+            bins <- activity_pattern_bins(step_size)
+            current_index <- timeline_selected_index(input$time_slider, length(bins))
+            bin_column <- activity_pattern_bin_column(step_size)
 
-          obs_filtered_dens <- obs_filtered_dens %>%
-            dplyr::filter(
-              timestamp >= start_time_dens,
-              timestamp <= current_time_dens
-            )
+            add_bin_column <- function(df) {
+              if (identical(bin_column, "activity_pattern_hour_bin")) {
+                df %>% dplyr::mutate(activity_pattern_hour_bin = format(timestamp, "%H", tz = timeline_actual_timezone()))
+              } else {
+                df
+              }
+            }
 
-          obs_for_scale_dens <- obs_for_scale_dens %>%
-            dplyr::filter(
-              timestamp >= start_time_dens,
-              timestamp <= current_time_dens
+            obs_filtered_dens <- add_bin_column(obs_filtered_dens)
+            obs_cumulative_dens <- add_bin_column(obs_cumulative_dens)
+            obs_for_scale_dens <- add_bin_column(obs_for_scale_dens)
+
+            cumulative_bins <- bins[seq_len(current_index)]
+            active_bins <- if (identical(view_mode_dens, "single")) bins[current_index] else cumulative_bins
+
+            obs_cumulative_dens <- obs_cumulative_dens %>% dplyr::filter(.data[[bin_column]] %in% cumulative_bins)
+            obs_filtered_dens   <- obs_filtered_dens   %>% dplyr::filter(.data[[bin_column]] %in% active_bins)
+            obs_for_scale_dens  <- obs_for_scale_dens  %>% dplyr::filter(.data[[bin_column]] %in% active_bins)
+
+            timeline_window_text_dens <- activity_pattern_window_label(step_size, view_mode_dens, current_index)
+            current_time_dens <- timeline_period_end()
+          } else {
+            current_time_dens <- timeline_effective_current_time(
+              input$time_slider,
+              step_size,
+              timeline_period_end(),
+              timeline_points()
             )
+            start_time_dens <- if (identical(view_mode_dens, "single")) {
+              if (step_size %in% c("day_night", "diel")) {
+                previous_weather_boundary(current_time_dens, timeline_period_start(), timeline_weather_data(), step_size)
+              } else if (identical(step_size, "season")) {
+                timeline_current_season_start(current_time_dens, timeline_period_groups(), timeline_period_start())
+              } else {
+                timeline_single_window_start(
+                  current_time_dens,
+                  timeline_period_start(),
+                  step_size,
+                  timeline_step_seconds()
+                )
+              }
+            } else {
+              timeline_period_start()
+            }
+
+            obs_cumulative_dens <- obs_cumulative_dens %>%
+              dplyr::filter(
+                timestamp >= timeline_period_start(),
+                timestamp <= current_time_dens
+              )
+
+            obs_filtered_dens <- obs_filtered_dens %>%
+              dplyr::filter(
+                timestamp >= start_time_dens,
+                timestamp <= current_time_dens
+              )
+
+            obs_for_scale_dens <- obs_for_scale_dens %>%
+              dplyr::filter(
+                timestamp >= start_time_dens,
+                timestamp <= current_time_dens
+              )
+          }
         }
 
         if (isTRUE(exclude_possible_duplicates_selected()) &&
@@ -2983,6 +3105,7 @@ mapping_module_server <- function(id,
           obs_summary_location = obs_summary_location_dens,
           start_time = start_time_dens,
           current_time = current_time_dens,
+          timeline_window_text = timeline_window_text_dens,
           absolute_max = shared_absolute_max,
           obs_filtered = obs_filtered_dens,
           obs_cumulative = obs_cumulative_dens,
@@ -3006,6 +3129,7 @@ mapping_module_server <- function(id,
             new_bounds_key,
             if (is.null(start_time_dens)) "no-start" else format(start_time_dens, "%Y-%m-%d %H:%M:%S", tz = timeline_actual_timezone()),
             if (is.null(current_time_dens)) "no-current" else format(current_time_dens, "%Y-%m-%d %H:%M:%S", tz = timeline_actual_timezone()),
+            if (is.null(timeline_window_text_dens)) "no-window" else timeline_window_text_dens,
             exclude_possible_duplicates_selected(),
             include_monitoring_records_selected(),
             include_trap_data_selected(),
@@ -3172,7 +3296,11 @@ mapping_module_server <- function(id,
             collapse_selection_values(period_names_value),
             period_interval_text,
             sprintf("%s to %s", format_export_date(selected_start_date), format_export_date(selected_end_date)),
-            sprintf("%s to %s", format_export_datetime(processed_data$start_time), format_export_datetime(processed_data$current_time)),
+            if (!is.null(processed_data$timeline_window_text)) {
+              processed_data$timeline_window_text
+            } else {
+              sprintf("%s to %s", format_export_datetime(processed_data$start_time), format_export_datetime(processed_data$current_time))
+            },
             if (is.null(input$timeline_view_mode)) "" else as.character(input$timeline_view_mode),
             if (is.null(input$timeline_step_size)) "" else as.character(input$timeline_step_size),
             collapse_selection_values(current_selected_species()),
@@ -3238,14 +3366,25 @@ mapping_module_server <- function(id,
       output$timeline_window_ui <- renderUI({
         req(timeline_active(), input$time_slider)
 
-        step_size <- if (is.null(input$timeline_step_size)) "day" else input$timeline_step_size
+        step_size <- if (is.null(input$timeline_step_size)) {
+          if (activity_pattern_mode) "hour" else "day"
+        } else {
+          input$timeline_step_size
+        }
+        view_mode <- if (is.null(input$timeline_view_mode)) "cumulative" else input$timeline_view_mode
+
+        if (activity_pattern_mode && step_size %in% c("hour", "diel", "day_night")) {
+          current_index <- timeline_selected_index(input$time_slider, length(activity_pattern_bins(step_size)))
+          return(HTML(timeline_window_readout(NULL, NULL, step_size, NULL, view_mode,
+            activity_pattern_mode = TRUE, activity_pattern_index = current_index)))
+        }
+
         current_time <- timeline_effective_current_time(
           input$time_slider,
           step_size,
           timeline_period_end(),
           timeline_points()
         )
-        view_mode <- if (is.null(input$timeline_view_mode)) "cumulative" else input$timeline_view_mode
         start_time <- if (identical(view_mode, "single")) {
           if (step_size %in% c("day_night", "diel")) {
             previous_weather_boundary(current_time, timeline_period_start(), timeline_weather_data(), step_size)

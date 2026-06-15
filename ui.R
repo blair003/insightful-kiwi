@@ -15,6 +15,7 @@ ui <- function(request) {
       'density_map': true,
       'monitoring_trapping_map': true,
       'density_timeline_map': true,
+      'activity_pattern_map': true,
       'monitoring_trapping': true,
       'monitoring_trapping_analysis': true,
       'activity_patterns': true,
@@ -268,8 +269,57 @@ ui <- function(request) {
           include_observation_layer_options = TRUE
         )
       ),
-      
-      
+
+      conditionalPanel(
+        condition = "input.nav === 'activity_pattern_map'",
+
+        period_selection_module_ui(
+          id = "activity_pattern_period",
+          view = "select",
+          choices = period_choices,
+          selected = core_data$app$period_defaults$primary_period,
+          label = "Period:",
+          multiple = TRUE
+        ),
+
+        mapping_module_ui(
+          id = "activity_pattern_map",
+          view = "select_species",
+          choices = core_data$app$spp_classes,
+          selected = c(
+            core_data$app$spp_classes[[1]][1],
+            core_data$app$spp_classes[[1]][2],
+            core_data$app$spp_classes[[1]][3]
+          ),
+          include_species_display_mode = TRUE
+        ),
+
+        mapping_module_ui(
+          id = "activity_pattern_map",
+          view = "select_localities",
+          choices = unique(core_data$deps$locality),
+          selected = unique(core_data$deps$locality)
+        ),
+
+        mapping_module_ui(
+          id = "activity_pattern_map",
+          view = "density_options",
+          include_prediction_option = FALSE,
+          include_marker_options = FALSE,
+          include_density_trap_option = FALSE
+        ),
+
+        mapping_module_ui(
+          id = "activity_pattern_map",
+          view = "density_timeline_controls",
+          include_marker_options = TRUE,
+          include_observation_layer_options = FALSE,
+          include_prediction_option = FALSE,
+          lock_observation_markers = TRUE
+        )
+      ),
+
+
       conditionalPanel(
         condition = "input.nav === 'monitoring_trapping'",
         trapping_outcomes_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
@@ -333,6 +383,28 @@ ui <- function(request) {
             uiOutput("density_timeline_map_selection_heading")
           ),
           mapping_module_ui("density_timeline_map", view = "density_timeline_layout")
+        ),
+
+                ######### ACTIVITY PATTERN MAP OUTPUT #########
+        nav_panel(
+          title = "Activity Pattern Density",
+          icon = icon("clock"),
+          value = "activity_pattern_map",
+          div(
+            class = "map-page-heading",
+            h2("Activity Pattern Density"),
+            uiOutput("activity_pattern_map_selection_heading")
+          ),
+          mapping_module_ui(
+            "activity_pattern_map",
+            view = "density_timeline_layout",
+            timeline_step_size_choices = c(
+              "Hourly" = "hour",
+              "Diel activity" = "diel",
+              "Daily - Day/Night" = "day_night"
+            ),
+            timeline_step_size_selected = "hour"
+          )
         ),
 
 
