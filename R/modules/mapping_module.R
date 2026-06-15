@@ -1018,7 +1018,7 @@ mapping_module_ui <- function(id,
               tags$strong("Monitoring records:"),
               checkboxInput(
                 inputId = ns("show_density_location_markers"),
-                label = "Observation counts",
+                label = "Monitoring counts",
                 value = isTRUE(include_monitoring_records_default)
               ),
               conditionalPanel(
@@ -1026,7 +1026,7 @@ mapping_module_ui <- function(id,
                 ns = ns,
                 checkboxInput(
                   inputId = ns("show_monitoring_heatmap"),
-                  label = "Observation counts heatmap",
+                  label = "Monitoring heatmap",
                   value = FALSE
                 )
               )
@@ -1066,7 +1066,7 @@ mapping_module_ui <- function(id,
               tags$strong("Trapping records:"),
               checkboxInput(
                 inputId = ns("show_trap_kill_markers"),
-                label = "Trap captures",
+                label = "Trap capture counts",
                 value = isTRUE(include_trap_data_default)
               ),
               conditionalPanel(
@@ -1078,50 +1078,34 @@ mapping_module_ui <- function(id,
                     inputId = ns("show_trap_blank_checks"),
                     label = trap_check_counters_label(ns),
                     value = FALSE
-                  ),
-                  conditionalPanel(
-                    condition = species_combined_condition,
-                    ns = ns,
-                    checkboxInput(
-                      inputId = ns("show_capture_density_surface"),
-                      label = "Capture Density surface",
-                      value = FALSE
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = species_combined_condition,
-                    ns = ns,
-                    checkboxInput(
-                      inputId = ns("show_trap_check_density_surface"),
-                      label = "Trap-Check Density surface",
-                      value = FALSE
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = species_combined_condition,
-                    ns = ns,
-                    checkboxInput(
-                      inputId = ns("show_trap_capture_heatmap"),
-                      label = "Capture heatmap",
-                      value = FALSE
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = paste(species_combined_condition, "input.show_trap_check_density_surface", sep = " && "),
-                    ns = ns,
-                    tags$div(
-                      class = "prediction-surface-options",
-                      radioButtons(
-                        inputId = ns("trap_check_density_surface_basis"),
-                        label = "Surface basis:",
-                        choices = c(
-                          "Check frequency (per 100 trap-days)" = "frequency",
-                          "Check volume (total checks)" = "volume"
-                        ),
-                        selected = "frequency"
-                      )
-                    )
                   )
+                )
+              ),
+              conditionalPanel(
+                condition = species_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_capture_density_surface"),
+                  label = "Capture Density surface",
+                  value = FALSE
+                )
+              ),
+              conditionalPanel(
+                condition = species_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_trap_capture_heatmap"),
+                  label = "Trap capture heatmap",
+                  value = FALSE
+                )
+              ),
+              conditionalPanel(
+                condition = species_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_trap_check_heatmap"),
+                  label = "Trap check heatmap",
+                  value = FALSE
                 )
               ),
               checkboxInput(
@@ -1258,6 +1242,7 @@ mapping_module_ui <- function(id,
     )
   } else if (view == "density_timeline_controls") {
     timeline_combined_condition <- "input.timeline_view_mode === 'cumulative' && (!input.species_display_mode || input.species_display_mode === 'combined')"
+    species_combined_condition <- "(!input.species_display_mode || input.species_display_mode === 'combined')"
     return(
       tagList(
         hr(),
@@ -1270,23 +1255,23 @@ mapping_module_ui <- function(id,
                 shinyjs::disabled(
                   checkboxInput(
                     inputId = ns("show_density_location_markers"),
-                    label = "Observation counts",
+                    label = "Monitoring counts",
                     value = TRUE
                   )
                 )
               } else {
                 checkboxInput(
                   inputId = ns("show_density_location_markers"),
-                  label = "Observation counts",
+                  label = "Monitoring counts",
                   value = TRUE
                 )
               },
               conditionalPanel(
-                condition = timeline_combined_condition,
+                condition = species_combined_condition,
                 ns = ns,
                 checkboxInput(
                   inputId = ns("show_monitoring_heatmap"),
-                  label = "Observation counts heatmap",
+                  label = "Monitoring heatmap",
                   value = FALSE
                 )
               )
@@ -1326,7 +1311,7 @@ mapping_module_ui <- function(id,
               tags$strong("Trapping records:"),
               checkboxInput(
                 inputId = ns("show_trap_kill_markers"),
-                label = "Trap captures",
+                label = "Trap capture counts",
                 value = isTRUE(include_trap_data_default)
               ),
               conditionalPanel(
@@ -1338,50 +1323,34 @@ mapping_module_ui <- function(id,
                     inputId = ns("show_trap_blank_checks"),
                     label = trap_check_counters_label(ns),
                     value = FALSE
-                  ),
-                  conditionalPanel(
-                    condition = timeline_combined_condition,
-                    ns = ns,
-                    checkboxInput(
-                      inputId = ns("show_capture_density_surface"),
-                      label = "Capture Density surface",
-                      value = FALSE
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = timeline_combined_condition,
-                    ns = ns,
-                    checkboxInput(
-                      inputId = ns("show_trap_check_density_surface"),
-                      label = "Trap-Check Density surface",
-                      value = FALSE
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = timeline_combined_condition,
-                    ns = ns,
-                    checkboxInput(
-                      inputId = ns("show_trap_capture_heatmap"),
-                      label = "Capture heatmap",
-                      value = FALSE
-                    )
-                  ),
-                  conditionalPanel(
-                    condition = paste(timeline_combined_condition, "input.show_trap_check_density_surface", sep = " && "),
-                    ns = ns,
-                    tags$div(
-                      class = "prediction-surface-options",
-                      radioButtons(
-                        inputId = ns("trap_check_density_surface_basis"),
-                        label = "Surface basis:",
-                        choices = c(
-                          "Check frequency (per 100 trap-days)" = "frequency",
-                          "Check volume (total checks)" = "volume"
-                        ),
-                        selected = "frequency"
-                      )
-                    )
                   )
+                )
+              ),
+              conditionalPanel(
+                condition = timeline_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_capture_density_surface"),
+                  label = "Capture Density surface",
+                  value = FALSE
+                )
+              ),
+              conditionalPanel(
+                condition = species_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_trap_capture_heatmap"),
+                  label = "Trap capture heatmap",
+                  value = FALSE
+                )
+              ),
+              conditionalPanel(
+                condition = species_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_trap_check_heatmap"),
+                  label = "Trap check heatmap",
+                  value = FALSE
                 )
               ),
               checkboxInput(
@@ -1581,10 +1550,9 @@ mapping_module_server <- function(id,
                                   trap_check_counters_override = NULL, # Reactive: for comparative density map
                                   unchecked_traps_override = NULL, # Reactive: for comparative density map
                                   capture_density_surface_override = NULL, # Reactive: for comparative density map
-                                  trap_check_density_surface_override = NULL, # Reactive: for comparative density map
-                                  trap_check_density_surface_basis_override = NULL, # Reactive: for comparative density map
                                   monitoring_heatmap_override = NULL, # Reactive: for comparative density map
                                   trap_capture_heatmap_override = NULL, # Reactive: for comparative density map
+                                  trap_check_heatmap_override = NULL, # Reactive: for comparative density map
                                   period_names = NULL,      # Reactive: selected period names
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
@@ -1607,7 +1575,6 @@ mapping_module_server <- function(id,
     needs_fit_bounds <- reactiveVal(FALSE)
     predicted_rai_surface_cache <- reactiveVal(NULL)
     capture_density_surface_cache <- reactiveVal(NULL)
-    trap_check_density_surface_cache <- reactiveVal(NULL)
     last_density_map_update_key <- reactiveVal(NULL)
     density_marker_scale <- reactiveVal(0)
 
@@ -1734,6 +1701,24 @@ mapping_module_server <- function(id,
       isTRUE(input$show_trap_capture_heatmap)
     })
 
+    trap_check_heatmap_requested <- reactive({
+      if (!is.null(trap_check_heatmap_override) &&
+          !is.null(trap_check_heatmap_override())) {
+        return(isTRUE(trap_check_heatmap_override()))
+      }
+
+      isTRUE(input$show_trap_check_heatmap)
+    })
+
+    capture_density_surface_requested <- reactive({
+      if (!is.null(capture_density_surface_override) &&
+          !is.null(capture_density_surface_override())) {
+        return(isTRUE(capture_density_surface_override()))
+      }
+
+      isTRUE(input$show_capture_density_surface)
+    })
+
     density_data_source_selected <- reactive({
       if (!is.null(density_data_source_override) &&
           !is.null(density_data_source_override())) {
@@ -1767,6 +1752,8 @@ mapping_module_server <- function(id,
       include_trapping <- isTRUE(include_trap_data_selected()) && (
         isTRUE(show_trap_kill_markers_selected()) ||
           isTRUE(trap_capture_heatmap_requested()) ||
+          isTRUE(trap_check_heatmap_requested()) ||
+          isTRUE(capture_density_surface_requested()) ||
           unchecked_requested
       )
 
@@ -1874,33 +1861,7 @@ mapping_module_server <- function(id,
         return(FALSE)
       }
 
-      if (!is.null(capture_density_surface_override) &&
-          !is.null(capture_density_surface_override())) {
-        return(isTRUE(capture_density_surface_override()))
-      }
-
-      isTRUE(input$show_capture_density_surface)
-    })
-
-    show_trap_check_density_surface_selected <- reactive({
-      if (!density_data_source_selected() %in% c("trapping", "both")) {
-        return(FALSE)
-      }
-
-      if (identical(species_display_mode_selected(), "separate")) {
-        return(FALSE)
-      }
-
-      if (timeline_active() && !identical(input$timeline_view_mode, "cumulative")) {
-        return(FALSE)
-      }
-
-      if (!is.null(trap_check_density_surface_override) &&
-          !is.null(trap_check_density_surface_override())) {
-        return(isTRUE(trap_check_density_surface_override()))
-      }
-
-      isTRUE(input$show_trap_check_density_surface)
+      capture_density_surface_requested()
     })
 
     show_monitoring_heatmap_selected <- reactive({
@@ -1909,10 +1870,6 @@ mapping_module_server <- function(id,
       }
 
       if (identical(species_display_mode_selected(), "separate")) {
-        return(FALSE)
-      }
-
-      if (timeline_active() && !identical(input$timeline_view_mode, "cumulative")) {
         return(FALSE)
       }
 
@@ -1928,26 +1885,19 @@ mapping_module_server <- function(id,
         return(FALSE)
       }
 
-      if (timeline_active() && !identical(input$timeline_view_mode, "cumulative")) {
-        return(FALSE)
-      }
-
       trap_capture_heatmap_requested()
     })
 
-    trap_check_density_surface_basis_selected <- reactive({
-      if (!is.null(trap_check_density_surface_basis_override) &&
-          !is.null(trap_check_density_surface_basis_override())) {
-        basis <- trap_check_density_surface_basis_override()
-      } else {
-        basis <- input$trap_check_density_surface_basis
+    show_trap_check_heatmap_selected <- reactive({
+      if (!density_data_source_selected() %in% c("trapping", "both")) {
+        return(FALSE)
       }
 
-      if (is.null(basis) || !basis %in% c("frequency", "volume")) {
-        return("frequency")
+      if (identical(species_display_mode_selected(), "separate")) {
+        return(FALSE)
       }
 
-      basis
+      trap_check_heatmap_requested()
     })
 
     species_display_mode_selected <- reactive({
@@ -2824,7 +2774,7 @@ mapping_module_server <- function(id,
         obs_summary_location_dens <- rai_location_dens %>%
           dplyr::mutate(
             marker_dataset = "monitoring",
-            marker_layer = "Observation counts"
+            marker_layer = "Monitoring counts"
           )
         if (!isTRUE(show_monitoring_density)) {
           obs_summary_location_dens <- obs_summary_location_dens[0, , drop = FALSE]
@@ -2832,6 +2782,7 @@ mapping_module_server <- function(id,
         trap_records_dens <- dplyr::tibble()
         trap_cumulative_records_dens <- dplyr::tibble()
         trap_support_locations_dens <- dplyr::tibble()
+        trap_check_heatmap_data_dens <- dplyr::tibble()
 
         if (isTRUE(show_trapping_density)) {
           trap_start_date <- if (is.function(period_start_date)) {
@@ -2852,7 +2803,7 @@ mapping_module_server <- function(id,
             species_dens,
             localities_dens,
             trap_locality_distance_km_selected(),
-            include_blank_checks = show_trap_blank_checks_selected() || show_trap_check_density_surface_selected(),
+            include_blank_checks = show_trap_blank_checks_selected() || show_trap_check_heatmap_selected(),
             include_unchecked_locations = show_trap_unchecked_locations_selected(),
             period_intervals = selected_period_intervals_dens
           )
@@ -2947,16 +2898,14 @@ mapping_module_server <- function(id,
           trap_observations_for_metrics_dens <- trap_observations_dens
           if (nrow(trap_observations_dens) > 0 && "trap_marker_type" %in% names(trap_observations_dens)) {
             enabled_trap_marker_types_dens <- c(
-              if (isTRUE(show_trap_kill_markers_selected())) "kill",
-              if (isTRUE(show_trap_blank_checks_selected())) "check",
+              if (isTRUE(show_trap_kill_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) "kill",
+              if (isTRUE(show_trap_blank_checks_selected()) || isTRUE(show_trap_check_heatmap_selected())) "check",
               if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
             )
             metrics_trap_marker_types_dens <- union(
               enabled_trap_marker_types_dens,
               c(
-                if (isTRUE(show_capture_density_surface_selected()) ||
-                    isTRUE(show_trap_capture_heatmap_selected())) "kill",
-                if (isTRUE(show_trap_check_density_surface_selected())) "check"
+                if (isTRUE(show_capture_density_surface_selected())) "kill"
               )
             )
             trap_observations_for_metrics_dens <- trap_observations_dens %>%
@@ -2971,7 +2920,7 @@ mapping_module_server <- function(id,
           trap_support_locations_dens <- dplyr::tibble()
           check_summary_dens <- dplyr::tibble()
           trap_density_summary_dens <- dplyr::tibble()
-          if (isTRUE(show_trap_blank_checks_selected()) || isTRUE(show_trap_check_density_surface_selected())) {
+          if (isTRUE(show_trap_blank_checks_selected()) || isTRUE(show_trap_check_heatmap_selected())) {
             check_summary_dens <- create_trap_marker_summary(trap_observations_for_metrics_dens)
             if (nrow(check_summary_dens) > 0) {
               check_summary_dens <- check_summary_dens %>%
@@ -2991,6 +2940,14 @@ mapping_module_server <- function(id,
                 )
               }
             }
+          }
+          if (isTRUE(show_trap_check_heatmap_selected()) && nrow(check_summary_dens) > 0) {
+            trap_check_heatmap_data_dens <- check_summary_dens %>%
+              dplyr::filter(
+                is.finite(.data$longitude), is.finite(.data$latitude),
+                is.finite(.data$trap_checks), .data$trap_checks > 0
+              ) %>%
+              dplyr::select(longitude, latitude, trap_checks)
           }
           if (isTRUE(show_trap_unchecked_locations_selected())) {
             unchecked_summary_dens <- create_trap_unchecked_summary(trap_observations_dens)
@@ -3042,7 +2999,7 @@ mapping_module_server <- function(id,
                 weighted_line_rai = NA_real_,
                 rai = NA_real_,
                 marker_dataset = "trap_kill",
-            marker_layer = "Trap captures"
+            marker_layer = "Trap capture counts"
               )
           }
 
@@ -3087,7 +3044,7 @@ mapping_module_server <- function(id,
         }
 
         if ("marker_dataset" %in% names(obs_summary_location_dens) && any(obs_summary_location_dens$marker_dataset == "monitoring", na.rm = TRUE)) {
-          monitoring_layer_label <- if (isTRUE(trapped_selected_species_dens)) "Observation counts (trapped species)" else "Observation counts (non-trapped species)"
+          monitoring_layer_label <- if (isTRUE(trapped_selected_species_dens)) "Monitoring counts (trapped species)" else "Monitoring counts (non-trapped species)"
           obs_summary_location_dens <- obs_summary_location_dens %>%
             dplyr::mutate(
               marker_layer = dplyr::if_else(.data$marker_dataset == "monitoring", monitoring_layer_label, .data$marker_layer),
@@ -3296,67 +3253,6 @@ mapping_module_server <- function(id,
           }
         }
 
-        trap_check_density_surface <- NULL
-        trap_check_density_surface_message <- NULL
-        trap_check_density_surface_cache_key <- "surface-off"
-        if (isTRUE(show_trap_check_density_surface_selected())) {
-          check_basis <- trap_check_density_surface_basis_selected()
-          check_value_col <- if (identical(check_basis, "volume")) "trap_checks" else "trap_checks_per_100_trap_days"
-
-          check_cache_key <- paste(
-            id,
-            if (use_timeline) "timeline-step" else "static",
-            paste(sort(species_dens), collapse = ","),
-            paste(sort(localities_dens), collapse = ","),
-            period_key_dens,
-            new_bounds_key,
-            trap_locality_distance_km_selected(),
-            dens_time_key,
-            check_basis,
-            exclude_possible_duplicates_selected(),
-            sep = "|"
-          )
-          trap_check_density_surface_cache_key <- check_cache_key
-
-          check_cache <- trap_check_density_surface_cache()
-          if (!is.null(check_cache) && identical(check_cache$key, check_cache_key)) {
-            trap_check_density_surface <- check_cache$surface
-            trap_check_density_surface_message <- check_cache$message
-          } else {
-            usable_check_locations <- check_summary_dens %>%
-              dplyr::filter(
-                is.finite(.data$longitude),
-                is.finite(.data$latitude),
-                is.finite(.data[[check_value_col]])
-              )
-
-            if (nrow(usable_check_locations) < 3) {
-              trap_check_density_surface_message <- "Trap-Check Density surface needs at least three trap locations with check data."
-            } else {
-              trap_check_density_surface <- create_idw_prediction_surface(
-                usable_check_locations,
-                value_col = check_value_col,
-                group_col = "locality",
-                grid_n = surface_grid_n,
-                buffer_m = 75,
-                output_col = "predicted_trap_check_density"
-              )
-
-              if (is.null(trap_check_density_surface) || nrow(trap_check_density_surface) == 0) {
-                trap_check_density_surface_message <- "Trap-Check Density surface is not available for the current trap layout."
-              }
-            }
-
-            trap_check_density_surface_cache(
-              list(
-                key = check_cache_key,
-                surface = trap_check_density_surface,
-                message = trap_check_density_surface_message
-              )
-            )
-          }
-        }
-
         max_location_count <- function(observations) {
           if (is.null(observations) || nrow(observations) == 0) {
             return(0)
@@ -3422,7 +3318,7 @@ mapping_module_server <- function(id,
         summary_title <- dplyr::case_when(
           identical(density_source_dens, "trapping") ~ "Trapping captures",
           identical(density_source_dens, "both") ~ "Density layers",
-          TRUE ~ "Observation counts"
+          TRUE ~ "Monitoring counts"
         )
         summary_control <- if (identical(density_source_dens, "both") || identical(species_display_mode_selected(), "separate")) {
           NULL
@@ -3445,8 +3341,8 @@ mapping_module_server <- function(id,
         visible_trap_records_dens <- trap_records_dens
         if (nrow(visible_trap_records_dens) > 0 && "trap_marker_type" %in% names(visible_trap_records_dens)) {
           enabled_trap_marker_types_dens <- c(
-            if (isTRUE(show_trap_kill_markers_selected())) "kill",
-            if (isTRUE(show_trap_blank_checks_selected())) "check",
+            if (isTRUE(show_trap_kill_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) "kill",
+            if (isTRUE(show_trap_blank_checks_selected()) || isTRUE(show_trap_check_heatmap_selected())) "check",
             if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
           )
           visible_trap_records_dens <- visible_trap_records_dens %>%
@@ -3518,11 +3414,10 @@ mapping_module_server <- function(id,
           predicted_rai_surface_basis = predicted_rai_surface_basis_selected(),
           capture_density_surface = capture_density_surface,
           capture_density_surface_message = capture_density_surface_message,
-          trap_check_density_surface = trap_check_density_surface,
-          trap_check_density_surface_message = trap_check_density_surface_message,
-          trap_check_density_surface_basis = trap_check_density_surface_basis_selected(),
           show_monitoring_heatmap = show_monitoring_heatmap_selected(),
           show_trap_capture_heatmap = show_trap_capture_heatmap_selected(),
+          show_trap_check_heatmap = show_trap_check_heatmap_selected(),
+          trap_check_heatmap_data = trap_check_heatmap_data_dens,
           show_trap_kill_markers = show_trap_kill_markers_selected(),
           map_update_key = paste(
             id,
@@ -3551,11 +3446,9 @@ mapping_module_server <- function(id,
             predicted_rai_surface_cache_key,
             show_capture_density_surface_selected(),
             capture_density_surface_cache_key,
-            show_trap_check_density_surface_selected(),
-            trap_check_density_surface_basis_selected(),
-            trap_check_density_surface_cache_key,
             show_monitoring_heatmap_selected(),
             show_trap_capture_heatmap_selected(),
+            show_trap_check_heatmap_selected(),
             if (is.null(skip_notice)) "no-skip-notice" else skip_notice,
             sep = "|"
           ),
@@ -3563,9 +3456,9 @@ mapping_module_server <- function(id,
           show_zero_markers = isTRUE(show_monitoring_marker_layer),
           density_data_source = density_source_dens,
           marker_value_label = dplyr::case_when(
-            identical(density_source_dens, "trapping") ~ "Trap captures",
+            identical(density_source_dens, "trapping") ~ "Trap capture counts",
             identical(density_source_dens, "both") ~ "Density count",
-            TRUE ~ "Observation counts"
+            TRUE ~ "Monitoring counts"
           ),
           marker_metric = "count",
           weather_control = weather_control,
@@ -3612,11 +3505,10 @@ mapping_module_server <- function(id,
             predicted_rai_surface_message = data_for_map$predicted_rai_surface_message,
             capture_density_surface = data_for_map$capture_density_surface,
             capture_density_surface_message = data_for_map$capture_density_surface_message,
-            trap_check_density_surface = data_for_map$trap_check_density_surface,
-            trap_check_density_surface_message = data_for_map$trap_check_density_surface_message,
-            trap_check_density_surface_basis = data_for_map$trap_check_density_surface_basis,
             show_monitoring_heatmap = data_for_map$show_monitoring_heatmap,
             show_trap_capture_heatmap = data_for_map$show_trap_capture_heatmap,
+            show_trap_check_heatmap = data_for_map$show_trap_check_heatmap,
+            trap_check_heatmap_data = data_for_map$trap_check_heatmap_data,
             show_trap_kill_markers = data_for_map$show_trap_kill_markers,
             show_location_markers = data_for_map$show_location_markers,
             marker_metric = data_for_map$marker_metric,
@@ -3844,8 +3736,6 @@ mapping_module_server <- function(id,
           show_zero = TRUE,
           predicted_rai_surface = data_for_map$predicted_rai_surface,
           capture_density_surface = data_for_map$capture_density_surface,
-          trap_check_density_surface = data_for_map$trap_check_density_surface,
-          trap_check_density_surface_basis = data_for_map$trap_check_density_surface_basis,
           show_location_markers = data_for_map$show_location_markers,
           marker_metric = data_for_map$marker_metric,
           width = width,
@@ -3914,10 +3804,9 @@ mapping_module_server <- function(id,
         show_predicted_rai_surface = show_predicted_rai_surface_selected,
         predicted_rai_surface_basis = predicted_rai_surface_basis_selected,
         show_capture_density_surface = show_capture_density_surface_selected,
-        show_trap_check_density_surface = show_trap_check_density_surface_selected,
-        trap_check_density_surface_basis = trap_check_density_surface_basis_selected,
         show_monitoring_heatmap = show_monitoring_heatmap_selected,
         show_trap_capture_heatmap = show_trap_capture_heatmap_selected,
+        show_trap_check_heatmap = show_trap_check_heatmap_selected,
         species_display_mode = species_display_mode_selected,
         show_density_location_markers = show_density_location_markers_selected,
         show_trap_kill_markers = show_trap_kill_markers_selected,
@@ -4010,11 +3899,10 @@ update_density_map <- function(map_id = NULL,
                                predicted_rai_surface_message = NULL,
                                capture_density_surface = NULL,
                                capture_density_surface_message = NULL,
-                               trap_check_density_surface = NULL,
-                               trap_check_density_surface_message = NULL,
-                               trap_check_density_surface_basis = "frequency",
                                show_monitoring_heatmap = FALSE,
                                show_trap_capture_heatmap = FALSE,
+                               show_trap_check_heatmap = FALSE,
+                               trap_check_heatmap_data = NULL,
                                show_trap_kill_markers = FALSE,
                                show_location_markers = TRUE,
                                marker_metric = "count",
@@ -4227,6 +4115,14 @@ update_density_map <- function(map_id = NULL,
       )
     )
 
+  # Must stay in sync with the marker_color case_when above
+  heatmap_dataset_colors <- c(
+    monitoring_non_trapped = "#1d4ed8",
+    monitoring_trapped = "#9333ea",
+    trap_kill = "#dc2626",
+    trap_check = "#0d9488"
+  )
+
   if (!is.null(predicted_rai_surface) && nrow(predicted_rai_surface) > 0) {
     surface_max <- max(predicted_rai_surface$predicted_rai, na.rm = TRUE)
     surface_domain <- if (is.finite(surface_max) && surface_max > 0) {
@@ -4305,65 +4201,43 @@ update_density_map <- function(map_id = NULL,
       )
   }
 
-  if (!is.null(trap_check_density_surface) && nrow(trap_check_density_surface) > 0) {
-    check_surface_max <- max(trap_check_density_surface$predicted_trap_check_density, na.rm = TRUE)
-    check_surface_domain <- if (is.finite(check_surface_max) && check_surface_max > 0) {
-      c(0, check_surface_max)
-    } else {
-      c(0, 1)
-    }
-    check_surface_pal <- colorNumeric(
-      palette = "PuBuGn",
-      domain = check_surface_domain
-    )
-    check_surface_title <- if (identical(trap_check_density_surface_basis, "volume")) {
-      "Trap checks (total)"
-    } else {
-      "Trap checks /100 trap-days"
-    }
+  heatmap_visible_layers <- character(0)
 
-    proxy %>%
-      addPolygons(
-        data = trap_check_density_surface,
-        fillColor = ~check_surface_pal(predicted_trap_check_density),
-        fillOpacity = 0.42,
-        stroke = FALSE,
-        smoothFactor = 0,
-        label = ~sprintf("%s trap-check density: %0.2f", locality, predicted_trap_check_density),
-        group = "Trap-Check Density surface"
-      ) %>%
-      addLegend(
-        "bottomleft",
-        pal = check_surface_pal,
-        values = trap_check_density_surface$predicted_trap_check_density,
-        title = check_surface_title,
-        labFormat = labelFormat(),
-        opacity = 0.8
-      )
-  } else if (!is.null(trap_check_density_surface_message) && nzchar(trap_check_density_surface_message)) {
-    proxy %>%
-      addControl(
-        html = sprintf("<strong>Trap-Check Density surface unavailable</strong><br><small>%s</small>", trap_check_density_surface_message),
-        position = "topleft",
-        className = "map-prediction-message-control"
-      )
+  heatmap_gradient <- function(hex_color) {
+    colorNumeric(
+      palette = c(
+        grDevices::adjustcolor(hex_color, alpha.f = 0),
+        hex_color
+      ),
+      domain = c(0, 1),
+      alpha = TRUE
+    )
   }
 
   if (isTRUE(show_monitoring_heatmap)) {
-    heatmap_locations <- obs_summary_location %>%
+    monitoring_heatmap_locations <- obs_summary_location %>%
       dplyr::filter(
         .data$marker_dataset %in% c("monitoring_trapped", "monitoring_non_trapped"),
         is.finite(.data$marker_value), .data$marker_value > 0
       )
-    if (nrow(heatmap_locations) > 0) {
-      proxy %>%
-        leaflet.extras::addHeatmap(
-          data = heatmap_locations,
-          lng = ~longitude, lat = ~latitude, intensity = ~marker_value,
-          radius = 25, blur = 15,
-          max = max(heatmap_locations$marker_value, na.rm = TRUE),
-          group = "Observation counts heatmap"
-        )
+    if (nrow(monitoring_heatmap_locations) > 0) {
+      monitoring_heatmap_max <- max(monitoring_heatmap_locations$marker_value, na.rm = TRUE)
+      for (dataset in c("monitoring_non_trapped", "monitoring_trapped")) {
+        dataset_locations <- monitoring_heatmap_locations %>%
+          dplyr::filter(.data$marker_dataset == dataset)
+        if (nrow(dataset_locations) > 0) {
+          proxy %>%
+            leaflet.extras::addHeatmap(
+              data = dataset_locations,
+              lng = ~longitude, lat = ~latitude, intensity = ~marker_value,
+              radius = 20, blur = 15, minOpacity = 0.4,
+              max = monitoring_heatmap_max,
+              gradient = heatmap_gradient(heatmap_dataset_colors[[dataset]]),
+              group = paste0("Monitoring heatmap (", dataset, ")")
+            )
+          heatmap_visible_layers <- c(heatmap_visible_layers, dataset)
+        }
+      }
     }
   }
 
@@ -4375,11 +4249,26 @@ update_density_map <- function(map_id = NULL,
         leaflet.extras::addHeatmap(
           data = trap_heatmap_locations,
           lng = ~longitude, lat = ~latitude, intensity = ~count,
-          radius = 25, blur = 15,
+          radius = 20, blur = 15, minOpacity = 0.4,
           max = max(trap_heatmap_locations$count, na.rm = TRUE),
+          gradient = heatmap_gradient(heatmap_dataset_colors[["trap_kill"]]),
           group = "Trap capture heatmap"
         )
+      heatmap_visible_layers <- c(heatmap_visible_layers, "trap_kill")
     }
+  }
+
+  if (isTRUE(show_trap_check_heatmap) && !is.null(trap_check_heatmap_data) && nrow(trap_check_heatmap_data) > 0) {
+    proxy %>%
+      leaflet.extras::addHeatmap(
+        data = trap_check_heatmap_data,
+        lng = ~longitude, lat = ~latitude, intensity = ~trap_checks,
+        radius = 20, blur = 15, minOpacity = 0.4,
+        max = max(trap_check_heatmap_data$trap_checks, na.rm = TRUE),
+        gradient = heatmap_gradient(heatmap_dataset_colors[["trap_check"]]),
+        group = "Trap check heatmap"
+      )
+    heatmap_visible_layers <- c(heatmap_visible_layers, "trap_check")
   }
 
   format_marker_value <- function(value, digits = 1) {
@@ -4488,6 +4377,7 @@ update_density_map <- function(map_id = NULL,
     isTRUE(show_trap_kill_markers) &&
     any(obs_summary_location$marker_dataset == "trap_kill", na.rm = TRUE)
   has_trap_support_layers <- isTRUE(has_trap_support_data)
+  circle_locations <- obs_summary_location[0, , drop = FALSE]
   if (isTRUE(show_location_markers) || isTRUE(has_trap_density_layers) || isTRUE(has_trap_support_layers)) {
     obs_summary_location$popup_content <- marker_popup_html(obs_summary_location, include_review_link = TRUE)
     obs_summary_location$label_content <- marker_popup_html(obs_summary_location, include_review_link = FALSE)
@@ -4499,6 +4389,9 @@ update_density_map <- function(map_id = NULL,
     }
     if (!isTRUE(show_location_markers)) {
       circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset == "trap_kill")
+    }
+    if (!isTRUE(show_trap_kill_markers)) {
+      circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset != "trap_kill")
     }
 
     add_density_circles <- function(locations) {
@@ -4605,60 +4498,66 @@ update_density_map <- function(map_id = NULL,
     }
 
     add_density_circles(trap_kill_circle_locations)
+  }
 
-    if (!is.na(max_marker_value) && max_marker_value > 0) {
-      visible_layers <- unique(circle_locations$marker_dataset)
-      legend_rows <- c()
-      if ("monitoring_trapped" %in% visible_layers) {
-        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#9333ea;'></span>Observation counts</div>")
-      }
-      if ("monitoring_non_trapped" %in% visible_layers) {
-        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#1d4ed8;'></span>Observation counts</div>")
-      }
-      if ("trap_kill" %in% visible_layers) {
-        legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#dc2626;'></span>Trap captures</div>")
-      }
-
-      format_scale_val <- function(val) {
-        if (identical(marker_metric, "rai")) {
-          format(round(as.numeric(val), 2), nsmall = 2, trim = TRUE)
-        } else {
-          format_density_summary_value(val)
-        }
-      }
-
-      legend_scale_text <- if (density_radius_growth_available) {
-        paste0(
-          "<div class='trap-marker-legend-note' style='margin-top: 6px; border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px;'>",
-          "<strong>Scale (", htmltools::htmlEscape(marker_value_label), "):</strong>",
-          "<div class='trap-marker-legend-row' style='margin-top: 4px;'>",
-          "<span style='display:inline-block; width:8px; height:8px; border-radius:50%; background:rgba(108,117,125,0.4); border:1px solid rgba(108,117,125,0.6); margin-left:2px; margin-right:3px;'></span>",
-          "<span style='white-space: nowrap;'>Colour darkens up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(density_full_base_value)), "</strong></span>",
-          "</div>",
-          "<div class='trap-marker-legend-row'>",
-          "<span style='display:inline-block; width:12px; height:12px; border-radius:50%; background:rgba(108,117,125,0.76); border:1px solid rgba(108,117,125,0.6);'></span>",
-          "<span style='white-space: nowrap;'>Circle grows up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(max_marker_value)), "</strong></span>",
-          "</div>",
-          "</div>"
-        )
-      } else {
-        paste0(
-          "<div class='trap-marker-legend-note' style='margin-top: 6px; border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px;'>",
-          "<strong>Scale (", htmltools::htmlEscape(marker_value_label), "):</strong>",
-          "<div class='trap-marker-legend-row' style='margin-top: 4px;'>",
-          "<span style='display:inline-block; width:10px; height:10px; border-radius:50%; background:rgba(108,117,125,0.76); border:1px solid rgba(108,117,125,0.6); margin-left:1px; margin-right:2px;'></span>",
-          "<span style='white-space: nowrap;'>Colour darkens up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(max_marker_value)), "</strong></span>",
-          "</div>",
-          "</div>"
-        )
-      }
-      proxy %>%
-        addControl(
-          html = paste0("<div class='trap-marker-legend'><strong>Density key</strong>", paste(legend_rows, collapse = ""), legend_scale_text, "</div>"),
-          position = legend_position,
-          className = paste("trap-marker-legend-control", paste0("map-density-legend-", density_side))
-        )
+  visible_layers <- union(unique(circle_locations$marker_dataset), heatmap_visible_layers)
+  if (length(visible_layers) > 0 &&
+      ((!is.na(max_marker_value) && max_marker_value > 0) || "trap_check" %in% heatmap_visible_layers)) {
+    legend_rows <- c()
+    if ("monitoring_trapped" %in% visible_layers) {
+      legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#9333ea;'></span>Monitoring counts</div>")
     }
+    if ("monitoring_non_trapped" %in% visible_layers) {
+      legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#1d4ed8;'></span>Monitoring counts</div>")
+    }
+    if ("trap_kill" %in% visible_layers) {
+      legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#dc2626;'></span>Trap capture counts</div>")
+    }
+    if ("trap_check" %in% visible_layers) {
+      legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#0d9488;'></span>Trap check counts</div>")
+    }
+
+    format_scale_val <- function(val) {
+      if (identical(marker_metric, "rai")) {
+        format(round(as.numeric(val), 2), nsmall = 2, trim = TRUE)
+      } else {
+        format_density_summary_value(val)
+      }
+    }
+
+    legend_scale_text <- if (nrow(circle_locations) == 0) {
+      ""
+    } else if (density_radius_growth_available) {
+      paste0(
+        "<div class='trap-marker-legend-note' style='margin-top: 6px; border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px;'>",
+        "<strong>Scale (", htmltools::htmlEscape(marker_value_label), "):</strong>",
+        "<div class='trap-marker-legend-row' style='margin-top: 4px;'>",
+        "<span style='display:inline-block; width:8px; height:8px; border-radius:50%; background:rgba(108,117,125,0.4); border:1px solid rgba(108,117,125,0.6); margin-left:2px; margin-right:3px;'></span>",
+        "<span style='white-space: nowrap;'>Colour darkens up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(density_full_base_value)), "</strong></span>",
+        "</div>",
+        "<div class='trap-marker-legend-row'>",
+        "<span style='display:inline-block; width:12px; height:12px; border-radius:50%; background:rgba(108,117,125,0.76); border:1px solid rgba(108,117,125,0.6);'></span>",
+        "<span style='white-space: nowrap;'>Circle grows up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(max_marker_value)), "</strong></span>",
+        "</div>",
+        "</div>"
+      )
+    } else {
+      paste0(
+        "<div class='trap-marker-legend-note' style='margin-top: 6px; border-top: 1px solid rgba(0,0,0,0.15); padding-top: 5px;'>",
+        "<strong>Scale (", htmltools::htmlEscape(marker_value_label), "):</strong>",
+        "<div class='trap-marker-legend-row' style='margin-top: 4px;'>",
+        "<span style='display:inline-block; width:10px; height:10px; border-radius:50%; background:rgba(108,117,125,0.76); border:1px solid rgba(108,117,125,0.6); margin-left:1px; margin-right:2px;'></span>",
+        "<span style='white-space: nowrap;'>Colour darkens up to:&nbsp;<strong>", htmltools::htmlEscape(format_scale_val(max_marker_value)), "</strong></span>",
+        "</div>",
+        "</div>"
+      )
+    }
+    proxy %>%
+      addControl(
+        html = paste0("<div class='trap-marker-legend'><strong>Density key</strong>", paste(legend_rows, collapse = ""), legend_scale_text, "</div>"),
+        position = legend_position,
+        className = paste("trap-marker-legend-control", paste0("map-density-legend-", density_side))
+      )
   }
 }
 

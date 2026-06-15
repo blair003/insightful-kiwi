@@ -116,8 +116,6 @@ create_pdf_export_density_map <- function(active_locations,
                                           show_zero = TRUE,
                                           predicted_rai_surface = NULL,
                                           capture_density_surface = NULL,
-                                          trap_check_density_surface = NULL,
-                                          trap_check_density_surface_basis = "frequency",
                                           show_location_markers = TRUE,
                                           marker_metric = "count",
                                           width = NULL,
@@ -234,41 +232,6 @@ create_pdf_export_density_map <- function(active_locations,
         pal = capture_surface_pal,
         values = capture_density_surface$predicted_capture_density,
         title = "Capture density (captures/100 trap-days)",
-        labFormat = leaflet::labelFormat(),
-        opacity = 0.8
-      )
-  }
-
-  if (!is.null(trap_check_density_surface) && nrow(trap_check_density_surface) > 0) {
-    check_surface_max <- max(trap_check_density_surface$predicted_trap_check_density, na.rm = TRUE)
-    check_surface_domain <- if (is.finite(check_surface_max) && check_surface_max > 0) {
-      c(0, check_surface_max)
-    } else {
-      c(0, 1)
-    }
-    check_surface_pal <- leaflet::colorNumeric(
-      palette = "PuBuGn",
-      domain = check_surface_domain
-    )
-    check_surface_title <- if (identical(trap_check_density_surface_basis, "volume")) {
-      "Trap checks (total)"
-    } else {
-      "Trap checks /100 trap-days"
-    }
-
-    map <- map %>%
-      leaflet::addPolygons(
-        data = trap_check_density_surface,
-        fillColor = ~check_surface_pal(predicted_trap_check_density),
-        fillOpacity = 0.42,
-        stroke = FALSE,
-        smoothFactor = 0
-      ) %>%
-      leaflet::addLegend(
-        "bottomleft",
-        pal = check_surface_pal,
-        values = trap_check_density_surface$predicted_trap_check_density,
-        title = check_surface_title,
         labFormat = leaflet::labelFormat(),
         opacity = 0.8
       )

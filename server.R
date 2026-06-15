@@ -1252,7 +1252,8 @@ server <- function(input, output, session) {
     include_trapping <- !is.null(trap_data) && (
       isTRUE(input[["density_map_primary-show_trap_kill_markers"]]) ||
         isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]]) ||
-        isTRUE(input[["density_map_primary-show_trap_capture_heatmap"]])
+        isTRUE(input[["density_map_primary-show_trap_capture_heatmap"]]) ||
+        isTRUE(input[["density_map_primary-show_trap_check_heatmap"]])
     )
     if (include_monitoring && include_trapping) return("both")
     if (include_trapping) return("trapping")
@@ -1530,10 +1531,9 @@ server <- function(input, output, session) {
         prediction_surface_override = density_map_primary$show_predicted_rai_surface,
         prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
         capture_density_surface_override = density_map_primary$show_capture_density_surface,
-        trap_check_density_surface_override = density_map_primary$show_trap_check_density_surface,
-        trap_check_density_surface_basis_override = density_map_primary$trap_check_density_surface_basis,
         monitoring_heatmap_override = density_map_primary$show_monitoring_heatmap,
         trap_capture_heatmap_override = density_map_primary$show_trap_capture_heatmap,
+        trap_check_heatmap_override = density_map_primary$show_trap_check_heatmap,
         species_display_mode_override = density_map_primary$species_display_mode,
         location_markers_override = density_map_primary$show_density_location_markers,
         density_data_source_override = density_data_source,
