@@ -18,7 +18,7 @@ config$env <- list(
 
   required_cran_packages = c(
     "logger", "shiny", "dplyr", "lubridate", "stringr", "tidyr", "bslib", "remotes",
-     "DT", "kableExtra", "leaflet",  "ggplot2",  "scales", "plotly", "httr", "fs",
+     "DT", "kableExtra", "leaflet", "leaflet.extras", "ggplot2",  "scales", "plotly", "httr", "fs",
      "magick", "future", "shinybusy", "htmlwidgets", "shinyjs", "sf",
      "geosphere", "suncalc", "webshot2",  "jsonlite", "dotenv", "chromote"
   ),
@@ -31,7 +31,6 @@ config$env <- list(
 )
 
 # Removed as no longer using
-  # "leaflet.extras",
   # "bsicons",
   # "mapview",
   # "promises", 

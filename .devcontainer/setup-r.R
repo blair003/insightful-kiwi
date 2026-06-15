@@ -30,6 +30,7 @@ pkgs <- c(
   "stringr",
   "kableExtra",
   "leaflet",
+  "leaflet.extras",
   "ggplot2",
   "scales",
   "plotly",
