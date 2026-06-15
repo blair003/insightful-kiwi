@@ -219,7 +219,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     missing_behavior <- is.na(behavior) | !nzchar(behavior)
     behavior[missing_behavior] <- normalise_behavior_value(outcome_description[missing_behavior])
     behavior[is.na(behavior) | !nzchar(behavior)] <- "trap_checked"
-    behavior[mapped_capture] <- "captureed"
+    behavior[mapped_capture] <- "captured"
     behavior
   }
 
@@ -563,7 +563,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   )
   required_columns(
     reference_tables,
-    c("outcome_id", "description", "capture"),
+    c("outcome_id", "description", "kill"),
     "reference_tables"
   )
   required_columns(
@@ -583,7 +583,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   trap_locations$longitude <- suppressWarnings(as.numeric(trap_locations$longitude))
 
   reference_tables$outcome_id <- as.character(reference_tables$outcome_id)
-  reference_tables$capture <- suppressWarnings(as.integer(reference_tables$capture))
+  reference_tables$kill <- suppressWarnings(as.integer(reference_tables$kill))
   if (!"basecol" %in% names(reference_tables)) {
     reference_tables$basecol <- NA_character_
   }
@@ -660,10 +660,11 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
 
   raw_trap_data <- merge(
     raw_trap_data,
-    reference_tables[c("outcome_id", "description", "basecol", "capture")],
+    reference_tables[c("outcome_id", "description", "basecol", "kill")],
     by = "outcome_id",
     all.x = TRUE
   )
+  names(raw_trap_data)[names(raw_trap_data) == "kill"] <- "capture"
 
   raw_trap_data <- merge(raw_trap_data, species_map, by = "outcome_id", all.x = TRUE)
 
@@ -816,7 +817,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   raw_trap_data$prior_check_override_note <- NA_character_
 
   if (!is.null(capture_prior_check_override_days)) {
-    override_prior_check <- raw_trap_data$behavior == "captureed" &
+    override_prior_check <- raw_trap_data$behavior == "captured" &
       !is.na(raw_trap_data$original_check_interval) &
       raw_trap_data$original_check_interval > capture_prior_check_override_days
 
