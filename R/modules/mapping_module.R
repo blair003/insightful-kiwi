@@ -1049,40 +1049,40 @@ mapping_module_ui <- function(id,
                     inputId = ns("show_trap_blank_checks"),
                     label = trap_check_counters_label(ns),
                     value = FALSE
-                  )
-                )
-              ),
-              conditionalPanel(
-                condition = species_combined_condition,
-                ns = ns,
-                checkboxInput(
-                  inputId = ns("show_capture_density_surface"),
-                  label = "Capture Density surface",
-                  value = FALSE
-                )
-              ),
-              conditionalPanel(
-                condition = species_combined_condition,
-                ns = ns,
-                checkboxInput(
-                  inputId = ns("show_trap_check_density_surface"),
-                  label = "Trap-Check Density surface",
-                  value = FALSE
-                )
-              ),
-              conditionalPanel(
-                condition = paste(species_combined_condition, "input.show_trap_check_density_surface", sep = " && "),
-                ns = ns,
-                tags$div(
-                  class = "prediction-surface-options",
-                  radioButtons(
-                    inputId = ns("trap_check_density_surface_basis"),
-                    label = "Surface basis:",
-                    choices = c(
-                      "Check frequency (per 100 trap-days)" = "frequency",
-                      "Check volume (total checks)" = "volume"
-                    ),
-                    selected = "frequency"
+                  ),
+                  conditionalPanel(
+                    condition = species_combined_condition,
+                    ns = ns,
+                    checkboxInput(
+                      inputId = ns("show_capture_density_surface"),
+                      label = "Capture Density surface",
+                      value = FALSE
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = species_combined_condition,
+                    ns = ns,
+                    checkboxInput(
+                      inputId = ns("show_trap_check_density_surface"),
+                      label = "Trap-Check Density surface",
+                      value = FALSE
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = paste(species_combined_condition, "input.show_trap_check_density_surface", sep = " && "),
+                    ns = ns,
+                    tags$div(
+                      class = "prediction-surface-options",
+                      radioButtons(
+                        inputId = ns("trap_check_density_surface_basis"),
+                        label = "Surface basis:",
+                        choices = c(
+                          "Check frequency (per 100 trap-days)" = "frequency",
+                          "Check volume (total checks)" = "volume"
+                        ),
+                        selected = "frequency"
+                      )
+                    )
                   )
                 )
               ),
@@ -1291,40 +1291,40 @@ mapping_module_ui <- function(id,
                     inputId = ns("show_trap_blank_checks"),
                     label = trap_check_counters_label(ns),
                     value = FALSE
-                  )
-                )
-              ),
-              conditionalPanel(
-                condition = timeline_combined_condition,
-                ns = ns,
-                checkboxInput(
-                  inputId = ns("show_capture_density_surface"),
-                  label = "Capture Density surface",
-                  value = FALSE
-                )
-              ),
-              conditionalPanel(
-                condition = timeline_combined_condition,
-                ns = ns,
-                checkboxInput(
-                  inputId = ns("show_trap_check_density_surface"),
-                  label = "Trap-Check Density surface",
-                  value = FALSE
-                )
-              ),
-              conditionalPanel(
-                condition = paste(timeline_combined_condition, "input.show_trap_check_density_surface", sep = " && "),
-                ns = ns,
-                tags$div(
-                  class = "prediction-surface-options",
-                  radioButtons(
-                    inputId = ns("trap_check_density_surface_basis"),
-                    label = "Surface basis:",
-                    choices = c(
-                      "Check frequency (per 100 trap-days)" = "frequency",
-                      "Check volume (total checks)" = "volume"
-                    ),
-                    selected = "frequency"
+                  ),
+                  conditionalPanel(
+                    condition = timeline_combined_condition,
+                    ns = ns,
+                    checkboxInput(
+                      inputId = ns("show_capture_density_surface"),
+                      label = "Capture Density surface",
+                      value = FALSE
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = timeline_combined_condition,
+                    ns = ns,
+                    checkboxInput(
+                      inputId = ns("show_trap_check_density_surface"),
+                      label = "Trap-Check Density surface",
+                      value = FALSE
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = paste(timeline_combined_condition, "input.show_trap_check_density_surface", sep = " && "),
+                    ns = ns,
+                    tags$div(
+                      class = "prediction-surface-options",
+                      radioButtons(
+                        inputId = ns("trap_check_density_surface_basis"),
+                        label = "Surface basis:",
+                        choices = c(
+                          "Check frequency (per 100 trap-days)" = "frequency",
+                          "Check volume (total checks)" = "volume"
+                        ),
+                        selected = "frequency"
+                      )
+                    )
                   )
                 )
               ),
@@ -5222,16 +5222,8 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           .data$selected_species_kill_count / .data$trap_checks,
           NA_real_
         ),
-        kills_per_100_trap_days_any_species = dplyr::if_else(
-          .data$trap_days > 0,
-          100 * .data$any_species_kill_count / .data$trap_days,
-          NA_real_
-        ),
-        kills_per_100_trap_days_selected_species = dplyr::if_else(
-          .data$trap_days > 0,
-          100 * .data$selected_species_kill_count / .data$trap_days,
-          NA_real_
-        )
+        kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
+        kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days)
       )
   } else {
     dplyr::tibble(
@@ -5263,7 +5255,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
   }
 
   normalise_trap_map_row_types <- function(data) {
-    if (is.null(data) || nrow(data) == 0) {
+    if (is.null(data)) {
       return(data)
     }
 
@@ -5277,7 +5269,10 @@ prepare_trap_observations_for_map <- function(trap_data_value,
     )
 
     data %>%
-      dplyr::mutate(dplyr::across(dplyr::any_of(character_columns), as.character))
+      dplyr::mutate(
+        dplyr::across(dplyr::any_of(character_columns), as.character),
+        dplyr::across(dplyr::any_of("classificationTimestamp"), ~ as.POSIXct(.x, tz = "UTC"))
+      )
   }
 
   add_trap_source_fields <- function(data) {

@@ -531,6 +531,14 @@ monitoring_trapping_classify <- function(monitoring_rank,
   )
 }
 
+trap_capture_rate_per_100_days <- function(kill_count, trap_days, min_trap_days = 100) {
+  dplyr::if_else(
+    is.finite(trap_days) & trap_days >= min_trap_days,
+    100 * kill_count / trap_days,
+    NA_real_
+  )
+}
+
 summarise_monitoring_rai_by_line <- function(core_data,
                                              period_names,
                                              start_date,
@@ -773,16 +781,8 @@ monitoring_trapping_trap_details <- function(trap_data,
     dplyr::mutate(
       selected_species_kill_count = dplyr::coalesce(.data$selected_species_kill_count, 0),
       any_species_kill_count = dplyr::coalesce(.data$any_species_kill_count, 0),
-      kills_per_100_trap_days_selected_species = dplyr::if_else(
-        .data$trap_days > 0,
-        100 * .data$selected_species_kill_count / .data$trap_days,
-        NA_real_
-      ),
-      kills_per_100_trap_days_any_species = dplyr::if_else(
-        .data$trap_days > 0,
-        100 * .data$any_species_kill_count / .data$trap_days,
-        NA_real_
-      ),
+      kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days),
+      kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
       trap_checks_per_100_trap_days = dplyr::if_else(
         .data$trap_days > 0,
         100 * .data$trap_checks / .data$trap_days,
@@ -832,16 +832,8 @@ summarise_trapping_by_monitoring_line <- function(trap_data,
       .groups = "drop"
     ) %>%
     dplyr::mutate(
-      kills_per_100_trap_days_selected_species = dplyr::if_else(
-        .data$trap_days > 0,
-        100 * .data$selected_species_kill_count / .data$trap_days,
-        NA_real_
-      ),
-      kills_per_100_trap_days_any_species = dplyr::if_else(
-        .data$trap_days > 0,
-        100 * .data$any_species_kill_count / .data$trap_days,
-        NA_real_
-      ),
+      kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days),
+      kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
       trap_checks_per_100_trap_days = dplyr::if_else(
         .data$trap_days > 0,
         100 * .data$trap_checks / .data$trap_days,
@@ -932,16 +924,8 @@ monitoring_trapping_mismatch_summary <- function(core_data,
       trap_days = dplyr::coalesce(.data$trap_days, 0),
       selected_species_kill_count = dplyr::coalesce(.data$selected_species_kill_count, 0),
       any_species_kill_count = dplyr::coalesce(.data$any_species_kill_count, 0),
-      kills_per_100_trap_days_selected_species = dplyr::if_else(
-        .data$trap_days > 0,
-        100 * .data$selected_species_kill_count / .data$trap_days,
-        NA_real_
-      ),
-      kills_per_100_trap_days_any_species = dplyr::if_else(
-        .data$trap_days > 0,
-        100 * .data$any_species_kill_count / .data$trap_days,
-        NA_real_
-      ),
+      kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days),
+      kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
       trap_checks_per_100_trap_days = dplyr::if_else(
         .data$trap_days > 0,
         100 * .data$trap_checks / .data$trap_days,
@@ -1063,11 +1047,7 @@ monitoring_trapping_lag_summary <- function(core_data,
             .data$trap_days / .data$trap_checks,
             NA_real_
           ),
-          kills_per_100_trap_days_selected_species = dplyr::if_else(
-            .data$trap_days > 0,
-            100 * .data$selected_species_kill_count / .data$trap_days,
-            NA_real_
-          )
+          kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days)
         )
     }))
   })

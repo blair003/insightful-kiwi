@@ -833,7 +833,7 @@ trapping_outcomes_module_server <- function(id,
       monitoring_trapping_metric_grid(
         monitoring_trapping_metric_card("Total trap kills", monitoring_trapping_format_number(total_kills)),
         monitoring_trapping_metric_card("Selected species kills", monitoring_trapping_format_number(selected_kills)),
-        monitoring_trapping_metric_card("Kills / 100 trap-days", monitoring_trapping_format_number(if (trap_days > 0) 100 * total_kills / trap_days else NA_real_, 2)),
+        monitoring_trapping_metric_card("Kills / 100 trap-days", monitoring_trapping_format_number(trap_capture_rate_per_100_days(total_kills, trap_days), 2)),
         monitoring_trapping_metric_card("Traps with kills", monitoring_trapping_format_number(dplyr::n_distinct(rows$locationID[rows$any_species_kill_count > 0])))
       )
     })
@@ -854,8 +854,8 @@ trapping_outcomes_module_server <- function(id,
           .groups = "drop"
         ) %>%
         dplyr::mutate(
-          `Total kills / 100 trap-days` = dplyr::if_else(.data$`Trap-days` > 0, 100 * .data$`Total trap kills` / .data$`Trap-days`, NA_real_),
-          `Selected kills / 100 trap-days` = dplyr::if_else(.data$`Trap-days` > 0, 100 * .data$`Selected species kills` / .data$`Trap-days`, NA_real_),
+          `Total kills / 100 trap-days` = trap_capture_rate_per_100_days(.data$`Total trap kills`, .data$`Trap-days`),
+          `Selected kills / 100 trap-days` = trap_capture_rate_per_100_days(.data$`Selected species kills`, .data$`Trap-days`),
           `Trap-days` = round(.data$`Trap-days`, 1),
           `Total kills / 100 trap-days` = round(.data$`Total kills / 100 trap-days`, 2),
           `Selected kills / 100 trap-days` = round(.data$`Selected kills / 100 trap-days`, 2)
