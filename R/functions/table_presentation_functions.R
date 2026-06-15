@@ -54,8 +54,11 @@ prepare_raw_observations_browse_data <- function(obs, blank_species_label = "Bla
 # - rawdata_observations_browse
 # - rawdata_deployments_browse
 #
-# Observation map:
-# - observationmap_observations_browse
+# Monitoring & trapping period records:
+# - period_observations_browse
+#
+# Map records (any map's Records tab):
+# - map_records_browse
 #
 # Reporting:
 # - locality_species_mean_rai_showing_class
@@ -214,9 +217,9 @@ get_table_specification <- function(table_id = NULL) {
                                             "observationID")
 
                   },
-                  "observationmap" = {
-                    output_data$caption <- "Table showing observations currently
-                    selected for the Observation Map."
+                  "period" = {
+                    output_data$caption <- "Table showing monitoring records
+                    for the selected period."
 
                     output_data$fields <- c("locality",
                                             "line",
@@ -228,12 +231,36 @@ get_table_specification <- function(table_id = NULL) {
                                             "count",
                                             "possible_duplicate",
                                             "observationID")
-                    
+
                   }
            )
          },
-         
-         
+
+
+         "records_browse" = {
+           output_data$title <- "Records browse"
+
+           switch(table_view,
+                  "map" = {
+                    output_data$caption <- "Table showing records currently
+                    shown on the map."
+
+                    output_data$fields <- c("locality",
+                                            "line",
+                                            "locationName",
+                                            "period",
+                                            "timestamp",
+                                            "diel_class",
+                                            config$globals$species_name_type,
+                                            "count",
+                                            "possible_duplicate",
+                                            "observationID")
+
+                  }
+           )
+         },
+
+
          "observation_viewer" = {
            output_data$title <- "Observations browse"
            output_data$caption <- NULL

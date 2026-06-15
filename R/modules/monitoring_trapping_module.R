@@ -880,7 +880,7 @@ trapping_outcomes_module_server <- function(id,
       table_rows <- tryCatch(
         prepare_spec_table_data(
           rows,
-          table_id = "observationmap_observations_browse",
+          table_id = "period_observations_browse",
           column_help = FALSE
         )$table_data,
         error = function(e) rows
