@@ -90,7 +90,8 @@ create_idw_prediction_surface <- function(location_values,
                                           idp = 2,
                                           grid_n = 45,
                                           max_cells = 1800,
-                                          buffer_m = NULL) {
+                                          buffer_m = NULL,
+                                          output_col = "predicted_rai") {
   required_cols <- c("longitude", "latitude", value_col)
   if (is.null(location_values) ||
       nrow(location_values) == 0 ||
@@ -198,16 +199,16 @@ create_idw_prediction_surface <- function(location_values,
       sum(weights * point_values, na.rm = TRUE) / sum(weights, na.rm = TRUE)
     }, numeric(1))
 
-    grid_sf$predicted_rai <- predictions
+    grid_sf[[output_col]] <- predictions
     grid_sf <- grid_sf %>%
-      dplyr::filter(is.finite(.data$predicted_rai)) %>%
+      dplyr::filter(is.finite(.data[[output_col]])) %>%
       sf::st_transform(4326)
 
     if (nrow(grid_sf) == 0) {
       return(NULL)
     }
 
-    grid_sf[, c("locality", "predicted_rai", "geometry")]
+    grid_sf[, c("locality", output_col, "geometry")]
   }
 
   grouped_locations <- if (!is.null(group_col) && group_col %in% names(location_values)) {

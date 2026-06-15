@@ -403,7 +403,7 @@ ui <- function(request) {
               "Diel activity" = "diel",
               "Daily - Day/Night" = "day_night"
             ),
-            timeline_step_size_selected = "hour"
+            timeline_step_size_selected = "day_night"
           )
         ),
 
