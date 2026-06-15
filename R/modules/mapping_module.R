@@ -1,10 +1,36 @@
 # R/modules/mapping_module.R
 
-timeline_ui <- function(ns, points, value, step_size = "day") {
+timeline_step_size_choices_default <- function() {
+  c(
+    "Hourly" = "hour",
+    "Diel activity" = "diel",
+    "Daily - Day/Night" = "day_night",
+    "Daily" = "day",
+    "Weekly" = "week",
+    "Monthly" = "month",
+    "Season" = "season"
+  )
+}
+
+timeline_step_size_label <- function(step_size, choices = timeline_step_size_choices_default()) {
+  label <- names(choices)[match(step_size, choices)]
+  if (length(label) == 0 || is.na(label)) step_size else label
+}
+
+timeline_view_mode_label <- function(view_mode) {
+  if (identical(view_mode, "single")) "Discrete" else "Cumulative"
+}
+
+timeline_ui <- function(ns, points, value, step_size = "day", view_mode = "cumulative") {
   point_count <- length(points)
   selected_index <- timeline_index_for_time(points, value)
   slider_id <- ns("time_slider")
   slider_labels <- timeline_slider_labels(points, step_size)
+  slider_label <- sprintf(
+    "Time progression (%s, %s)",
+    timeline_step_size_label(step_size),
+    timeline_view_mode_label(view_mode)
+  )
   transport <- div(
     class = "playback-transport",
     actionButton(ns("play_btn"), "Play", icon = icon("play"), class = "btn-success playback-transport-btn"),
@@ -28,7 +54,7 @@ timeline_ui <- function(ns, points, value, step_size = "day") {
         class = "timeline-slider timeline-single-point-slider",
         sliderInput(
           inputId = slider_id,
-          label = "Time progression",
+          label = slider_label,
           min = 1,
           max = 2,
           value = 1,
@@ -73,7 +99,7 @@ timeline_ui <- function(ns, points, value, step_size = "day") {
       class = "timeline-slider",
       sliderInput(
         inputId = slider_id,
-        label = "Time progression",
+        label = slider_label,
         min = 1,
         max = point_count,
         value = selected_index,
@@ -718,6 +744,60 @@ timeline_window_readout <- function(start_time, current_time, step_size, weather
   )
 }
 
+timeline_options_panel_ui <- function(ns,
+                                       timeline_view_mode_selected = "cumulative",
+                                       timeline_step_size_choices = timeline_step_size_choices_default(),
+                                       timeline_step_size_selected = "day") {
+  panel_id <- ns("timeline_options_panel")
+
+  tagList(
+    div(
+      class = "timeline-options-row",
+      tags$button(
+        type = "button",
+        class = "btn btn-link timeline-options-toggle",
+        `data-bs-toggle` = "collapse",
+        `data-bs-target` = paste0("#", panel_id),
+        `aria-expanded` = "false",
+        `aria-controls` = panel_id,
+        icon("sliders"),
+        "Map options"
+      )
+    ),
+    div(
+      id = panel_id,
+      class = "collapse timeline-options-panel",
+      div(
+        class = "timeline-options-panel-body",
+        radioButtons(
+          inputId = ns("timeline_view_mode"),
+          label = "Time progression mode:",
+          choices = c("Discrete (single step)" = "single", "Cumulative total to date" = "cumulative"),
+          selected = timeline_view_mode_selected
+        ),
+        selectInput(
+          inputId = ns("timeline_step_size"),
+          label = "Time step",
+          choices = timeline_step_size_choices,
+          selected = timeline_step_size_selected
+        ),
+        div(
+          class = "playback-speed-control",
+          sliderInput(
+            inputId = ns("playback_speed"),
+            label = "Playback speed",
+            min = 0, max = 4, value = 1, step = 0.25
+          ),
+          div(
+            class = "playback-speed-labels",
+            tags$span("Faster"), tags$span("Slower")
+          )
+        )
+      )
+    )
+  )
+}
+
 mapping_module_ui <- function(id,
                               view = "map",
                               choices,
@@ -737,15 +817,7 @@ mapping_module_ui <- function(id,
                               exclude_untrapped_species_default = TRUE,
                               timeline_view_mode_selected = "cumulative",
                               timeline_step_size_selected = "day",
-                              timeline_step_size_choices = c(
-                                "Hourly" = "hour",
-                                "Diel activity" = "diel",
-                                "Daily - Day/Night" = "day_night",
-                                "Daily" = "day",
-                                "Weekly" = "week",
-                                "Monthly" = "month",
-                                "Season" = "season"
-                              ),
+                              timeline_step_size_choices = timeline_step_size_choices_default(),
                               primary_map_id = NULL,
                               comparative_map_id = NULL,
                               primary_heading_output_id = NULL,
@@ -1139,25 +1211,7 @@ mapping_module_ui <- function(id,
             inputId = ns("enhance_map_details"),
             label = "Monitoring area boundaries"
           )
-        },
-        radioButtons(
-          inputId = ns("timeline_view_mode"),
-          label = "Time progression mode:",
-          choices = c("Discrete (single step)" = "single", "Cumulative total to date" = "cumulative"),
-          selected = timeline_view_mode_selected
-        ),
-        div(
-          class = "playback-speed-control",
-          sliderInput(
-            inputId = ns("playback_speed"),
-            label = "Playback speed",
-            min = 0, max = 4, value = 1, step = 0.25
-          ),
-          div(
-            class = "playback-speed-labels",
-            tags$span("Faster"), tags$span("Slower")
-          )
-        )
+        }
       )
     )
   } else if (view == "map") { # This is for the density map
@@ -1254,14 +1308,11 @@ mapping_module_ui <- function(id,
       tagList(
         div(
           class = "timeline-bar",
-          div(
-            class = "timeline-step-row",
-            selectInput(
-              inputId = ns("timeline_step_size"),
-              label = "Time step",
-              choices = timeline_step_size_choices,
-              selected = timeline_step_size_selected
-            )
+          timeline_options_panel_ui(
+            ns = ns,
+            timeline_view_mode_selected = timeline_view_mode_selected,
+            timeline_step_size_choices = timeline_step_size_choices,
+            timeline_step_size_selected = timeline_step_size_selected
           ),
           uiOutput(ns("timeline_slider_ui")),
           uiOutput(ns("timeline_window_ui"))
@@ -1293,14 +1344,11 @@ mapping_module_ui <- function(id,
       tagList(
         div(
           class = "timeline-bar",
-          div(
-            class = "timeline-step-row",
-            selectInput(
-              inputId = ns("timeline_step_size"),
-              label = "Time step",
-              choices = timeline_step_size_choices,
-              selected = timeline_step_size_selected
-            )
+          timeline_options_panel_ui(
+            ns = ns,
+            timeline_view_mode_selected = timeline_view_mode_selected,
+            timeline_step_size_choices = timeline_step_size_choices,
+            timeline_step_size_selected = timeline_step_size_selected
           ),
           uiOutput(ns("timeline_slider_ui")),
           uiOutput(ns("timeline_window_ui"))
@@ -2006,11 +2054,13 @@ mapping_module_server <- function(id,
       output$timeline_slider_ui <- renderUI({
         req(timeline_active(), timeline_points())
         step_size <- if (is.null(input$timeline_step_size)) "day" else input$timeline_step_size
+        view_mode <- if (is.null(input$timeline_view_mode)) "cumulative" else input$timeline_view_mode
         timeline_ui(
           ns = ns,
           points = timeline_points(),
           value = timeline_initial_value(),
-          step_size = step_size
+          step_size = step_size,
+          view_mode = view_mode
         )
       })
 

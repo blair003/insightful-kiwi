@@ -1525,40 +1525,64 @@
             max-width: 9rem;
           }
 
-          .timeline-step-row {
+          .timeline-options-row {
             justify-content: flex-start;
             padding: 0 2.75rem;
           }
+
+          .timeline-options-panel-body {
+            flex-direction: column;
+          }
+
+          .timeline-options-panel-body > * {
+            min-width: 0;
+            width: 100%;
+          }
         }
 
-        .timeline-step-row {
+        .timeline-options-row {
           align-items: center;
           display: flex;
           justify-content: flex-end;
-          margin-bottom: 0.35rem;
           padding: 0 3.25rem;
         }
 
-        .timeline-bar .timeline-step-row .shiny-input-container {
-          align-items: center;
-          display: flex;
-          gap: 0.4rem;
-          margin: 0;
-          width: auto !important;
-        }
-
-        .timeline-step-row label {
+        .timeline-options-toggle {
           color: #495057;
           font-size: 0.82rem;
           font-weight: 600;
-          margin-bottom: 0;
+          padding: 0.1rem 0.25rem;
+          text-decoration: none;
           white-space: nowrap;
         }
 
-        .timeline-step-row .selectize-control {
+        .timeline-options-toggle:hover,
+        .timeline-options-toggle:focus {
+          color: #0d6efd;
+        }
+
+        .timeline-options-panel {
+          background: #f8f9fa;
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          border-radius: 6px;
+          margin: 0.35rem 0 0.75rem;
+          padding: 0.75rem 1rem 0.25rem;
+        }
+
+        .timeline-options-panel-body {
+          align-items: flex-start;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1.25rem;
+        }
+
+        .timeline-options-panel-body > * {
+          flex: 1 1 12rem;
+          min-width: 12rem;
+        }
+
+        .timeline-options-panel-body .playback-speed-control {
           margin-bottom: 0;
-          min-width: 8rem;
-          width: 11rem !important;
         }
 
         .timeline-summary-window {
