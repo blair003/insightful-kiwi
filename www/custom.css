@@ -1524,6 +1524,41 @@
           .timeline-bar .irs-single {
             max-width: 9rem;
           }
+
+          .timeline-step-row {
+            justify-content: flex-start;
+            padding: 0 2.75rem;
+          }
+        }
+
+        .timeline-step-row {
+          align-items: center;
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 0.35rem;
+          padding: 0 3.25rem;
+        }
+
+        .timeline-bar .timeline-step-row .shiny-input-container {
+          align-items: center;
+          display: flex;
+          gap: 0.4rem;
+          margin: 0;
+          width: auto !important;
+        }
+
+        .timeline-step-row label {
+          color: #495057;
+          font-size: 0.82rem;
+          font-weight: 600;
+          margin-bottom: 0;
+          white-space: nowrap;
+        }
+
+        .timeline-step-row .selectize-control {
+          margin-bottom: 0;
+          min-width: 8rem;
+          width: 11rem !important;
         }
 
         .timeline-summary-window {

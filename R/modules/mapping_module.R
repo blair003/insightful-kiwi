@@ -1146,12 +1146,6 @@ mapping_module_ui <- function(id,
           choices = c("Discrete (single step)" = "single", "Cumulative total to date" = "cumulative"),
           selected = timeline_view_mode_selected
         ),
-        selectInput(
-          inputId = ns("timeline_step_size"),
-          label = "Time step",
-          choices = timeline_step_size_choices,
-          selected = timeline_step_size_selected
-        ),
         div(
           class = "playback-speed-control",
           sliderInput(
@@ -1260,6 +1254,15 @@ mapping_module_ui <- function(id,
       tagList(
         div(
           class = "timeline-bar",
+          div(
+            class = "timeline-step-row",
+            selectInput(
+              inputId = ns("timeline_step_size"),
+              label = "Time step",
+              choices = timeline_step_size_choices,
+              selected = timeline_step_size_selected
+            )
+          ),
           uiOutput(ns("timeline_slider_ui")),
           uiOutput(ns("timeline_window_ui"))
         ),
@@ -1290,6 +1293,15 @@ mapping_module_ui <- function(id,
       tagList(
         div(
           class = "timeline-bar",
+          div(
+            class = "timeline-step-row",
+            selectInput(
+              inputId = ns("timeline_step_size"),
+              label = "Time step",
+              choices = timeline_step_size_choices,
+              selected = timeline_step_size_selected
+            )
+          ),
           uiOutput(ns("timeline_slider_ui")),
           uiOutput(ns("timeline_window_ui"))
         ),
