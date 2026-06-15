@@ -9,7 +9,6 @@ if (!requireNamespace("pak", quietly = TRUE)) {
 
 # Removed
 #   "shinyoverview",
-#   "leaflet.extras",
 #   "shinyWidgets",
 #   "purrr",
 #   "mapview",

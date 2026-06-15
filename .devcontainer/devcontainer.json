@@ -29,7 +29,8 @@
         "REditorSupport.r",
         "REditorSupport.r-debugger",
         "Posit.shiny",
-        "openai.chatgpt"
+        "openai.chatgpt",
+        "anthropic.claude-code"
       ],
       "settings": {
         "r.lsp.enabled": true,

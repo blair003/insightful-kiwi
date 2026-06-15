@@ -1000,6 +1000,15 @@ mapping_module_ui <- function(id,
                 inputId = ns("show_density_location_markers"),
                 label = "Observation counts",
                 value = isTRUE(include_monitoring_records_default)
+              ),
+              conditionalPanel(
+                condition = species_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_observation_heatmap"),
+                  label = "Observation heatmap",
+                  value = FALSE
+                )
               )
             )
           },
@@ -1065,6 +1074,15 @@ mapping_module_ui <- function(id,
                     checkboxInput(
                       inputId = ns("show_trap_check_density_surface"),
                       label = "Trap-Check Density surface",
+                      value = FALSE
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = species_combined_condition,
+                    ns = ns,
+                    checkboxInput(
+                      inputId = ns("show_trap_capture_heatmap"),
+                      label = "Capture heatmap",
                       value = FALSE
                     )
                   ),
@@ -1242,7 +1260,16 @@ mapping_module_ui <- function(id,
                   label = "Observation counts",
                   value = TRUE
                 )
-              }
+              },
+              conditionalPanel(
+                condition = timeline_combined_condition,
+                ns = ns,
+                checkboxInput(
+                  inputId = ns("show_observation_heatmap"),
+                  label = "Observation heatmap",
+                  value = FALSE
+                )
+              )
             )
           },
           if (isTRUE(include_prediction_option)) {
@@ -1307,6 +1334,15 @@ mapping_module_ui <- function(id,
                     checkboxInput(
                       inputId = ns("show_trap_check_density_surface"),
                       label = "Trap-Check Density surface",
+                      value = FALSE
+                    )
+                  ),
+                  conditionalPanel(
+                    condition = timeline_combined_condition,
+                    ns = ns,
+                    checkboxInput(
+                      inputId = ns("show_trap_capture_heatmap"),
+                      label = "Capture heatmap",
                       value = FALSE
                     )
                   ),
@@ -1821,6 +1857,38 @@ mapping_module_server <- function(id,
       }
 
       isTRUE(input$show_trap_check_density_surface)
+    })
+
+    show_observation_heatmap_selected <- reactive({
+      if (!density_data_source_selected() %in% c("monitoring", "both")) {
+        return(FALSE)
+      }
+
+      if (identical(species_display_mode_selected(), "separate")) {
+        return(FALSE)
+      }
+
+      if (timeline_active() && !identical(input$timeline_view_mode, "cumulative")) {
+        return(FALSE)
+      }
+
+      isTRUE(input$show_observation_heatmap)
+    })
+
+    show_trap_capture_heatmap_selected <- reactive({
+      if (!density_data_source_selected() %in% c("trapping", "both")) {
+        return(FALSE)
+      }
+
+      if (identical(species_display_mode_selected(), "separate")) {
+        return(FALSE)
+      }
+
+      if (timeline_active() && !identical(input$timeline_view_mode, "cumulative")) {
+        return(FALSE)
+      }
+
+      isTRUE(input$show_trap_capture_heatmap)
     })
 
     trap_check_density_surface_basis_selected <- reactive({
@@ -3404,6 +3472,8 @@ mapping_module_server <- function(id,
           trap_check_density_surface = trap_check_density_surface,
           trap_check_density_surface_message = trap_check_density_surface_message,
           trap_check_density_surface_basis = trap_check_density_surface_basis_selected(),
+          show_observation_heatmap = show_observation_heatmap_selected(),
+          show_trap_capture_heatmap = show_trap_capture_heatmap_selected(),
           map_update_key = paste(
             id,
             if (use_timeline) "timeline" else "static",
@@ -3434,6 +3504,8 @@ mapping_module_server <- function(id,
             show_trap_check_density_surface_selected(),
             trap_check_density_surface_basis_selected(),
             trap_check_density_surface_cache_key,
+            show_observation_heatmap_selected(),
+            show_trap_capture_heatmap_selected(),
             if (is.null(skip_notice)) "no-skip-notice" else skip_notice,
             sep = "|"
           ),
@@ -3493,6 +3565,8 @@ mapping_module_server <- function(id,
             trap_check_density_surface = data_for_map$trap_check_density_surface,
             trap_check_density_surface_message = data_for_map$trap_check_density_surface_message,
             trap_check_density_surface_basis = data_for_map$trap_check_density_surface_basis,
+            show_observation_heatmap = data_for_map$show_observation_heatmap,
+            show_trap_capture_heatmap = data_for_map$show_trap_capture_heatmap,
             show_location_markers = data_for_map$show_location_markers,
             marker_metric = data_for_map$marker_metric,
             marker_value_label = data_for_map$marker_value_label,
@@ -3889,6 +3963,8 @@ update_density_map <- function(map_id = NULL,
                                trap_check_density_surface = NULL,
                                trap_check_density_surface_message = NULL,
                                trap_check_density_surface_basis = "frequency",
+                               show_observation_heatmap = FALSE,
+                               show_trap_capture_heatmap = FALSE,
                                show_location_markers = TRUE,
                                marker_metric = "count",
                                marker_value_label = NULL,
@@ -3920,7 +3996,8 @@ update_density_map <- function(map_id = NULL,
   proxy <- leafletProxy(map_id) %>%
     clearMarkers() %>%
     clearShapes() %>%
-    clearControls()
+    clearControls() %>%
+    leaflet.extras::clearHeatmap()
 
   if (!is.null(weather_control_html)) {
     proxy <- proxy %>% addControl(
@@ -4219,6 +4296,39 @@ update_density_map <- function(map_id = NULL,
         position = "topleft",
         className = "map-prediction-message-control"
       )
+  }
+
+  if (isTRUE(show_observation_heatmap)) {
+    heatmap_locations <- obs_summary_location %>%
+      dplyr::filter(
+        .data$marker_dataset %in% c("monitoring_trapped", "monitoring_non_trapped"),
+        is.finite(.data$marker_value), .data$marker_value > 0
+      )
+    if (nrow(heatmap_locations) > 0) {
+      proxy %>%
+        leaflet.extras::addHeatmap(
+          data = heatmap_locations,
+          lng = ~longitude, lat = ~latitude, intensity = ~marker_value,
+          radius = 25, blur = 30,
+          max = max(heatmap_locations$marker_value, na.rm = TRUE),
+          group = "Observation heatmap"
+        )
+    }
+  }
+
+  if (isTRUE(show_trap_capture_heatmap)) {
+    trap_heatmap_locations <- obs_summary_location %>%
+      dplyr::filter(.data$marker_dataset == "trap_kill", is.finite(.data$count), .data$count > 0)
+    if (nrow(trap_heatmap_locations) > 0) {
+      proxy %>%
+        leaflet.extras::addHeatmap(
+          data = trap_heatmap_locations,
+          lng = ~longitude, lat = ~latitude, intensity = ~count,
+          radius = 25, blur = 30,
+          max = max(trap_heatmap_locations$count, na.rm = TRUE),
+          group = "Trap capture heatmap"
+        )
+    }
   }
 
   format_marker_value <- function(value, digits = 1) {
