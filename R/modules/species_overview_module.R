@@ -676,7 +676,7 @@ species_overview_module_server <- function(id,
       max(counts, na.rm = TRUE)
     }
 
-    species_density_max_trap_kills <- function(observations, period_data = NULL) {
+    species_density_max_trap_captures <- function(observations, period_data = NULL) {
       trap_data_value <- current_trap_data()
       if (is.null(trap_data_value)) {
         return(0)
@@ -714,14 +714,14 @@ species_overview_module_server <- function(id,
         period_intervals = period_intervals_value
       )
 
-      kill_summary <- create_trap_kill_summary(trap_rows)
-      if (nrow(kill_summary) == 0) {
+      capture_summary <- create_trap_capture_summary(trap_rows)
+      if (nrow(capture_summary) == 0) {
         return(0)
       }
 
-      counts <- kill_summary %>%
+      counts <- capture_summary %>%
         dplyr::group_by(.data$locationID) %>%
-        dplyr::summarise(count = sum(.data$kills, na.rm = TRUE), .groups = "drop") %>%
+        dplyr::summarise(count = sum(.data$captures, na.rm = TRUE), .groups = "drop") %>%
         dplyr::pull(.data$count)
 
       if (length(counts) == 0 || all(is.na(counts))) {
@@ -736,7 +736,7 @@ species_overview_module_server <- function(id,
         observations <- obs_reactive()
         max(
           species_density_max_location_count(observations),
-          species_density_max_trap_kills(observations, period_data),
+          species_density_max_trap_captures(observations, period_data),
           na.rm = TRUE
         )
       })

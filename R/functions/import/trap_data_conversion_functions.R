@@ -129,7 +129,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
                                                timezone = "UTC",
                                                period_groups = NULL,
                                                monitoring_deployments = NULL,
-                                               kill_prior_check_override_days = NULL,
+                                               capture_prior_check_override_days = NULL,
                                                species_map = wkt_trap_default_species_map()) {
   read_csv <- function(path) {
     utils::read.csv(
@@ -214,12 +214,12 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     x
   }
 
-  trap_check_behavior <- function(mapped_kill, outcome_basecol, outcome_description) {
+  trap_check_behavior <- function(mapped_capture, outcome_basecol, outcome_description) {
     behavior <- normalise_behavior_value(outcome_basecol)
     missing_behavior <- is.na(behavior) | !nzchar(behavior)
     behavior[missing_behavior] <- normalise_behavior_value(outcome_description[missing_behavior])
     behavior[is.na(behavior) | !nzchar(behavior)] <- "trap_checked"
-    behavior[mapped_kill] <- "killed"
+    behavior[mapped_capture] <- "captureed"
     behavior
   }
 
@@ -436,15 +436,15 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
         lines <- c(lines, "- trap_codes without coordinates: none")
       }
 
-      unmapped <- summary$unmapped_kill_outcome_ids
+      unmapped <- summary$unmapped_capture_outcome_ids
       if (length(unmapped) > 0) {
         lines <- c(
           lines,
-          "- unmapped kill outcome_ids:",
+          "- unmapped capture outcome_ids:",
           paste0("  - ", unmapped)
         )
       } else {
-        lines <- c(lines, "- unmapped kill outcome_ids: none")
+        lines <- c(lines, "- unmapped capture outcome_ids: none")
       }
 
       lines <- c(lines, "", "First deploymentStart with interval_days by trap_code:")
@@ -531,17 +531,17 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   reference_tables <- read_csv(reference_tables_path)
   source_trap_record_count <- nrow(raw_trap_data)
 
-  if (!is.null(kill_prior_check_override_days)) {
-    if (!is.numeric(kill_prior_check_override_days) ||
-        length(kill_prior_check_override_days) != 1 ||
-        is.na(kill_prior_check_override_days) ||
-        kill_prior_check_override_days <= 0) {
+  if (!is.null(capture_prior_check_override_days)) {
+    if (!is.numeric(capture_prior_check_override_days) ||
+        length(capture_prior_check_override_days) != 1 ||
+        is.na(capture_prior_check_override_days) ||
+        capture_prior_check_override_days <= 0) {
       stop(
-        "kill_prior_check_override_days must be a single positive number or NULL.",
+        "capture_prior_check_override_days must be a single positive number or NULL.",
         call. = FALSE
       )
     }
-    kill_prior_check_override_days <- as.integer(kill_prior_check_override_days)
+    capture_prior_check_override_days <- as.integer(capture_prior_check_override_days)
   }
 
   required_columns(
@@ -563,7 +563,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   )
   required_columns(
     reference_tables,
-    c("outcome_id", "description", "kill"),
+    c("outcome_id", "description", "capture"),
     "reference_tables"
   )
   required_columns(
@@ -583,7 +583,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   trap_locations$longitude <- suppressWarnings(as.numeric(trap_locations$longitude))
 
   reference_tables$outcome_id <- as.character(reference_tables$outcome_id)
-  reference_tables$kill <- suppressWarnings(as.integer(reference_tables$kill))
+  reference_tables$capture <- suppressWarnings(as.integer(reference_tables$capture))
   if (!"basecol" %in% names(reference_tables)) {
     reference_tables$basecol <- NA_character_
   }
@@ -660,7 +660,7 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
 
   raw_trap_data <- merge(
     raw_trap_data,
-    reference_tables[c("outcome_id", "description", "basecol", "kill")],
+    reference_tables[c("outcome_id", "description", "basecol", "capture")],
     by = "outcome_id",
     all.x = TRUE
   )
@@ -802,9 +802,9 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     stringsAsFactors = FALSE
   )
 
-  raw_trap_data$mapped_kill <- raw_trap_data$kill == 1 & !is.na(raw_trap_data$scientificName)
+  raw_trap_data$mapped_capture <- raw_trap_data$capture == 1 & !is.na(raw_trap_data$scientificName)
   raw_trap_data$behavior <- trap_check_behavior(
-    raw_trap_data$mapped_kill,
+    raw_trap_data$mapped_capture,
     raw_trap_data$basecol,
     raw_trap_data$description
   )
@@ -815,24 +815,24 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
   raw_trap_data$prior_check_override_applied <- FALSE
   raw_trap_data$prior_check_override_note <- NA_character_
 
-  if (!is.null(kill_prior_check_override_days)) {
-    override_prior_check <- raw_trap_data$behavior == "killed" &
+  if (!is.null(capture_prior_check_override_days)) {
+    override_prior_check <- raw_trap_data$behavior == "captureed" &
       !is.na(raw_trap_data$original_check_interval) &
-      raw_trap_data$original_check_interval > kill_prior_check_override_days
+      raw_trap_data$original_check_interval > capture_prior_check_override_days
 
     raw_trap_data$effective_previous_check_date[override_prior_check] <-
-      raw_trap_data$check_date[override_prior_check] - kill_prior_check_override_days
+      raw_trap_data$check_date[override_prior_check] - capture_prior_check_override_days
     raw_trap_data$prior_check_override_applied[override_prior_check] <- TRUE
 
     raw_trap_data$prior_check_override_note[override_prior_check] <- paste0(
-      "prior_check_override:kill interval capped from ",
+      "prior_check_override:capture interval capped from ",
       as.character(raw_trap_data$previous_check_date[override_prior_check]),
       " to ",
       as.character(raw_trap_data$effective_previous_check_date[override_prior_check]),
       " (source_interval_days:",
       raw_trap_data$original_check_interval[override_prior_check],
       "; max_days:",
-      kill_prior_check_override_days,
+      capture_prior_check_override_days,
       ")"
     )
   }
@@ -861,10 +861,10 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     source_interval_days = raw_trap_data$original_check_interval,
     prior_check_override_applied = raw_trap_data$prior_check_override_applied,
     observationLevel = "event",
-    observationType = ifelse(raw_trap_data$mapped_kill, "animal", "blank"),
+    observationType = ifelse(raw_trap_data$mapped_capture, "animal", "blank"),
     cameraSetupType = NA,
-    scientificName = ifelse(raw_trap_data$mapped_kill, raw_trap_data$scientificName, NA),
-    count = ifelse(raw_trap_data$mapped_kill, 1, NA),
+    scientificName = ifelse(raw_trap_data$mapped_capture, raw_trap_data$scientificName, NA),
+    count = ifelse(raw_trap_data$mapped_capture, 1, NA),
     lifeStage = raw_trap_data$lifeStage,
     sex = raw_trap_data$sex,
     behavior = raw_trap_data$behavior,
@@ -885,16 +885,16 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     classificationTimestamp = NA,
     classificationProbability = NA,
     observationTags = mapply(
-      function(outcome_id, description, kill) {
+      function(outcome_id, description, capture) {
         build_tags(c(
           paste0("outcome_id:", outcome_id),
           paste0("outcome:", description),
-          paste0("kill:", kill)
+          paste0("capture:", capture)
         ))
       },
       raw_trap_data$outcome_id,
       raw_trap_data$description,
-      raw_trap_data$kill,
+      raw_trap_data$capture,
       USE.NAMES = FALSE
     ),
     observationComments = mapply(
@@ -973,10 +973,10 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     }
     round(mean(intervals), 1)
   }, numeric(1))
-  trap_summary$total_kills <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
+  trap_summary$total_captures <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
     sum(
       raw_trap_data$trap_id == trap_id &
-        raw_trap_data$mapped_kill,
+        raw_trap_data$mapped_capture,
       na.rm = TRUE
     )
   }, numeric(1)))
@@ -986,24 +986,24 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
     "Mustela nivalis",
     "Mustela putorius furo"
   )
-  trap_summary$total_kills_mustelids <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
+  trap_summary$total_captures_mustelids <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
     sum(
       raw_trap_data$trap_id == trap_id &
-        raw_trap_data$mapped_kill &
+        raw_trap_data$mapped_capture &
         raw_trap_data$scientificName %in% mustelid_names,
       na.rm = TRUE
     )
   }, numeric(1)))
 
-  kill_species <- sort(unique(stats::na.omit(raw_trap_data$scientificName[
-    raw_trap_data$mapped_kill
+  capture_species <- sort(unique(stats::na.omit(raw_trap_data$scientificName[
+    raw_trap_data$mapped_capture
   ])))
-  for (scientific_name in kill_species) {
-    column_name <- clean_column_name(scientific_name, "kills")
+  for (scientific_name in capture_species) {
+    column_name <- clean_column_name(scientific_name, "captures")
     trap_summary[[column_name]] <- as.integer(vapply(trap_summary$trap_id, function(trap_id) {
       sum(
         raw_trap_data$trap_id == trap_id &
-          raw_trap_data$mapped_kill &
+          raw_trap_data$mapped_capture &
           raw_trap_data$scientificName == scientific_name,
         na.rm = TRUE
       )
@@ -1149,8 +1149,8 @@ convert_wkt_trap_data_to_camtrapdp <- function(raw_trap_data_path,
       deployment_source$locality_match_type == "nearest", na.rm = TRUE),
     trap_locality_unassigned = sum(!duplicated(deployment_source$trap_id) &
       (is.na(deployment_source$locality) | !nzchar(deployment_source$locality)), na.rm = TRUE),
-    unmapped_kill_outcome_ids = sort(unique(raw_trap_data$outcome_id[
-      raw_trap_data$kill == 1 & is.na(raw_trap_data$scientificName)
+    unmapped_capture_outcome_ids = sort(unique(raw_trap_data$outcome_id[
+      raw_trap_data$capture == 1 & is.na(raw_trap_data$scientificName)
     ]))
   )
 

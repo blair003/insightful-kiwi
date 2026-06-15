@@ -440,7 +440,7 @@
       }
 
       .observation-summary-count-label,
-      .trap-kill-count-label,
+      .trap-capture-count-label,
       .trap-check-count-label {
         background: transparent;
         border: 0;
@@ -465,7 +465,7 @@
         padding: 0 4px;
       }
 
-      .trap-kill-count-label {
+      .trap-capture-count-label {
         background: rgba(17, 24, 39, 0.88);
         border: 1px solid rgba(250, 204, 21, 0.9);
         border-radius: 999px;

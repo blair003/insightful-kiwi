@@ -1065,12 +1065,12 @@ mapping_module_ui <- function(id,
             tagList(
               tags$strong("Trapping records:"),
               checkboxInput(
-                inputId = ns("show_trap_kill_markers"),
+                inputId = ns("show_trap_capture_markers"),
                 label = "Trap capture counts",
                 value = isTRUE(include_trap_data_default)
               ),
               conditionalPanel(
-                condition = "input.show_trap_kill_markers",
+                condition = "input.show_trap_capture_markers",
                 ns = ns,
                 tags$div(
                   class = "trap-capture-sub-options",
@@ -1310,12 +1310,12 @@ mapping_module_ui <- function(id,
             tagList(
               tags$strong("Trapping records:"),
               checkboxInput(
-                inputId = ns("show_trap_kill_markers"),
+                inputId = ns("show_trap_capture_markers"),
                 label = "Trap capture counts",
                 value = isTRUE(include_trap_data_default)
               ),
               conditionalPanel(
-                condition = "input.show_trap_kill_markers",
+                condition = "input.show_trap_capture_markers",
                 ns = ns,
                 tags$div(
                   class = "trap-capture-sub-options",
@@ -1546,7 +1546,7 @@ mapping_module_server <- function(id,
                                   density_data_source_override = NULL, # Reactive: for comparative density map
                                   density_scale_max_override = NULL, # Reactive: shared density comparison max
                                   trap_distance_override = NULL, # Reactive: for comparative density map
-                                  trap_kill_markers_override = NULL, # Reactive: for comparative density map
+                                  trap_capture_markers_override = NULL, # Reactive: for comparative density map
                                   trap_check_counters_override = NULL, # Reactive: for comparative density map
                                   unchecked_traps_override = NULL, # Reactive: for comparative density map
                                   capture_density_surface_override = NULL, # Reactive: for comparative density map
@@ -1750,7 +1750,7 @@ mapping_module_server <- function(id,
         isTRUE(input$show_trap_unchecked_locations)
       }
       include_trapping <- isTRUE(include_trap_data_selected()) && (
-        isTRUE(show_trap_kill_markers_selected()) ||
+        isTRUE(show_trap_capture_markers_selected()) ||
           isTRUE(trap_capture_heatmap_requested()) ||
           isTRUE(trap_check_heatmap_requested()) ||
           isTRUE(capture_density_surface_requested()) ||
@@ -1781,19 +1781,19 @@ mapping_module_server <- function(id,
       value
     })
 
-    show_trap_kill_markers_selected <- reactive({
-      if (!is.null(trap_kill_markers_override) && !is.null(trap_kill_markers_override())) {
-        return(isTRUE(trap_kill_markers_override()))
+    show_trap_capture_markers_selected <- reactive({
+      if (!is.null(trap_capture_markers_override) && !is.null(trap_capture_markers_override())) {
+        return(isTRUE(trap_capture_markers_override()))
       }
-      if (!is.null(input$show_trap_kill_markers)) {
-        return(isTRUE(input$show_trap_kill_markers))
+      if (!is.null(input$show_trap_capture_markers)) {
+        return(isTRUE(input$show_trap_capture_markers))
       }
       TRUE
     })
 
     show_trap_blank_checks_selected <- reactive({
       if (!isTRUE(include_trap_data_selected()) ||
-          !isTRUE(show_trap_kill_markers_selected())) {
+          !isTRUE(show_trap_capture_markers_selected())) {
         return(FALSE)
       }
       if (!is.null(trap_check_counters_override) && !is.null(trap_check_counters_override())) {
@@ -2812,7 +2812,7 @@ mapping_module_server <- function(id,
           if (use_timeline && nrow(trap_cumulative_records_dens) > 0 && "trap_marker_type" %in% names(trap_cumulative_records_dens)) {
             trap_cumulative_records_dens <- trap_cumulative_records_dens %>%
               dplyr::filter(
-                .data$trap_marker_type %in% c("kill", "check", "unchecked"),
+                .data$trap_marker_type %in% c("capture", "check", "unchecked"),
                 .data$display_start_time <= current_time_dens,
                 .data$display_end_time >= timeline_period_start(),
                 trap_intervals_overlap_periods(
@@ -2855,7 +2855,7 @@ mapping_module_server <- function(id,
           if (use_timeline && nrow(trap_observations_dens) > 0 && "trap_marker_type" %in% names(trap_observations_dens)) {
             trap_observations_dens <- trap_observations_dens %>%
               dplyr::filter(
-                .data$trap_marker_type %in% c("kill", "check", "unchecked"),
+                .data$trap_marker_type %in% c("capture", "check", "unchecked"),
                 .data$display_start_time <= current_time_dens,
                 .data$display_end_time >= start_time_dens,
                 trap_intervals_overlap_periods(
@@ -2898,14 +2898,14 @@ mapping_module_server <- function(id,
           trap_observations_for_metrics_dens <- trap_observations_dens
           if (nrow(trap_observations_dens) > 0 && "trap_marker_type" %in% names(trap_observations_dens)) {
             enabled_trap_marker_types_dens <- c(
-              if (isTRUE(show_trap_kill_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) "kill",
+              if (isTRUE(show_trap_capture_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) "capture",
               if (isTRUE(show_trap_blank_checks_selected()) || isTRUE(show_trap_check_heatmap_selected())) "check",
               if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
             )
             metrics_trap_marker_types_dens <- union(
               enabled_trap_marker_types_dens,
               c(
-                if (isTRUE(show_capture_density_surface_selected())) "kill"
+                if (isTRUE(show_capture_density_surface_selected())) "capture"
               )
             )
             trap_observations_for_metrics_dens <- trap_observations_dens %>%
@@ -2959,24 +2959,24 @@ mapping_module_server <- function(id,
               )
             }
           }
-          trap_kill_summary_dens <- if (isTRUE(show_trap_kill_markers_selected()) ||
+          trap_capture_summary_dens <- if (isTRUE(show_trap_capture_markers_selected()) ||
                                         isTRUE(show_capture_density_surface_selected()) ||
                                         isTRUE(show_trap_capture_heatmap_selected())) {
-            create_trap_kill_summary(trap_observations_for_metrics_dens)
+            create_trap_capture_summary(trap_observations_for_metrics_dens)
           } else {
             dplyr::tibble()
           }
 
-          if (nrow(trap_kill_summary_dens) > 0) {
+          if (nrow(trap_capture_summary_dens) > 0) {
             trapped_selected_species_dens <- TRUE
-            trap_density_summary_dens <- trap_kill_summary_dens %>%
+            trap_density_summary_dens <- trap_capture_summary_dens %>%
               dplyr::group_by(.data$locationID, .data$locationName) %>%
               dplyr::summarise(
                 locality = dplyr::first(.data$locality),
                 line = as.character(dplyr::first(.data$trap_line)),
                 longitude = dplyr::first(.data$longitude),
                 latitude = dplyr::first(.data$latitude),
-                count = sum(.data$kills, na.rm = TRUE),
+                count = sum(.data$captures, na.rm = TRUE),
                 observation_ids = list(unique(unlist(.data$observation_ids, use.names = FALSE))),
                 trap_checks = dplyr::first(.data$trap_checks),
                 first_check = dplyr::first(.data$first_check),
@@ -2984,10 +2984,10 @@ mapping_module_server <- function(id,
                 check_span_days = dplyr::first(.data$check_span_days),
                 mean_check_interval_days = dplyr::first(.data$mean_check_interval_days),
                 trap_days = dplyr::first(.data$trap_days),
-                any_species_kill_count = dplyr::first(.data$any_species_kill_count),
-                selected_species_kill_count = dplyr::first(.data$selected_species_kill_count),
-                kills_per_100_trap_days_selected_species = dplyr::first(.data$kills_per_100_trap_days_selected_species),
-                kills_per_100_trap_days_any_species = dplyr::first(.data$kills_per_100_trap_days_any_species),
+                any_species_capture_count = dplyr::first(.data$any_species_capture_count),
+                selected_species_capture_count = dplyr::first(.data$selected_species_capture_count),
+                captures_per_100_trap_days_selected_species = dplyr::first(.data$captures_per_100_trap_days_selected_species),
+                captures_per_100_trap_days_any_species = dplyr::first(.data$captures_per_100_trap_days_any_species),
                 .groups = "drop"
               ) %>%
               dplyr::mutate(
@@ -2998,12 +2998,12 @@ mapping_module_server <- function(id,
                 line_rai = NA_real_,
                 weighted_line_rai = NA_real_,
                 rai = NA_real_,
-                marker_dataset = "trap_kill",
+                marker_dataset = "trap_capture",
             marker_layer = "Trap capture counts"
               )
           }
 
-          if ((isTRUE(show_trap_kill_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) &&
+          if ((isTRUE(show_trap_capture_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) &&
               nrow(trap_density_summary_dens) > 0) {
             if (isTRUE(show_monitoring_density)) {
               obs_summary_location_dens <- dplyr::bind_rows(obs_summary_location_dens, trap_density_summary_dens)
@@ -3026,10 +3026,10 @@ mapping_module_server <- function(id,
               check_span_days = integer(),
               mean_check_interval_days = numeric(),
               trap_days = numeric(),
-              any_species_kill_count = numeric(),
-              selected_species_kill_count = numeric(),
-              kills_per_100_trap_days_selected_species = numeric(),
-              kills_per_100_trap_days_any_species = numeric(),
+              any_species_capture_count = numeric(),
+              selected_species_capture_count = numeric(),
+              captures_per_100_trap_days_selected_species = numeric(),
+              captures_per_100_trap_days_any_species = numeric(),
               camera_hours = numeric(),
               line_count = numeric(),
               line_camera_hours = numeric(),
@@ -3223,7 +3223,7 @@ mapping_module_server <- function(id,
               dplyr::filter(
                 is.finite(.data$longitude),
                 is.finite(.data$latitude),
-                is.finite(.data$kills_per_100_trap_days_selected_species)
+                is.finite(.data$captures_per_100_trap_days_selected_species)
               )
 
             if (nrow(usable_capture_locations) < 3) {
@@ -3231,7 +3231,7 @@ mapping_module_server <- function(id,
             } else {
               capture_density_surface <- create_idw_prediction_surface(
                 usable_capture_locations,
-                value_col = "kills_per_100_trap_days_selected_species",
+                value_col = "captures_per_100_trap_days_selected_species",
                 group_col = "locality",
                 grid_n = surface_grid_n,
                 buffer_m = 75,
@@ -3341,7 +3341,7 @@ mapping_module_server <- function(id,
         visible_trap_records_dens <- trap_records_dens
         if (nrow(visible_trap_records_dens) > 0 && "trap_marker_type" %in% names(visible_trap_records_dens)) {
           enabled_trap_marker_types_dens <- c(
-            if (isTRUE(show_trap_kill_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) "kill",
+            if (isTRUE(show_trap_capture_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) "capture",
             if (isTRUE(show_trap_blank_checks_selected()) || isTRUE(show_trap_check_heatmap_selected())) "check",
             if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
           )
@@ -3418,7 +3418,7 @@ mapping_module_server <- function(id,
           show_trap_capture_heatmap = show_trap_capture_heatmap_selected(),
           show_trap_check_heatmap = show_trap_check_heatmap_selected(),
           trap_check_heatmap_data = trap_check_heatmap_data_dens,
-          show_trap_kill_markers = show_trap_kill_markers_selected(),
+          show_trap_capture_markers = show_trap_capture_markers_selected(),
           map_update_key = paste(
             id,
             if (use_timeline) "timeline" else "static",
@@ -3436,7 +3436,7 @@ mapping_module_server <- function(id,
             exclude_untrapped_species_selected(),
             shared_absolute_max,
             trap_locality_distance_km_selected(),
-            show_trap_kill_markers_selected(),
+            show_trap_capture_markers_selected(),
             show_trap_blank_checks_selected(),
             show_trap_unchecked_locations_selected(),
             show_density_location_markers_selected(),
@@ -3509,7 +3509,7 @@ mapping_module_server <- function(id,
             show_trap_capture_heatmap = data_for_map$show_trap_capture_heatmap,
             show_trap_check_heatmap = data_for_map$show_trap_check_heatmap,
             trap_check_heatmap_data = data_for_map$trap_check_heatmap_data,
-            show_trap_kill_markers = data_for_map$show_trap_kill_markers,
+            show_trap_capture_markers = data_for_map$show_trap_capture_markers,
             show_location_markers = data_for_map$show_location_markers,
             marker_metric = data_for_map$marker_metric,
             marker_value_label = data_for_map$marker_value_label,
@@ -3621,7 +3621,7 @@ mapping_module_server <- function(id,
             as.character(isTRUE(exclude_possible_duplicates_selected())),
             as.character(isTRUE(exclude_untrapped_species_selected())),
             as.character(isTRUE(include_trap_data_selected())),
-            as.character(isTRUE(show_trap_kill_markers_selected())),
+            as.character(isTRUE(show_trap_capture_markers_selected())),
             as.character(isTRUE(show_trap_blank_checks_selected())),
             as.character(isTRUE(show_trap_unchecked_locations_selected())),
             as.character(trap_locality_distance_km_selected()),
@@ -3809,7 +3809,7 @@ mapping_module_server <- function(id,
         show_trap_check_heatmap = show_trap_check_heatmap_selected,
         species_display_mode = species_display_mode_selected,
         show_density_location_markers = show_density_location_markers_selected,
-        show_trap_kill_markers = show_trap_kill_markers_selected,
+        show_trap_capture_markers = show_trap_capture_markers_selected,
         density_data_source = density_data_source_selected,
         density_marker_scale = density_marker_scale,
         recenter_map = recenter_map_generic # Return the generic recenter function
@@ -3903,7 +3903,7 @@ update_density_map <- function(map_id = NULL,
                                show_trap_capture_heatmap = FALSE,
                                show_trap_check_heatmap = FALSE,
                                trap_check_heatmap_data = NULL,
-                               show_trap_kill_markers = FALSE,
+                               show_trap_capture_markers = FALSE,
                                show_location_markers = TRUE,
                                marker_metric = "count",
                                marker_value_label = NULL,
@@ -4103,12 +4103,12 @@ update_density_map <- function(map_id = NULL,
   density_marker_color <- "#dc2626"
   pal <- colorNumeric(palette = c("#fecaca", density_marker_color), domain = pal_domain)
   if (!"marker_dataset" %in% names(obs_summary_location)) {
-    obs_summary_location$marker_dataset <- if (identical(density_data_source, "trapping")) "trap_kill" else "monitoring_non_trapped"
+    obs_summary_location$marker_dataset <- if (identical(density_data_source, "trapping")) "trap_capture" else "monitoring_non_trapped"
   }
   obs_summary_location <- obs_summary_location %>%
     dplyr::mutate(
       marker_color = dplyr::case_when(
-        .data$marker_dataset == "trap_kill" ~ "#dc2626",
+        .data$marker_dataset == "trap_capture" ~ "#dc2626",
         .data$marker_dataset == "monitoring_trapped" ~ "#9333ea",
         .data$marker_dataset == "monitoring_non_trapped" ~ "#1d4ed8",
         TRUE ~ density_marker_color
@@ -4119,7 +4119,7 @@ update_density_map <- function(map_id = NULL,
   heatmap_dataset_colors <- c(
     monitoring_non_trapped = "#1d4ed8",
     monitoring_trapped = "#9333ea",
-    trap_kill = "#dc2626",
+    trap_capture = "#dc2626",
     trap_check = "#0d9488"
   )
 
@@ -4243,7 +4243,7 @@ update_density_map <- function(map_id = NULL,
 
   if (isTRUE(show_trap_capture_heatmap)) {
     trap_heatmap_locations <- obs_summary_location %>%
-      dplyr::filter(.data$marker_dataset == "trap_kill", is.finite(.data$count), .data$count > 0)
+      dplyr::filter(.data$marker_dataset == "trap_capture", is.finite(.data$count), .data$count > 0)
     if (nrow(trap_heatmap_locations) > 0) {
       proxy %>%
         leaflet.extras::addHeatmap(
@@ -4251,10 +4251,10 @@ update_density_map <- function(map_id = NULL,
           lng = ~longitude, lat = ~latitude, intensity = ~count,
           radius = 20, blur = 15, minOpacity = 0.4,
           max = max(trap_heatmap_locations$count, na.rm = TRUE),
-          gradient = heatmap_gradient(heatmap_dataset_colors[["trap_kill"]]),
+          gradient = heatmap_gradient(heatmap_dataset_colors[["trap_capture"]]),
           group = "Trap capture heatmap"
         )
-      heatmap_visible_layers <- c(heatmap_visible_layers, "trap_kill")
+      heatmap_visible_layers <- c(heatmap_visible_layers, "trap_capture")
     }
   }
 
@@ -4324,11 +4324,11 @@ update_density_map <- function(map_id = NULL,
       locality_line_text <- paste(c(locality_text, line_text)[nzchar(c(locality_text, line_text))], collapse = ", ")
 
       marker_dataset <- marker_field("marker_dataset", i, density_data_source)
-      if (identical(marker_dataset, "trap_kill")) {
+      if (identical(marker_dataset, "trap_capture")) {
         trap_record <- marker_data[i, , drop = FALSE]
         trap_record$trap_line <- line_value
-        trap_record$selected_species_kill_count <- dplyr::coalesce(
-          suppressWarnings(as.numeric(marker_field("selected_species_kill_count", i, NA_real_))),
+        trap_record$selected_species_capture_count <- dplyr::coalesce(
+          suppressWarnings(as.numeric(marker_field("selected_species_capture_count", i, NA_real_))),
           suppressWarnings(as.numeric(marker_field("count", i, NA_real_)))
         )
 
@@ -4374,8 +4374,8 @@ update_density_map <- function(map_id = NULL,
   }
 
   has_trap_density_layers <- density_data_source %in% c("trapping", "both") &&
-    isTRUE(show_trap_kill_markers) &&
-    any(obs_summary_location$marker_dataset == "trap_kill", na.rm = TRUE)
+    isTRUE(show_trap_capture_markers) &&
+    any(obs_summary_location$marker_dataset == "trap_capture", na.rm = TRUE)
   has_trap_support_layers <- isTRUE(has_trap_support_data)
   circle_locations <- obs_summary_location[0, , drop = FALSE]
   if (isTRUE(show_location_markers) || isTRUE(has_trap_density_layers) || isTRUE(has_trap_support_layers)) {
@@ -4388,10 +4388,10 @@ update_density_map <- function(map_id = NULL,
       obs_summary_location %>% filter(count > 0)
     }
     if (!isTRUE(show_location_markers)) {
-      circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset == "trap_kill")
+      circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset == "trap_capture")
     }
-    if (!isTRUE(show_trap_kill_markers)) {
-      circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset != "trap_kill")
+    if (!isTRUE(show_trap_capture_markers)) {
+      circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset != "trap_capture")
     }
 
     add_density_circles <- function(locations) {
@@ -4430,8 +4430,8 @@ update_density_map <- function(map_id = NULL,
       invisible(NULL)
     }
 
-    non_trap_circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset != "trap_kill")
-    trap_kill_circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset == "trap_kill")
+    non_trap_circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset != "trap_capture")
+    trap_capture_circle_locations <- circle_locations %>% dplyr::filter(.data$marker_dataset == "trap_capture")
 
     if (density_data_source %in% c("trapping", "both") &&
         !is.null(trap_support_locations) && nrow(trap_support_locations) > 0) {
@@ -4497,7 +4497,7 @@ update_density_map <- function(map_id = NULL,
       }
     }
 
-    add_density_circles(trap_kill_circle_locations)
+    add_density_circles(trap_capture_circle_locations)
   }
 
   visible_layers <- union(unique(circle_locations$marker_dataset), heatmap_visible_layers)
@@ -4510,7 +4510,7 @@ update_density_map <- function(map_id = NULL,
     if ("monitoring_non_trapped" %in% visible_layers) {
       legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#1d4ed8;'></span>Monitoring counts</div>")
     }
-    if ("trap_kill" %in% visible_layers) {
+    if ("trap_capture" %in% visible_layers) {
       legend_rows <- c(legend_rows, "<div class='trap-marker-legend-row'><span class='trap-marker-legend-swatch' style='background:#dc2626;'></span>Trap capture counts</div>")
     }
     if ("trap_check" %in% visible_layers) {
@@ -4967,29 +4967,29 @@ trap_marker_group_from_record <- function(scientific_name, description = NULL) {
   scientific_group
 }
 
-trap_kill_icon_path <- function(group) {
+trap_capture_icon_path <- function(group) {
   paths <- c(
-    stoat = "www/images/icons/map_icons/trap-kill-stoat.svg",
-    weasel = "www/images/icons/map_icons/trap-kill-weasel.svg",
-    ferret = "www/images/icons/map_icons/trap-kill-ferret.svg",
-    rat = "www/images/icons/map_icons/trap-kill-rat.svg",
-    mouse = "www/images/icons/map_icons/trap-kill-mouse.svg",
-    cat = "www/images/icons/map_icons/trap-kill-cat.svg",
-    rabbit = "www/images/icons/map_icons/trap-kill-rabbit.svg",
-    hedgehog = "www/images/icons/map_icons/trap-kill-hedgehog.svg",
-    possum = "www/images/icons/map_icons/trap-kill-possum.svg",
-    weka = "www/images/icons/map_icons/trap-kill.svg",
-    bird = "www/images/icons/map_icons/trap-kill-bird.svg",
-    mustelid = "www/images/icons/map_icons/trap-kill-mustelid.svg",
-    mixed = "www/images/icons/map_icons/trap-kill-mixed.svg",
-    other = "www/images/icons/map_icons/trap-kill.svg"
+    stoat = "www/images/icons/map_icons/trap-capture-stoat.svg",
+    weasel = "www/images/icons/map_icons/trap-capture-weasel.svg",
+    ferret = "www/images/icons/map_icons/trap-capture-ferret.svg",
+    rat = "www/images/icons/map_icons/trap-capture-rat.svg",
+    mouse = "www/images/icons/map_icons/trap-capture-mouse.svg",
+    cat = "www/images/icons/map_icons/trap-capture-cat.svg",
+    rabbit = "www/images/icons/map_icons/trap-capture-rabbit.svg",
+    hedgehog = "www/images/icons/map_icons/trap-capture-hedgehog.svg",
+    possum = "www/images/icons/map_icons/trap-capture-possum.svg",
+    weka = "www/images/icons/map_icons/trap-capture.svg",
+    bird = "www/images/icons/map_icons/trap-capture-bird.svg",
+    mustelid = "www/images/icons/map_icons/trap-capture-mustelid.svg",
+    mixed = "www/images/icons/map_icons/trap-capture-mixed.svg",
+    other = "www/images/icons/map_icons/trap-capture.svg"
   )
 
   group <- ifelse(is.na(group) | !group %in% names(paths), "other", group)
   unname(paths[group])
 }
 
-get_trap_kill_icon <- function(description = NULL, scientific_name = NULL, multiple_species = FALSE) {
+get_trap_capture_icon <- function(description = NULL, scientific_name = NULL, multiple_species = FALSE) {
   group <- if (isTRUE(multiple_species)) {
     "mixed"
   } else {
@@ -4997,7 +4997,7 @@ get_trap_kill_icon <- function(description = NULL, scientific_name = NULL, multi
   }
 
   makeIcon(
-    iconUrl = trap_kill_icon_path(group),
+    iconUrl = trap_capture_icon_path(group),
     iconWidth = 34,
     iconHeight = 34,
     iconAnchorX = 17,
@@ -5225,24 +5225,24 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           suppressWarnings(as.numeric(.data$check_interval)),
           as.numeric(.data$check_date - .data$prior_check_date)
         ),
-        source_kill_flag = dplyr::coalesce(
+        source_capture_flag = dplyr::coalesce(
           .data$observationType == "animal" |
-            extract_trap_tag_value(.data$observationTags, "kill") == "1",
+            extract_trap_tag_value(.data$observationTags, "capture") == "1",
           FALSE
         ),
         source_count = dplyr::if_else(
-          .data$source_kill_flag,
+          .data$source_capture_flag,
           dplyr::coalesce(suppressWarnings(as.numeric(.data$count)), 1),
           0
         ),
-        selected_species_kill_flag = dplyr::coalesce(
-          .data$source_kill_flag &
+        selected_species_capture_flag = dplyr::coalesce(
+          .data$source_capture_flag &
             !is.na(.data$scientificName) &
             tolower(.data$scientificName) %in% selected_species,
           FALSE
         ),
-        selected_species_kill_count_source = dplyr::if_else(
-          .data$selected_species_kill_flag,
+        selected_species_capture_count_source = dplyr::if_else(
+          .data$selected_species_capture_flag,
           .data$source_count,
           0
         )
@@ -5263,28 +5263,28 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           values <- values[!is.na(values) & is.finite(values) & values > 0]
           if (length(values) == 0) NA_real_ else sum(values)
         },
-        any_species_kill_checks = dplyr::n_distinct(.data$deploymentID[.data$source_kill_flag]),
-        any_species_kill_count = sum(.data$source_count, na.rm = TRUE),
-        selected_species_kill_checks = dplyr::n_distinct(.data$deploymentID[.data$selected_species_kill_flag]),
-        selected_species_kill_count = sum(.data$selected_species_kill_count_source, na.rm = TRUE),
+        any_species_capture_checks = dplyr::n_distinct(.data$deploymentID[.data$source_capture_flag]),
+        any_species_capture_count = sum(.data$source_count, na.rm = TRUE),
+        selected_species_capture_checks = dplyr::n_distinct(.data$deploymentID[.data$selected_species_capture_flag]),
+        selected_species_capture_count = sum(.data$selected_species_capture_count_source, na.rm = TRUE),
         .groups = "drop"
       ) %>%
       dplyr::mutate(
         check_span_days = pmax(as.integer(.data$last_check - .data$first_check), 0L),
-        no_kill_checks = pmax(.data$trap_checks - .data$any_species_kill_checks, 0L),
-        no_selected_species_kill_checks = pmax(.data$trap_checks - .data$selected_species_kill_checks, 0L),
-        kills_per_check_any_species = dplyr::if_else(
+        no_capture_checks = pmax(.data$trap_checks - .data$any_species_capture_checks, 0L),
+        no_selected_species_capture_checks = pmax(.data$trap_checks - .data$selected_species_capture_checks, 0L),
+        captures_per_check_any_species = dplyr::if_else(
           .data$trap_checks > 0,
-          .data$any_species_kill_count / .data$trap_checks,
+          .data$any_species_capture_count / .data$trap_checks,
           NA_real_
         ),
-        kills_per_check_selected_species = dplyr::if_else(
+        captures_per_check_selected_species = dplyr::if_else(
           .data$trap_checks > 0,
-          .data$selected_species_kill_count / .data$trap_checks,
+          .data$selected_species_capture_count / .data$trap_checks,
           NA_real_
         ),
-        kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
-        kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days)
+        captures_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_capture_count, .data$trap_days),
+        captures_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_capture_count, .data$trap_days)
       )
   } else {
     dplyr::tibble(
@@ -5296,16 +5296,16 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       mean_check_interval_days = numeric(),
       median_check_interval_days = numeric(),
       trap_days = numeric(),
-      any_species_kill_checks = integer(),
-      any_species_kill_count = numeric(),
-      selected_species_kill_checks = integer(),
-      selected_species_kill_count = numeric(),
-      no_kill_checks = integer(),
-      no_selected_species_kill_checks = integer(),
-      kills_per_check_any_species = numeric(),
-      kills_per_check_selected_species = numeric(),
-      kills_per_100_trap_days_any_species = numeric(),
-      kills_per_100_trap_days_selected_species = numeric()
+      any_species_capture_checks = integer(),
+      any_species_capture_count = numeric(),
+      selected_species_capture_checks = integer(),
+      selected_species_capture_count = numeric(),
+      no_capture_checks = integer(),
+      no_selected_species_capture_checks = integer(),
+      captures_per_check_any_species = numeric(),
+      captures_per_check_selected_species = numeric(),
+      captures_per_100_trap_days_any_species = numeric(),
+      captures_per_100_trap_days_selected_species = numeric()
     )
   }
 
@@ -5324,7 +5324,7 @@ prepare_trap_observations_for_map <- function(trap_data_value,
       "observationID", "deploymentID", "mediaID", "eventID", "eventStart", "eventEnd",
       "observation_source", "observationType", "scientificName", "scientificName_lower",
       "vernacularNames.eng", "behavior", "species_class", "period", "day_night_class",
-      "diel_class", "trap_marker_type", "trap_kill_type", "source_observationType",
+      "diel_class", "trap_marker_type", "trap_capture_type", "source_observationType",
       "source_scientificName", "outcome", "outcome_id", "locationID", "locationName",
       "trap_line", "locality", "locality_match_type", "nearest_monitoring_locationName"
     )
@@ -5346,31 +5346,31 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         source_observationType = .data$observationType,
         source_scientificName = .data$scientificName,
         source_count = dplyr::coalesce(suppressWarnings(as.numeric(.data$count)), 1),
-        source_kill_flag = dplyr::coalesce(
+        source_capture_flag = dplyr::coalesce(
           .data$observationType == "animal" |
-            extract_trap_tag_value(.data$observationTags, "kill") == "1",
+            extract_trap_tag_value(.data$observationTags, "capture") == "1",
           FALSE
         ),
-        source_any_species_kill_count = dplyr::if_else(
-          .data$source_kill_flag,
+        source_any_species_capture_count = dplyr::if_else(
+          .data$source_capture_flag,
           .data$source_count,
           0
         ),
-        source_selected_species_kill_flag = dplyr::coalesce(
-          .data$source_kill_flag &
+        source_selected_species_capture_flag = dplyr::coalesce(
+          .data$source_capture_flag &
             !is.na(.data$scientificName) &
             tolower(.data$scientificName) %in% selected_species,
           FALSE
         ),
-        source_selected_species_kill_count = dplyr::if_else(
-          .data$source_selected_species_kill_flag,
+        source_selected_species_capture_count = dplyr::if_else(
+          .data$source_selected_species_capture_flag,
           .data$source_count,
           0
         )
       )
   }
 
-  selected_kills <- trap_obs %>%
+  selected_captures <- trap_obs %>%
     dplyr::filter(
       .data$observationType == "animal",
       !is.na(.data$scientificName),
@@ -5380,16 +5380,16 @@ prepare_trap_observations_for_map <- function(trap_data_value,
 
   blank_checks <- dplyr::tibble()
   if (isTRUE(include_blank_checks)) {
-    selected_kill_deployments <- unique(as.character(selected_kills$deploymentID))
+    selected_capture_deployments <- unique(as.character(selected_captures$deploymentID))
     blank_checks <- trap_obs %>%
-      dplyr::filter(!.data$deploymentID %in% selected_kill_deployments) %>%
+      dplyr::filter(!.data$deploymentID %in% selected_capture_deployments) %>%
       dplyr::group_by(.data$deploymentID) %>%
       dplyr::slice(1) %>%
       dplyr::ungroup() %>%
       add_trap_source_fields() %>%
       dplyr::mutate(
         source_species_label = dplyr::if_else(
-          .data$source_kill_flag &
+          .data$source_capture_flag &
             !is.na(.data$source_scientificName) &
             nzchar(as.character(.data$source_scientificName)),
           as.character(.data$source_scientificName),
@@ -5397,13 +5397,13 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         ),
         observationType = "blank",
         scientificName = .data$source_species_label,
-        count = dplyr::if_else(.data$source_kill_flag, .data$source_count, 0),
-        behavior = "trap_checked_no_selected_species_kill"
+        count = dplyr::if_else(.data$source_capture_flag, .data$source_count, 0),
+        behavior = "trap_checked_no_selected_species_capture"
       ) %>%
       dplyr::select(-source_species_label)
   }
 
-  trap_obs <- dplyr::bind_rows(selected_kills, blank_checks)
+  trap_obs <- dplyr::bind_rows(selected_captures, blank_checks)
 
   spp_classes <- lapply(config$globals$spp_classes, function(x) tolower(unlist(x)))
 
@@ -5418,18 +5418,18 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         observation_source = "trapping",
         outcome = extract_trap_tag_value(observationTags, "outcome"),
         outcome_id = extract_trap_tag_value(observationTags, "outcome_id"),
-        trap_marker_type = dplyr::if_else(.data$observationType == "blank", "check", "kill"),
+        trap_marker_type = dplyr::if_else(.data$observationType == "blank", "check", "capture"),
         scientificName_lower = dplyr::if_else(
-          .data$trap_marker_type == "check" & !.data$source_kill_flag,
-          "trap check - no selected species kill",
+          .data$trap_marker_type == "check" & !.data$source_capture_flag,
+          "trap check - no selected species capture",
           tolower(.data$scientificName)
         ),
-        source_kill_label = trap_marker_label(dplyr::coalesce(outcome, .data$scientificName)),
+        source_capture_label = trap_marker_label(dplyr::coalesce(outcome, .data$scientificName)),
         `vernacularNames.eng` = dplyr::case_when(
-          .data$trap_marker_type == "check" & .data$source_kill_flag ~ .data$source_kill_label,
+          .data$trap_marker_type == "check" & .data$source_capture_flag ~ .data$source_capture_label,
           .data$trap_marker_type == "check" ~
             "No capture",
-          TRUE ~ .data$source_kill_label
+          TRUE ~ .data$source_capture_label
         ),
         species_class = dplyr::if_else(
           .data$trap_marker_type == "check",
@@ -5446,17 +5446,17 @@ prepare_trap_observations_for_map <- function(trap_data_value,
         day_night_class = NA_character_,
         diel_class = NA_character_,
         classificationConfidence = NA_real_,
-        trap_kill_type = dplyr::case_when(
-          .data$trap_marker_type == "check" & .data$source_kill_flag ~
+        trap_capture_type = dplyr::case_when(
+          .data$trap_marker_type == "check" & .data$source_capture_flag ~
             dplyr::coalesce(outcome, .data$scientificName),
           .data$trap_marker_type == "check" ~
             "No capture",
           TRUE ~ dplyr::coalesce(outcome, .data$scientificName)
         )
       ) %>%
-      dplyr::select(-source_kill_label) %>%
+      dplyr::select(-source_capture_label) %>%
       dplyr::filter(
-        .data$trap_marker_type %in% c("kill", "check"),
+        .data$trap_marker_type %in% c("capture", "check"),
         .data$display_start_time <= as.POSIXct(as.Date(end_date) + 1, tz = timeline_actual_timezone()) - 1,
         .data$display_end_time >= as.POSIXct(as.Date(start_date), tz = timeline_actual_timezone()),
         trap_intervals_overlap_periods(.data$display_start_time, .data$display_end_time, selected_period_intervals)
@@ -5513,14 +5513,14 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           diel_class = NA_character_,
           classificationConfidence = NA_real_,
           trap_marker_type = "unchecked",
-          trap_kill_type = "No trap check",
+          trap_capture_type = "No trap check",
           source_observationType = "blank",
           source_scientificName = "Trap not checked",
           source_count = 0,
-          source_kill_flag = FALSE,
-          source_any_species_kill_count = 0,
-          source_selected_species_kill_flag = FALSE,
-          source_selected_species_kill_count = 0,
+          source_capture_flag = FALSE,
+          source_any_species_capture_count = 0,
+          source_selected_species_capture_flag = FALSE,
+          source_selected_species_capture_count = 0,
           outcome = "No trap check",
           outcome_id = NA_character_,
           trap_checks = 0L,
@@ -5530,16 +5530,16 @@ prepare_trap_observations_for_map <- function(trap_data_value,
           mean_check_interval_days = NA_real_,
           median_check_interval_days = NA_real_,
           trap_days = 0,
-          any_species_kill_checks = 0L,
-          any_species_kill_count = 0,
-          selected_species_kill_checks = 0L,
-          selected_species_kill_count = 0,
-          no_kill_checks = 0L,
-          no_selected_species_kill_checks = 0L,
-          kills_per_check_any_species = NA_real_,
-          kills_per_check_selected_species = NA_real_,
-          kills_per_100_trap_days_any_species = NA_real_,
-          kills_per_100_trap_days_selected_species = NA_real_,
+          any_species_capture_checks = 0L,
+          any_species_capture_count = 0,
+          selected_species_capture_checks = 0L,
+          selected_species_capture_count = 0,
+          no_capture_checks = 0L,
+          no_selected_species_capture_checks = 0L,
+          captures_per_check_any_species = NA_real_,
+          captures_per_check_selected_species = NA_real_,
+          captures_per_100_trap_days_any_species = NA_real_,
+          captures_per_100_trap_days_selected_species = NA_real_,
           last_actual_check = as.Date(NA),
           locationID,
           locationName,
@@ -5759,8 +5759,8 @@ create_trap_location_popup_content <- function(trap_record, capture_links_html =
   locality_line <- paste(c(locality_text, line_text)[nzchar(c(locality_text, line_text))], collapse = ", ")
 
   selected_captures <- dplyr::coalesce(
-    suppressWarnings(as.numeric(record_field("selected_species_kill_count", NA_real_))),
-    suppressWarnings(as.numeric(record_field("kills", NA_real_))),
+    suppressWarnings(as.numeric(record_field("selected_species_capture_count", NA_real_))),
+    suppressWarnings(as.numeric(record_field("captures", NA_real_))),
     suppressWarnings(as.numeric(record_field("count", NA_real_)))
   )
 
@@ -5783,7 +5783,7 @@ create_trap_location_popup_content <- function(trap_record, capture_links_html =
       record_field("check_span_days", NA)
     )),
     "<br>Average interval: ", format_trap_metric_number(record_field("mean_check_interval_days", NA_real_), 1), " days",
-    "<br>Captures / 100 trap-days: ", format_trap_metric_rate(record_field("kills_per_100_trap_days_selected_species", NA_real_)),
+    "<br>Captures / 100 trap-days: ", format_trap_metric_rate(record_field("captures_per_100_trap_days_selected_species", NA_real_)),
     capture_records,
     "</div>"
   )
@@ -5813,8 +5813,8 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
   check_count_value <- suppressWarnings(as.numeric(trap_record$trap_checks))
   check_count <- format_trap_metric_number(check_count_value)
   avg_days <- format_trap_metric_number(trap_record$mean_check_interval_days, 1)
-  selected_kills <- format_trap_metric_number(trap_record$selected_species_kill_count)
-  any_kills <- format_trap_metric_number(trap_record$any_species_kill_count)
+  selected_captures <- format_trap_metric_number(trap_record$selected_species_capture_count)
+  any_captures <- format_trap_metric_number(trap_record$any_species_capture_count)
   selected_label <- htmltools::htmlEscape(selected_species_label)
   date_range <- htmltools::htmlEscape(format_trap_date_range(
     trap_record$first_check,
@@ -5839,9 +5839,9 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
     paste0(
       "<div class='trap-popup-metrics'>",
       selected_label, " captures / 100 trap-days: <strong>",
-      format_trap_metric_rate(trap_record$kills_per_100_trap_days_selected_species), "</strong><br>",
+      format_trap_metric_rate(trap_record$captures_per_100_trap_days_selected_species), "</strong><br>",
       "Total captures / 100 trap-days: <strong>",
-      format_trap_metric_rate(trap_record$kills_per_100_trap_days_any_species), "</strong>",
+      format_trap_metric_rate(trap_record$captures_per_100_trap_days_any_species), "</strong>",
       "</div>"
     )
   } else {
@@ -5872,8 +5872,8 @@ trap_metrics_popup_html <- function(trap_record, selected_species_label = "selec
     "<p class='trap-popup-summary'>Overlapping checks: <strong>", check_count,
     "</strong><br>Coverage: <strong>", date_range,
     "</strong><br>Average interval: <strong>", avg_days,
-    " days</strong><br>", selected_label, " captures: <strong>", selected_kills,
-    "</strong><br>Total captures: <strong>", any_kills, "</strong></p>",
+    " days</strong><br>", selected_label, " captures: <strong>", selected_captures,
+    "</strong><br>Total captures: <strong>", any_captures, "</strong></p>",
     trap_day_rates_html
   )
 }
@@ -5906,7 +5906,7 @@ summarise_visible_trap_metrics <- function(trap_observations) {
     ) %>%
     dplyr::mutate(
       checks = .data$trap_checks,
-      kills = .data$selected_species_kill_count
+      captures = .data$selected_species_capture_count
     )
 }
 
@@ -5957,17 +5957,17 @@ create_trap_unchecked_summary <- function(trap_observations) {
       mean_check_interval_days = NA_real_,
       median_check_interval_days = NA_real_,
       trap_days = 0,
-      any_species_kill_checks = 0L,
-      any_species_kill_count = 0,
-      selected_species_kill_checks = 0L,
-      selected_species_kill_count = 0,
-      no_kill_checks = 0L,
-      no_selected_species_kill_checks = 0L,
-      kills_per_check_any_species = NA_real_,
-      kills_per_check_selected_species = NA_real_,
-      kills_per_100_trap_days_any_species = NA_real_,
-      kills_per_100_trap_days_selected_species = NA_real_,
-      kills = 0L,
+      any_species_capture_checks = 0L,
+      any_species_capture_count = 0,
+      selected_species_capture_checks = 0L,
+      selected_species_capture_count = 0,
+      no_capture_checks = 0L,
+      no_selected_species_capture_checks = 0L,
+      captures_per_check_any_species = NA_real_,
+      captures_per_check_selected_species = NA_real_,
+      captures_per_100_trap_days_any_species = NA_real_,
+      captures_per_100_trap_days_selected_species = NA_real_,
+      captures = 0L,
       last_actual_check = dplyr::first(.data$last_actual_check),
       .groups = "drop"
     )
@@ -5982,42 +5982,42 @@ trap_metric_columns <- function() {
     "mean_check_interval_days",
     "median_check_interval_days",
     "trap_days",
-    "any_species_kill_checks",
-    "any_species_kill_count",
-    "selected_species_kill_checks",
-    "selected_species_kill_count",
-    "no_kill_checks",
-    "no_selected_species_kill_checks",
-    "kills_per_check_any_species",
-    "kills_per_check_selected_species",
-    "kills_per_100_trap_days_any_species",
-    "kills_per_100_trap_days_selected_species"
+    "any_species_capture_checks",
+    "any_species_capture_count",
+    "selected_species_capture_checks",
+    "selected_species_capture_count",
+    "no_capture_checks",
+    "no_selected_species_capture_checks",
+    "captures_per_check_any_species",
+    "captures_per_check_selected_species",
+    "captures_per_100_trap_days_any_species",
+    "captures_per_100_trap_days_selected_species"
   )
 }
 
-create_trap_kill_summary <- function(trap_observations) {
+create_trap_capture_summary <- function(trap_observations) {
   if (is.null(trap_observations) || nrow(trap_observations) == 0 || !"trap_marker_type" %in% names(trap_observations)) {
     return(dplyr::tibble())
   }
 
-  kill_rows <- trap_observations %>%
-    dplyr::filter(.data$trap_marker_type == "kill")
+  capture_rows <- trap_observations %>%
+    dplyr::filter(.data$trap_marker_type == "capture")
 
-  if (nrow(kill_rows) == 0) {
+  if (nrow(capture_rows) == 0) {
     return(dplyr::tibble())
   }
 
   metric_columns <- trap_metric_columns()
   metric_summary <- summarise_visible_trap_metrics(trap_observations) %>%
     dplyr::select(locationID, dplyr::all_of(metric_columns))
-  location_capture_ids <- kill_rows %>%
+  location_capture_ids <- capture_rows %>%
     dplyr::group_by(.data$locationID) %>%
     dplyr::summarise(
       capture_observation_ids = list(unique(.data$observationID)),
       .groups = "drop"
     )
 
-  kill_rows %>%
+  capture_rows %>%
     dplyr::group_by(.data$locationID, .data$locationName, .data$scientificName_lower) %>%
     dplyr::summarise(
       species_label = dplyr::first(.data[[config$globals$species_name_type]]),
@@ -6028,9 +6028,9 @@ create_trap_kill_summary <- function(trap_observations) {
       locality_match_type = dplyr::first(.data$locality_match_type),
       locality_distance_km = dplyr::first(.data$locality_distance_km),
       nearest_monitoring_locationName = dplyr::first(.data$nearest_monitoring_locationName),
-      kills = sum(.data$count, na.rm = TRUE),
-      kill_checks = dplyr::n_distinct(.data$deploymentID),
-      kill_labels = list(sort(unique(.data$trap_kill_type))),
+      captures = sum(.data$count, na.rm = TRUE),
+      capture_checks = dplyr::n_distinct(.data$deploymentID),
+      capture_labels = list(sort(unique(.data$trap_capture_type))),
       observation_ids = list(unique(.data$observationID)),
       .groups = "drop"
     ) %>%
@@ -6079,10 +6079,10 @@ create_trap_check_effort_marker <- function(trap_record, max_checks) {
   )
 }
 
-create_trap_kill_summary_marker <- function(trap_record, max_kills) {
+create_trap_capture_summary_marker <- function(trap_record, max_captures) {
   trap_record <- as.data.frame(trap_record, stringsAsFactors = FALSE)
   species_label <- safe_marker_value(trap_record$species_label, trap_record$scientificName_lower)
-  kill_label <- format_summary_count(trap_record$kills)
+  capture_label <- format_summary_count(trap_record$captures)
   capture_ids <- if ("capture_observation_ids" %in% names(trap_record) && is.list(trap_record$capture_observation_ids)) {
     trap_record$capture_observation_ids[[1]]
   } else if ("observation_ids" %in% names(trap_record) && is.list(trap_record$observation_ids)) {
@@ -6098,23 +6098,23 @@ create_trap_kill_summary_marker <- function(trap_record, max_kills) {
   )
 
   list(
-    marker_type = "trap_kill_summary",
+    marker_type = "trap_capture_summary",
     lat = trap_record$marker_latitude,
     lng = trap_record$marker_longitude,
-    radius = scale_summary_marker_radius(trap_record$kills, max_kills, range = c(8, 22)),
+    radius = scale_summary_marker_radius(trap_record$captures, max_captures, range = c(8, 22)),
     color = marker_color,
     fillColor = marker_color,
     fillOpacity = 0.20,
     weight = 1,
     opacity = 0.55,
-    icon = get_trap_kill_icon(species_label, trap_record$scientificName_lower),
+    icon = get_trap_capture_icon(species_label, trap_record$scientificName_lower),
     popup_content = popup_content,
-    label = kill_label,
-    label_class = "trap-kill-count-label",
+    label = capture_label,
+    label_class = "trap-capture-count-label",
     label_text_size = "10px",
     label_direction = "right",
     label_offset = c(13, 0),
-    group = "Trap kills",
+    group = "Trap captures",
     zIndexOffset = 1150
   )
 }
@@ -6128,7 +6128,7 @@ create_trap_map_markers <- function(trap_observations) {
   markers <- list()
 
   check_summary <- create_trap_marker_summary(trap_observations)
-  if (nrow(check_summary) > 0 && any(check_summary$no_selected_species_kill_checks > 0, na.rm = TRUE)) {
+  if (nrow(check_summary) > 0 && any(check_summary$no_selected_species_capture_checks > 0, na.rm = TRUE)) {
     max_checks <- max(check_summary$checks, na.rm = TRUE)
     check_markers <- lapply(seq_len(nrow(check_summary)), function(i) {
       create_trap_check_effort_marker(check_summary[i, ], max_checks)
@@ -6145,17 +6145,17 @@ create_trap_map_markers <- function(trap_observations) {
     markers <- c(markers, unchecked_markers)
   }
 
-  kill_summary <- create_trap_kill_summary(trap_observations)
-  if (nrow(kill_summary) > 0) {
-    max_kills <- max(kill_summary$kills, na.rm = TRUE)
-    kill_summary <- kill_summary %>%
+  capture_summary <- create_trap_capture_summary(trap_observations)
+  if (nrow(capture_summary) > 0) {
+    max_captures <- max(capture_summary$captures, na.rm = TRUE)
+    capture_summary <- capture_summary %>%
       dplyr::mutate(marker_color = observation_marker_color(.data$scientificName_lower)) %>%
       apply_summary_offsets(group_cols = c("locationID"), offset_value = config$globals$marker_offset_value * 1.55)
 
-    kill_markers <- lapply(seq_len(nrow(kill_summary)), function(i) {
-      create_trap_kill_summary_marker(kill_summary[i, ], max_kills)
+    capture_markers <- lapply(seq_len(nrow(capture_summary)), function(i) {
+      create_trap_capture_summary_marker(capture_summary[i, ], max_captures)
     })
-    markers <- c(markers, kill_markers)
+    markers <- c(markers, capture_markers)
   }
 
   markers
@@ -6168,15 +6168,15 @@ render_trap_marker_legend <- function(trap_observations, monitoring_observations
     return(NULL)
   }
 
-  kill_rows <- if (has_trap_observations) {
+  capture_rows <- if (has_trap_observations) {
     trap_observations %>%
-      dplyr::filter(.data$trap_marker_type == "kill")
+      dplyr::filter(.data$trap_marker_type == "capture")
   } else {
     dplyr::tibble()
   }
 
-  groups <- if (nrow(kill_rows) > 0) {
-    sort(unique(observation_marker_group_from_scientific_name(kill_rows$scientificName)))
+  groups <- if (nrow(capture_rows) > 0) {
+    sort(unique(observation_marker_group_from_scientific_name(capture_rows$scientificName)))
   } else {
     character(0)
   }
@@ -6318,7 +6318,7 @@ update_map <- function(all_marker_data_with_warnings,
               ),
               options = pathOptions(zIndexOffset = marker_data$zIndexOffset)
             )
-          } else if (marker_data$marker_type %in% c("monitoring_summary", "trap_kill_summary")) {
+          } else if (marker_data$marker_type %in% c("monitoring_summary", "trap_capture_summary")) {
             proxy %>% addCircleMarkers(
               lng = marker_data$lng,
               lat = marker_data$lat,

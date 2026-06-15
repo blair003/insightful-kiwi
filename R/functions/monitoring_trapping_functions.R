@@ -122,12 +122,12 @@ empty_monitoring_trapping_trap_summary <- function() {
     trap_count = integer(),
     trap_checks = integer(),
     trap_days = numeric(),
-    selected_species_kill_count = numeric(),
-    any_species_kill_count = numeric(),
+    selected_species_capture_count = numeric(),
+    any_species_capture_count = numeric(),
     first_check = as.Date(character()),
     last_check = as.Date(character()),
-    kills_per_100_trap_days_selected_species = numeric(),
-    kills_per_100_trap_days_any_species = numeric(),
+    captures_per_100_trap_days_selected_species = numeric(),
+    captures_per_100_trap_days_any_species = numeric(),
     trap_checks_per_100_trap_days = numeric(),
     mean_days_between_checks = numeric()
   )
@@ -148,10 +148,10 @@ empty_monitoring_trapping_trap_details <- function() {
     trap_days = numeric(),
     first_check = as.Date(character()),
     last_check = as.Date(character()),
-    selected_species_kill_count = numeric(),
-    any_species_kill_count = numeric(),
-    kills_per_100_trap_days_selected_species = numeric(),
-    kills_per_100_trap_days_any_species = numeric(),
+    selected_species_capture_count = numeric(),
+    any_species_capture_count = numeric(),
+    captures_per_100_trap_days_selected_species = numeric(),
+    captures_per_100_trap_days_any_species = numeric(),
     trap_checks_per_100_trap_days = numeric(),
     mean_days_between_checks = numeric()
   )
@@ -259,13 +259,13 @@ monitoring_trapping_outcomes_windows <- function(period_groups,
     dplyr::filter(.data$window_start <= .data$window_end)
 }
 
-monitoring_trapping_group_kill_summary <- function(kill_rows, rai_groups) {
+monitoring_trapping_group_capture_summary <- function(capture_rows, rai_groups) {
   empty <- dplyr::tibble(
     rai_group = character(),
     species_in_group = character(),
-    selected_group_kills = numeric(),
-    species_with_kills = integer(),
-    trap_kill_status = character()
+    selected_group_captures = numeric(),
+    species_with_captures = integer(),
+    trap_capture_status = character()
   )
 
   if (is.null(rai_groups) || length(rai_groups) == 0) {
@@ -279,28 +279,28 @@ monitoring_trapping_group_kill_summary <- function(kill_rows, rai_groups) {
     )
   }))
 
-  if (nrow(group_rows) == 0 || is.null(kill_rows) || nrow(kill_rows) == 0) {
+  if (nrow(group_rows) == 0 || is.null(capture_rows) || nrow(capture_rows) == 0) {
     return(empty)
   }
 
-  kill_totals <- kill_rows %>%
+  capture_totals <- capture_rows %>%
     dplyr::group_by(scientificName_lower = tolower(.data$scientificName)) %>%
-    dplyr::summarise(kills = sum(.data$kill_count, na.rm = TRUE), .groups = "drop")
+    dplyr::summarise(captures = sum(.data$capture_count, na.rm = TRUE), .groups = "drop")
 
   group_rows %>%
     dplyr::mutate(scientificName_lower = tolower(.data$scientificName)) %>%
-    dplyr::left_join(kill_totals, by = "scientificName_lower") %>%
-    dplyr::mutate(kills = dplyr::coalesce(.data$kills, 0)) %>%
+    dplyr::left_join(capture_totals, by = "scientificName_lower") %>%
+    dplyr::mutate(captures = dplyr::coalesce(.data$captures, 0)) %>%
     dplyr::group_by(.data$rai_group) %>%
     dplyr::summarise(
       species_in_group = paste(sort(unique(.data$scientificName)), collapse = ", "),
-      selected_group_kills = sum(.data$kills, na.rm = TRUE),
-      species_with_kills = dplyr::n_distinct(.data$scientificName[.data$kills > 0]),
-      trap_kill_status = "Has trap kills",
+      selected_group_captures = sum(.data$captures, na.rm = TRUE),
+      species_with_captures = dplyr::n_distinct(.data$scientificName[.data$captures > 0]),
+      trap_capture_status = "Has trap captures",
       .groups = "drop"
     ) %>%
-    dplyr::filter(.data$selected_group_kills > 0) %>%
-    dplyr::arrange(dplyr::desc(.data$selected_group_kills), .data$rai_group)
+    dplyr::filter(.data$selected_group_captures > 0) %>%
+    dplyr::arrange(dplyr::desc(.data$selected_group_captures), .data$rai_group)
 }
 
 monitoring_trapping_trapping_outcomes_summary <- function(core_data,
@@ -323,8 +323,8 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
   empty_species <- dplyr::tibble(
     scientificName = character(),
     phase = character(),
-    kill_count = numeric(),
-    kill_percent = numeric(),
+    capture_count = numeric(),
+    capture_percent = numeric(),
     trap_check_records = integer(),
     trap_count = integer(),
     monitoring_line_count = integer()
@@ -334,7 +334,7 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
     monitoring_line = integer(),
     phase = character(),
     scientificName = character(),
-    kill_count = numeric(),
+    capture_count = numeric(),
     trap_check_records = integer(),
     trap_count = integer()
   )
@@ -346,7 +346,7 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
     scientificName = character(),
     latitude = numeric(),
     longitude = numeric(),
-    kill_count = numeric(),
+    capture_count = numeric(),
     trap_check_records = integer()
   )
 
@@ -355,7 +355,7 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
       species_summary = empty_species,
       line_species_summary = empty_line_species,
       trap_species_summary = empty_trap_species,
-      group_summary = monitoring_trapping_group_kill_summary(empty_species, rai_groups),
+      group_summary = monitoring_trapping_group_capture_summary(empty_species, rai_groups),
       windows = windows,
       latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
     ))
@@ -376,7 +376,7 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
       species_summary = empty_species,
       line_species_summary = empty_line_species,
       trap_species_summary = empty_trap_species,
-      group_summary = monitoring_trapping_group_kill_summary(empty_species, rai_groups),
+      group_summary = monitoring_trapping_group_capture_summary(empty_species, rai_groups),
       windows = windows,
       latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
     ))
@@ -395,17 +395,17 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
     ) %>%
     dplyr::distinct()
 
-  kill_rows <- trap_data$obs %>%
+  capture_rows <- trap_data$obs %>%
     dplyr::filter(.data$deploymentID %in% deployment_species_lookup$deploymentID) %>%
     dplyr::mutate(
       check_date = if ("check_date" %in% names(.)) as.Date(.data$check_date) else as.Date(.data$eventStart),
-      source_kill_flag = dplyr::coalesce(
+      source_capture_flag = dplyr::coalesce(
         .data$observationType == "animal" |
-          extract_trap_tag_value(.data$observationTags, "kill") == "1",
+          extract_trap_tag_value(.data$observationTags, "capture") == "1",
         FALSE
       ),
-      kill_count = dplyr::if_else(
-        .data$source_kill_flag,
+      capture_count = dplyr::if_else(
+        .data$source_capture_flag,
         dplyr::coalesce(suppressWarnings(as.numeric(.data$count)), 1),
         0
       ),
@@ -415,64 +415,64 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
         "Unknown species"
       )
     ) %>%
-    dplyr::filter(.data$source_kill_flag, .data$kill_count > 0, !is.na(.data$check_date)) %>%
+    dplyr::filter(.data$source_capture_flag, .data$capture_count > 0, !is.na(.data$check_date)) %>%
     dplyr::left_join(deployment_species_lookup, by = "deploymentID")
 
-  if (nrow(kill_rows) == 0) {
+  if (nrow(capture_rows) == 0) {
     return(list(
       species_summary = empty_species,
       line_species_summary = empty_line_species,
       trap_species_summary = empty_trap_species,
-      group_summary = monitoring_trapping_group_kill_summary(kill_rows, rai_groups),
+      group_summary = monitoring_trapping_group_capture_summary(capture_rows, rai_groups),
       windows = windows,
       latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
     ))
   }
 
-  kill_rows <- merge(kill_rows, windows, by = NULL, all = FALSE) %>%
+  capture_rows <- merge(capture_rows, windows, by = NULL, all = FALSE) %>%
     dplyr::filter(
       .data$check_date >= .data$window_start,
       .data$check_date <= .data$window_end
     )
 
-  if (nrow(kill_rows) == 0) {
+  if (nrow(capture_rows) == 0) {
     return(list(
       species_summary = empty_species,
       line_species_summary = empty_line_species,
       trap_species_summary = empty_trap_species,
-      group_summary = monitoring_trapping_group_kill_summary(kill_rows, rai_groups),
+      group_summary = monitoring_trapping_group_capture_summary(capture_rows, rai_groups),
       windows = windows,
       latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
     ))
   }
 
-  total_kills <- sum(kill_rows$kill_count, na.rm = TRUE)
-  species_summary <- kill_rows %>%
+  total_captures <- sum(capture_rows$capture_count, na.rm = TRUE)
+  species_summary <- capture_rows %>%
     dplyr::group_by(.data$phase, .data$scientificName) %>%
     dplyr::summarise(
-      kill_count = sum(.data$kill_count, na.rm = TRUE),
+      capture_count = sum(.data$capture_count, na.rm = TRUE),
       trap_check_records = dplyr::n_distinct(.data$deploymentID),
       trap_count = dplyr::n_distinct(.data$locationID),
       monitoring_line_count = dplyr::n_distinct(.data$monitoring_key),
       .groups = "drop"
     ) %>%
     dplyr::mutate(
-      kill_percent = if (total_kills > 0) 100 * .data$kill_count / total_kills else NA_real_,
+      capture_percent = if (total_captures > 0) 100 * .data$capture_count / total_captures else NA_real_,
       phase = factor(.data$phase, levels = c("Before monitoring", "During monitoring", "After monitoring"))
     ) %>%
-    dplyr::arrange(.data$phase, dplyr::desc(.data$kill_count), .data$scientificName)
+    dplyr::arrange(.data$phase, dplyr::desc(.data$capture_count), .data$scientificName)
 
-  line_species_summary <- kill_rows %>%
+  line_species_summary <- capture_rows %>%
     dplyr::group_by(.data$monitoring_locality, .data$monitoring_line, .data$phase, .data$scientificName) %>%
     dplyr::summarise(
-      kill_count = sum(.data$kill_count, na.rm = TRUE),
+      capture_count = sum(.data$capture_count, na.rm = TRUE),
       trap_check_records = dplyr::n_distinct(.data$deploymentID),
       trap_count = dplyr::n_distinct(.data$locationID),
       .groups = "drop"
     ) %>%
-    dplyr::arrange(.data$monitoring_locality, .data$monitoring_line, .data$phase, dplyr::desc(.data$kill_count))
+    dplyr::arrange(.data$monitoring_locality, .data$monitoring_line, .data$phase, dplyr::desc(.data$capture_count))
 
-  trap_species_summary <- kill_rows %>%
+  trap_species_summary <- capture_rows %>%
     dplyr::filter(is.finite(.data$latitude), is.finite(.data$longitude)) %>%
     dplyr::group_by(
       .data$trap_code,
@@ -484,17 +484,17 @@ monitoring_trapping_trapping_outcomes_summary <- function(core_data,
       .data$longitude
     ) %>%
     dplyr::summarise(
-      kill_count = sum(.data$kill_count, na.rm = TRUE),
+      capture_count = sum(.data$capture_count, na.rm = TRUE),
       trap_check_records = dplyr::n_distinct(.data$deploymentID),
       .groups = "drop"
     ) %>%
-    dplyr::arrange(.data$monitoring_locality, .data$monitoring_line, .data$trap_code, .data$phase, dplyr::desc(.data$kill_count))
+    dplyr::arrange(.data$monitoring_locality, .data$monitoring_line, .data$trap_code, .data$phase, dplyr::desc(.data$capture_count))
 
   list(
     species_summary = species_summary,
     line_species_summary = line_species_summary,
     trap_species_summary = trap_species_summary,
-    group_summary = monitoring_trapping_group_kill_summary(kill_rows, rai_groups),
+    group_summary = monitoring_trapping_group_capture_summary(capture_rows, rai_groups),
     windows = windows,
     latest_trap_date = monitoring_trapping_latest_trap_date(trap_data)
   )
@@ -531,10 +531,10 @@ monitoring_trapping_classify <- function(monitoring_rank,
   )
 }
 
-trap_capture_rate_per_100_days <- function(kill_count, trap_days, min_trap_days = 100) {
+trap_capture_rate_per_100_days <- function(capture_count, trap_days, min_trap_days = 100) {
   dplyr::if_else(
     is.finite(trap_days) & trap_days >= min_trap_days,
-    100 * kill_count / trap_days,
+    100 * capture_count / trap_days,
     NA_real_
   )
 }
@@ -739,25 +739,25 @@ monitoring_trapping_trap_details <- function(trap_data,
     )
 
   if (is.null(trap_data$obs) || nrow(trap_data$obs) == 0) {
-    kill_summary <- empty_monitoring_trapping_trap_details() %>%
-      dplyr::select("locationID", "selected_species_kill_count", "any_species_kill_count")
+    capture_summary <- empty_monitoring_trapping_trap_details() %>%
+      dplyr::select("locationID", "selected_species_capture_count", "any_species_capture_count")
   } else {
     selected_species <- tolower(as.character(scientific_names))
-    kill_summary <- trap_data$obs %>%
+    capture_summary <- trap_data$obs %>%
       dplyr::filter(.data$deploymentID %in% deployment_lookup$deploymentID) %>%
       dplyr::mutate(
-        source_kill_flag = dplyr::coalesce(
+        source_capture_flag = dplyr::coalesce(
           .data$observationType == "animal" |
-            extract_trap_tag_value(.data$observationTags, "kill") == "1",
+            extract_trap_tag_value(.data$observationTags, "capture") == "1",
           FALSE
         ),
         source_count = dplyr::if_else(
-          .data$source_kill_flag,
+          .data$source_capture_flag,
           dplyr::coalesce(suppressWarnings(as.numeric(.data$count)), 1),
           0
         ),
-        selected_species_kill_count_source = dplyr::if_else(
-          .data$source_kill_flag &
+        selected_species_capture_count_source = dplyr::if_else(
+          .data$source_capture_flag &
             !is.na(.data$scientificName) &
             tolower(.data$scientificName) %in% selected_species,
           .data$source_count,
@@ -770,19 +770,19 @@ monitoring_trapping_trap_details <- function(trap_data,
       ) %>%
       dplyr::group_by(.data$locationID) %>%
       dplyr::summarise(
-        selected_species_kill_count = sum(.data$selected_species_kill_count_source, na.rm = TRUE),
-        any_species_kill_count = sum(.data$source_count, na.rm = TRUE),
+        selected_species_capture_count = sum(.data$selected_species_capture_count_source, na.rm = TRUE),
+        any_species_capture_count = sum(.data$source_count, na.rm = TRUE),
         .groups = "drop"
       )
   }
 
   effort_summary %>%
-    dplyr::left_join(kill_summary, by = "locationID") %>%
+    dplyr::left_join(capture_summary, by = "locationID") %>%
     dplyr::mutate(
-      selected_species_kill_count = dplyr::coalesce(.data$selected_species_kill_count, 0),
-      any_species_kill_count = dplyr::coalesce(.data$any_species_kill_count, 0),
-      kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days),
-      kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
+      selected_species_capture_count = dplyr::coalesce(.data$selected_species_capture_count, 0),
+      any_species_capture_count = dplyr::coalesce(.data$any_species_capture_count, 0),
+      captures_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_capture_count, .data$trap_days),
+      captures_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_capture_count, .data$trap_days),
       trap_checks_per_100_trap_days = dplyr::if_else(
         .data$trap_days > 0,
         100 * .data$trap_checks / .data$trap_days,
@@ -825,15 +825,15 @@ summarise_trapping_by_monitoring_line <- function(trap_data,
       trap_count = dplyr::n_distinct(.data$locationID),
       trap_checks = sum(.data$trap_checks, na.rm = TRUE),
       trap_days = sum(.data$trap_days, na.rm = TRUE),
-      selected_species_kill_count = sum(.data$selected_species_kill_count, na.rm = TRUE),
-      any_species_kill_count = sum(.data$any_species_kill_count, na.rm = TRUE),
+      selected_species_capture_count = sum(.data$selected_species_capture_count, na.rm = TRUE),
+      any_species_capture_count = sum(.data$any_species_capture_count, na.rm = TRUE),
       first_check = suppressWarnings(min(.data$first_check, na.rm = TRUE)),
       last_check = suppressWarnings(max(.data$last_check, na.rm = TRUE)),
       .groups = "drop"
     ) %>%
     dplyr::mutate(
-      kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days),
-      kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
+      captures_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_capture_count, .data$trap_days),
+      captures_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_capture_count, .data$trap_days),
       trap_checks_per_100_trap_days = dplyr::if_else(
         .data$trap_days > 0,
         100 * .data$trap_checks / .data$trap_days,
@@ -922,10 +922,10 @@ monitoring_trapping_mismatch_summary <- function(core_data,
       trap_count = dplyr::coalesce(.data$trap_count, 0L),
       trap_checks = dplyr::coalesce(.data$trap_checks, 0L),
       trap_days = dplyr::coalesce(.data$trap_days, 0),
-      selected_species_kill_count = dplyr::coalesce(.data$selected_species_kill_count, 0),
-      any_species_kill_count = dplyr::coalesce(.data$any_species_kill_count, 0),
-      kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days),
-      kills_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_kill_count, .data$trap_days),
+      selected_species_capture_count = dplyr::coalesce(.data$selected_species_capture_count, 0),
+      any_species_capture_count = dplyr::coalesce(.data$any_species_capture_count, 0),
+      captures_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_capture_count, .data$trap_days),
+      captures_per_100_trap_days_any_species = trap_capture_rate_per_100_days(.data$any_species_capture_count, .data$trap_days),
       trap_checks_per_100_trap_days = dplyr::if_else(
         .data$trap_days > 0,
         100 * .data$trap_checks / .data$trap_days,
@@ -937,7 +937,7 @@ monitoring_trapping_mismatch_summary <- function(core_data,
         NA_real_
       ),
       monitoring_rank = monitoring_trapping_rank(.data$selected_RAI),
-      trap_rank = monitoring_trapping_rank(.data$kills_per_100_trap_days_selected_species),
+      trap_rank = monitoring_trapping_rank(.data$captures_per_100_trap_days_selected_species),
       mismatch_category = monitoring_trapping_classify(
         .data$monitoring_rank,
         .data$trap_rank,
@@ -1035,7 +1035,7 @@ monitoring_trapping_lag_summary <- function(core_data,
           trap_window_start = trap_window$start_date,
           trap_window_end = trap_window$end_date,
           trap_days = dplyr::coalesce(.data$trap_days, 0),
-          selected_species_kill_count = dplyr::coalesce(.data$selected_species_kill_count, 0),
+          selected_species_capture_count = dplyr::coalesce(.data$selected_species_capture_count, 0),
           trap_checks = dplyr::coalesce(.data$trap_checks, 0L),
           trap_checks_per_100_trap_days = dplyr::if_else(
             .data$trap_days > 0,
@@ -1047,7 +1047,7 @@ monitoring_trapping_lag_summary <- function(core_data,
             .data$trap_days / .data$trap_checks,
             NA_real_
           ),
-          kills_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_kill_count, .data$trap_days)
+          captures_per_100_trap_days_selected_species = trap_capture_rate_per_100_days(.data$selected_species_capture_count, .data$trap_days)
         )
     }))
   })
@@ -1060,13 +1060,13 @@ monitoring_trapping_lag_summary <- function(core_data,
   correlations <- rows %>%
     dplyr::filter(
       is.finite(.data$selected_RAI),
-      is.finite(.data$kills_per_100_trap_days_selected_species)
+      is.finite(.data$captures_per_100_trap_days_selected_species)
     ) %>%
     dplyr::group_by(.data$lag_label, .data$lag_key, .data$lag_days) %>%
     dplyr::summarise(
       n = dplyr::n(),
       correlation = if (dplyr::n() >= 3) {
-        suppressWarnings(stats::cor(.data$selected_RAI, .data$kills_per_100_trap_days_selected_species, use = "complete.obs"))
+        suppressWarnings(stats::cor(.data$selected_RAI, .data$captures_per_100_trap_days_selected_species, use = "complete.obs"))
       } else {
         NA_real_
       },

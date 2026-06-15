@@ -174,7 +174,7 @@ trapping_outcomes_module_ui <- function(id,
         h3("Trapping outcomes"),
         uiOutput(ns("trapping_outcomes_cards")),
         br(),
-        h4("Trap kills by trapping line"),
+        h4("Trap captures by trapping line"),
         DT::dataTableOutput(ns("trapping_outcomes_table"))
       ),
       nav_panel(
@@ -827,14 +827,14 @@ trapping_outcomes_module_server <- function(id,
 
     output$trapping_outcomes_cards <- renderUI({
       rows <- trap_detail_rows()
-      total_kills <- sum(rows$any_species_kill_count, na.rm = TRUE)
-      selected_kills <- sum(rows$selected_species_kill_count, na.rm = TRUE)
+      total_captures <- sum(rows$any_species_capture_count, na.rm = TRUE)
+      selected_captures <- sum(rows$selected_species_capture_count, na.rm = TRUE)
       trap_days <- sum(rows$trap_days, na.rm = TRUE)
       monitoring_trapping_metric_grid(
-        monitoring_trapping_metric_card("Total trap kills", monitoring_trapping_format_number(total_kills)),
-        monitoring_trapping_metric_card("Selected species kills", monitoring_trapping_format_number(selected_kills)),
-        monitoring_trapping_metric_card("Kills / 100 trap-days", monitoring_trapping_format_number(trap_capture_rate_per_100_days(total_kills, trap_days), 2)),
-        monitoring_trapping_metric_card("Traps with kills", monitoring_trapping_format_number(dplyr::n_distinct(rows$locationID[rows$any_species_kill_count > 0])))
+        monitoring_trapping_metric_card("Total trap captures", monitoring_trapping_format_number(total_captures)),
+        monitoring_trapping_metric_card("Selected species captures", monitoring_trapping_format_number(selected_captures)),
+        monitoring_trapping_metric_card("Kills / 100 trap-days", monitoring_trapping_format_number(trap_capture_rate_per_100_days(total_captures, trap_days), 2)),
+        monitoring_trapping_metric_card("Traps with captures", monitoring_trapping_format_number(dplyr::n_distinct(rows$locationID[rows$any_species_capture_count > 0])))
       )
     })
 
@@ -847,18 +847,18 @@ trapping_outcomes_module_server <- function(id,
         ) %>%
         dplyr::group_by(.data$.trap_locality, .data$.trap_line) %>%
         dplyr::summarise(
-          `Traps with kills` = dplyr::n_distinct(.data$locationID[.data$any_species_kill_count > 0]),
-          `Total trap kills` = sum(.data$any_species_kill_count, na.rm = TRUE),
-          `Selected species kills` = sum(.data$selected_species_kill_count, na.rm = TRUE),
+          `Traps with captures` = dplyr::n_distinct(.data$locationID[.data$any_species_capture_count > 0]),
+          `Total trap captures` = sum(.data$any_species_capture_count, na.rm = TRUE),
+          `Selected species captures` = sum(.data$selected_species_capture_count, na.rm = TRUE),
           `Trap-days` = sum(.data$trap_days, na.rm = TRUE),
           .groups = "drop"
         ) %>%
         dplyr::mutate(
-          `Total kills / 100 trap-days` = trap_capture_rate_per_100_days(.data$`Total trap kills`, .data$`Trap-days`),
-          `Selected kills / 100 trap-days` = trap_capture_rate_per_100_days(.data$`Selected species kills`, .data$`Trap-days`),
+          `Total captures / 100 trap-days` = trap_capture_rate_per_100_days(.data$`Total trap captures`, .data$`Trap-days`),
+          `Selected captures / 100 trap-days` = trap_capture_rate_per_100_days(.data$`Selected species captures`, .data$`Trap-days`),
           `Trap-days` = round(.data$`Trap-days`, 1),
-          `Total kills / 100 trap-days` = round(.data$`Total kills / 100 trap-days`, 2),
-          `Selected kills / 100 trap-days` = round(.data$`Selected kills / 100 trap-days`, 2)
+          `Total captures / 100 trap-days` = round(.data$`Total captures / 100 trap-days`, 2),
+          `Selected captures / 100 trap-days` = round(.data$`Selected captures / 100 trap-days`, 2)
         ) %>%
         dplyr::rename(Locality = .trap_locality, `Trapping line` = .trap_line) %>%
         dplyr::arrange(.data$Locality, .data$`Trapping line`)
@@ -911,10 +911,10 @@ trapping_outcomes_module_server <- function(id,
           `Trap-days` = round(.data$trap_days, 1),
           `Checks / 100 trap-days` = round(.data$trap_checks_per_100_trap_days, 1),
           `Mean days between checks` = round(.data$mean_days_between_checks, 1),
-          `Selected species kills` = round(.data$selected_species_kill_count, 0),
-          `Total trap kills` = round(.data$any_species_kill_count, 0),
-          `Selected kills / 100 trap-days` = round(.data$kills_per_100_trap_days_selected_species, 2),
-          `Total kills / 100 trap-days` = round(.data$kills_per_100_trap_days_any_species, 2)
+          `Selected species captures` = round(.data$selected_species_capture_count, 0),
+          `Total trap captures` = round(.data$any_species_capture_count, 0),
+          `Selected captures / 100 trap-days` = round(.data$captures_per_100_trap_days_selected_species, 2),
+          `Total captures / 100 trap-days` = round(.data$captures_per_100_trap_days_any_species, 2)
         ) %>%
         dplyr::select(
           "Locality",
@@ -925,10 +925,10 @@ trapping_outcomes_module_server <- function(id,
           "Trap-days",
           "Checks / 100 trap-days",
           "Mean days between checks",
-          "Selected species kills",
-          "Total trap kills",
-          "Selected kills / 100 trap-days",
-          "Total kills / 100 trap-days",
+          "Selected species captures",
+          "Total trap captures",
+          "Selected captures / 100 trap-days",
+          "Total captures / 100 trap-days",
           "First check",
           "Last check"
         ) %>%
@@ -1120,10 +1120,10 @@ monitoring_trapping_module_server <- function(id,
         trap_comparison_window = list(
           title = "Trap comparison window",
           body = tagList(
-            tags$p("This controls which trap check intervals or trap kills are compared with the selected monitoring season."),
+            tags$p("This controls which trap check intervals or trap captures are compared with the selected monitoring season."),
             tags$ul(
               tags$li(tags$strong("Trapping Analysis: "), "same-period or next-window trap checks are compared with monitoring RAI."),
-              tags$li(tags$strong("Before/after analysis: "), "trap kills are split into equal before, during, and after monitoring windows. The before/after duration is set in days.")
+              tags$li(tags$strong("Before/after analysis: "), "trap captures are split into equal before, during, and after monitoring windows. The before/after duration is set in days.")
             )
           )
         ),
@@ -1137,11 +1137,11 @@ monitoring_trapping_module_server <- function(id,
         ),
         hotspot_threshold = list(
           title = "Hotspot threshold",
-          body = tags$p("Relative categories use percentile ranks across the visible monitoring lines. At 0.60, the top 40% of monitoring RAI values are treated as relatively high and the bottom 40% as relatively low. The same threshold is applied to selected-group trap kill-rate ranks.")
+          body = tags$p("Relative categories use percentile ranks across the visible monitoring lines. At 0.60, the top 40% of monitoring RAI values are treated as relatively high and the bottom 40% as relatively low. The same threshold is applied to selected-group trap capture-rate ranks.")
         ),
         minimum_trap_days = list(
           title = "Minimum trap-days",
-          body = tags$p("Lines with less trapping effort than this are labelled insufficient data. This avoids interpreting low kill rates from tiny amounts of trapping effort as meaningful low trapping response.")
+          body = tags$p("Lines with less trapping effort than this are labelled insufficient data. This avoids interpreting low capture rates from tiny amounts of trapping effort as meaningful low trapping response.")
         ),
         trap_days = list(
           title = "Trap-days",
@@ -1182,7 +1182,7 @@ monitoring_trapping_module_server <- function(id,
       latest_trap_date <- monitoring_trapping_latest_trap_date(trap_data)
       tagList(
         tags$p(sprintf(
-          "%s monitoring RAI from %s to %s compared with selected-group trap kills per 100 trap-days for %s (%s to %s).",
+          "%s monitoring RAI from %s to %s compared with selected-group trap captures per 100 trap-days for %s (%s to %s).",
           selected_group(),
           format(as.Date(period$start_date()), "%d %b %Y"),
           format(as.Date(period$end_date()), "%d %b %Y"),
@@ -1202,7 +1202,7 @@ monitoring_trapping_module_server <- function(id,
 
     output$lag_heading <- renderUI({
       tags$p(sprintf(
-        "%s monitoring RAI by line compared with selected-group trap kills per 100 trap-days for the selected monitoring season(s).",
+        "%s monitoring RAI by line compared with selected-group trap captures per 100 trap-days for the selected monitoring season(s).",
         selected_group()
       ))
     })
@@ -1238,8 +1238,8 @@ monitoring_trapping_module_server <- function(id,
           Checks = .data$trap_checks,
           `Checks / 100 trap-days` = round(.data$trap_checks_per_100_trap_days, 2),
           `Mean days between checks` = round(.data$mean_days_between_checks, 1),
-          `Selected group kills` = round(.data$selected_species_kill_count, 0),
-          `All species kills` = round(.data$any_species_kill_count, 0),
+          `Selected group captures` = round(.data$selected_species_capture_count, 0),
+          `All species captures` = round(.data$any_species_capture_count, 0),
           `First covered check` = .data$first_check,
           `Last covered check` = .data$last_check,
           `Locality match` = .data$locality_match_type,
@@ -1264,8 +1264,8 @@ monitoring_trapping_module_server <- function(id,
         Checks = sum(details$Checks, na.rm = TRUE),
         `Checks / 100 trap-days` = round(ifelse(sum(details$`Trap-days`, na.rm = TRUE) > 0, 100 * sum(details$Checks, na.rm = TRUE) / sum(details$`Trap-days`, na.rm = TRUE), NA_real_), 2),
         `Mean days between checks` = round(ifelse(sum(details$Checks, na.rm = TRUE) > 0, sum(details$`Trap-days`, na.rm = TRUE) / sum(details$Checks, na.rm = TRUE), NA_real_), 1),
-        `Selected group kills` = sum(details$`Selected group kills`, na.rm = TRUE),
-        `All species kills` = sum(details$`All species kills`, na.rm = TRUE),
+        `Selected group captures` = sum(details$`Selected group captures`, na.rm = TRUE),
+        `All species captures` = sum(details$`All species captures`, na.rm = TRUE),
         `First covered check` = as.Date(NA),
         `Last covered check` = as.Date(NA),
         `Locality match` = "",
@@ -1334,19 +1334,19 @@ monitoring_trapping_module_server <- function(id,
       }
 
       popup <- sprintf(
-        "<strong>%s</strong><br>%s<br>RAI per %s camera-hours: <strong>%0.2f</strong><br>Camera hours: <strong>%0.1f</strong><br>Selected group kills / 100 trap-days: <strong>%s</strong><br>All species kills / 100 trap-days: <strong>%s</strong><br>Trap-days: <strong>%0.1f</strong><br>Trap checks / 100 trap-days: <strong>%s</strong><br>Mean days between checks: <strong>%s</strong><br>Selected group kills: <strong>%0.0f</strong><br>All species kills: <strong>%0.0f</strong><br>Traps included: <strong>%0.0f</strong>",
+        "<strong>%s</strong><br>%s<br>RAI per %s camera-hours: <strong>%0.2f</strong><br>Camera hours: <strong>%0.1f</strong><br>Selected group captures / 100 trap-days: <strong>%s</strong><br>All species captures / 100 trap-days: <strong>%s</strong><br>Trap-days: <strong>%0.1f</strong><br>Trap checks / 100 trap-days: <strong>%s</strong><br>Mean days between checks: <strong>%s</strong><br>Selected group captures: <strong>%0.0f</strong><br>All species captures: <strong>%0.0f</strong><br>Traps included: <strong>%0.0f</strong>",
         htmltools::htmlEscape(map_data$monitoring_label),
         htmltools::htmlEscape(map_data$mismatch_category),
         htmltools::htmlEscape(as.character(config$globals$rai_norm_hours)),
         map_data$selected_RAI,
         map_data$camera_hours,
-        ifelse(is.na(map_data$kills_per_100_trap_days_selected_species), "NA", sprintf("%0.2f", map_data$kills_per_100_trap_days_selected_species)),
-        ifelse(is.na(map_data$kills_per_100_trap_days_any_species), "NA", sprintf("%0.2f", map_data$kills_per_100_trap_days_any_species)),
+        ifelse(is.na(map_data$captures_per_100_trap_days_selected_species), "NA", sprintf("%0.2f", map_data$captures_per_100_trap_days_selected_species)),
+        ifelse(is.na(map_data$captures_per_100_trap_days_any_species), "NA", sprintf("%0.2f", map_data$captures_per_100_trap_days_any_species)),
         map_data$trap_days,
         ifelse(is.na(map_data$trap_checks_per_100_trap_days), "NA", sprintf("%0.2f", map_data$trap_checks_per_100_trap_days)),
         ifelse(is.na(map_data$mean_days_between_checks), "NA", sprintf("%0.1f", map_data$mean_days_between_checks)),
-        map_data$selected_species_kill_count,
-        map_data$any_species_kill_count,
+        map_data$selected_species_capture_count,
+        map_data$any_species_capture_count,
         map_data$trap_count
       )
 
@@ -1390,13 +1390,13 @@ monitoring_trapping_module_server <- function(id,
           `Relative category` = .data$mismatch_category,
           `Monitoring RAI` = round(.data$selected_RAI, 2),
           `Camera hours` = round(.data$camera_hours, 1),
-          `Selected group kills / 100 trap-days` = round(.data$kills_per_100_trap_days_selected_species, 2),
-          `All species kills / 100 trap-days` = round(.data$kills_per_100_trap_days_any_species, 2),
+          `Selected group captures / 100 trap-days` = round(.data$captures_per_100_trap_days_selected_species, 2),
+          `All species captures / 100 trap-days` = round(.data$captures_per_100_trap_days_any_species, 2),
           `Trap-days` = .data$trap_days_link,
           `Trap checks / 100 trap-days` = round(.data$trap_checks_per_100_trap_days, 2),
           `Mean days between checks` = round(.data$mean_days_between_checks, 1),
-          `Selected group kills` = round(.data$selected_species_kill_count, 0),
-          `All species kills` = round(.data$any_species_kill_count, 0),
+          `Selected group captures` = round(.data$selected_species_capture_count, 0),
+          `All species captures` = round(.data$any_species_capture_count, 0),
           `Trap checks` = .data$trap_checks,
           `Trap count` = .data$trap_count,
           `Relative score` = round(.data$mismatch_score, 2)
@@ -1431,9 +1431,9 @@ monitoring_trapping_module_server <- function(id,
           Checks = .data$trap_checks,
           `Checks / 100 trap-days` = round(.data$trap_checks_per_100_trap_days, 2),
           `Mean days between checks` = round(.data$mean_days_between_checks, 1),
-          `Selected group kills` = round(.data$selected_species_kill_count, 0),
-          `All species kills` = round(.data$any_species_kill_count, 0),
-          `Selected group kills / 100 trap-days` = round(.data$kills_per_100_trap_days_selected_species, 2),
+          `Selected group captures` = round(.data$selected_species_capture_count, 0),
+          `All species captures` = round(.data$any_species_capture_count, 0),
+          `Selected group captures / 100 trap-days` = round(.data$captures_per_100_trap_days_selected_species, 2),
           `First covered check` = .data$first_check,
           `Last covered check` = .data$last_check,
           `Locality match` = .data$locality_match_type,
@@ -1462,7 +1462,7 @@ monitoring_trapping_module_server <- function(id,
       if (nrow(usable) == 0) {
         return(tags$p(
           class = "text-muted",
-          "No finite lag correlation is available for the current selection. This usually means there are too few monitoring lines with both RAI and selected-group trap kills, or the values do not vary enough for a correlation."
+          "No finite lag correlation is available for the current selection. This usually means there are too few monitoring lines with both RAI and selected-group trap captures, or the values do not vary enough for a correlation."
         ))
       }
 
@@ -1486,7 +1486,7 @@ monitoring_trapping_module_server <- function(id,
         ggplot2::labs(
           x = NULL,
           y = "Correlation",
-          title = "RAI vs selected-group trap kill-rate correlation by lag",
+          title = "RAI vs selected-group trap capture-rate correlation by lag",
           subtitle = "Pearson correlation across monitoring line and selected season combinations"
         ) +
         theme_insightful()
@@ -1503,14 +1503,14 @@ monitoring_trapping_module_server <- function(id,
         rows,
         ggplot2::aes(
           x = .data$selected_RAI,
-          y = .data$kills_per_100_trap_days_selected_species,
+          y = .data$captures_per_100_trap_days_selected_species,
           colour = .data$locality
         )
       ) +
         ggplot2::geom_point(size = 2.5, alpha = 0.85) +
         ggplot2::labs(
           x = sprintf("%s RAI per %s camera-hours", selected_group(), config$globals$rai_norm_hours),
-          y = "Selected-group trap kills / 100 trap-days",
+          y = "Selected-group trap captures / 100 trap-days",
           colour = "Locality",
           title = sprintf("Selected lag window: %s", names(monitoring_trapping_lag_windows())[monitoring_trapping_lag_windows() == input$lag_window])
         ) +
@@ -1519,11 +1519,11 @@ monitoring_trapping_module_server <- function(id,
       finite_rows <- rows %>%
         dplyr::filter(
           is.finite(.data$selected_RAI),
-          is.finite(.data$kills_per_100_trap_days_selected_species)
+          is.finite(.data$captures_per_100_trap_days_selected_species)
         )
       if (nrow(finite_rows) >= 3 &&
           length(unique(finite_rows$selected_RAI)) > 1 &&
-          length(unique(finite_rows$kills_per_100_trap_days_selected_species)) > 1) {
+          length(unique(finite_rows$captures_per_100_trap_days_selected_species)) > 1) {
         plot <- plot + ggplot2::geom_smooth(method = "lm", se = FALSE, colour = "#222222", linewidth = 0.6)
       }
 
@@ -1538,12 +1538,12 @@ monitoring_trapping_module_server <- function(id,
           Locality = .data$locality,
           Line = .data$line,
           `Monitoring RAI` = round(.data$selected_RAI, 2),
-          `Selected group trap kills / 100 trap-days` = round(.data$kills_per_100_trap_days_selected_species, 2),
+          `Selected group trap captures / 100 trap-days` = round(.data$captures_per_100_trap_days_selected_species, 2),
           `Trap-days` = round(.data$trap_days, 1),
           `Trap checks / 100 trap-days` = round(.data$trap_checks_per_100_trap_days, 2),
           `Mean days between checks` = round(.data$mean_days_between_checks, 1),
           `Trap checks` = .data$trap_checks,
-          `Selected group kills` = round(.data$selected_species_kill_count, 0),
+          `Selected group captures` = round(.data$selected_species_capture_count, 0),
           `Trap window start` = .data$trap_window_start,
           `Trap window end` = .data$trap_window_end
         )

@@ -1250,7 +1250,7 @@ server <- function(input, output, session) {
         isTRUE(input[["density_map_primary-show_monitoring_heatmap"]])
     }
     include_trapping <- !is.null(trap_data) && (
-      isTRUE(input[["density_map_primary-show_trap_kill_markers"]]) ||
+      isTRUE(input[["density_map_primary-show_trap_capture_markers"]]) ||
         isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]]) ||
         isTRUE(input[["density_map_primary-show_trap_capture_heatmap"]]) ||
         isTRUE(input[["density_map_primary-show_trap_check_heatmap"]])
@@ -1293,7 +1293,7 @@ server <- function(input, output, session) {
     max(counts, na.rm = TRUE)
   }
 
-  density_max_trap_kills <- function(period, species, localities) {
+  density_max_trap_captures <- function(period, species, localities) {
     if (is.null(trap_data) || is.null(period) ||
         is.null(species) || length(species) == 0 ||
         is.null(localities) || length(localities) == 0) {
@@ -1312,14 +1312,14 @@ server <- function(input, output, session) {
       period_intervals = period$period_intervals()
     )
 
-    kill_summary <- create_trap_kill_summary(trap_rows)
-    if (nrow(kill_summary) == 0) {
+    capture_summary <- create_trap_capture_summary(trap_rows)
+    if (nrow(capture_summary) == 0) {
       return(0)
     }
 
-    counts <- kill_summary %>%
+    counts <- capture_summary %>%
       dplyr::group_by(.data$locationID) %>%
-      dplyr::summarise(count = sum(.data$kills, na.rm = TRUE), .groups = "drop") %>%
+      dplyr::summarise(count = sum(.data$captures, na.rm = TRUE), .groups = "drop") %>%
       dplyr::pull(.data$count)
 
     if (length(counts) == 0 || all(is.na(counts))) {
@@ -1344,8 +1344,8 @@ server <- function(input, output, session) {
     if (data_source %in% c("trapping", "both")) {
       max_values <- c(
         max_values,
-        density_max_trap_kills(density_map_period, species, localities),
-        density_max_trap_kills(comparative_period, species, localities)
+        density_max_trap_captures(density_map_period, species, localities),
+        density_max_trap_captures(comparative_period, species, localities)
       )
     }
     if (length(max_values) == 0) {
@@ -1434,7 +1434,7 @@ server <- function(input, output, session) {
     max(counts, na.rm = TRUE)
   }
 
-  monitoring_trapping_map_max_trap_kills <- function(species, localities) {
+  monitoring_trapping_map_max_trap_captures <- function(species, localities) {
     if (is.null(trap_data) ||
         is.null(species) || length(species) == 0 ||
         is.null(localities) || length(localities) == 0) {
@@ -1453,14 +1453,14 @@ server <- function(input, output, session) {
       period_intervals = monitoring_trapping_map_period$period_intervals()
     )
 
-    kill_summary <- create_trap_kill_summary(trap_rows)
-    if (nrow(kill_summary) == 0) {
+    capture_summary <- create_trap_capture_summary(trap_rows)
+    if (nrow(capture_summary) == 0) {
       return(0)
     }
 
-    counts <- kill_summary %>%
+    counts <- capture_summary %>%
       dplyr::group_by(.data$locationID) %>%
-      dplyr::summarise(count = sum(.data$kills, na.rm = TRUE), .groups = "drop") %>%
+      dplyr::summarise(count = sum(.data$captures, na.rm = TRUE), .groups = "drop") %>%
       dplyr::pull(.data$count)
 
     if (length(counts) == 0 || all(is.na(counts))) {
@@ -1475,7 +1475,7 @@ server <- function(input, output, session) {
     localities <- input[["monitoring_trapping_map_monitoring-selected_localities"]]
     max_value <- max(
       monitoring_trapping_map_max_location_count(filtered_obs_monitoring_trapping_map(), species, localities),
-      monitoring_trapping_map_max_trap_kills(species, localities),
+      monitoring_trapping_map_max_trap_captures(species, localities),
       na.rm = TRUE
     )
 
@@ -1538,7 +1538,7 @@ server <- function(input, output, session) {
         location_markers_override = density_map_primary$show_density_location_markers,
         density_data_source_override = density_data_source,
         trap_distance_override = density_trap_distance,
-        trap_kill_markers_override = density_map_primary$show_trap_kill_markers,
+        trap_capture_markers_override = density_map_primary$show_trap_capture_markers,
         trap_check_counters_override = density_show_trap_check_counters,
         unchecked_traps_override = density_show_unchecked_traps,
         use_net = global_use_net,
@@ -1588,7 +1588,7 @@ server <- function(input, output, session) {
         location_markers_override = monitoring_trapping_map_show_true,
         density_data_source_override = monitoring_trapping_map_source_trapping,
         trap_distance_override = monitoring_trapping_map_trap_distance,
-        trap_kill_markers_override = monitoring_trapping_map_show_true,
+        trap_capture_markers_override = monitoring_trapping_map_show_true,
         trap_check_counters_override = monitoring_trapping_map_show_trap_check_counters,
         unchecked_traps_override = monitoring_trapping_map_show_unchecked_traps,
         use_net = global_use_net,
