@@ -246,6 +246,26 @@ unchecked_traps_label <- function(ns) {
   )
 }
 
+add_heatmap_dependency <- function(map) {
+  empty_heatmap_data <- data.frame(
+    longitude = numeric(),
+    latitude = numeric(),
+    intensity = numeric()
+  )
+
+  leaflet.extras::addHeatmap(
+    map,
+    data = empty_heatmap_data,
+    lng = ~longitude,
+    lat = ~latitude,
+    intensity = ~intensity,
+    radius = 25,
+    blur = 30,
+    max = 1,
+    group = "Heatmap dependency"
+  )
+}
+
 timeline_actual_timezone <- function() {
   if (exists("weather_timeline_timezone", mode = "function", inherits = TRUE)) {
     return(weather_timeline_timezone())
@@ -1005,8 +1025,8 @@ mapping_module_ui <- function(id,
                 condition = species_combined_condition,
                 ns = ns,
                 checkboxInput(
-                  inputId = ns("show_observation_heatmap"),
-                  label = "Observation heatmap",
+                  inputId = ns("show_monitoring_heatmap"),
+                  label = "Observation counts heatmap",
                   value = FALSE
                 )
               )
@@ -1265,8 +1285,8 @@ mapping_module_ui <- function(id,
                 condition = timeline_combined_condition,
                 ns = ns,
                 checkboxInput(
-                  inputId = ns("show_observation_heatmap"),
-                  label = "Observation heatmap",
+                  inputId = ns("show_monitoring_heatmap"),
+                  label = "Observation counts heatmap",
                   value = FALSE
                 )
               )
@@ -1563,6 +1583,8 @@ mapping_module_server <- function(id,
                                   capture_density_surface_override = NULL, # Reactive: for comparative density map
                                   trap_check_density_surface_override = NULL, # Reactive: for comparative density map
                                   trap_check_density_surface_basis_override = NULL, # Reactive: for comparative density map
+                                  monitoring_heatmap_override = NULL, # Reactive: for comparative density map
+                                  trap_capture_heatmap_override = NULL, # Reactive: for comparative density map
                                   period_names = NULL,      # Reactive: selected period names
                                   period_start_date = NULL, # Reactive: e.g. primary_period$start_date
                                   period_end_date = NULL,    # Reactive: e.g. primary_period$end_date
@@ -1694,6 +1716,24 @@ mapping_module_server <- function(id,
         !is.null(current_trap_data())
     })
 
+    monitoring_heatmap_requested <- reactive({
+      if (!is.null(monitoring_heatmap_override) &&
+          !is.null(monitoring_heatmap_override())) {
+        return(isTRUE(monitoring_heatmap_override()))
+      }
+
+      isTRUE(input$show_monitoring_heatmap)
+    })
+
+    trap_capture_heatmap_requested <- reactive({
+      if (!is.null(trap_capture_heatmap_override) &&
+          !is.null(trap_capture_heatmap_override())) {
+        return(isTRUE(trap_capture_heatmap_override()))
+      }
+
+      isTRUE(input$show_trap_capture_heatmap)
+    })
+
     density_data_source_selected <- reactive({
       if (!is.null(density_data_source_override) &&
           !is.null(density_data_source_override())) {
@@ -1713,7 +1753,9 @@ mapping_module_server <- function(id,
       include_monitoring_layer <- if (is.null(input$show_density_location_markers) && is.null(input$show_predicted_rai_surface)) {
         TRUE
       } else {
-        isTRUE(input$show_density_location_markers) || isTRUE(input$show_predicted_rai_surface)
+        isTRUE(input$show_density_location_markers) ||
+          isTRUE(input$show_predicted_rai_surface) ||
+          isTRUE(monitoring_heatmap_requested())
       }
       include_monitoring <- isTRUE(include_monitoring_records_selected()) && include_monitoring_layer
 
@@ -1723,7 +1765,9 @@ mapping_module_server <- function(id,
         isTRUE(input$show_trap_unchecked_locations)
       }
       include_trapping <- isTRUE(include_trap_data_selected()) && (
-        isTRUE(show_trap_kill_markers_selected()) || unchecked_requested
+        isTRUE(show_trap_kill_markers_selected()) ||
+          isTRUE(trap_capture_heatmap_requested()) ||
+          unchecked_requested
       )
 
       if (include_monitoring && include_trapping) {
@@ -1859,7 +1903,7 @@ mapping_module_server <- function(id,
       isTRUE(input$show_trap_check_density_surface)
     })
 
-    show_observation_heatmap_selected <- reactive({
+    show_monitoring_heatmap_selected <- reactive({
       if (!density_data_source_selected() %in% c("monitoring", "both")) {
         return(FALSE)
       }
@@ -1872,7 +1916,7 @@ mapping_module_server <- function(id,
         return(FALSE)
       }
 
-      isTRUE(input$show_observation_heatmap)
+      monitoring_heatmap_requested()
     })
 
     show_trap_capture_heatmap_selected <- reactive({
@@ -1888,7 +1932,7 @@ mapping_module_server <- function(id,
         return(FALSE)
       }
 
-      isTRUE(input$show_trap_capture_heatmap)
+      trap_capture_heatmap_requested()
     })
 
     trap_check_density_surface_basis_selected <- reactive({
@@ -2081,7 +2125,8 @@ mapping_module_server <- function(id,
         leaflet::addLayersControl(
           baseGroups = c("Street", "Satellite"),
           options = leaflet::layersControlOptions(collapsed = TRUE)
-        )
+        ) %>%
+        add_heatmap_dependency()
     })
     outputOptions(output, "map_display", suspendWhenHidden = FALSE)
     register_map_resize_handler()
@@ -2909,7 +2954,8 @@ mapping_module_server <- function(id,
             metrics_trap_marker_types_dens <- union(
               enabled_trap_marker_types_dens,
               c(
-                if (isTRUE(show_capture_density_surface_selected())) "kill",
+                if (isTRUE(show_capture_density_surface_selected()) ||
+                    isTRUE(show_trap_capture_heatmap_selected())) "kill",
                 if (isTRUE(show_trap_check_density_surface_selected())) "check"
               )
             )
@@ -2956,7 +3002,9 @@ mapping_module_server <- function(id,
               )
             }
           }
-          trap_kill_summary_dens <- if (isTRUE(show_trap_kill_markers_selected()) || isTRUE(show_capture_density_surface_selected())) {
+          trap_kill_summary_dens <- if (isTRUE(show_trap_kill_markers_selected()) ||
+                                        isTRUE(show_capture_density_surface_selected()) ||
+                                        isTRUE(show_trap_capture_heatmap_selected())) {
             create_trap_kill_summary(trap_observations_for_metrics_dens)
           } else {
             dplyr::tibble()
@@ -3472,7 +3520,7 @@ mapping_module_server <- function(id,
           trap_check_density_surface = trap_check_density_surface,
           trap_check_density_surface_message = trap_check_density_surface_message,
           trap_check_density_surface_basis = trap_check_density_surface_basis_selected(),
-          show_observation_heatmap = show_observation_heatmap_selected(),
+          show_monitoring_heatmap = show_monitoring_heatmap_selected(),
           show_trap_capture_heatmap = show_trap_capture_heatmap_selected(),
           map_update_key = paste(
             id,
@@ -3504,7 +3552,7 @@ mapping_module_server <- function(id,
             show_trap_check_density_surface_selected(),
             trap_check_density_surface_basis_selected(),
             trap_check_density_surface_cache_key,
-            show_observation_heatmap_selected(),
+            show_monitoring_heatmap_selected(),
             show_trap_capture_heatmap_selected(),
             if (is.null(skip_notice)) "no-skip-notice" else skip_notice,
             sep = "|"
@@ -3565,7 +3613,7 @@ mapping_module_server <- function(id,
             trap_check_density_surface = data_for_map$trap_check_density_surface,
             trap_check_density_surface_message = data_for_map$trap_check_density_surface_message,
             trap_check_density_surface_basis = data_for_map$trap_check_density_surface_basis,
-            show_observation_heatmap = data_for_map$show_observation_heatmap,
+            show_monitoring_heatmap = data_for_map$show_monitoring_heatmap,
             show_trap_capture_heatmap = data_for_map$show_trap_capture_heatmap,
             show_location_markers = data_for_map$show_location_markers,
             marker_metric = data_for_map$marker_metric,
@@ -3865,6 +3913,8 @@ mapping_module_server <- function(id,
         show_capture_density_surface = show_capture_density_surface_selected,
         show_trap_check_density_surface = show_trap_check_density_surface_selected,
         trap_check_density_surface_basis = trap_check_density_surface_basis_selected,
+        show_monitoring_heatmap = show_monitoring_heatmap_selected,
+        show_trap_capture_heatmap = show_trap_capture_heatmap_selected,
         species_display_mode = species_display_mode_selected,
         show_density_location_markers = show_density_location_markers_selected,
         show_trap_kill_markers = show_trap_kill_markers_selected,
@@ -3963,7 +4013,7 @@ update_density_map <- function(map_id = NULL,
                                trap_check_density_surface = NULL,
                                trap_check_density_surface_message = NULL,
                                trap_check_density_surface_basis = "frequency",
-                               show_observation_heatmap = FALSE,
+                               show_monitoring_heatmap = FALSE,
                                show_trap_capture_heatmap = FALSE,
                                show_location_markers = TRUE,
                                marker_metric = "count",
@@ -4298,7 +4348,7 @@ update_density_map <- function(map_id = NULL,
       )
   }
 
-  if (isTRUE(show_observation_heatmap)) {
+  if (isTRUE(show_monitoring_heatmap)) {
     heatmap_locations <- obs_summary_location %>%
       dplyr::filter(
         .data$marker_dataset %in% c("monitoring_trapped", "monitoring_non_trapped"),
@@ -4311,7 +4361,7 @@ update_density_map <- function(map_id = NULL,
           lng = ~longitude, lat = ~latitude, intensity = ~marker_value,
           radius = 25, blur = 30,
           max = max(heatmap_locations$marker_value, na.rm = TRUE),
-          group = "Observation heatmap"
+          group = "Observation counts heatmap"
         )
     }
   }
