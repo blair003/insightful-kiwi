@@ -793,6 +793,110 @@ prepare_spec_table_data <- function(data,
 }
 
 
+# Map/density "Records" tables combine monitoring observations with trapping
+# records (captures, check counters, unchecked traps); trapping rows are
+# distinguished via the observation_source/observationID conventions below.
+normalize_trap_record_dates_for_table <- function(observation_rows) {
+  if (is.null(observation_rows) || nrow(observation_rows) == 0 ||
+      !"observation_source" %in% names(observation_rows) ||
+      !"timestamp" %in% names(observation_rows)) {
+    return(observation_rows)
+  }
+
+  source_rows <- !is.na(observation_rows$observation_source) &
+    observation_rows$observation_source == "trapping"
+  if (any(source_rows, na.rm = TRUE)) {
+    observation_rows$timestamp[source_rows] <- as.Date(observation_rows$timestamp[source_rows])
+  }
+
+  observation_rows
+}
+
+prepare_map_records_table <- function(observation_rows) {
+  observation_rows <- normalize_trap_record_dates_for_table(observation_rows)
+  table_data <- prepare_spec_table_data(
+    observation_rows,
+    table_id = "map_records_browse",
+    column_help = FALSE
+  )$table_data
+
+  observation_id_column <- intersect(c("Observation Id", "Observation ID", "observationID"), names(table_data))
+  if (length(observation_id_column) > 0) {
+    observation_id_column <- observation_id_column[[1]]
+    source_rows <- grepl(
+      "trap-observation-link|wkt-trap-observation-|trap-unchecked-",
+      as.character(table_data[[observation_id_column]])
+    )
+  } else if ("observation_source" %in% names(observation_rows) &&
+             nrow(observation_rows) == nrow(table_data)) {
+    source_rows <- !is.na(observation_rows$observation_source) &
+      observation_rows$observation_source == "trapping"
+  } else {
+    source_rows <- rep(FALSE, nrow(table_data))
+  }
+  timestamp_column <- intersect(c("Timestamp", "timestamp"), names(table_data))
+  if (length(timestamp_column) > 0 && any(source_rows, na.rm = TRUE)) {
+    timestamp_column <- timestamp_column[[1]]
+    table_data[[timestamp_column]][source_rows] <- substr(as.character(table_data[[timestamp_column]][source_rows]), 1, 10)
+  }
+
+  table_data
+}
+
+prepare_map_records_export <- function(observation_rows) {
+  export_data <- prepare_map_records_table(observation_rows)
+  row_count <- nrow(export_data)
+
+  empty_column <- function(value = NA_character_) {
+    rep(value, row_count)
+  }
+
+  source_rows <- if (!is.null(observation_rows) &&
+                     "observation_source" %in% names(observation_rows) &&
+                     nrow(observation_rows) == row_count) {
+    !is.na(observation_rows$observation_source) &
+      observation_rows$observation_source == "trapping"
+  } else {
+    rep(FALSE, row_count)
+  }
+
+  export_data$latitude <- if (!is.null(observation_rows) &&
+                              "latitude" %in% names(observation_rows) &&
+                              nrow(observation_rows) == row_count) {
+    observation_rows$latitude
+  } else {
+    empty_column(NA_real_)
+  }
+
+  export_data$longitude <- if (!is.null(observation_rows) &&
+                               "longitude" %in% names(observation_rows) &&
+                               nrow(observation_rows) == row_count) {
+    observation_rows$longitude
+  } else {
+    empty_column(NA_real_)
+  }
+
+  export_data$prior_check_date <- if (!is.null(observation_rows) &&
+                                      "prior_check_date" %in% names(observation_rows) &&
+                                      nrow(observation_rows) == row_count) {
+    as.character(as.Date(observation_rows$prior_check_date))
+  } else {
+    empty_column()
+  }
+
+  export_data$check_interval <- if (!is.null(observation_rows) &&
+                                    "check_interval" %in% names(observation_rows) &&
+                                    nrow(observation_rows) == row_count) {
+    suppressWarnings(as.integer(observation_rows$check_interval))
+  } else {
+    rep(NA_integer_, row_count)
+  }
+
+  export_data$data_source <- ifelse(source_rows, "trapping", "monitoring")
+  export_data
+}
+
+
 # This forms and formats the final field names, including any species field headings
 format_fieldnames <- function(data) {
   

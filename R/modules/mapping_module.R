@@ -778,7 +778,7 @@ mapping_module_ui <- function(id,
         class = "map-comparison-data-heading",
         h3(title)
       ),
-      DT::dataTableOutput(NS(map_id)("density_data_table"))
+      DT::dataTableOutput(NS(map_id)("map_data_table"))
     )
   }
   
@@ -1259,14 +1259,14 @@ mapping_module_ui <- function(id,
           ),
           nav_panel(
             "Records",
-            h3("Observations records in current window"),
-            DT::dataTableOutput(ns("playback_data_table")),
+            h3("Current window records"),
+            DT::dataTableOutput(ns("map_data_table")),
             value = "data"
           ),
           nav_panel(
             "Cumulative Records",
-            h3("Cumulative observations"),
-            DT::dataTableOutput(ns("playback_cumulative_data_table")),
+            h3("Cumulative records"),
+            DT::dataTableOutput(ns("map_cumulative_data_table")),
             value = "cumulative_data"
           )
         )
@@ -2980,148 +2980,7 @@ mapping_module_server <- function(id,
         }
       })
       
-      prepare_density_records_table <- function(data_for_table) {
-        table_source <- dplyr::case_when(
-          identical(data_for_table$density_data_source, "trapping") ~ "trapping",
-          identical(data_for_table$density_data_source, "both") ~ "both",
-          TRUE ~ "monitoring"
-        )
-
-        rows <- switch(
-          table_source,
-          "trapping" = data_for_table$trap_records,
-          "both" = dplyr::bind_rows(data_for_table$obs_filtered, data_for_table$trap_records),
-          data_for_table$obs_filtered
-        )
-
-        if (!is.null(rows) && nrow(rows) > 0 &&
-            "observation_source" %in% names(rows) &&
-            "timestamp" %in% names(rows)) {
-          trap_rows <- !is.na(rows$observation_source) & rows$observation_source == "trapping"
-          rows$timestamp[trap_rows] <- as.Date(rows$timestamp[trap_rows])
-        }
-
-        prepare_spec_table_data(
-          rows,
-          table_id = "map_records_browse",
-          column_help = FALSE
-        )$table_data
-      }
-
-      output$density_data_table <- DT::renderDataTable({
-        req(mapping_data_density())
-        table_data <- prepare_density_records_table(mapping_data_density())
-
-        DT::datatable(
-          table_data,
-          escape = FALSE,
-          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
-          class = 'display',
-          rownames = FALSE
-        )
-      })
-
       # --- Map record outputs ---
-      normalize_trap_record_dates_for_table <- function(observation_rows) {
-        if (is.null(observation_rows) || nrow(observation_rows) == 0 ||
-            !"observation_source" %in% names(observation_rows) ||
-            !"timestamp" %in% names(observation_rows)) {
-          return(observation_rows)
-        }
-
-        source_rows <- !is.na(observation_rows$observation_source) &
-          observation_rows$observation_source == "trapping"
-        if (any(source_rows, na.rm = TRUE)) {
-          observation_rows$timestamp[source_rows] <- as.Date(observation_rows$timestamp[source_rows])
-        }
-
-        observation_rows
-      }
-
-      prepare_map_records_table <- function(observation_rows) {
-        observation_rows <- normalize_trap_record_dates_for_table(observation_rows)
-        table_data <- prepare_spec_table_data(
-          observation_rows,
-          table_id = "map_records_browse",
-          column_help = FALSE
-        )$table_data
-
-        observation_id_column <- intersect(c("Observation Id", "Observation ID", "observationID"), names(table_data))
-        if (length(observation_id_column) > 0) {
-          observation_id_column <- observation_id_column[[1]]
-          source_rows <- grepl(
-            "trap-observation-link|wkt-trap-observation-|trap-unchecked-",
-            as.character(table_data[[observation_id_column]])
-          )
-        } else if ("observation_source" %in% names(observation_rows) &&
-                   nrow(observation_rows) == nrow(table_data)) {
-          source_rows <- !is.na(observation_rows$observation_source) &
-            observation_rows$observation_source == "trapping"
-        } else {
-          source_rows <- rep(FALSE, nrow(table_data))
-        }
-        timestamp_column <- intersect(c("Timestamp", "timestamp"), names(table_data))
-        if (length(timestamp_column) > 0 && any(source_rows, na.rm = TRUE)) {
-          timestamp_column <- timestamp_column[[1]]
-          table_data[[timestamp_column]][source_rows] <- substr(as.character(table_data[[timestamp_column]][source_rows]), 1, 10)
-        }
-
-        table_data
-      }
-
-      prepare_map_records_export <- function(observation_rows) {
-        export_data <- prepare_map_records_table(observation_rows)
-        row_count <- nrow(export_data)
-
-        empty_column <- function(value = NA_character_) {
-          rep(value, row_count)
-        }
-
-        source_rows <- if (!is.null(observation_rows) &&
-                           "observation_source" %in% names(observation_rows) &&
-                           nrow(observation_rows) == row_count) {
-          !is.na(observation_rows$observation_source) &
-            observation_rows$observation_source == "trapping"
-        } else {
-          rep(FALSE, row_count)
-        }
-
-        export_data$latitude <- if (!is.null(observation_rows) &&
-                                    "latitude" %in% names(observation_rows) &&
-                                    nrow(observation_rows) == row_count) {
-          observation_rows$latitude
-        } else {
-          empty_column(NA_real_)
-        }
-
-        export_data$longitude <- if (!is.null(observation_rows) &&
-                                     "longitude" %in% names(observation_rows) &&
-                                     nrow(observation_rows) == row_count) {
-          observation_rows$longitude
-        } else {
-          empty_column(NA_real_)
-        }
-
-        export_data$prior_check_date <- if (!is.null(observation_rows) &&
-                                            "prior_check_date" %in% names(observation_rows) &&
-                                            nrow(observation_rows) == row_count) {
-          as.character(as.Date(observation_rows$prior_check_date))
-        } else {
-          empty_column()
-        }
-
-        export_data$check_interval <- if (!is.null(observation_rows) &&
-                                          "check_interval" %in% names(observation_rows) &&
-                                          nrow(observation_rows) == row_count) {
-          suppressWarnings(as.integer(observation_rows$check_interval))
-        } else {
-          rep(NA_integer_, row_count)
-        }
-
-        export_data$data_source <- ifelse(source_rows, "trapping", "monitoring")
-        export_data
-      }
-
       collapse_selection_values <- function(values) {
         values <- as.character(values)
         values <- values[!is.na(values) & nzchar(values)]
@@ -3299,40 +3158,6 @@ mapping_module_server <- function(id,
           playback_weather_data(),
           view_mode
         ))
-      })
-
-      output$playback_data_table <- DT::renderDataTable({
-        req(playback_active(), mapping_data_density())
-        table_data <- prepare_spec_table_data(
-          mapping_data_density()$obs_filtered,
-          table_id = "map_records_browse",
-          column_help = FALSE
-        )$table_data
-
-        DT::datatable(
-          table_data,
-          escape = FALSE,
-          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
-          class = 'display',
-          rownames = FALSE
-        )
-      })
-
-      output$playback_cumulative_data_table <- DT::renderDataTable({
-        req(playback_active(), mapping_data_density())
-        table_data <- prepare_spec_table_data(
-          mapping_data_density()$obs_cumulative,
-          table_id = "map_records_browse",
-          column_help = FALSE
-        )$table_data
-
-        DT::datatable(
-          table_data,
-          escape = FALSE,
-          options = list(pageLength = 10, searching = TRUE, lengthChange = TRUE, order = list(list(3, 'asc'))),
-          class = 'display',
-          rownames = FALSE
-        )
       })
 
       root_session <- session$rootScope()
