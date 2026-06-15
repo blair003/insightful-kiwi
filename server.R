@@ -1185,8 +1185,8 @@ server <- function(input, output, session) {
   density_map_period_readout <- function(period) {
     req(period$start_date(), period$end_date())
 
-    timezone <- if (exists("playback_actual_timezone", mode = "function", inherits = TRUE)) {
-      playback_actual_timezone()
+    timezone <- if (exists("timeline_actual_timezone", mode = "function", inherits = TRUE)) {
+      timeline_actual_timezone()
     } else if (!is.null(config$globals$actual_timezone) && nzchar(config$globals$actual_timezone)) {
       config$globals$actual_timezone
     } else {
@@ -1203,7 +1203,7 @@ server <- function(input, output, session) {
     )
 
     div(
-      class = "playback-window-readout",
+      class = "timeline-window-readout",
       strong("Timeframe:"),
       paste(
         format(start_time, "%Y-%m-%d", tz = timezone),
@@ -1607,29 +1607,29 @@ server <- function(input, output, session) {
 
   ########### DENSITY TIMELINE MAP FEATURE ###########
 
-  playback_period <- period_selection_module_server(
-    id = "playback_period",
+  timeline_period <- period_selection_module_server(
+    id = "timeline_period",
     period_groups = core_data$period_groups,
     selected = core_data$app$period_defaults$primary_period
   )
 
-  filtered_deps_playback_map <- reactive({
+  filtered_deps_timeline_map <- reactive({
     filter_deps_by_period_names(
       core_data$deps,
-      playback_period$period_names(),
-      playback_period$start_date(),
-      playback_period$end_date(),
-      playback_period$period_intervals()
+      timeline_period$period_names(),
+      timeline_period$start_date(),
+      timeline_period$end_date(),
+      timeline_period$period_intervals()
     )
   })
 
-  filtered_obs_playback_map <- reactive({
+  filtered_obs_timeline_map <- reactive({
     filter_detection_obs(filter_obs_by_period_names(
       core_data$obs,
-      playback_period$period_names(),
-      playback_period$start_date(),
-      playback_period$end_date(),
-      playback_period$period_intervals()
+      timeline_period$period_names(),
+      timeline_period$start_date(),
+      timeline_period$end_date(),
+      timeline_period$period_intervals()
     ))
   })
 
@@ -1640,13 +1640,13 @@ server <- function(input, output, session) {
       logger::log_debug("server.R, lazily calling mapping_module_server() for density_timeline_map")
       mapping_module_server(
         id = "density_timeline_map",
-        obs = filtered_obs_playback_map,
-        deps = filtered_deps_playback_map,
-        period_names = playback_period$period_names,
-        period_start_date = playback_period$start_date,
-        period_end_date = playback_period$end_date,
-        period_intervals = playback_period$period_intervals,
-        playback_mode = "always",
+        obs = filtered_obs_timeline_map,
+        deps = filtered_deps_timeline_map,
+        period_names = timeline_period$period_names,
+        period_start_date = timeline_period$start_date,
+        period_end_date = timeline_period$end_date,
+        period_intervals = timeline_period$period_intervals,
+        timeline_mode = "always",
         use_net = global_use_net,
         trap_data = trap_data
       )

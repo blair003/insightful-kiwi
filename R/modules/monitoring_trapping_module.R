@@ -245,7 +245,7 @@ trapping_outcomes_module_server <- function(id,
       period_end_date = map_end_date,
       period_intervals = period$period_intervals,
       species_display_mode_override = reactive("separate"),
-      playback_mode = "always",
+      timeline_mode = "always",
       use_net = use_net,
       trap_data = reactive(trap_data)
     )
@@ -398,10 +398,10 @@ trapping_outcomes_module_server <- function(id,
     period_scope_ui <- function() {
       req(map_start_date(), map_end_date())
       div(
-        class = "playback-window-readout",
+        class = "timeline-window-readout",
         strong("Selected period:"),
         sprintf(
-          "%s to %s. Effort and Outcomes use the full selected period; playback controls only affect the Map and Map Window Records.",
+          "%s to %s. Effort and Outcomes use the full selected period; the timeline controls only affect the Map and Map Window Records.",
           format(map_start_date(), "%d %b %Y"),
           format(map_end_date(), "%d %b %Y")
         )
@@ -414,9 +414,9 @@ trapping_outcomes_module_server <- function(id,
 
     output$map_window_scope_note <- renderUI({
       div(
-        class = "playback-window-readout",
+        class = "timeline-window-readout",
         strong("Map window records:"),
-        "These records follow the Map tab playback slider, time step, and view mode. Use Period Records for the full selected period."
+        "These records follow the Map tab timeline slider, time step, and view mode. Use Period Records for the full selected period."
       )
     })
 

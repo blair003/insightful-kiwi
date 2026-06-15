@@ -231,7 +231,7 @@ weather_actual_timezone <- function() {
   "Pacific/Auckland"
 }
 
-weather_playback_timezone <- function() {
+weather_timeline_timezone <- function() {
   weather_actual_timezone()
 }
 
@@ -385,8 +385,8 @@ environment_daily_to_df <- function(daily_data) {
     temperature_2m_max = daily_data$temperature_2m_max,
     temperature_2m_min = daily_data$temperature_2m_min,
     precipitation_sum = daily_data$precipitation_sum,
-    sunrise = as.POSIXct(daily_data$sunrise, format = "%Y-%m-%dT%H:%M", tz = weather_playback_timezone()),
-    sunset = as.POSIXct(daily_data$sunset, format = "%Y-%m-%dT%H:%M", tz = weather_playback_timezone()),
+    sunrise = as.POSIXct(daily_data$sunrise, format = "%Y-%m-%dT%H:%M", tz = weather_timeline_timezone()),
+    sunset = as.POSIXct(daily_data$sunset, format = "%Y-%m-%dT%H:%M", tz = weather_timeline_timezone()),
     stringsAsFactors = FALSE
   )
 }
@@ -433,8 +433,8 @@ environment_daily_from_core_data <- function(deployments, start_date, end_date) 
   }
 
   location_ids <- unique(deployments$locationID)
-  start_date <- as.Date(start_date, tz = weather_playback_timezone())
-  end_date <- as.Date(end_date, tz = weather_playback_timezone())
+  start_date <- as.Date(start_date, tz = weather_timeline_timezone())
+  end_date <- as.Date(end_date, tz = weather_timeline_timezone())
 
   filtered_weather <- environment_daily %>%
     dplyr::filter(
@@ -464,10 +464,10 @@ environment_daily_from_core_data <- function(deployments, start_date, end_date) 
       temperature_2m_max = mean(temperature_2m_max, na.rm = TRUE),
       temperature_2m_min = mean(temperature_2m_min, na.rm = TRUE),
       precipitation_sum = mean(precipitation_sum, na.rm = TRUE),
-      sunrise = as.POSIXct(mean(as.numeric(sunrise), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
-      sunset = as.POSIXct(mean(as.numeric(sunset), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
-      civil_dawn = as.POSIXct(mean(as.numeric(civil_dawn), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
-      civil_dusk = as.POSIXct(mean(as.numeric(civil_dusk), na.rm = TRUE), origin = "1970-01-01", tz = weather_playback_timezone()),
+      sunrise = as.POSIXct(mean(as.numeric(sunrise), na.rm = TRUE), origin = "1970-01-01", tz = weather_timeline_timezone()),
+      sunset = as.POSIXct(mean(as.numeric(sunset), na.rm = TRUE), origin = "1970-01-01", tz = weather_timeline_timezone()),
+      civil_dawn = as.POSIXct(mean(as.numeric(civil_dawn), na.rm = TRUE), origin = "1970-01-01", tz = weather_timeline_timezone()),
+      civil_dusk = as.POSIXct(mean(as.numeric(civil_dusk), na.rm = TRUE), origin = "1970-01-01", tz = weather_timeline_timezone()),
       .groups = "drop"
     )
 
@@ -521,13 +521,13 @@ format_weather_clock_time <- function(value) {
   format(time_value, "%H:%M")
 }
 
-playback_weather_for_deployments <- function(deployments, start_date, end_date, allow_remote_fallback = FALSE) {
+timeline_weather_for_deployments <- function(deployments, start_date, end_date, allow_remote_fallback = FALSE) {
   stored_weather <- environment_daily_from_core_data(deployments, start_date, end_date)
   if (!is.null(stored_weather) && nrow(stored_weather) > 0) {
     return(stored_weather)
   }
 
-  request_weather_cache_refresh("playback weather cache miss")
+  request_weather_cache_refresh("timeline weather cache miss")
   if (!isTRUE(allow_remote_fallback)) {
     return(NULL)
   }
@@ -540,7 +540,7 @@ weather_row_for_time <- function(weather_df, time_value) {
     return(NULL)
   }
 
-  target_date <- as.Date(time_value, tz = weather_playback_timezone())
+  target_date <- as.Date(time_value, tz = weather_timeline_timezone())
   row <- weather_df[weather_df$date == target_date, , drop = FALSE]
   if (nrow(row) == 0) {
     return(NULL)
@@ -555,7 +555,7 @@ time_of_day_info <- function(weather_df, time_value, mode = "day") {
     return(NULL)
   }
 
-  timezone <- weather_playback_timezone()
+  timezone <- weather_timeline_timezone()
   time_value <- as.POSIXct(time_value, tz = timezone)
   weather_row <- weather_row_for_time(weather_df, time_value)
   hour_value <- as.integer(format(time_value, "%H", tz = timezone))
@@ -657,27 +657,27 @@ render_weather_map_control <- function(weather_row, time_info = NULL) {
 }
 
 fallback_day_night_boundaries <- function(start_time, end_time) {
-  timezone <- weather_playback_timezone()
+  timezone <- weather_timeline_timezone()
   start_day <- as.Date(start_time, tz = timezone) - 1
   end_day <- as.Date(end_time, tz = timezone) + 1
   days <- seq(start_day, end_day, by = "day")
   sort(as.POSIXct(c(paste(days, "06:00:00"), paste(days, "18:00:00")), tz = timezone))
 }
 
-normalise_playback_boundaries <- function(boundaries, start_time, end_time) {
+normalise_timeline_boundaries <- function(boundaries, start_time, end_time) {
   boundaries <- boundaries[!is.na(boundaries)]
   if (length(boundaries) == 0) {
     return(fallback_day_night_boundaries(start_time, end_time))
   }
 
-  timezone <- weather_playback_timezone()
+  timezone <- weather_timeline_timezone()
   boundaries <- sort(unique(as.POSIXct(boundaries, origin = "1970-01-01", tz = timezone)))
   boundaries[boundaries >= start_time & boundaries <= end_time]
 }
 
 day_night_boundaries <- function(weather_df, start_time, end_time) {
   if (is.null(start_time) || is.null(end_time) || is.na(start_time) || is.na(end_time)) {
-    return(as.POSIXct(character(), tz = weather_playback_timezone()))
+    return(as.POSIXct(character(), tz = weather_timeline_timezone()))
   }
 
   if (is.null(weather_df) || nrow(weather_df) == 0 ||
@@ -685,12 +685,12 @@ day_night_boundaries <- function(weather_df, start_time, end_time) {
     return(fallback_day_night_boundaries(start_time, end_time))
   }
 
-  normalise_playback_boundaries(c(weather_df$sunrise, weather_df$sunset), start_time, end_time)
+  normalise_timeline_boundaries(c(weather_df$sunrise, weather_df$sunset), start_time, end_time)
 }
 
 diel_activity_boundaries <- function(weather_df, start_time, end_time) {
   if (is.null(start_time) || is.null(end_time) || is.na(start_time) || is.na(end_time)) {
-    return(as.POSIXct(character(), tz = weather_playback_timezone()))
+    return(as.POSIXct(character(), tz = weather_timeline_timezone()))
   }
 
   if (is.null(weather_df) || nrow(weather_df) == 0 ||
@@ -722,10 +722,10 @@ diel_activity_boundaries <- function(weather_df, start_time, end_time) {
     )
   }))
 
-  normalise_playback_boundaries(as.POSIXct(boundaries, origin = "1970-01-01", tz = weather_playback_timezone()), start_time, end_time)
+  normalise_timeline_boundaries(as.POSIXct(boundaries, origin = "1970-01-01", tz = weather_timeline_timezone()), start_time, end_time)
 }
 
-playback_weather_boundaries <- function(mode, weather_df, start_time, end_time) {
+timeline_weather_boundaries <- function(mode, weather_df, start_time, end_time) {
   if (identical(mode, "diel")) {
     return(diel_activity_boundaries(weather_df, start_time, end_time))
   }
@@ -734,7 +734,7 @@ playback_weather_boundaries <- function(mode, weather_df, start_time, end_time) 
 }
 
 next_weather_boundary <- function(current_time, end_time, weather_df, mode = "day_night") {
-  boundaries <- playback_weather_boundaries(mode, weather_df, current_time, end_time)
+  boundaries <- timeline_weather_boundaries(mode, weather_df, current_time, end_time)
   next_boundary <- boundaries[boundaries > current_time]
   if (length(next_boundary) == 0) {
     return(end_time + 1)
@@ -744,7 +744,7 @@ next_weather_boundary <- function(current_time, end_time, weather_df, mode = "da
 }
 
 previous_weather_boundary <- function(current_time, start_time, weather_df, mode = "day_night") {
-  boundaries <- playback_weather_boundaries(mode, weather_df, start_time, current_time)
+  boundaries <- timeline_weather_boundaries(mode, weather_df, start_time, current_time)
   previous_boundary <- boundaries[boundaries < current_time]
   if (length(previous_boundary) == 0) {
     return(start_time)

@@ -227,7 +227,7 @@ ui <- function(request) {
         condition = "input.nav === 'density_timeline_map'",
 
         period_selection_module_ui(
-          id = "playback_period",
+          id = "timeline_period",
           view = "select",
           choices = period_choices,
           selected = core_data$app$period_defaults$primary_period,

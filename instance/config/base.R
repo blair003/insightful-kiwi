@@ -20,7 +20,7 @@ config$globals <- list(
   # Legacy/internal timezone retained for older code paths.
   timezone = "UTC",
 
-  # Real project timezone used for display, weather, daylight, and playback labels.
+  # Real project timezone used for display, weather, daylight, and timeline labels.
   actual_timezone = "Pacific/Auckland",
 
   # Source camera timestamps may be tagged as UTC even though their clock time is

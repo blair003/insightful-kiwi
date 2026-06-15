@@ -48,7 +48,7 @@ weather_coverage_status <- function(obs, environment_daily = NULL) {
 
   required <- obs %>%
     dplyr::filter(!is.na(timestamp), !is.na(locationID)) %>%
-    dplyr::mutate(date = as.Date(timestamp, tz = weather_playback_timezone())) %>%
+    dplyr::mutate(date = as.Date(timestamp, tz = weather_timeline_timezone())) %>%
     dplyr::distinct(locationID, date) %>%
     dplyr::filter(!is.na(date))
 
@@ -128,7 +128,7 @@ build_observation_environment_daily <- function(obs, deps, environment_daily = N
 
   required_dates <- obs %>%
     dplyr::filter(!is.na(timestamp), !is.na(locationID)) %>%
-    dplyr::mutate(observation_date = as.Date(timestamp, tz = weather_playback_timezone())) %>%
+    dplyr::mutate(observation_date = as.Date(timestamp, tz = weather_timeline_timezone())) %>%
     dplyr::distinct(locationID, observation_date) %>%
     dplyr::filter(!is.na(observation_date))
 
@@ -246,7 +246,7 @@ add_observation_weather_fields <- function(obs, environment_daily = NULL) {
     return(obs)
   }
 
-  timezone <- weather_playback_timezone()
+  timezone <- weather_timeline_timezone()
   obs$.observation_row_id <- seq_len(nrow(obs))
   obs <- obs %>%
     dplyr::select(-dplyr::any_of(c(

@@ -71,7 +71,7 @@ species_overview_empty_diel_summary <- function(reason = "No data") {
 }
 
 species_overview_diel_period_intervals <- function(daylight_row) {
-  timezone <- if (exists("daylight_timezone", mode = "function", inherits = TRUE)) daylight_timezone() else weather_playback_timezone()
+  timezone <- if (exists("daylight_timezone", mode = "function", inherits = TRUE)) daylight_timezone() else weather_timeline_timezone()
   day_start <- as.POSIXct(as.Date(daylight_row$date), tz = timezone)
   day_end <- day_start + 24 * 60 * 60
 
@@ -107,7 +107,7 @@ species_overview_diel_effort_hours <- function(deps_data, environment_daily, per
     return(empty_effort)
   }
 
-  timezone <- if (exists("daylight_timezone", mode = "function", inherits = TRUE)) daylight_timezone() else weather_playback_timezone()
+  timezone <- if (exists("daylight_timezone", mode = "function", inherits = TRUE)) daylight_timezone() else weather_timeline_timezone()
   period_start <- if (is.null(period_start) || is.na(period_start)) {
     as.POSIXct(NA, tz = timezone)
   } else {
@@ -608,12 +608,12 @@ species_overview_module_server <- function(id,
 
     species_density_period_readout <- function(period_data = NULL) {
       if (is.null(period_data)) {
-        return(div(class = "playback-window-readout", strong("Timeframe:"), "All available monitoring data"))
+        return(div(class = "timeline-window-readout", strong("Timeframe:"), "All available monitoring data"))
       }
 
       req(period_data$start_date(), period_data$end_date())
       div(
-        class = "playback-window-readout",
+        class = "timeline-window-readout",
         strong("Timeframe:"),
         paste(
           format(as.Date(period_data$start_date()), "%Y-%m-%d"),
