@@ -500,8 +500,9 @@ timeline_format_timeframe_value <- function(value, step_size) {
   timeline_format_time(value)
 }
 
-timeline_format_date <- function(value) {
-  format(as.Date(value, tz = timeline_actual_timezone()), "%d %b %Y")
+timeline_format_date <- function(value, include_year = TRUE) {
+  fmt <- if (include_year) "%d %b %Y" else "%d %b"
+  format(as.Date(value, tz = timeline_actual_timezone()), fmt)
 }
 
 timeline_monitoring_periods <- function(period_groups) {
@@ -603,9 +604,9 @@ render_timeline_period_control <- function(period_status, monitoring_window = NU
                           !is.na(monitoring_window$start) &&
                           !is.na(monitoring_window$end)) {
     sprintf(
-      "<small>(Monitoring: %s to %s)</small>",
-      weather_html_escape(timeline_format_date(monitoring_window$start)),
-      weather_html_escape(timeline_format_date(monitoring_window$end))
+      "<small>Monitoring: %s to %s</small>",
+      weather_html_escape(timeline_format_date(monitoring_window$start, include_year = FALSE)),
+      weather_html_escape(timeline_format_date(monitoring_window$end, include_year = FALSE))
     )
   } else {
     ""
@@ -2891,7 +2892,7 @@ mapping_module_server <- function(id,
         }
 
         period_control <- if (use_timeline) {
-          monitoring_window_dens <- if (identical(density_source_dens, "monitoring")) {
+          monitoring_window_dens <- if (density_source_dens %in% c("monitoring", "both")) {
             timeline_monitoring_window()
           } else {
             NULL
