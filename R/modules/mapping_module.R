@@ -3046,7 +3046,8 @@ mapping_module_server <- function(id,
               )
           }
 
-          if (isTRUE(show_trap_kill_markers_selected()) && nrow(trap_density_summary_dens) > 0) {
+          if ((isTRUE(show_trap_kill_markers_selected()) || isTRUE(show_trap_capture_heatmap_selected())) &&
+              nrow(trap_density_summary_dens) > 0) {
             if (isTRUE(show_monitoring_density)) {
               obs_summary_location_dens <- dplyr::bind_rows(obs_summary_location_dens, trap_density_summary_dens)
             } else {
@@ -3522,6 +3523,7 @@ mapping_module_server <- function(id,
           trap_check_density_surface_basis = trap_check_density_surface_basis_selected(),
           show_monitoring_heatmap = show_monitoring_heatmap_selected(),
           show_trap_capture_heatmap = show_trap_capture_heatmap_selected(),
+          show_trap_kill_markers = show_trap_kill_markers_selected(),
           map_update_key = paste(
             id,
             if (use_timeline) "timeline" else "static",
@@ -3615,6 +3617,7 @@ mapping_module_server <- function(id,
             trap_check_density_surface_basis = data_for_map$trap_check_density_surface_basis,
             show_monitoring_heatmap = data_for_map$show_monitoring_heatmap,
             show_trap_capture_heatmap = data_for_map$show_trap_capture_heatmap,
+            show_trap_kill_markers = data_for_map$show_trap_kill_markers,
             show_location_markers = data_for_map$show_location_markers,
             marker_metric = data_for_map$marker_metric,
             marker_value_label = data_for_map$marker_value_label,
@@ -3983,10 +3986,7 @@ render_density_line_summary_control <- function(summary_data, title = "Summary")
     )
   }, character(1), USE.NAMES = FALSE)
 
-  column_totals <- vapply(line_levels, function(line_value) {
-    total <- sum(summary_rows$count[summary_rows$line == line_value], na.rm = TRUE)
-    sprintf("<td class='density-summary-line'>%s</td>", htmltools::htmlEscape(format_density_summary_value(total)))
-  }, character(1), USE.NAMES = FALSE)
+  empty_footer_cells <- rep("<td class='density-summary-line density-summary-missing'>-</td>", length(line_levels))
 
   paste0(
     "<div class='density-summary-control'><strong>", htmltools::htmlEscape(title), "</strong>",
@@ -3996,7 +3996,7 @@ render_density_line_summary_control <- function(summary_data, title = "Summary")
     paste(body_rows, collapse = ""),
     "</tbody><tfoot><tr><th scope='row' class='density-summary-locality'>Total</th>",
     "<td class='density-summary-total'>", htmltools::htmlEscape(format_density_summary_value(sum(summary_rows$count, na.rm = TRUE))), "</td>",
-    paste(column_totals, collapse = ""),
+    paste(empty_footer_cells, collapse = ""),
     "</tr></tfoot></table></div>"
   )
 }
@@ -4015,6 +4015,7 @@ update_density_map <- function(map_id = NULL,
                                trap_check_density_surface_basis = "frequency",
                                show_monitoring_heatmap = FALSE,
                                show_trap_capture_heatmap = FALSE,
+                               show_trap_kill_markers = FALSE,
                                show_location_markers = TRUE,
                                marker_metric = "count",
                                marker_value_label = NULL,
@@ -4359,7 +4360,7 @@ update_density_map <- function(map_id = NULL,
         leaflet.extras::addHeatmap(
           data = heatmap_locations,
           lng = ~longitude, lat = ~latitude, intensity = ~marker_value,
-          radius = 25, blur = 30,
+          radius = 25, blur = 15,
           max = max(heatmap_locations$marker_value, na.rm = TRUE),
           group = "Observation counts heatmap"
         )
@@ -4374,7 +4375,7 @@ update_density_map <- function(map_id = NULL,
         leaflet.extras::addHeatmap(
           data = trap_heatmap_locations,
           lng = ~longitude, lat = ~latitude, intensity = ~count,
-          radius = 25, blur = 30,
+          radius = 25, blur = 15,
           max = max(trap_heatmap_locations$count, na.rm = TRUE),
           group = "Trap capture heatmap"
         )
@@ -4484,6 +4485,7 @@ update_density_map <- function(map_id = NULL,
   }
 
   has_trap_density_layers <- density_data_source %in% c("trapping", "both") &&
+    isTRUE(show_trap_kill_markers) &&
     any(obs_summary_location$marker_dataset == "trap_kill", na.rm = TRUE)
   has_trap_support_layers <- isTRUE(has_trap_support_data)
   if (isTRUE(show_location_markers) || isTRUE(has_trap_density_layers) || isTRUE(has_trap_support_layers)) {

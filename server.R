@@ -1246,11 +1246,13 @@ server <- function(input, output, session) {
       TRUE
     } else {
       isTRUE(input[["density_map_primary-show_density_location_markers"]]) ||
-        isTRUE(input[["density_map_primary-show_predicted_rai_surface"]])
+        isTRUE(input[["density_map_primary-show_predicted_rai_surface"]]) ||
+        isTRUE(input[["density_map_primary-show_monitoring_heatmap"]])
     }
     include_trapping <- !is.null(trap_data) && (
       isTRUE(input[["density_map_primary-show_trap_kill_markers"]]) ||
-        isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]])
+        isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]]) ||
+        isTRUE(input[["density_map_primary-show_trap_capture_heatmap"]])
     )
     if (include_monitoring && include_trapping) return("both")
     if (include_trapping) return("trapping")
