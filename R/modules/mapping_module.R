@@ -593,17 +593,30 @@ timeline_period_status <- function(current_time, period_groups) {
   )
 }
 
-render_timeline_period_control <- function(period_status) {
+render_timeline_period_control <- function(period_status, monitoring_window = NULL) {
   if (is.null(period_status)) {
     return(NULL)
   }
 
   state_class <- if (isTRUE(period_status$in_period)) "is-active" else "is-gap"
+  monitoring_line <- if (!is.null(monitoring_window) &&
+                          !is.na(monitoring_window$start) &&
+                          !is.na(monitoring_window$end)) {
+    sprintf(
+      "<small>(Monitoring: %s to %s)</small>",
+      weather_html_escape(timeline_format_date(monitoring_window$start)),
+      weather_html_escape(timeline_format_date(monitoring_window$end))
+    )
+  } else {
+    ""
+  }
+
   sprintf(
-    "<div class='map-season-badge %s'><span>%s</span><small>%s</small></div>",
+    "<div class='map-season-badge %s'><span>%s</span><small>%s</small>%s</div>",
     state_class,
     weather_html_escape(period_status$label),
-    weather_html_escape(period_status$detail)
+    weather_html_escape(period_status$detail),
+    monitoring_line
   )
 }
 
@@ -1878,9 +1891,47 @@ mapping_module_server <- function(id,
         timeline_bounds(fallback_start, fallback_end)
       })
 
+      timeline_monitoring_window <- reactive({
+        deps_data <- deps()
+        if (is.null(deps_data) || nrow(deps_data) == 0 ||
+            !all(c("start", "end", "locality") %in% names(deps_data))) {
+          return(NULL)
+        }
+
+        monitoring_deps <- deps_data %>%
+          dplyr::filter(.data$locality %in% current_selected_localities())
+
+        if (nrow(monitoring_deps) == 0) {
+          return(NULL)
+        }
+
+        start_value <- suppressWarnings(min(monitoring_deps$start, na.rm = TRUE))
+        end_value <- suppressWarnings(max(monitoring_deps$end, na.rm = TRUE))
+
+        if (is.na(start_value) || is.na(end_value)) {
+          return(NULL)
+        }
+
+        list(
+          start = floor_posix_hour(start_value),
+          end = ceiling_posix_hour(end_value)
+        )
+      })
+
       timeline_period_start <- reactive({
         req(timeline_observation_bounds())
-        timeline_observation_bounds()$start
+        base_start <- timeline_observation_bounds()$start
+
+        if (identical(density_data_source_selected(), "monitoring")) {
+          monitoring_window <- timeline_monitoring_window()
+          if (!is.null(monitoring_window) &&
+              !is.na(monitoring_window$start) &&
+              monitoring_window$start < timeline_observation_bounds()$end) {
+            return(monitoring_window$start)
+          }
+        }
+
+        base_start
       })
 
       timeline_period_end <- reactive({
@@ -2840,7 +2891,15 @@ mapping_module_server <- function(id,
         }
 
         period_control <- if (use_timeline) {
-          render_timeline_period_control(timeline_period_status(current_time_dens, timeline_period_groups()))
+          monitoring_window_dens <- if (identical(density_source_dens, "monitoring")) {
+            timeline_monitoring_window()
+          } else {
+            NULL
+          }
+          render_timeline_period_control(
+            timeline_period_status(current_time_dens, timeline_period_groups()),
+            monitoring_window_dens
+          )
         } else {
           NULL
         }
