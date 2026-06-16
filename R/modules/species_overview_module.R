@@ -640,8 +640,8 @@ species_overview_module_server <- function(id,
         comparative_title = "Trapping data",
         primary_data_label = "Monitoring",
         comparative_data_label = "Trapping",
-        primary_data_title = "Monitoring records",
-        comparative_data_title = "Trapping records"
+        primary_data_title = "Monitoring Records",
+        comparative_data_title = "Trapping Records"
       )
     }
 

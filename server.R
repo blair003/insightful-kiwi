@@ -1394,12 +1394,34 @@ server <- function(input, output, session) {
     value
   })
 
+  monitoring_trapping_map_show_location_markers <- reactive({
+    value <- input[["monitoring_trapping_map_monitoring-show_density_location_markers"]]
+    if (is.null(value)) TRUE else isTRUE(value)
+  })
+
+  monitoring_trapping_map_show_monitoring_heatmap <- reactive({
+    isTRUE(input[["monitoring_trapping_map_monitoring-show_monitoring_heatmap"]])
+  })
+
+  monitoring_trapping_map_show_trap_capture_markers <- reactive({
+    value <- input[["monitoring_trapping_map_monitoring-show_trap_capture_markers"]]
+    if (is.null(value)) TRUE else isTRUE(value)
+  })
+
   monitoring_trapping_map_show_trap_check_counters <- reactive({
     isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_blank_checks"]])
   })
 
   monitoring_trapping_map_show_unchecked_traps <- reactive({
     isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_unchecked_locations"]])
+  })
+
+  monitoring_trapping_map_show_trap_capture_heatmap <- reactive({
+    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_capture_heatmap"]])
+  })
+
+  monitoring_trapping_map_show_trap_check_heatmap <- reactive({
+    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_check_heatmap"]])
   })
 
   monitoring_trapping_map_max_location_count <- function(observations, species, localities) {
@@ -1566,7 +1588,8 @@ server <- function(input, output, session) {
         density_data_source_override = monitoring_trapping_map_source_monitoring,
         prediction_surface_override = reactive(FALSE),
         species_display_mode_override = monitoring_trapping_map_combined_species,
-        location_markers_override = monitoring_trapping_map_show_true,
+        location_markers_override = monitoring_trapping_map_show_location_markers,
+        monitoring_heatmap_override = monitoring_trapping_map_show_monitoring_heatmap,
         use_net = global_use_net,
         trap_data = trap_data,
         density_scale_max_override = monitoring_trapping_map_scale_max
@@ -1588,9 +1611,11 @@ server <- function(input, output, session) {
         location_markers_override = monitoring_trapping_map_show_true,
         density_data_source_override = monitoring_trapping_map_source_trapping,
         trap_distance_override = monitoring_trapping_map_trap_distance,
-        trap_capture_markers_override = monitoring_trapping_map_show_true,
+        trap_capture_markers_override = monitoring_trapping_map_show_trap_capture_markers,
         trap_check_counters_override = monitoring_trapping_map_show_trap_check_counters,
         unchecked_traps_override = monitoring_trapping_map_show_unchecked_traps,
+        trap_capture_heatmap_override = monitoring_trapping_map_show_trap_capture_heatmap,
+        trap_check_heatmap_override = monitoring_trapping_map_show_trap_check_heatmap,
         use_net = global_use_net,
         trap_data = trap_data,
         density_scale_max_override = monitoring_trapping_map_scale_max
