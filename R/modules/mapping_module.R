@@ -1066,9 +1066,9 @@ mapping_module_ui <- function(id,
                 tags$div(
                   class = "trap-capture-sub-options",
                   checkboxInput(
-                    inputId = ns("show_unchecked_traps"),
-                    label = "Show unchecked traps",
-                    value = TRUE
+                    inputId = ns("show_trap_check_count"),
+                    label = "Show count",
+                    value = FALSE
                   )
                 )
               ),
@@ -1148,9 +1148,9 @@ mapping_module_ui <- function(id,
                 tags$div(
                   class = "trap-capture-sub-options",
                   checkboxInput(
-                    inputId = ns("show_unchecked_traps"),
-                    label = "Show unchecked traps",
-                    value = TRUE
+                    inputId = ns("show_trap_check_count"),
+                    label = "Show count",
+                    value = FALSE
                   )
                 )
               )
@@ -1304,9 +1304,9 @@ mapping_module_ui <- function(id,
                 tags$div(
                   class = "trap-capture-sub-options",
                   checkboxInput(
-                    inputId = ns("show_unchecked_traps"),
-                    label = "Show unchecked traps",
-                    value = TRUE
+                    inputId = ns("show_trap_check_count"),
+                    label = "Show count",
+                    value = FALSE
                   )
                 )
               ),
@@ -1809,10 +1809,10 @@ mapping_module_server <- function(id,
       trap_check_frequency_requested()
     })
 
-    show_unchecked_traps_selected <- reactive({
+    show_trap_check_count_selected <- reactive({
       if (!isTRUE(show_trap_check_frequency_selected())) return(FALSE)
-      value <- input$show_unchecked_traps
-      if (is.null(value)) TRUE else isTRUE(value)
+      value <- input$show_trap_check_count
+      if (is.null(value)) FALSE else isTRUE(value)
     })
 
 
@@ -2707,7 +2707,7 @@ mapping_module_server <- function(id,
             localities_dens,
             trap_locality_distance_km_selected(),
             include_blank_checks = show_trap_check_frequency_selected(),
-            include_unchecked_locations = show_trap_unchecked_locations_selected() || show_unchecked_traps_selected(),
+            include_unchecked_locations = show_trap_unchecked_locations_selected(),
             period_intervals = selected_period_intervals_dens
           )
           trap_cumulative_records_dens <- trap_observations_dens
@@ -2803,7 +2803,7 @@ mapping_module_server <- function(id,
             enabled_trap_marker_types_dens <- c(
               if (isTRUE(capture_records_selected())) "capture",
               if (isTRUE(show_trap_check_frequency_selected())) "check",
-              if (isTRUE(show_trap_unchecked_locations_selected()) || isTRUE(show_unchecked_traps_selected())) "unchecked"
+              if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
             )
             metrics_trap_marker_types_dens <- union(
               enabled_trap_marker_types_dens,
@@ -2851,7 +2851,7 @@ mapping_module_server <- function(id,
                 captures_per_100_trap_days_selected_species, captures_per_100_trap_days_any_species
               )
           }
-          if (isTRUE(show_trap_unchecked_locations_selected()) || isTRUE(show_unchecked_traps_selected())) {
+          if (isTRUE(show_trap_unchecked_locations_selected()) || isTRUE(show_trap_unchecked_locations_selected())) {
             unchecked_summary_dens <- create_trap_unchecked_summary(trap_observations_dens)
             if (nrow(unchecked_summary_dens) > 0) {
               trap_support_locations_dens <- dplyr::bind_rows(
@@ -3249,7 +3249,7 @@ mapping_module_server <- function(id,
           enabled_trap_marker_types_dens <- c(
             if (isTRUE(capture_records_selected())) "capture",
             if (isTRUE(show_trap_check_frequency_selected())) "check",
-            if (isTRUE(show_trap_unchecked_locations_selected()) || isTRUE(show_unchecked_traps_selected())) "unchecked"
+            if (isTRUE(show_trap_unchecked_locations_selected())) "unchecked"
           )
           visible_trap_records_dens <- visible_trap_records_dens %>%
             dplyr::filter(.data$trap_marker_type %in% enabled_trap_marker_types_dens)
@@ -3321,6 +3321,7 @@ mapping_module_server <- function(id,
           capture_density_surface = capture_density_surface,
           capture_density_surface_message = capture_density_surface_message,
           show_trap_check_frequency = show_trap_check_frequency_selected(),
+          show_trap_check_count = show_trap_check_count_selected(),
           trap_check_heatmap_data = trap_check_heatmap_data_dens,
           show_observation_records = observation_records_selected(),
           show_capture_records = capture_records_selected(),
@@ -3351,7 +3352,8 @@ mapping_module_server <- function(id,
             show_capture_density_surface_selected(),
             capture_density_surface_cache_key,
             show_trap_check_frequency_selected(),
-            show_unchecked_traps_selected(),
+            show_trap_check_count_selected(),
+            show_trap_unchecked_locations_selected(),
             if (is.null(skip_notice)) "no-skip-notice" else skip_notice,
             sep = "|"
           ),
@@ -3398,6 +3400,7 @@ mapping_module_server <- function(id,
           capture_density_surface = data_for_map$capture_density_surface,
           capture_density_surface_message = data_for_map$capture_density_surface_message,
           show_trap_check_frequency = data_for_map$show_trap_check_frequency,
+          show_trap_check_count = data_for_map$show_trap_check_count,
           trap_check_heatmap_data = data_for_map$trap_check_heatmap_data,
           show_observation_records = data_for_map$show_observation_records,
           show_capture_records = data_for_map$show_capture_records,
@@ -3789,6 +3792,7 @@ update_map <- function(map_id = NULL,
                                capture_density_surface = NULL,
                                capture_density_surface_message = NULL,
                                show_trap_check_frequency = FALSE,
+                               show_trap_check_count = FALSE,
                                trap_check_heatmap_data = NULL,
                                show_observation_records = TRUE,
                                show_capture_records = FALSE,
@@ -3860,7 +3864,7 @@ update_map <- function(map_id = NULL,
     )
   }
 
-  if (!is.null(trap_legend_html)) {
+  if (identical(species_display_mode, "separate") && !is.null(trap_legend_html)) {
     proxy <- proxy %>% addControl(
       html = trap_legend_html,
       position = legend_position,
@@ -4338,12 +4342,41 @@ update_map <- function(map_id = NULL,
     check_data$popup_html <- vapply(seq_len(nrow(check_data)), function(i) {
       create_trap_location_popup_content(check_data[i, , drop = FALSE], capture_links_html = "")
     }, character(1))
-    proxy <- render_intensity_circles(
-      proxy, check_data,
-      base_color = heatmap_dataset_colors[["trap_check"]],
-      group_name = "Trap check frequency",
-      scale_max = absolute_max
-    )
+    if (isTRUE(show_trap_check_count)) {
+      valid_check_data <- check_data[is.finite(check_data$value) & check_data$value > 0, , drop = FALSE]
+      if (nrow(valid_check_data) > 0) {
+        max_checks_val <- max(valid_check_data$value, na.rm = TRUE)
+        if (!is.finite(max_checks_val) || max_checks_val <= 0) max_checks_val <- 1
+        intensity_scale_max <- if (is.na(intensity_scale_max)) max_checks_val else max(intensity_scale_max, max_checks_val)
+        valid_check_data$marker_radius <- vapply(valid_check_data$value, scale_summary_marker_radius, numeric(1),
+                                                  max_value = max_checks_val, range = c(5, 17))
+        valid_check_data$count_label <- vapply(valid_check_data$value, format_summary_count, character(1))
+        proxy <- proxy %>%
+          addCircleMarkers(
+            data = valid_check_data,
+            lng = ~longitude, lat = ~latitude,
+            radius = ~marker_radius,
+            color = "#7dd3fc",
+            fillColor = "#e0f2fe",
+            fillOpacity = 0.18,
+            weight = 1.5,
+            opacity = 0.7,
+            dashArray = "2,8",
+            popup = ~popup_html,
+            label = ~htmltools::HTML(count_label),
+            labelOptions = labelOptions(permanent = TRUE, direction = "center", textOnly = TRUE,
+                                        opacity = 1, textsize = "10px", className = "trap-check-count-label"),
+            group = "Trap check frequency"
+          )
+      }
+    } else {
+      proxy <- render_intensity_circles(
+        proxy, check_data,
+        base_color = heatmap_dataset_colors[["trap_check"]],
+        group_name = "Trap check frequency",
+        scale_max = absolute_max
+      )
+    }
     heatmap_visible_layers <- c(heatmap_visible_layers, "trap_check")
   }
 
@@ -6264,18 +6297,9 @@ create_trap_map_markers <- function(trap_observations) {
 
   markers <- list()
 
-  check_summary <- create_trap_marker_summary(trap_observations)
-  if (nrow(check_summary) > 0 && any(check_summary$no_selected_species_capture_checks > 0, na.rm = TRUE)) {
-    max_checks <- max(check_summary$checks, na.rm = TRUE)
-    check_markers <- lapply(seq_len(nrow(check_summary)), function(i) {
-      create_trap_check_effort_marker(check_summary[i, ], max_checks)
-    })
-    markers <- c(markers, check_markers)
-  }
-
   unchecked_summary <- create_trap_unchecked_summary(trap_observations)
   if (nrow(unchecked_summary) > 0) {
-    max_checks <- if (nrow(check_summary) > 0) max(check_summary$checks, na.rm = TRUE) else 1
+    max_checks <- 1
     unchecked_markers <- lapply(seq_len(nrow(unchecked_summary)), function(i) {
       create_trap_check_effort_marker(unchecked_summary[i, ], max_checks)
     })
@@ -6321,13 +6345,6 @@ render_trap_marker_legend <- function(trap_observations, monitoring_observations
   rows <- c(
     "<div class='trap-marker-legend-row'><span class='map-legend-circle map-legend-monitoring'></span>Monitoring observations</div>"
   )
-
-  if (has_trap_observations && any(trap_observations$trap_marker_type == "check", na.rm = TRUE)) {
-    rows <- c(
-      rows,
-      "<div class='trap-marker-legend-row'><span class='map-legend-circle map-legend-trap-check'></span>Trap checks</div>"
-    )
-  }
 
   group_labels <- c(
     stoat = "Stoat trap captures",
