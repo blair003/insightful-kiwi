@@ -1233,7 +1233,7 @@ server <- function(input, output, session) {
   })
 
   density_show_trap_check_counters <- reactive({
-    isTRUE(input[["density_map_primary-show_trap_blank_checks"]])
+    FALSE
   })
 
   density_show_unchecked_traps <- reactive({
@@ -1241,19 +1241,17 @@ server <- function(input, output, session) {
   })
 
   density_data_source <- reactive({
-    include_monitoring <- if (is.null(input[["density_map_primary-show_density_location_markers"]]) &&
+    include_monitoring <- if (is.null(input[["density_map_primary-show_observation_records"]]) &&
                               is.null(input[["density_map_primary-show_predicted_rai_surface"]])) {
       TRUE
     } else {
-      isTRUE(input[["density_map_primary-show_density_location_markers"]]) ||
-        isTRUE(input[["density_map_primary-show_predicted_rai_surface"]]) ||
-        isTRUE(input[["density_map_primary-show_monitoring_heatmap"]])
+      isTRUE(input[["density_map_primary-show_observation_records"]]) ||
+        isTRUE(input[["density_map_primary-show_predicted_rai_surface"]])
     }
     include_trapping <- !is.null(trap_data) && (
-      isTRUE(input[["density_map_primary-show_trap_capture_markers"]]) ||
+      isTRUE(input[["density_map_primary-show_capture_records"]]) ||
         isTRUE(input[["density_map_primary-show_trap_unchecked_locations"]]) ||
-        isTRUE(input[["density_map_primary-show_trap_capture_heatmap"]]) ||
-        isTRUE(input[["density_map_primary-show_trap_check_heatmap"]])
+        isTRUE(input[["density_map_primary-show_trap_check_frequency"]])
     )
     if (include_monitoring && include_trapping) return("both")
     if (include_trapping) return("trapping")
@@ -1395,7 +1393,7 @@ server <- function(input, output, session) {
   })
 
   monitoring_trapping_map_show_location_markers <- reactive({
-    value <- input[["monitoring_trapping_map_monitoring-show_density_location_markers"]]
+    value <- input[["monitoring_trapping_map_monitoring-show_observation_records"]]
     if (is.null(value)) TRUE else isTRUE(value)
   })
 
@@ -1404,24 +1402,16 @@ server <- function(input, output, session) {
   })
 
   monitoring_trapping_map_show_trap_capture_markers <- reactive({
-    value <- input[["monitoring_trapping_map_monitoring-show_trap_capture_markers"]]
+    value <- input[["monitoring_trapping_map_monitoring-show_capture_records"]]
     if (is.null(value)) TRUE else isTRUE(value)
-  })
-
-  monitoring_trapping_map_show_trap_check_counters <- reactive({
-    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_blank_checks"]])
   })
 
   monitoring_trapping_map_show_unchecked_traps <- reactive({
     isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_unchecked_locations"]])
   })
 
-  monitoring_trapping_map_show_trap_capture_heatmap <- reactive({
-    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_capture_heatmap"]])
-  })
-
-  monitoring_trapping_map_show_trap_check_heatmap <- reactive({
-    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_check_heatmap"]])
+  monitoring_trapping_map_show_trap_check_frequency <- reactive({
+    isTRUE(input[["monitoring_trapping_map_monitoring-show_trap_check_frequency"]])
   })
 
   monitoring_trapping_map_max_location_count <- function(observations, species, localities) {
@@ -1553,15 +1543,12 @@ server <- function(input, output, session) {
         prediction_surface_override = density_map_primary$show_predicted_rai_surface,
         prediction_surface_basis_override = density_map_primary$predicted_rai_surface_basis,
         capture_density_surface_override = density_map_primary$show_capture_density_surface,
-        monitoring_heatmap_override = density_map_primary$show_monitoring_heatmap,
-        trap_capture_heatmap_override = density_map_primary$show_trap_capture_heatmap,
-        trap_check_heatmap_override = density_map_primary$show_trap_check_heatmap,
+        trap_check_frequency_override = density_map_primary$show_trap_check_frequency,
         species_display_mode_override = density_map_primary$species_display_mode,
-        location_markers_override = density_map_primary$show_density_location_markers,
+        location_markers_override = density_map_primary$show_observation_records,
         density_data_source_override = density_data_source,
         trap_distance_override = density_trap_distance,
-        trap_capture_markers_override = density_map_primary$show_trap_capture_markers,
-        trap_check_counters_override = density_show_trap_check_counters,
+        trap_capture_markers_override = density_map_primary$show_capture_records,
         unchecked_traps_override = density_show_unchecked_traps,
         use_net = global_use_net,
         trap_data = trap_data,
@@ -1612,10 +1599,8 @@ server <- function(input, output, session) {
         density_data_source_override = monitoring_trapping_map_source_trapping,
         trap_distance_override = monitoring_trapping_map_trap_distance,
         trap_capture_markers_override = monitoring_trapping_map_show_trap_capture_markers,
-        trap_check_counters_override = monitoring_trapping_map_show_trap_check_counters,
         unchecked_traps_override = monitoring_trapping_map_show_unchecked_traps,
-        trap_capture_heatmap_override = monitoring_trapping_map_show_trap_capture_heatmap,
-        trap_check_heatmap_override = monitoring_trapping_map_show_trap_check_heatmap,
+        trap_check_frequency_override = monitoring_trapping_map_show_trap_check_frequency,
         use_net = global_use_net,
         trap_data = trap_data,
         density_scale_max_override = monitoring_trapping_map_scale_max
