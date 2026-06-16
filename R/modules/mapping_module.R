@@ -1072,7 +1072,7 @@ mapping_module_ui <- function(id,
           },
           if (isTRUE(include_marker_options) && isTRUE(trap_data_available)) {
             tagList(
-              tags$strong("Trapping records:"),
+              tags$strong("Trapping Records:"),
               checkboxInput(
                 inputId = ns("show_trap_capture_markers"),
                 label = "Capture Counts",
@@ -1200,7 +1200,7 @@ mapping_module_ui <- function(id,
           if (isTRUE(trap_data_available)) {
             tagList(
               tags$hr(),
-              tags$strong("Trapping records:"),
+              tags$strong("Trapping Records:"),
               checkboxInput(
                 inputId = ns("show_trap_capture_markers"),
                 label = "Trap capture counts",
@@ -1396,7 +1396,7 @@ mapping_module_ui <- function(id,
           },
           if (isTRUE(include_observation_layer_options)) {
             tagList(
-              tags$strong("Trapping records:"),
+              tags$strong("Trapping Records:"),
               checkboxInput(
                 inputId = ns("show_trap_capture_markers"),
                 label = "Trap capture counts",
