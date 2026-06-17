@@ -8,6 +8,7 @@ apt-get update
 apt-get install -y --no-install-recommends \
     gnupg \
     wget \
+    nano \
     ca-certificates
 
 wget -q -O - https://dl.google.com/linux/linux_signing_key.pub \

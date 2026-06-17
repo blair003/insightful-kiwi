@@ -12,10 +12,8 @@ ui <- function(request) {
       'overview': false,
       'plots': true,
       'reporting': true,
-      'density_map': true,
-      'monitoring_trapping_map': true,
-      'density_timeline_map': true,
-      'activity_pattern_map': true,
+      'spatial_analysis': true,
+      'temporal_analysis': true,
       'monitoring_trapping': true,
       'monitoring_trapping_analysis': true,
       'activity_patterns': true,
@@ -45,6 +43,8 @@ ui <- function(request) {
       add_busy_spinner(spin = "cube-grid", color = "#cf6819", onstart = TRUE), 
       tags$head(
         tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
+        # Per-module stylesheets (first split out of custom.css; load after it).
+        tags$link(rel = "stylesheet", type = "text/css", href = "styles/spatial_analysis.css"),
         tags$link(rel = "icon", href = "images/icons/favicon.png", type = "image/png"),
         tags$script(src = "custom.js"),
         tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"),
@@ -85,27 +85,6 @@ ui <- function(request) {
         )
       ),
 
-      conditionalPanel(
-        condition = "input.nav === 'density_map'",
-
-        period_selection_module_ui(
-          id = "density_map_period",
-          view = "select",
-          choices = period_choices,
-          selected = core_data$app$period_defaults$primary_period,
-          label = "Primary period:",
-          multiple = TRUE
-        ),
-        period_selection_module_ui(
-          id = "comparative_period",
-          view = "select",
-          choices = period_choices,
-          selected = core_data$app$period_defaults$comparative_period,
-          label = "Compare with:",
-          multiple = TRUE
-        )
-      ),
-      
       overview_module_ui("overview", view = "sidebar", core_data = core_data, config = config),
       conditionalPanel(
         condition = "input.nav === 'reporting' && input.reporting_tabs === 'plots'",
@@ -155,170 +134,31 @@ ui <- function(request) {
       ), # conditionalPanel
       
       
-      ######### DENSITY MAP #########
-      # Conditional content for Density Map
+      ######### SPATIAL ANALYSIS (unified workbench) #########
       conditionalPanel(
-        condition = "input.nav === 'density_map'",
-
-        mapping_module_ui(
-          id = "density_map_primary",
-          view = "select_species",
-          choices = core_data$app$spp_classes,
-          selected = c(
-            core_data$app$spp_classes[[1]][1],  # First species from the first list
-            core_data$app$spp_classes[[1]][2],  # Second species from the first list
-            core_data$app$spp_classes[[1]][3]  # Third species from the first list
-          ),
-          include_species_display_mode = TRUE
-        ),
-        
-        mapping_module_ui(
-          id = "density_map_primary",
-          view = "select_localities",
-          choices = unique(core_data$deps$locality),  # Set choices to unique localities
-          selected = unique(core_data$deps$locality)  # Default selection is all localities
-        ),
-
-        mapping_module_ui(
-          id = "density_map_primary",
-          view = "density_options"
-        )
-      ), # conditionalPanel
-      
-      if (!is.null(trap_data)) {
-        conditionalPanel(
-          condition = "input.nav === 'monitoring_trapping_map'",
-
-          period_selection_module_ui(
-            id = "monitoring_trapping_map_period",
-            view = "select",
-            choices = period_choices,
-            selected = core_data$app$period_defaults$primary_period,
-            label = "Period:",
-            multiple = TRUE
-          ),
-
-          mapping_module_ui(
-            id = "monitoring_trapping_map_monitoring",
-            view = "select_species",
-            choices = core_data$app$spp_classes,
-            selected = c(
-              core_data$app$spp_classes[[1]][1],
-              core_data$app$spp_classes[[1]][2],
-              core_data$app$spp_classes[[1]][3]
-            ),
-            show_combined_species_note = FALSE
-          ),
-
-          mapping_module_ui(
-            id = "monitoring_trapping_map_monitoring",
-            view = "select_localities",
-            choices = unique(core_data$deps$locality),
-            selected = unique(core_data$deps$locality)
-          ),
-
-          mapping_module_ui(
-            id = "monitoring_trapping_map_monitoring",
-            view = "monitoring_trapping_density_options"
-          )
-        )
-      },
-      
-      conditionalPanel(
-        condition = "input.nav === 'density_timeline_map'",
-
-        period_selection_module_ui(
-          id = "timeline_period",
-          view = "select",
-          choices = period_choices,
-          selected = core_data$app$period_defaults$primary_period,
-          label = "Period:",
-          multiple = TRUE
-        ),
-
-        mapping_module_ui(
-          id = "density_timeline_map",
-          view = "select_species",
-          choices = core_data$app$spp_classes,
-          selected = c(
-            core_data$app$spp_classes[[1]][1],
-            core_data$app$spp_classes[[1]][2],
-            core_data$app$spp_classes[[1]][3]
-          ),
-          include_species_display_mode = TRUE
-        ),
-
-        mapping_module_ui(
-          id = "density_timeline_map",
-          view = "select_localities",
-          choices = unique(core_data$deps$locality),
-          selected = unique(core_data$deps$locality)
-        ),
-
-        mapping_module_ui(
-          id = "density_timeline_map",
-          view = "density_options",
-          include_prediction_option = FALSE,
-          include_marker_options = FALSE
-        ),
-
-        mapping_module_ui(
-          id = "density_timeline_map",
-          view = "density_timeline_controls",
-          include_marker_options = TRUE,
-          include_observation_layer_options = TRUE
+        condition = "input.nav === 'spatial_analysis'",
+        spatial_analysis_module_ui(
+          "spatial_analysis",
+          view = "sidebar",
+          spec = spatial_analysis_default_spec(),
+          core_data = core_data,
+          trap_data = trap_data
         )
       ),
 
+      ######### TEMPORAL ANALYSIS (cyclic activity pattern, monitoring-only) #########
+      # trap_data = NULL: temporal is monitoring-only, and trapping has no
+      # fine-grained temporal data — this keeps the engine from fetching it.
       conditionalPanel(
-        condition = "input.nav === 'activity_pattern_map'",
-
-        period_selection_module_ui(
-          id = "activity_pattern_period",
-          view = "select",
-          choices = period_choices,
-          selected = core_data$app$period_defaults$primary_period,
-          label = "Period:",
-          multiple = TRUE
-        ),
-
-        mapping_module_ui(
-          id = "activity_pattern_map",
-          view = "select_species",
-          choices = core_data$app$spp_classes,
-          selected = c(
-            core_data$app$spp_classes[[1]][1],
-            core_data$app$spp_classes[[1]][2],
-            core_data$app$spp_classes[[1]][3]
-          ),
-          include_species_display_mode = TRUE
-        ),
-
-        mapping_module_ui(
-          id = "activity_pattern_map",
-          view = "select_localities",
-          choices = unique(core_data$deps$locality),
-          selected = unique(core_data$deps$locality)
-        ),
-
-        mapping_module_ui(
-          id = "activity_pattern_map",
-          view = "density_options",
-          include_prediction_option = FALSE,
-          include_marker_options = FALSE,
-          include_density_trap_option = FALSE
-        ),
-
-        mapping_module_ui(
-          id = "activity_pattern_map",
-          view = "density_timeline_controls",
-          include_marker_options = TRUE,
-          include_observation_layer_options = FALSE,
-          include_prediction_option = FALSE,
-          lock_observation_markers = TRUE
+        condition = "input.nav === 'temporal_analysis'",
+        spatial_analysis_module_ui(
+          "temporal_analysis",
+          view = "sidebar",
+          spec = spatial_analysis_preset("temporal_analysis"),
+          core_data = core_data,
+          trap_data = NULL
         )
       ),
-
 
       conditionalPanel(
         condition = "input.nav === 'monitoring_trapping'",
@@ -348,105 +188,35 @@ ui <- function(request) {
         title = "Maps",
         icon = icon("map"),
 
-        ######### DENSITY MAP OUTPUT #########
+        ######### SPATIAL ANALYSIS (unified workbench) #########
         nav_panel(
-          title = "Density Summary",
-         # icon = icon("bullseye"),
-          icon = icon("layer-group"),
-          value = "density_map",
-          div(
-            class = "map-page-heading",
-            h2("Density Summary"),
-            uiOutput("density_map_selection_heading")
-          ),
-
-          mapping_module_ui(
-            id = "density_map_comparison",
-            view = "density_comparison_layout",
-            primary_map_id = "density_map_primary",
-            comparative_map_id = "density_map_comparative",
-            primary_heading_output_id = "primary_season_name",
-            comparative_heading_output_id = "comparative_season_name",
-            primary_meta_output_id = "primary_density_map_period_readout",
-            comparative_meta_output_id = "comparative_density_map_period_readout"
+          title = "Spatial (Expert)",
+          icon = icon("map-location-dot"),
+          value = "spatial_analysis",
+          spatial_analysis_module_ui(
+            "spatial_analysis",
+            view = "main",
+            spec = spatial_analysis_default_spec(),
+            core_data = core_data,
+            trap_data = trap_data,
+            page_title = "Spatial (Expert)"
           )
         ),
 
-                ######### DENSITY TIMELINE MAP OUTPUT #########
+        ######### TEMPORAL ANALYSIS (cyclic activity pattern, monitoring-only) #########
         nav_panel(
-          title = "Density Timeline",
-          icon = icon("play-circle"),
-          value = "density_timeline_map",
-          div(
-            class = "map-page-heading",
-            h2("Density Timeline"),
-            uiOutput("density_timeline_map_selection_heading")
-          ),
-          mapping_module_ui("density_timeline_map", view = "density_timeline_layout")
-        ),
-
-                ######### ACTIVITY PATTERN MAP OUTPUT #########
-        nav_panel(
-          title = "Activity Pattern Density",
+          title = "Temporal (Expert)",
           icon = icon("clock"),
-          value = "activity_pattern_map",
-          div(
-            class = "map-page-heading",
-            h2("Activity Pattern Density"),
-            uiOutput("activity_pattern_map_selection_heading")
-          ),
-          mapping_module_ui(
-            "activity_pattern_map",
-            view = "density_timeline_layout",
-            timeline_step_size_choices = c(
-              "Hourly" = "hour",
-              "Diel activity" = "diel",
-              "Daily - Day/Night" = "day_night"
-            ),
-            timeline_step_size_selected = "day_night"
+          value = "temporal_analysis",
+          spatial_analysis_module_ui(
+            "temporal_analysis",
+            view = "main",
+            spec = spatial_analysis_preset("temporal_analysis"),
+            core_data = core_data,
+            trap_data = NULL,
+            page_title = "Temporal (Expert)"
           )
         ),
-
-
-        ######### MONITORING VS TRAPPING MAP OUTPUT #########
-        if (!is.null(trap_data)) {
-          nav_panel(
-            title = "Monitoring vs Trapping",
-            icon = icon("scale-balanced"),
-            value = "monitoring_trapping_map",
-            div(
-              class = "map-page-heading",
-              h2("Monitoring vs Trapping"),
-              uiOutput("monitoring_trapping_map_selection_heading")
-            ),
-            mapping_module_ui(
-              id = "monitoring_trapping_map_comparison",
-              view = "density_comparison_layout",
-              primary_map_id = "monitoring_trapping_map_monitoring",
-              comparative_map_id = "monitoring_trapping_map_trapping",
-              primary_meta_output_id = "monitoring_trapping_map_monitoring_period_readout",
-              comparative_meta_output_id = "monitoring_trapping_map_trapping_period_readout",
-              primary_title = "Monitoring data",
-              comparative_title = "Trapping data",
-              primary_data_label = "Monitoring",
-              comparative_data_label = "Trapping",
-              primary_data_title = "Monitoring Records",
-              comparative_data_title = "Trapping Records"
-            )
-          )
-        },
-
-
-        ######### MONITORING & TRAPPING OUTPUT #########
-        # Supercded by new Density Map and Density Map Timeline
-      #  if (!is.null(trap_data)) {
-      #    nav_panel(
-      #      title = "Monitoring & Trapping",
-      #      icon = icon("scale-balanced"),
-      #      value = "monitoring_trapping",
-      #      trapping_outcomes_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "main")
-      #    )
-      #  },
 
         ######### TRAPPING ANALYSIS REFERENCE OUTPUT #########
         if (!is.null(trap_data)) {

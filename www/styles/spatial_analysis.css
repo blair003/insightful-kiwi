@@ -1,0 +1,328 @@
+/* ============================================================================
+   Spatial Analysis workbench styles (spatial_analysis_module + the timeline /
+   overlay bits it drives in spatial_map_module). Extracted from custom.css as
+   the first per-module stylesheet; linked separately in ui.R. Engine-shared
+   rules (.timeline-bar, .map-swipe-*, .map-season-badge, .density-summary-*)
+   stay in custom.css.
+   ============================================================================ */
+
+/* Spatial Analysis: per-item "Linked" toggle in the comparison sidebar.
+   The item keeps its widget's native label; the small Linked checkbox floats to
+   the top-right, aligned with that label line. */
+.sa-linkable {
+  position: relative;
+}
+.sa-link-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  margin: 0;
+}
+.sa-link-toggle .form-group,
+.sa-link-toggle .shiny-input-container,
+.sa-link-toggle .checkbox {
+  margin: 0;
+  min-height: 0;
+}
+/* Render the link checkbox as a clickable chain icon (linked) / broken chain
+   (independent). The checkbox itself is hidden; :has() swaps which glyph shows. */
+.sa-link-toggle .checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.sa-link-toggle .checkbox label {
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  font-size: 0.95rem;
+  color: #6c757d;
+  line-height: 1;
+}
+.sa-link-toggle .checkbox label:hover {
+  color: #0d6efd;
+}
+.sa-link-toggle .sa-icon-unlinked {
+  display: none;
+}
+.sa-link-toggle .checkbox label:has(input:not(:checked)) .sa-icon-linked {
+  display: none;
+}
+.sa-link-toggle .checkbox label:has(input:not(:checked)) .sa-icon-unlinked {
+  display: inline;
+  color: #dc3545;
+}
+
+/* Analysis-mode row: heading on the left, gear on the right. */
+.sa-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.15rem;
+}
+.sa-mode-heading {
+  font-weight: 600;
+}
+.sa-mode-row .form-group {
+  margin-bottom: 0;
+}
+/* Locked field marker (padlock) — reuses .sa-link-toggle positioning. */
+.sa-link-toggle.sa-locked {
+  color: #6c757d;
+  cursor: default;
+  font-size: 0.95rem;
+}
+.sa-settings-link {
+  font-size: 1.1rem;
+  color: #6c757d;
+  text-decoration: none;
+  flex: 0 0 auto;
+}
+.sa-settings-link:hover {
+  color: #0d6efd;
+}
+/* A revealed (unlinked) comparison-side field, made obvious: blue left rule plus a
+   small "Comparison map" tag so it's clear the field belongs to the second map. */
+.sa-comparison-field {
+  border-left: 3px solid #0d6efd;
+  padding-left: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.sa-comparison-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #0d6efd;
+  margin-bottom: 0.2rem;
+}
+.sa-species-note {
+  display: block;
+  margin: -0.25rem 0 0.6rem 0;
+  color: #6c757d;
+}
+/* Badge on the comparison map listing fields that differ from the primary. */
+.sa-differs-note {
+  margin-top: 0.3rem;
+  font-size: 0.7rem;
+  color: #dc3545;
+}
+.sa-differs-note .fa-link-slash,
+.sa-differs-note .fa-unlink {
+  margin-right: 0.25rem;
+}
+/* Selected-species line shown under a map heading. */
+.sa-species-line {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: #495057;
+}
+/* Timeline toggle sits tight under the Period box, not a paragraph below it. */
+.sa-timeline-toggle {
+  margin-top: -0.35rem;
+}
+.sa-timeline-toggle .checkbox,
+.sa-timeline-toggle .form-group {
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+}
+/* Current-step season/window/monitoring appended inside the identity overlay. */
+.sa-now-block {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+}
+.sa-now-block .map-season-badge {
+  display: block;
+  min-width: 0;
+  max-width: none;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+.sa-now-block .map-season-badge > span,
+.sa-now-block .map-season-badge > small {
+  display: block;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+/* Single-map mode selection heading (above the map/records tabs). */
+.sa-single-heading {
+  margin: 0 0 0.5rem 0;
+}
+.sa-single-heading h3 {
+  margin: 0 0 0.1rem 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+/* Count overlay: narrower, and a gap between stacked tables when both show.
+   Pushed down so it sits clear of the identity heading overlay (which is at the
+   top of the same side); may need tuning when the heading grows in timeline mode. */
+.density-summary-control-wrapper {
+  max-width: min(260px, calc(100vw - 32px));
+  margin-top: 4.5rem;
+}
+.density-summary-control + .density-summary-control {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.18);
+}
+/* Monitoring / Trapping output groups: a light boxed panel with a heading on
+   top, mimicking the multiselect interface style, with tighter checkbox rows. */
+.sa-layer-group {
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  background: rgba(248, 249, 250, 0.55);
+  padding: 0.4rem 0.6rem 0.45rem;
+  margin-bottom: 0.6rem;
+}
+.sa-layer-group-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #495057;
+  margin-bottom: 0.3rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+.sa-layer-group .checkbox,
+.sa-layer-group .form-group {
+  margin-top: 0.1rem;
+  margin-bottom: 0.1rem;
+}
+.sa-layer-group .prediction-surface-options {
+  margin-top: 0.2rem;
+}
+/* Map mode: three centered icon buttons (Single / Swipe compare / Side by side),
+   no encapsulating box, radio dots hidden, the selected one highlighted. */
+.sa-view-mode {
+  margin-bottom: 0.85rem;
+}
+.sa-view-mode-label {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-bottom: 0.3rem;
+}
+/* Map mode + Map settings gear side by side in adjoining bordered cells. */
+.sa-mode-settings-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+.sa-mode-settings-row .sa-view-mode {
+  flex: 1 1 auto;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0;
+}
+.sa-mode-settings-row .sa-settings-cell {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  padding: 0 0.55rem;
+}
+.sa-mode-settings-row.sa-settings-only {
+  justify-content: flex-end;
+}
+.sa-view-icons .control-label:empty {
+  display: none;
+}
+.sa-view-icons .shiny-options-group {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  margin-top: 0;
+  justify-content: center;
+}
+.sa-view-icons .radio-inline {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+}
+.sa-view-icons .radio-inline input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.sa-view-icons .radio-inline span {
+  font-size: 1.15rem;
+  color: #495057;
+}
+.sa-view-icons .radio-inline:hover {
+  border-color: #0d6efd;
+}
+.sa-view-icons .radio-inline:has(input:checked) {
+  border-color: #0d6efd;
+  background: rgba(13, 110, 253, 0.1);
+}
+.sa-view-icons .radio-inline:has(input:checked) span {
+  color: #0d6efd;
+}
+/* Period item: keep the Timeline checkbox tight under the period selector. */
+.sa-period-item .form-group {
+  margin-bottom: 0.35rem;
+}
+.sa-period-item .sa-timeline-toggle {
+  margin-top: 0;
+}
+.sa-period-item .sa-timeline-toggle .checkbox {
+  margin: 0;
+}
+/* Page-heading row: title on the left, the Map settings gear on the right. */
+.sa-page-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.sa-page-heading-row h2 {
+  margin-bottom: 0;
+}
+/* Single-map: the leaflet fills the wrapper, whose height fits the viewport so the
+   page doesn't scroll. The .has-timeline variant accounts for the timeline bar's
+   height (toggled by shinyjs), so there's no white space when the bar is hidden and
+   no overflow when it's shown. Tune the rem offsets to your chrome if needed. */
+.sa-single-map-wrap {
+  position: relative;
+  height: calc(100vh - 12rem);
+  min-height: 360px;
+}
+.sa-single-map-wrap.has-timeline {
+  height: calc(100vh - 18rem);
+}
+.sa-single-map-wrap > .html-widget,
+.sa-single-map-wrap > .leaflet,
+.sa-single-map-wrap .leaflet-container {
+  height: 100% !important;
+}
+.sa-single-label {
+  max-width: min(360px, calc(100% - 5rem));
+}
+/* Comparison + Timeline: timeline bar(s) above the swipe. Side by side when both
+   show (Period unlinked), primary first so it leads when they wrap on mobile. */
+/* Grid with equal tracks = guaranteed 50/50 regardless of each bar's content
+   (flexbox let the content-heavier left bar grow wider). auto-fit collapses to one
+   column when only one bar shows (Period linked) and stacks on narrow screens. */
+.sa-comparison-timeline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.sa-comparison-timeline > * {
+  min-width: 0;
+}

@@ -10,14 +10,14 @@ activity_patterns_module_ui <- function(id,
     return(
       conditionalPanel(
         condition = "input.nav === 'activity_patterns' || (input.nav === 'reporting' && input.reporting_tabs === 'activity_patterns')",
-        mapping_module_ui(
+        spatial_map_module_ui(
           id = ns("activity_patterns_map"),
           view = "select_species",
           choices = species_choices,
           selected = selected_species,
           multiple = TRUE
         ),
-        mapping_module_ui(
+        spatial_map_module_ui(
           id = ns("activity_patterns_map"),
           view = "select_localities",
           choices = locality_choices,
@@ -67,8 +67,8 @@ activity_patterns_module_server <- function(id,
 
     observeEvent(nav(), {
       if (nav() == "activity_patterns" && !activity_patterns_loaded()) {
-        logger::log_debug("activity_patterns_module_server, lazily calling mapping_module_server()")
-        activity_patterns_map <<- mapping_module_server(
+        logger::log_debug("activity_patterns_module_server, lazily calling spatial_map_module_server()")
+        activity_patterns_map <<- spatial_map_module_server(
           id = "activity_patterns_map",
           obs = reactive({ filter_detection_obs(core_data$obs) }),
           deps = reactive({ core_data$deps }),

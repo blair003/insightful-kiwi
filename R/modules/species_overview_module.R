@@ -626,10 +626,10 @@ species_overview_module_server <- function(id,
     render_species_density_map_ui <- function(prefix) {
       base_id <- paste0("species_density_map_", prefix)
       if (!isTRUE(species_is_trapped())) {
-        return(mapping_module_ui(id = ns(base_id), view = "map"))
+        return(spatial_map_module_ui(id = ns(base_id), view = "map"))
       }
 
-      mapping_module_ui(
+      spatial_map_module_ui(
         id = ns(paste0(base_id, "_comparison")),
         view = "density_comparison_layout",
         primary_map_id = ns(paste0(base_id, "_monitoring")),
@@ -756,7 +756,7 @@ species_overview_module_server <- function(id,
       }
 
       if (!isTRUE(trapped_species)) {
-        do.call(mapping_module_server, c(
+        do.call(spatial_map_module_server, c(
           list(
             id = base_id,
             obs = obs_reactive,
@@ -771,7 +771,7 @@ species_overview_module_server <- function(id,
       }
 
       scale_max <- species_density_scale_max(obs_reactive, period_data)
-      do.call(mapping_module_server, c(
+      do.call(spatial_map_module_server, c(
         list(
           id = paste0(base_id, "_monitoring"),
           obs = obs_reactive,
@@ -785,7 +785,7 @@ species_overview_module_server <- function(id,
         ),
         period_args
       ))
-      do.call(mapping_module_server, c(
+      do.call(spatial_map_module_server, c(
         list(
           id = paste0(base_id, "_trapping"),
           obs = obs_reactive,

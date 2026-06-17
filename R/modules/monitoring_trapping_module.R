@@ -60,7 +60,7 @@ trapping_outcomes_module_ui <- function(id,
         label = "Period:",
         multiple = TRUE
       ),
-      mapping_module_ui(
+      spatial_map_module_ui(
         id = ns("outcomes_map"),
         view = "select_species",
         choices = core_data$app$spp_classes,
@@ -72,14 +72,14 @@ trapping_outcomes_module_ui <- function(id,
         label = "Species selection:",
         show_combined_species_note = FALSE
       ),
-      mapping_module_ui(
+      spatial_map_module_ui(
         id = ns("outcomes_map"),
         view = "select_localities",
         choices = locality_choices,
         selected = locality_choices,
         label = "Localities:"
       ),
-      mapping_module_ui(
+      spatial_map_module_ui(
         id = ns("outcomes_map"),
         view = "select_map_record_options",
         include_monitoring_records_default = TRUE,
@@ -88,7 +88,7 @@ trapping_outcomes_module_ui <- function(id,
       conditionalPanel(
         condition = "input.monitoring_trapping_tabs === 'map' || (input.monitoring_trapping_tabs === 'records' && input.records_tabs === 'map_window_records')",
         ns = ns,
-        mapping_module_ui(
+        spatial_map_module_ui(
           id = ns("outcomes_map"),
           view = "density_timeline_controls",
           include_prediction_option = FALSE,
@@ -110,7 +110,7 @@ trapping_outcomes_module_ui <- function(id,
       nav_panel(
         "Map",
         value = "map",
-        mapping_module_ui(ns("outcomes_map"), view = "map_only")
+        spatial_map_module_ui(ns("outcomes_map"), view = "map_only")
       ),
       nav_panel(
         "Effort",
@@ -196,7 +196,7 @@ trapping_outcomes_module_ui <- function(id,
             "Map Window Records",
             value = "map_window_records",
             uiOutput(ns("map_window_scope_note")),
-            mapping_module_ui(ns("outcomes_map"), view = "map_record_data_panel")
+            spatial_map_module_ui(ns("outcomes_map"), view = "map_record_data_panel")
           )
         )
       )
@@ -237,7 +237,7 @@ trapping_outcomes_module_server <- function(id,
       filter_deps(core_data$deps, map_start_date(), map_end_date())
     })
 
-    outcomes_map_state <- mapping_module_server(
+    outcomes_map_state <- spatial_map_module_server(
       id = "outcomes_map",
       obs = map_obs,
       deps = map_deps,

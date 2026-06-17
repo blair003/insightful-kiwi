@@ -73,12 +73,6 @@
         margin: 0 0 0.2rem;
       }
 
-      .map-selection-heading {
-        font-size: 0.92rem;
-        line-height: 1.25;
-        margin: 0 0 0.45rem;
-      }
-
       .timeline-single-point-slider .irs-bar,
       .timeline-single-point-slider .irs-handle,
       .timeline-single-point-slider .irs-single {
@@ -112,6 +106,25 @@
       .map-swipe-map .leaflet {
         height: 100% !important;
         width: 100% !important;
+      }
+
+      /* "Side by side (fixed)": two static maps, no swipe divider. The swipe JS
+         sets an inline clip-path, so !important is needed to un-clip; the maps
+         become two flex columns instead of overlapping absolute layers. */
+      .map-swipe-comparison.is-fixed {
+        display: flex;
+        gap: 4px;
+      }
+      .map-swipe-comparison.is-fixed .map-swipe-map {
+        position: relative;
+        inset: auto;
+        flex: 1 1 50%;
+        min-width: 0;
+        clip-path: none !important;
+        -webkit-clip-path: none !important;
+      }
+      .map-swipe-comparison.is-fixed .map-swipe-divider {
+        display: none;
       }
 
 
@@ -1406,10 +1419,22 @@
           align-items: end;
           box-sizing: border-box;
           display: grid;
-          gap: 0.75rem;
+          gap: 0.35rem;
           grid-template-columns: auto minmax(0, 1fr);
           max-width: 100%;
           min-width: 0;
+        }
+
+        /* Slider label on its own full-width row above the transport + slider, so
+           it never wraps/squeezes the narrow side-by-side bars. */
+        .timeline-progression-label {
+          grid-column: 1 / -1;
+          font-size: 0.8rem;
+          color: #495057;
+          margin-bottom: 0.1rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .playback-transport {
@@ -1905,4 +1930,22 @@
   font-size: 0.82rem;
   line-height: 1.25;
   margin-top: 0.2rem;
+}
+
+/* Spatial Analysis workbench styles moved to www/styles/spatial_analysis.css */
+/* Season/monitoring readout now lives in the timeline bar (not a map overlay), so
+   reset the overlay-specific badge styling (grid / fixed widths / ellipsis) and let
+   it sit as a clean stacked block. */
+.timeline-bar .map-season-badge {
+  display: block;
+  min-width: 0;
+  max-width: none;
+  margin-top: 0.5rem;
+}
+.timeline-bar .map-season-badge > span,
+.timeline-bar .map-season-badge > small {
+  display: block;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
