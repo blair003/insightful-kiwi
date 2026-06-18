@@ -49,7 +49,7 @@ pkgs <- c(
   "chromote",
   "remotes",
   "inbo/camtraptor",
-  "inbo/camtraptdp"
+  "inbo/camtrapdp"
 )
 
 pak::pak(pkgs, ask = FALSE, upgrade = FALSE)
