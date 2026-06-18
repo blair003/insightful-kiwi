@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="614" height="384" viewBox="0 0 614 384" role="img" aria-labelledby="title desc">
+  <title id="title">Insightful Kiwi logo mark - clean SVG redraw</title>
+  <desc id="desc">Clean vector reconstruction of the uploaded kiwi and chart logo mark. Built from SVG paths, rectangles, and circles only; no embedded bitmap image.</desc>
+  <defs>
+    <linearGradient id="leftPanel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#258a80"/>
+      <stop offset="1" stop-color="#1f8179"/>
+    </linearGradient>
+    <linearGradient id="rightPanel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#087760"/>
+      <stop offset="1" stop-color="#0b705d"/>
+    </linearGradient>
+    <linearGradient id="markFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6fbf6"/>
+      <stop offset="1" stop-color="#e6eee9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background recreated from the screenshot proportions -->
+  <path id="background-left" d="M0 0H341V384H0Z" fill="url(#leftPanel)"/>
+  <path id="background-right" d="M341 0H614V384H341Z" fill="url(#rightPanel)"/>
+
+  <!-- Subtle vector shadow, no raster image embedded -->
+  <g id="shadow" opacity="0.17" transform="translate(2 2)" fill="#003a32" stroke="#003a32" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M399 140H427V184L399 173Z"/>
+    <path d="M444 112H473V199L444 188Z"/>
+    <path d="M490 74H519V222L490 207Z"/>
+    <path d="M536 39H563V251L536 232Z"/>
+    <path d="M357 166
+             C349 126 323 102 283 89
+             C239 75 188 77 146 94
+             C99 113 67 149 60 194
+             C51 252 80 304 126 327
+             C164 346 208 339 236 316
+             C263 294 275 270 291 242
+             C303 222 319 213 337 205
+             C342 202 346 199 351 196
+             C363 197 457 214 575 268" fill="none" stroke-width="13.5"/>
+    <path d="M357 166 C421 181 506 222 575 268" fill="none" stroke-width="13.5"/>
+    <circle cx="300" cy="153" r="11.5"/>
+  </g>
+
+  <g id="kiwi-chart-mark" fill="url(#markFill)" stroke="url(#markFill)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Rising chart bars as individual editable SVG paths -->
+    <path id="bar-1" d="M399 140H427V184L399 173Z"/>
+    <path id="bar-2" d="M444 112H473V199L444 188Z"/>
+    <path id="bar-3" d="M490 74H519V222L490 207Z"/>
+    <path id="bar-4" d="M536 39H563V251L536 232Z"/>
+
+    <!-- Kiwi body outline flowing into lower bill -->
+    <path id="kiwi-outline-and-lower-bill" d="M357 166
+             C349 126 323 102 283 89
+             C239 75 188 77 146 94
+             C99 113 67 149 60 194
+             C51 252 80 304 126 327
+             C164 346 208 339 236 316
+             C263 294 275 270 291 242
+             C303 222 319 213 337 205
+             C342 202 346 199 351 196
+             C363 197 457 214 575 268" fill="none" stroke-width="13.5"/>
+
+    <!-- Upper bill / chart baseline -->
+    <path id="upper-bill-chart-line" d="M357 166 C421 181 506 222 575 268" fill="none" stroke-width="13.5"/>
+
+    <!-- Eye -->
+    <circle id="eye" cx="300" cy="153" r="11.5" stroke="none"/>
+  </g>
+</svg>

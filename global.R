@@ -4,7 +4,7 @@
 # Bootstrap helpers, logging, and configuration
 ################################################################
 
-source("R/functions/global_functions.R")
+source("R/functions/bootstrap.R")
 
 # Only autoreload if code has changed
 options(
@@ -13,6 +13,11 @@ options(
 )
 
 # logger is needed before instance/config/environment.R is sourced.
-assert_packages_available("logger")
-library(logger)
+attach_packages("logger")
 logger::log_formatter(logger::formatter_sprintf)
+
+# UI/server stack (ui.R + server.R use shiny + bslib).
+attach_packages(c("shiny", "bslib"))
+
+# UI builders — sourced after their packages are attached.
+source("R/functions/settings_modal.R")
