@@ -8,37 +8,75 @@
 #' @param config Runtime config (see build_config()).
 #' @return The named `datasets` list defined in instance/config/datasets.R.
 load_manifest <- function(config) {
-  path <- file.path(config$env$dirs$config, "datasets.R")
+  path <- file.path(config$dirs$config, "datasets.R")
   if (!file.exists(path)) {
     stop(sprintf("No dataset manifest at '%s'.", path), call. = FALSE)
   }
   source(path, local = TRUE)$value
 }
 
-#' Read and tag one manifested dataset.
+#' Resolve a manifest entry to a ready datapackage.json path.
 #'
-#' Reads the package pristine and validates it; the manifest tags become $meta.
+#' Packaged entries point at `packages/<dir>`; raw entries are converted on import
+#' (cached) into the generated-packages cache.
 #'
-#' @param id           Dataset id (manifest list name; the ik_data$datasets key).
-#' @param entry        That dataset's manifest entry (tags + optional `dir`).
-#' @param packages_dir Directory holding the package folders.
-#' @return A list `{ package, meta }` for ik_data$datasets$<id>.
-ik_read_dataset <- function(id, entry, packages_dir) {
-  dir        <- entry$dir %||% id
-  path       <- file.path(packages_dir, dir)
-  descriptor <- file.path(path, "datapackage.json")
+#' @param id     Dataset id.
+#' @param entry  Manifest entry.
+#' @param config Runtime config (see build_config()).
+#' @return Path to a datapackage.json ready for read_camtrapdp().
+ik_materialize_package <- function(id, entry, config) {
+  if (!is.null(entry$raw)) return(ik_convert_raw(id, entry, config))
 
+  descriptor <- file.path(config$dirs$packages, entry$dir %||% id, "datapackage.json")
   if (!file.exists(descriptor)) {
-    stop(sprintf(
-      "Dataset '%s': no datapackage.json at '%s' (manifested but missing on disk).",
-      id, path
-    ), call. = FALSE)
+    stop(sprintf("Dataset '%s': no datapackage.json at '%s' (manifested but missing on disk).",
+                 id, dirname(descriptor)), call. = FALSE)
+  }
+  descriptor
+}
+
+#' Convert a raw dataset to a Camtrap DP package, cached by raw-input fingerprint.
+#'
+#' Re-runs the converter only when the raw/reference files change. @keywords internal
+ik_convert_raw <- function(id, entry, config) {
+  raw_dir <- file.path(config$dirs$raw, entry$raw$dir %||% id)
+  if (!dir.exists(raw_dir)) {
+    stop(sprintf("Raw dataset '%s': directory '%s' not found.", id, raw_dir), call. = FALSE)
+  }
+  converter <- ik_converters[[entry$raw$converter]]
+  if (is.null(converter)) {
+    stop(sprintf("Dataset '%s': no converter '%s' (see R/functions/import/converters.R).",
+                 id, entry$raw$converter), call. = FALSE)
   }
 
-  logger::log_info("Importing dataset '%s' from '%s'", id, path)
-  package <- camtrapdp::read_camtrapdp(descriptor)
+  out_dir    <- file.path(config$dirs$cache, "generated-packages", id)
+  descriptor <- file.path(out_dir, "datapackage.json")
+  fp_file    <- file.path(out_dir, ".raw-fingerprint.rds")
+  fp         <- dir_fingerprint(raw_dir)
 
-  # Guard the pristine object; add dataset context to any validation failure.
+  if (file.exists(descriptor) && file.exists(fp_file) && identical(readRDS(fp_file), fp)) {
+    logger::log_info("Raw dataset '%s': generated package up to date.", id)
+    return(descriptor)
+  }
+
+  logger::log_info("Converting raw dataset '%s' via '%s' ...", id, entry$raw$converter)
+  converter(raw_dir = raw_dir, out_dir = out_dir, meta = entry,
+            taxonomy_cache = file.path(config$dirs$cache, "taxonomy.rds"))
+  saveRDS(fp, fp_file)
+  descriptor
+}
+
+#' Read and tag one manifested dataset (packaged or raw).
+#'
+#' @param id     Dataset id (the ik_data$datasets key).
+#' @param entry  Manifest entry (tags + `dir`, or a `raw` block).
+#' @param config Runtime config (see build_config()).
+#' @return A list `{ package, meta }` for ik_data$datasets$<id>.
+ik_read_dataset <- function(id, entry, config) {
+  descriptor <- ik_materialize_package(id, entry, config)
+
+  logger::log_info("Reading dataset '%s'.", id)
+  package <- camtrapdp::read_camtrapdp(descriptor)
   tryCatch(
     camtrapdp::check_camtrapdp(package),
     error = function(e) {
@@ -50,33 +88,33 @@ ik_read_dataset <- function(id, entry, packages_dir) {
   list(
     package = package,
     meta = list(
-      id          = id,
-      source_type = entry$source_type,
-      project     = entry$project,
-      method      = entry$method,
-      name        = entry$name %||% id
+      id = id, source_type = entry$source_type, project = entry$project,
+      method = entry$method, name = entry$name %||% id, timezone = entry$timezone
     )
   )
 }
 
-#' Import all manifested datasets, reconciling against what's on disk.
+#' Import all manifested datasets, reconciling packaged entries against disk.
 #'
-#' Reconciliation: present-but-unlisted folders warn and are skipped (error if
-#' `strict`); listed-but-missing folders error (in ik_read_dataset); entries with
-#' `enabled = FALSE` are skipped.
+#' Reconciliation (packaged entries only): present-but-unlisted packages warn and
+#' are skipped (error if `config$datasets$strict`); listed-but-missing error.
+#' Raw entries are converted on import. `enabled = FALSE` entries are skipped.
 #'
-#' @param manifest     The dataset manifest (see load_manifest()).
-#' @param packages_dir Directory holding the package folders.
-#' @param strict       Promote unregistered-package warnings to errors.
+#' @param manifest The dataset manifest (see load_manifest()).
+#' @param config   Runtime config (see build_config()).
 #' @return Named list of `{ package, meta }`, one per imported dataset.
-ik_import_datasets <- function(manifest, packages_dir, strict = FALSE) {
+ik_import_datasets <- function(manifest, config) {
+  packages_dir <- config$dirs$packages
+  strict       <- isTRUE(config$datasets$strict)
   if (!dir.exists(packages_dir)) {
     stop(sprintf("Packages directory '%s' does not exist.", packages_dir), call. = FALSE)
   }
 
+  # Reconcile only packaged (non-raw) entries against packages/.
+  packaged    <- Filter(function(e) is.null(e$raw), manifest)
   on_disk     <- list.dirs(packages_dir, full.names = FALSE, recursive = FALSE)
-  listed_dirs <- vapply(manifest, function(e) e$dir %||% NA_character_, character(1))
-  listed_dirs <- ifelse(is.na(listed_dirs), names(manifest), listed_dirs)
+  listed_dirs <- vapply(packaged, function(e) e$dir %||% NA_character_, character(1))
+  listed_dirs <- ifelse(is.na(listed_dirs), names(packaged), listed_dirs)
 
   for (folder in setdiff(on_disk, listed_dirs)) {
     msg <- sprintf(
@@ -93,7 +131,7 @@ ik_import_datasets <- function(manifest, packages_dir, strict = FALSE) {
       logger::log_info("Dataset '%s' disabled in manifest — skipped.", id)
       next
     }
-    datasets[[id]] <- ik_read_dataset(id, entry, packages_dir)
+    datasets[[id]] <- ik_read_dataset(id, entry, config)
   }
 
   logger::log_info(

@@ -21,13 +21,16 @@ what is asked for.
 **Read [docs/data-model/01-data-structure.md](docs/data-model/01-data-structure.md)
 before touching data structures or import.** ([02-app-concept.md](docs/data-model/02-app-concept.md)
 = purpose/data-flow/views; [03-camtrapdp-capabilities.md](docs/data-model/03-camtrapdp-capabilities.md)
-= camtrapdp usage + spike.) Invariants:
+= camtrapdp usage + spike.). A reference copy of the camtrapDP schema for [deployments](docs/camtrapdp/deployments-table-schema.json), [observations](docs/camtrapdp/observations-table-schema.json) and [media](docs/camtrapdp/media-table-schema.json) is in `docs/camtrapdp/`. 
+
+Invariants:
 
 - One global container **`ik_data`** = `$datasets` + `$app` + `$meta`.
 - Each `$datasets$<id>` = `{ $package` (a **pristine** `camtrapdp` object) `, $meta` (per-dataset tags: `source_type`, `project`, … ) `}`. **Never add custom columns to a `camtrapdp` object** — only package-native transforms (`update_taxon`, `filter_*`, `merge`).
 - All derived data is normalized into `$app` (shared) or `$meta` (per-dataset), **joined on demand** — never widened onto the fact tables. Placement rule: differs between datasets → `$meta`; shared reference → `$app`.
 - **Event-centric:** observations carry `eventStart`/`eventEnd`; **there is no `timestamp` column** — derive a single instant in-app only where needed.
 - **Geography (*where*)** and **project/organisation (*who*)** are independent axes. Geography is `app$geography` (canonical levels location/line/reserve/region/country/global); project is a dataset tag.
+
 
 ## Packages
 **Any package may be used — but ASK FIRST.** Before `install.packages()`, adding to
@@ -51,8 +54,8 @@ packages are welcome; silent installs are not. Core stack already chosen: `shiny
 - Data is loaded **once** into `ik_data` (cached as `.RDS`). App code consumes
   `ik_data`, **not** raw files. **DO NOT read directly from `instance/extdata/` in
   app code** — if you think you must, STOP and ask.
-- **Never hardcode root paths.** Use `config$env$dirs` (e.g.
-  `file.path(config$env$dirs$cache, "…")`). Subdirectories appended to a dynamic base
+- **Never hardcode root paths.** Use `config$dirs` (e.g.
+  `file.path(config$dirs$cache, "…")`). Subdirectories appended to a dynamic base
   are fine.
 - **`config` is a separate global** (paths, toggles, timezone, API keys) — an *input*
   that builds `ik_data`, not part of it. **Project knowledge** (geography levels +

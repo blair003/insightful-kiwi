@@ -38,9 +38,7 @@ ui <- page_navbar(
   nav_panel("Species", value = "species", icon = icon("paw"),
     h2("Species")
   ),
-  nav_panel("Records", value = "records", icon = icon("table"),
-    h2("Records")
-  ),
+  records_ui("records"),
 
   nav_spacer(),
 

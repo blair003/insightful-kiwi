@@ -33,7 +33,7 @@ pkgs <- c(
   "ggplot2",
   "scales",
   "plotly",
-  "httr",
+  "httr2",
   "fs",
   "magick",
   "future",

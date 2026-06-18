@@ -4,19 +4,17 @@
 
 #' Build the ik_data container.
 #'
-#' @param config Runtime config (see build_config()).
+#' @param config   Runtime config (see build_config()).
+#' @param manifest The dataset manifest; defaults to loading it from config.
 #' @return ik_data: a list with `$datasets`, `$app`, `$meta`.
-build_ik_data <- function(config) {
-  manifest <- load_manifest(config)
-  datasets <- ik_import_datasets(
-    manifest,
-    packages_dir = config$env$dirs$packages,
-    strict       = isTRUE(config$strict_datasets)
-  )
+build_ik_data <- function(config, manifest = load_manifest(config)) {
+  datasets <- ik_import_datasets(manifest, config)
 
   list(
     datasets = datasets,
-    app  = list(),  # shared derived layer (geography, species, ...) — built per-feature
+    app  = list(  # shared derived layer (geography, ...) — grown per-feature
+      taxonomy = build_taxonomy(datasets)  # species lookup: scientific <-> vernacular
+    ),
     meta = list(
       built_at   = Sys.time(),
       n_datasets = length(datasets)

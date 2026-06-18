@@ -1,0 +1,32 @@
+outcome_id,description,observationType,scientificName,vernacularName,sex,lifeStage
+1,Stoat ? sex,animal,Mustela erminea,stoat,,
+2,Weasel ? sex,animal,Mustela nivalis,weasel,,
+3,Sprung,blank,,,,
+4,Rat,animal,Rattus,rats,,
+5,Cat ? sex,animal,Felis catus,domestic cat,,
+6,Rabbit,animal,Oryctolagus cuniculus,European rabbit,,
+7,Hedgehog,animal,Erinaceus europaeus,European hedgehog,,
+8,Still set,blank,,,,
+9,Stoat Female,animal,Mustela erminea,stoat,female,
+10,Ferret ? sex,animal,Mustela putorius furo,ferret,,
+11,Mouse,animal,Mus musculus,house mouse,,
+12,bait gone,blank,,,,
+13,sprung & bait gone,blank,,,,
+14,Other,animal,Animalia,animal,,
+15,Possum,animal,Trichosurus vulpecula,common brushtail possum,,
+1009,Mustelid,animal,Mustelidae,mustelid,,
+1010,weka,animal,Gallirallus australis,weka,,
+1011,Bird,animal,Aves,bird,,
+1025,Stoat Juvenile ? sex,animal,Mustela erminea,stoat,,juvenile
+1026,Stoat Male,animal,Mustela erminea,stoat,male,
+1027,Stoat Juvenile Male,animal,Mustela erminea,stoat,male,juvenile
+1028,Stoat Juvenile Female,animal,Mustela erminea,stoat,female,juvenile
+1029,Weasel Male,animal,Mustela nivalis,weasel,male,
+1030,Weasel Female,animal,Mustela nivalis,weasel,female,
+1031,Ferret Male,animal,Mustela putorius furo,ferret,male,
+1032,Ferret Female,animal,Mustela putorius furo,ferret,female,
+1033,Cat Male,animal,Felis catus,domestic cat,male,
+1034,Cat Female,animal,Felis catus,domestic cat,female,
+1035,Cat Juvenile Male,animal,Felis catus,domestic cat,male,juvenile
+1036,Cat Juvenile Female,animal,Felis catus,domestic cat,female,juvenile
+1037,Cat Juvenile ? sex,animal,Felis catus,domestic cat,,juvenile
