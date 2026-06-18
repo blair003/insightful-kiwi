@@ -897,6 +897,102 @@ prepare_map_records_export <- function(observation_rows) {
 }
 
 
+# Build the metadata block (a Criterion/Value data.frame) prepended to a Records CSV
+# export. Takes the resolved `export_context` list captured on the analysis dataset by
+# the map engine, so no engine reactive scope is needed here. `export_row_count` is the
+# number of exported record rows.
+build_records_export_metadata <- function(export_context, export_row_count = 0) {
+  if (is.null(export_context)) export_context <- list()
+  tz <- export_context$timezone
+  if (is.null(tz) || !nzchar(tz)) tz <- "Pacific/Auckland"
+
+  collapse_values <- function(values) {
+    values <- as.character(values)
+    values <- values[!is.na(values) & nzchar(values)]
+    if (length(values) == 0) return("")
+    paste(values, collapse = "; ")
+  }
+  fmt_datetime <- function(value) {
+    if (is.null(value) || length(value) == 0 || all(is.na(value))) return("")
+    format(as.POSIXct(value, tz = tz), "%Y-%m-%d %H:%M:%S %Z", tz = tz)
+  }
+  fmt_date <- function(value) {
+    if (is.null(value) || length(value) == 0 || all(is.na(value))) return("")
+    as.character(as.Date(value, tz = tz))
+  }
+
+  intervals <- export_context$period_intervals
+  period_names_value <- if (!is.null(intervals) && "period_name" %in% names(intervals)) {
+    intervals$period_name
+  } else {
+    character()
+  }
+  period_interval_text <- if (!is.null(intervals) && nrow(intervals) > 0) {
+    collapse_values(vapply(seq_len(nrow(intervals)), function(i) {
+      sprintf(
+        "%s: %s to %s",
+        intervals$period_name[[i]],
+        fmt_date(intervals$start_date[[i]]),
+        fmt_date(intervals$end_date[[i]])
+      )
+    }, character(1)))
+  } else {
+    ""
+  }
+
+  timeline_window <- if (!is.null(export_context$timeline_window_text)) {
+    export_context$timeline_window_text
+  } else {
+    sprintf("%s to %s", fmt_datetime(export_context$start_time), fmt_datetime(export_context$current_time))
+  }
+
+  distance_value <- export_context$trap_locality_distance_km
+  distance_text <- if (is.null(distance_value)) "" else as.character(distance_value)
+
+  data.frame(
+    Criterion = c(
+      "Downloaded at",
+      "Selected seasons",
+      "Selected season intervals",
+      "Selected date range",
+      "Timeline window",
+      "Timeline view mode",
+      "Timeline increment",
+      "Selected species",
+      "Selected localities",
+      "Include monitoring records",
+      "Exclude possible duplicates",
+      "Exclude untrapped species",
+      "Include trapping records",
+      "Show trap capture markers",
+      "Show unchecked traps",
+      "Trap locality distance km",
+      "Exported rows"
+    ),
+    Value = c(
+      format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z", tz = tz),
+      collapse_values(period_names_value),
+      period_interval_text,
+      sprintf("%s to %s", fmt_date(export_context$selected_start_date), fmt_date(export_context$selected_end_date)),
+      if (is.null(timeline_window)) "" else timeline_window,
+      if (is.null(export_context$timeline_view_mode)) "" else as.character(export_context$timeline_view_mode),
+      if (is.null(export_context$timeline_step_size)) "" else as.character(export_context$timeline_step_size),
+      collapse_values(export_context$selected_species),
+      collapse_values(export_context$selected_localities),
+      as.character(isTRUE(export_context$include_monitoring_records)),
+      as.character(isTRUE(export_context$exclude_possible_duplicates)),
+      as.character(isTRUE(export_context$exclude_untrapped_species)),
+      as.character(isTRUE(export_context$include_trap_data)),
+      as.character(isTRUE(export_context$capture_records)),
+      as.character(isTRUE(export_context$show_unchecked_traps)),
+      distance_text,
+      as.character(export_row_count)
+    ),
+    check.names = FALSE
+  )
+}
+
+
 # This forms and formats the final field names, including any species field headings
 format_fieldnames <- function(data) {
   

@@ -14,14 +14,14 @@ register_report_download_handler <- function(input,
 
     content = function(file) {
       reports_cache_dir <- config$env$dirs$reports
-      density_maps_dir <- file.path(reports_cache_dir, "density_maps")
+      abundance_maps_dir <- file.path(reports_cache_dir, "abundance_maps")
       plots_dir <- file.path(reports_cache_dir, "plots")
 
       period_name <- primary_period$period_name()
       package_created_date <- core_data$created
       package_date_string <- generate_report_package_date_string(package_created_date)
 
-      ensure_directories_exist(reports_cache_dir, density_maps_dir, plots_dir)
+      ensure_directories_exist(reports_cache_dir, abundance_maps_dir, plots_dir)
 
       report_html <- file.path(reports_cache_dir, generate_report_output_filename(period_name, package_date_string, "html", use_net()))
 
@@ -50,7 +50,7 @@ register_report_download_handler <- function(input,
           dplyr::distinct(scientificName, vernacularNames.eng, .keep_all = TRUE) %>%
           dplyr::select(scientificName, vernacularNames.eng)
 
-        data_to_export$data$density_maps <- generate_density_maps(
+        data_to_export$data$abundance_maps <- generate_abundance_maps(
           named_class_species,
           period_name,
           reports_cache_dir,

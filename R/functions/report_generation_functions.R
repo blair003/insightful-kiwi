@@ -25,12 +25,12 @@ generate_report_filename <- function(period_name, package_created_date, report_f
 }
 
 
-ensure_directories_exist <- function(reports_cache_dir, density_maps_dir, plots_dir) {
+ensure_directories_exist <- function(reports_cache_dir, abundance_maps_dir, plots_dir) {
   if (!dir_exists(reports_cache_dir)) { 
     dir_create(reports_cache_dir)
   }
-  if (!dir_exists(density_maps_dir)) { 
-    dir_create(density_maps_dir)
+  if (!dir_exists(abundance_maps_dir)) { 
+    dir_create(abundance_maps_dir)
   }
   if (!dir_exists(plots_dir)) { 
     dir_create(plots_dir)
@@ -80,16 +80,16 @@ collate_reporting_data <- function(start_date, end_date, period_name, reporting_
   return(data_to_export)
 }
 
-generate_density_maps <- function(named_class_species, period_name, reports_cache_dir, package_date_string, obs, deps, species_name_type) {
-  density_maps <- list()
+generate_abundance_maps <- function(named_class_species, period_name, reports_cache_dir, package_date_string, obs, deps, species_name_type) {
+  abundance_maps <- list()
   for(i in seq_len(nrow(named_class_species))) {
     species_name_for_file <- as.character(named_class_species[[species_name_type]])[i]
     species_name_safe <- gsub(" ", "_", species_name_for_file)
     species_scientificName <- as.character(named_class_species$scientificName[i])
     
     # Define file paths
-    html_output_dir <- file.path(reports_cache_dir, "density_maps", "html")
-    png_output_dir <- file.path(reports_cache_dir, "density_maps", "png")
+    html_output_dir <- file.path(reports_cache_dir, "abundance_maps", "html")
+    png_output_dir <- file.path(reports_cache_dir, "abundance_maps", "png")
     
     # Ensure directories exist
     if (!dir.exists(html_output_dir)) dir.create(html_output_dir, recursive = TRUE)
@@ -99,11 +99,11 @@ generate_density_maps <- function(named_class_species, period_name, reports_cach
     map_png_file_path <- file.path(png_output_dir, gsub(" ", "_", paste0(period_name, "_", species_name_safe, "_map_", package_date_string, ".png")))
     
     if (!file.exists(map_png_file_path)) {
-      density_map <- create_density_map(obs, deps, species_scientificName, TRUE)
+      abundance_map <- create_legacy_abundance_map(obs, deps, species_scientificName, TRUE)
       
       # Save as dependency-backed HTML so map screenshots do not require Pandoc.
       suppressWarnings(
-        htmlwidgets::saveWidget(density_map, map_html_file_path, selfcontained = FALSE, libdir = "map_libs")
+        htmlwidgets::saveWidget(abundance_map, map_html_file_path, selfcontained = FALSE, libdir = "map_libs")
       )
       
       # Check if HTML file was created successfully before attempting to webshot it
@@ -118,10 +118,10 @@ generate_density_maps <- function(named_class_species, period_name, reports_cach
     }
     
     # Store the relative path to the PNG for the report
-    density_maps[[species_name_for_file]] <- file.path("density_maps", "png", basename(map_png_file_path))
+    abundance_maps[[species_name_for_file]] <- file.path("abundance_maps", "png", basename(map_png_file_path))
   }
   
-  return(density_maps)
+  return(abundance_maps)
 }
 
 

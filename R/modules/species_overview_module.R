@@ -629,24 +629,43 @@ species_overview_module_server <- function(id,
         return(spatial_map_module_ui(id = ns(base_id), view = "map"))
       }
 
-      spatial_map_module_ui(
+      swipe <- spatial_map_module_ui(
         id = ns(paste0(base_id, "_comparison")),
-        view = "density_comparison_layout",
+        view = "comparison_layout",
         primary_map_id = ns(paste0(base_id, "_monitoring")),
         comparative_map_id = ns(paste0(base_id, "_trapping")),
         primary_meta_output_id = ns(paste0(base_id, "_monitoring_period_readout")),
         comparative_meta_output_id = ns(paste0(base_id, "_trapping_period_readout")),
         primary_title = "Monitoring data",
-        comparative_title = "Trapping data",
-        primary_data_label = "Monitoring",
-        comparative_data_label = "Trapping",
-        primary_data_title = "Monitoring Records",
-        comparative_data_title = "Trapping Records"
+        comparative_title = "Trapping data"
+      )
+      # comparison_layout is swipe-only; the per-side Records (with CSV export) are
+      # rendered by analysis_output_module in a Records tab beside the Map.
+      navset_tab(
+        id = ns(paste0(base_id, "_tabs")),
+        nav_panel("Map", swipe, value = "map"),
+        nav_panel(
+          "Records",
+          navset_tab(
+            id = ns(paste0(base_id, "_record_tabs")),
+            nav_panel(
+              "Monitoring",
+              analysis_output_module_ui(ns(paste0(base_id, "_monitoring_records")), current_records = TRUE),
+              value = "monitoring"
+            ),
+            nav_panel(
+              "Trapping",
+              analysis_output_module_ui(ns(paste0(base_id, "_trapping_records")), current_records = TRUE),
+              value = "trapping"
+            )
+          ),
+          value = "data"
+        )
       )
     }
 
-    density_source_monitoring <- reactive("monitoring")
-    density_source_trapping <- reactive("trapping")
+    data_source_monitoring <- reactive("monitoring")
+    data_source_trapping <- reactive("trapping")
 
     species_density_max_location_count <- function(observations) {
       if (is.null(observations) || nrow(observations) == 0) {
@@ -771,34 +790,48 @@ species_overview_module_server <- function(id,
       }
 
       scale_max <- species_density_scale_max(obs_reactive, period_data)
-      do.call(spatial_map_module_server, c(
+      monitoring_state <- do.call(spatial_map_module_server, c(
         list(
           id = paste0(base_id, "_monitoring"),
           obs = obs_reactive,
           deps = deps_reactive,
           species_override = reactive(species_name),
           localities_override = selected_localities,
-          density_data_source_override = density_source_monitoring,
+          data_source_override = data_source_monitoring,
           use_net = use_net,
           trap_data = trap_data,
-          density_scale_max_override = scale_max
+          scale_max_override = scale_max
         ),
         period_args
       ))
-      do.call(spatial_map_module_server, c(
+      trapping_state <- do.call(spatial_map_module_server, c(
         list(
           id = paste0(base_id, "_trapping"),
           obs = obs_reactive,
           deps = deps_reactive,
           species_override = reactive(species_name),
           localities_override = selected_localities,
-          density_data_source_override = density_source_trapping,
+          data_source_override = data_source_trapping,
           use_net = use_net,
           trap_data = trap_data,
-          density_scale_max_override = scale_max
+          scale_max_override = scale_max
         ),
         period_args
       ))
+
+      # Per-side Records (+ CSV export) beside the swipe, fed by each panel's dataset.
+      analysis_output_module_server(
+        id = paste0(base_id, "_monitoring_records"),
+        dataset = monitoring_state$dataset,
+        export_label = paste0(prefix, "-monitoring-records"),
+        records_label = "Monitoring"
+      )
+      analysis_output_module_server(
+        id = paste0(base_id, "_trapping_records"),
+        dataset = trapping_state$dataset,
+        export_label = paste0(prefix, "-trapping-records"),
+        records_label = "Trapping"
+      )
     }
 
     output$alltime_rai_plot_count_basis_footer <- renderUI({ render_species_count_basis_footer() })

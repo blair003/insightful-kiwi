@@ -231,7 +231,7 @@ create_idw_prediction_surface <- function(location_values,
 
 
 
-create_density_map <- function(obs, deps, species, show_zero = TRUE) {
+create_legacy_abundance_map <- function(obs, deps, species, show_zero = TRUE) {
 
   max_scale <- 1
   radius_range <- c(10, 50)
@@ -252,7 +252,6 @@ create_density_map <- function(obs, deps, species, show_zero = TRUE) {
   if (nrow(obs_summary_location) > 0) {
     max_count <- max(obs_summary_location$count, na.rm = TRUE)
   } else {
-    #logger::log_info("density_map_module_server, update_density_map() has no results of selected species and daterange")
     max_count <- NA
   }
 

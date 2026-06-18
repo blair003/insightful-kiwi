@@ -196,6 +196,20 @@
 .sa-layer-group .prediction-surface-options {
   margin-top: 0.2rem;
 }
+/* Indented per-layer sub-option (e.g. the "Summary table" toggle under a record
+   layer): smaller, muted, nudged right under its parent checkbox. */
+.sa-layer-suboption {
+  margin-left: 1.25rem;
+  margin-top: -0.15rem;
+}
+.sa-layer-suboption .checkbox,
+.sa-layer-suboption .form-group {
+  margin-top: 0;
+  margin-bottom: 0.15rem;
+}
+.sa-layer-suboption label {
+  color: #6c757d;
+}
 /* Map mode: three centered icon buttons (Single / Swipe compare / Side by side),
    no encapsulating box, radio dots hidden, the selected one highlighted. */
 .sa-view-mode {
@@ -325,4 +339,16 @@
 }
 .sa-comparison-timeline > * {
   min-width: 0;
+}
+/* Records tab header: title (e.g. "Primary Records") on the left, Download CSV on
+   the right of the same row. */
+.analysis-records-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.analysis-records-header .analysis-records-title {
+  margin: 0;
 }

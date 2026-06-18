@@ -119,8 +119,11 @@ spatial_analysis_default_spec <- function() {
       # a year, or several seasons combined.
       left  = list(label = "Primary period", species = NULL, localities = NULL,
                    period = "primary", data_source = "monitoring"),
+      # When Period is unchained the comparison side defaults to the configured
+      # comparative period (config$globals$default_comparative_period via
+      # core_data$app$period_defaults$comparative_period), not the primary.
       right = list(label = "Comparison period", species = NULL, localities = NULL,
-                   period = "primary", data_source = "monitoring")
+                   period = "comparative", data_source = "monitoring")
     ),
 
     layers = list(
@@ -174,21 +177,8 @@ spatial_analysis_presets <- function() {
     # Power user: mode controls remain editable (runtime switching).
     spatial_analysis = base,
 
-    density_timeline = sa_lock_modes(modifyList(base, list(
-      analysis_mode = "single",
-      time_mode     = "timeline"
-    ))),
-
-    density_summary = sa_lock_modes(modifyList(base, list(
-      analysis_mode = "comparison", time_mode = "static",
-      comparison_type = "period", comparison_source = "linked",
-      linked_controls = c("species", "localities", "layers"),
-      sides = list(
-        left  = list(label = "Primary period", period = "primary"),
-        right = list(label = "Comparison period", period = "comparative")
-      )
-    ))),
-
+    # Template presets (mirror locked-map patterns; kept as references for future
+    # named maps). Only spatial_analysis + temporal_analysis are currently wired.
     monitoring_trapping = sa_lock_modes(modifyList(base, list(
       analysis_mode = "comparison", time_mode = "static",
       comparison_type = "data_source", comparison_source = "linked",
@@ -250,23 +240,24 @@ spatial_analysis_preset <- function(name) {
 # UI building blocks
 # ---------------------------------------------------------------------------
 
-# Layer / option controls for one panel (static uses density_options; timeline
-# adds the timeline option panel). Reused by single, locked, and per-item sidebars.
+# Layer / option controls for one panel (static uses the layer_options view;
+# timeline adds the temporal_controls panel). Reused by single, locked, and per-item
+# sidebars.
 sa_layer_options_ui <- function(panel_id, timeline, layer_flag, temporal_spec, include_config = TRUE) {
   if (timeline) {
     tagList(
       spatial_map_module_ui(
-        id = panel_id, view = "density_options",
-        # In timeline mode the density_timeline_controls view (below) owns the
-        # layer toggles incl. the prediction surface, so this density_options call
-        # renders config only — otherwise the surface inputs are duplicated.
+        id = panel_id, view = "layer_options",
+        # In timeline mode the temporal_controls view (below) owns the layer toggles
+        # incl. the prediction surface, so this layer_options call renders config
+        # only — otherwise the surface inputs are duplicated.
         include_prediction_option = FALSE,
         include_marker_options = FALSE,
         include_duplicates_option = include_config,
         include_trap_distance_option = include_config
       ),
       spatial_map_module_ui(
-        id = panel_id, view = "density_timeline_controls",
+        id = panel_id, view = "temporal_controls",
         include_marker_options = layer_flag("observation_records"),
         include_observation_layer_options = layer_flag("capture_records"),
         include_prediction_option = layer_flag("surface"),
@@ -281,7 +272,7 @@ sa_layer_options_ui <- function(panel_id, timeline, layer_flag, temporal_spec, i
     )
   } else {
     spatial_map_module_ui(
-      id = panel_id, view = "density_options",
+      id = panel_id, view = "layer_options",
       include_prediction_option = layer_flag("surface"),
       include_marker_options = layer_flag("observation_records"),
       include_duplicates_option = include_config,
@@ -511,10 +502,14 @@ sa_single_main_ui <- function(ns, spec, timeline, toggleable = FALSE) {
 sa_comparison_main_ui <- function(ns, spec,
                                   left_map_id = ns("panel_left"),
                                   right_map_id = ns("panel_right"),
+                                  left_output_id = ns("output_left"),
+                                  right_output_id = ns("output_right"),
                                   toggleable = FALSE) {
+  # Engine supplies ONLY the swipe (two synced maps); Records + CSV export are the
+  # non-geographic render layer (analysis_output_module), one instance per side.
   swipe <- spatial_map_module_ui(
     id = ns("comparison"),
-    view = "density_comparison_layout",
+    view = "comparison_layout",
     map_height = config$globals$leaflet_height,
     primary_map_id = left_map_id,
     comparative_map_id = right_map_id,
@@ -523,46 +518,58 @@ sa_comparison_main_ui <- function(ns, spec,
     primary_heading_output_id = ns("left_period_name"),
     comparative_heading_output_id = ns("right_period_name"),
     primary_meta_output_id = ns("left_period_readout"),
-    comparative_meta_output_id = ns("right_period_readout"),
-    primary_data_label = spec$sides$left$label,
-    comparative_data_label = spec$sides$right$label,
-    primary_data_title = paste(spec$sides$left$label, "records"),
-    comparative_data_title = paste(spec$sides$right$label, "records")
+    comparative_meta_output_id = ns("right_period_readout")
   )
-  if (!toggleable) {
-    return(swipe)
-  }
-  # Comparison + Timeline (editable): timeline bar(s) above the swipe. The primary
-  # bar drives both maps when Period is LINKED (shared clock; the comparison bar is
-  # hidden but kept live so it can be synced). When Period is UNLINKED each map gets
-  # its own bar (independent clocks). Both appear only while Timeline is on.
-  temporal_bar <- function(panel) spatial_map_module_ui(
-    id = panel, view = "timeline_bar",
-    timeline_step_size_choices = sa_or(spec$temporal$grouping_choices,
-                                       timeline_step_size_choices_default()),
-    timeline_step_size_selected = spec$temporal$grouping,
-    timeline_view_mode_selected = spec$temporal$window
-  )
-  bars <- div(
-    class = "sa-comparison-timeline",
-    div(class = "sa-cmp-timeline sa-cmp-timeline-primary", temporal_bar(ns("panel_cmp_left"))),
-    # Comparison-side bar: shown beside the primary when Period is UNLINKED.
-    # When linked the whole panel is display:none (so it takes no row space) but
-    # its slider still renders (suspendWhenHidden) so the shared clock can sync it.
-    conditionalPanel(
-      sprintf("!input['%s']", ns("link_period")),
-      div(class = "sa-cmp-timeline sa-cmp-timeline-comparison", temporal_bar(ns("panel_cmp_right")))
+
+  cumulative <- identical(spec$time_mode, "timeline") || toggleable
+  records_tabs <- navset_tab(
+    id = ns("comparison_records_tabs"),
+    nav_panel(
+      "Primary",
+      analysis_output_module_ui(left_output_id, current_records = TRUE, cumulative_records = cumulative),
+      value = "primary"
+    ),
+    nav_panel(
+      "Comparison",
+      analysis_output_module_ui(right_output_id, current_records = TRUE, cumulative_records = cumulative),
+      value = "comparison"
     )
   )
-  # When the Timeline is an optional toggle, hide the bars while it is off. When
-  # the timeline is intrinsic (locked time_mode, e.g. the cyclic Temporal map)
-  # there is no checkbox, so the bars are always shown.
-  timeline_section <- if (sa_mode_editable(spec, "time_mode")) {
-    conditionalPanel(sa_js_timeline_on(ns), bars)
-  } else {
-    bars
+
+  map_content <- swipe
+  if (toggleable) {
+    # Comparison + Timeline (editable): timeline bar(s) above the swipe. The primary
+    # bar drives both maps when Period is LINKED (shared clock; the comparison bar is
+    # hidden but kept live so it can be synced). When Period is UNLINKED each map gets
+    # its own bar (independent clocks). Both appear only while Timeline is on.
+    temporal_bar <- function(panel) spatial_map_module_ui(
+      id = panel, view = "timeline_bar",
+      timeline_step_size_choices = sa_or(spec$temporal$grouping_choices,
+                                         timeline_step_size_choices_default()),
+      timeline_step_size_selected = spec$temporal$grouping,
+      timeline_view_mode_selected = spec$temporal$window
+    )
+    bars <- div(
+      class = "sa-comparison-timeline",
+      div(class = "sa-cmp-timeline sa-cmp-timeline-primary", temporal_bar(ns("panel_cmp_left"))),
+      conditionalPanel(
+        sprintf("!input['%s']", ns("link_period")),
+        div(class = "sa-cmp-timeline sa-cmp-timeline-comparison", temporal_bar(ns("panel_cmp_right")))
+      )
+    )
+    timeline_section <- if (sa_mode_editable(spec, "time_mode")) {
+      conditionalPanel(sa_js_timeline_on(ns), bars)
+    } else {
+      bars
+    }
+    map_content <- tagList(timeline_section, swipe)
   }
-  tagList(timeline_section, swipe)
+
+  navset_tab(
+    id = ns("comparison_tabs"),
+    nav_panel("Map", map_content, value = "map"),
+    nav_panel("Records", records_tabs, value = "data")
+  )
 }
 
 # Expert "Map settings" gear popover (editable workbench only), shown beside the
@@ -574,17 +581,15 @@ sa_settings_gear <- function(ns, trap_data) {
   bslib::popover(
     actionLink(ns("map_settings_trigger"), icon("gear"),
                class = "sa-settings-link",
-               title = "Map settings: species display, duplicates, trap distance"),
+               title = "Map settings: species display, trap distance"),
     radioButtons(
       panel_left_input("species_display_mode"), "Species display:",
       choices = c("Combined" = "combined", "Separate" = "separate"),
       selected = "combined", inline = TRUE
     ),
-    checkboxInput(
-      panel_left_input("exclude_possible_duplicates"),
-      label = tags$small("Exclude monitoring 'possible duplicate observations'"),
-      value = isTRUE(config$globals$use_net_data)
-    ),
+    # Possible-duplicate exclusion is governed solely by the global Data Filter
+    # (the engine's exclude_possible_duplicates_selected() falls back to use_net()),
+    # so there is no per-map checkbox here.
     if (!is.null(trap_data)) {
       sliderInput(
         panel_left_input("trap_locality_distance_km"),
@@ -723,38 +728,26 @@ spatial_analysis_module_ui <- function(id, view = c("sidebar", "main"),
           selected = sa_default_localities(spec$sides$left$localities, core_data)
         )
       )
-      # Layer outputs are grouped into Monitoring / Trapping boxes, each with its
-      # own link chain so the two maps can show different data sources. Timeline
-      # presets keep the ungrouped controls (which also carry the step/window
-      # options); the power entry is static, so it uses the grouped path.
+      # All map layers (monitoring + trapping) live in ONE "Map layers" box with a
+      # single link chain, so the two comparison maps link/unlink their layers as a
+      # group. Timeline presets keep the ungrouped controls (which also carry the
+      # step/window options); the power entry is static, so it uses the grouped path.
       layer_widgets <- if (timeline) {
         list(sa_layer_options_ui(ns("panel_left"), timeline, layer_flag,
                                  spec$temporal, include_config = FALSE))
       } else {
-        mon_group <- function(panel) spatial_map_module_ui(
-          id = panel, view = "density_options", layer_group = "monitoring",
+        combined_group <- function(panel) spatial_map_module_ui(
+          id = panel, view = "layer_options", layer_group = "combined",
           include_prediction_option = layer_flag("surface"),
           include_marker_options = layer_flag("observation_records"),
+          include_density_trap_option = !is.null(trap_data),
           include_duplicates_option = FALSE, include_trap_distance_option = FALSE
         )
-        trap_group <- function(panel) spatial_map_module_ui(
-          id = panel, view = "density_options", layer_group = "trapping",
-          include_marker_options = TRUE,
-          include_duplicates_option = FALSE, include_trap_distance_option = FALSE
-        )
-        items <- list(sa_linkable_item(
-          ns, ns("link_monitoring"),
-          left_widget = mon_group(ns("panel_left")),
-          right_widget = mon_group(ns("panel_cmp_right"))
+        list(sa_linkable_item(
+          ns, ns("link_layers"),
+          left_widget = combined_group(ns("panel_left")),
+          right_widget = combined_group(ns("panel_cmp_right"))
         ))
-        if (!is.null(trap_data)) {
-          items <- c(items, list(sa_linkable_item(
-            ns, ns("link_trapping"),
-            left_widget = trap_group(ns("panel_left")),
-            right_widget = trap_group(ns("panel_cmp_right"))
-          )))
-        }
-        items
       }
 
       return(tagList(
@@ -810,6 +803,8 @@ spatial_analysis_module_ui <- function(id, view = c("sidebar", "main"),
         sa_comparison_main_ui(ns, spec,
                               left_map_id = ns("panel_cmp_left"),
                               right_map_id = ns("panel_cmp_right"),
+                              left_output_id = ns("output_cmp_left"),
+                              right_output_id = ns("output_cmp_right"),
                               toggleable = TRUE)
       )
     ))
@@ -906,7 +901,7 @@ spatial_analysis_module_server <- function(id,
       # Locked presets keep their fixed mode.
       timeline_mode = if (analysis_editable) "reactive" else if (timeline) "always" else "none",
       timeline_active_override = if (analysis_editable) timeline_on else NULL,
-      manage_density_timeline_tabs = FALSE,
+      legacy_map_chrome = FALSE,
       activity_pattern_mode = isTRUE(spec$temporal$activity_pattern),
       use_net = use_net,
       trap_data = trap_data,
@@ -1009,13 +1004,13 @@ spatial_analysis_module_server <- function(id,
         period_intervals = period_intervals,
         timeline_mode = timeline_mode,
         timeline_active_override = timeline_active_override,
-        manage_density_timeline_tabs = FALSE,
+        legacy_map_chrome = FALSE,
         activity_pattern_mode = isTRUE(spec$temporal$activity_pattern),
         use_net = use_net,
         trap_data = trap_data,
         species_override = species_override,
         localities_override = localities_override,
-        density_scale_max_override = scale_override,
+        scale_max_override = scale_override,
         prediction_surface_override = prediction_surface_override,
         prediction_surface_basis_override = prediction_surface_basis_override,
         capture_density_surface_override = capture_density_surface_override,
@@ -1040,19 +1035,19 @@ spatial_analysis_module_server <- function(id,
     # (linked); unchecked -> that item is independent on the comparison side.
     link_period_r <- reactive({ v <- input[["link_period"]]; is.null(v) || isTRUE(v) })
     link_species_r <- reactive({ v <- input[["link_species"]]; is.null(v) || isTRUE(v) })
-    link_monitoring_r <- reactive({ v <- input[["link_monitoring"]]; is.null(v) || isTRUE(v) })
-    link_trapping_r <- reactive({ v <- input[["link_trapping"]]; is.null(v) || isTRUE(v) })
+    # All map layers share ONE chain now (the unified "Map layers" box).
+    link_layers_r <- reactive({ v <- input[["link_layers"]]; is.null(v) || isTRUE(v) })
 
-    # Per-group layer overrides for the comparison-right panel: mirror panel_left
-    # when that group is linked, else return NULL so the engine reads the right
-    # panel's own group inputs (the revealed comparison-side controls).
-    cmp_obs_markers <- reactive(if (link_monitoring_r()) panel_left$show_observation_records() else NULL)
-    cmp_surface <- reactive(if (link_monitoring_r()) panel_left$show_predicted_rai_surface() else NULL)
-    cmp_surface_basis <- reactive(if (link_monitoring_r()) panel_left$predicted_rai_surface_basis() else NULL)
-    cmp_capture_markers <- reactive(if (link_trapping_r()) panel_left$show_capture_records() else NULL)
-    cmp_check_freq <- reactive(if (link_trapping_r()) panel_left$show_trap_check_frequency() else NULL)
-    cmp_capture_density <- reactive(if (link_trapping_r()) panel_left$show_capture_density_surface() else NULL)
-    cmp_unchecked <- reactive(if (link_trapping_r()) left_unchecked_traps() else NULL)
+    # Layer overrides for the comparison-right panel: mirror panel_left when the
+    # (single) layer chain is linked, else return NULL so the engine reads the right
+    # panel's own layer inputs (the revealed comparison-side controls).
+    cmp_obs_markers <- reactive(if (link_layers_r()) panel_left$show_observation_records() else NULL)
+    cmp_surface <- reactive(if (link_layers_r()) panel_left$show_predicted_rai_surface() else NULL)
+    cmp_surface_basis <- reactive(if (link_layers_r()) panel_left$predicted_rai_surface_basis() else NULL)
+    cmp_capture_markers <- reactive(if (link_layers_r()) panel_left$show_capture_records() else NULL)
+    cmp_check_freq <- reactive(if (link_layers_r()) panel_left$show_trap_check_frequency() else NULL)
+    cmp_capture_density <- reactive(if (link_layers_r()) panel_left$show_capture_density_surface() else NULL)
+    cmp_unchecked <- reactive(if (link_layers_r()) left_unchecked_traps() else NULL)
 
     # Right panel: period mirrors the left when Period is linked, else uses its own
     # comparison period; species mirror the left when Species is linked, else NULL
@@ -1102,8 +1097,7 @@ spatial_analysis_module_server <- function(id,
       differs <- c(
         if (!link_period_r()) "Period",
         if (!link_species_r()) "Species",
-        if (!link_monitoring_r()) "Monitoring Data",
-        if (!link_trapping_r()) "Trapping Data"
+        if (!link_layers_r()) "Map layers"
       )
       if (length(differs) == 0) return(NULL)
       div(
@@ -1201,6 +1195,19 @@ spatial_analysis_module_server <- function(id,
       )
       render_comparison_headings(right_linked = link_period_r)
 
+      # Per-side Records + CSV export (non-geographic render layer), one instance per
+      # swipe panel, fed by that panel's dataset. Tabs are labelled Primary / Comparison.
+      if (isTRUE(spec$tabs$records)) {
+        analysis_output_module_server(id = "output_cmp_left",
+                                      dataset = comparison_panels$panel_cmp_left$dataset,
+                                      timeline_active = timeline_on,
+                                      export_label = "primary-records", records_label = "Primary")
+        analysis_output_module_server(id = "output_cmp_right",
+                                      dataset = comparison_panels$panel_cmp_right$dataset,
+                                      timeline_active = timeline_on,
+                                      export_label = "comparison-records", records_label = "Comparison")
+      }
+
       # Layout wiring as the View changes. "comparison" = swipe (re-init the clip +
       # camera sync; its outputs are suspended while hidden so the load-time init
       # can't find the maps). "comparison_fixed" = two static side-by-side maps:
@@ -1274,8 +1281,8 @@ spatial_analysis_module_server <- function(id,
     observeEvent(input[["tabs"]], {
       if (identical(input[["tabs"]], "map")) recenter_all()
     }, ignoreInit = TRUE)
-    observeEvent(input[["comparison-density_comparison_tabs"]], {
-      if (identical(input[["comparison-density_comparison_tabs"]], "map")) recenter_all()
+    observeEvent(input[["comparison_tabs"]], {
+      if (identical(input[["comparison_tabs"]], "map")) recenter_all()
     }, ignoreInit = TRUE)
 
     invisible(list(panel_left = panel_left, period_left = period_left))

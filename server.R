@@ -51,6 +51,7 @@ server <- function(input, output, session) {
     "trap_observation_click",
     "review_nav_click",
     "review_sequences_click",
+    "map_review_sequences_click",
     "global_setup_btn",
     "reset_button",
     "info_field_clicked",
@@ -1103,30 +1104,12 @@ server <- function(input, output, session) {
     }
   })
 
-  ########### MONITORING & TRAPPING FEATURE ###########
-
-  monitoring_trapping_loaded <- reactiveVal(FALSE)
-
-  observeEvent(input$nav, {
-    if (input$nav == "monitoring_trapping" && !monitoring_trapping_loaded()) {
-      logger::log_debug("server.R, lazily calling trapping_outcomes_module_server() for Monitoring & Trapping")
-      trapping_outcomes_module_server(
-        id = "monitoring_trapping",
-        core_data = core_data,
-        trap_data = trap_data,
-        config = config,
-        use_net = global_use_net
-      )
-      monitoring_trapping_loaded(TRUE)
-    }
-  }, ignoreNULL = FALSE, ignoreInit = FALSE)
-
   monitoring_trapping_analysis_loaded <- reactiveVal(FALSE)
 
   observeEvent(input$nav, {
     if (input$nav == "monitoring_trapping_analysis" && !monitoring_trapping_analysis_loaded()) {
-      logger::log_debug("server.R, lazily calling monitoring_trapping_module_server() for Trapping Analysis")
-      monitoring_trapping_module_server(
+      logger::log_debug("server.R, lazily calling trapping_analysis_module_server() for Trapping Analysis")
+      trapping_analysis_module_server(
         id = "monitoring_trapping_analysis",
         core_data = core_data,
         trap_data = trap_data,
@@ -1229,6 +1212,32 @@ server <- function(input, output, session) {
           footer = modalButton("Close")
         ))
       }
+    }
+  })
+
+  # Review Sequences from a map marker popup. The popup payload carries the
+  # observation IDs directly, so show the modal straight from those (no per-map
+  # lookup — the engine emits this for every workbench / trapping map).
+  observeEvent(input$map_review_sequences_click, {
+    action_data <- input$map_review_sequences_click
+    supplied_observation_ids <- action_data$observation_ids
+
+    observation_ids <- if (!is.null(supplied_observation_ids)) {
+      ids <- unlist(supplied_observation_ids, use.names = FALSE)
+      ids[nzchar(ids)]
+    } else {
+      character(0)
+    }
+
+    if (length(observation_ids) > 0) {
+      show_review_sequences_modal(observation_ids, 1)
+    } else {
+      showModal(modalDialog(
+        title = "No Sequences Found",
+        "There are no sequences to review for this selection.",
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
     }
   })
 

@@ -327,18 +327,18 @@ setup_kable_output(table_id = "locality_spp_summary",
 # Density maps: important species
 Each species density map has its own scale for the number of individuals; they are not directly comparable.
 
-```{r density_maps, results='asis', echo=FALSE}
+```{r abundance_maps, results='asis', echo=FALSE}
 
 species_name_type <- params$config$globals$species_name_type # "scientificName" or "vernacularNames.eng"
 
-for(species_name in names(params$data$density_maps)) {
+for(species_name in names(params$data$abundance_maps)) {
  # cat(sprintf("## %s {.rotated-heading}\n", species_name))
   cat(sprintf("## %s\n", species_name))
 #  heading <- paste(species_name, " density heatmap")
 #  cat('###', heading, '\n')
 #    cat('### Density heatmap\n')
   # Use HTML <img> tag to embed the image
-  cat(sprintf('<img src="%s" alt="%s">', params$data$density_maps[[species_name]], species_name), '<br>\n')
+  cat(sprintf('<img src="%s" alt="%s">', params$data$abundance_maps[[species_name]], species_name), '<br>\n')
   
  # heading <- paste(species_name, " observations by Locality")
 #  cat('###', heading, '\n')

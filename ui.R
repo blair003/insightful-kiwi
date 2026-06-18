@@ -14,7 +14,6 @@ ui <- function(request) {
       'reporting': true,
       'spatial_analysis': true,
       'temporal_analysis': true,
-      'monitoring_trapping': true,
       'monitoring_trapping_analysis': true,
       'activity_patterns': true,
       'records': false
@@ -161,13 +160,8 @@ ui <- function(request) {
       ),
 
       conditionalPanel(
-        condition = "input.nav === 'monitoring_trapping'",
-        trapping_outcomes_module_ui("monitoring_trapping", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
-      ),
-
-      conditionalPanel(
         condition = "input.nav === 'monitoring_trapping_analysis'",
-        monitoring_trapping_module_ui("monitoring_trapping_analysis", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
+        trapping_analysis_module_ui("monitoring_trapping_analysis", core_data = core_data, config = config, trap_data = trap_data, view = "sidebar")
       ),
 
       conditionalPanel(
@@ -190,7 +184,7 @@ ui <- function(request) {
 
         ######### SPATIAL ANALYSIS (unified workbench) #########
         nav_panel(
-          title = "Spatial (Expert)",
+          title = "Spatial (Expert Mode)",
           icon = icon("map-location-dot"),
           value = "spatial_analysis",
           spatial_analysis_module_ui(
@@ -199,13 +193,13 @@ ui <- function(request) {
             spec = spatial_analysis_default_spec(),
             core_data = core_data,
             trap_data = trap_data,
-            page_title = "Spatial (Expert)"
+            page_title = "Spatial Map (Expert Mode)"
           )
         ),
 
         ######### TEMPORAL ANALYSIS (cyclic activity pattern, monitoring-only) #########
         nav_panel(
-          title = "Temporal (Expert)",
+          title = "Temporal (Expert Mode)",
           icon = icon("clock"),
           value = "temporal_analysis",
           spatial_analysis_module_ui(
@@ -214,7 +208,7 @@ ui <- function(request) {
             spec = spatial_analysis_preset("temporal_analysis"),
             core_data = core_data,
             trap_data = NULL,
-            page_title = "Temporal (Expert)"
+            page_title = "Temporal Map (Expert Mode)"
           )
         ),
 
@@ -224,7 +218,7 @@ ui <- function(request) {
             title = "Trapping Analysis",
             icon = icon("chart-simple"),
             value = "monitoring_trapping_analysis",
-            monitoring_trapping_module_ui("monitoring_trapping_analysis", core_data = core_data, config = config, trap_data = trap_data, view = "main")
+            trapping_analysis_module_ui("monitoring_trapping_analysis", core_data = core_data, config = config, trap_data = trap_data, view = "main")
           )
         }
       ),

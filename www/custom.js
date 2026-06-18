@@ -1351,13 +1351,13 @@ function verifyRaiProof(provider, btn) {
 }
 
 (function() {
-  var densityPlaybackTimers = {};
+  var playbackTimers = {};
   var densityPlaybackHandlerRegistered = false;
 
   function stopDensityPlaybackTimer(id) {
-    if (densityPlaybackTimers[id]) {
-      window.clearInterval(densityPlaybackTimers[id]);
-      delete densityPlaybackTimers[id];
+    if (playbackTimers[id]) {
+      window.clearInterval(playbackTimers[id]);
+      delete playbackTimers[id];
     }
   }
 
@@ -1367,7 +1367,7 @@ function verifyRaiProof(provider, btn) {
     }
 
     densityPlaybackHandlerRegistered = true;
-    Shiny.addCustomMessageHandler("densityPlaybackTimer", function(message) {
+    Shiny.addCustomMessageHandler("playbackTimer", function(message) {
       if (!message || !message.id) {
         return;
       }
@@ -1382,7 +1382,7 @@ function verifyRaiProof(provider, btn) {
       if (!Number.isFinite(interval)) {
         interval = 50;
       }
-      densityPlaybackTimers[message.id] = window.setInterval(function() {
+      playbackTimers[message.id] = window.setInterval(function() {
         if (window.Shiny && Shiny.setInputValue) {
           Shiny.setInputValue(message.id, Date.now(), { priority: "event" });
         }
