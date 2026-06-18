@@ -48,7 +48,8 @@ pkgs <- c(
   "dotenv",
   "chromote",
   "remotes",
-  "inbo/camtraptor"
+  "inbo/camtraptor",
+  "inbo/camtraptdp"
 )
 
 pak::pak(pkgs, ask = FALSE, upgrade = FALSE)
