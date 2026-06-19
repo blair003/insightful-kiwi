@@ -29,11 +29,13 @@ WKT_TRAP_COLUMNS <- c(
 #' @param raw_dir   Directory holding the 5 standardised CSVs (WKT_TRAP_FILES).
 #' @param out_dir   Where to write the Camtrap DP package.
 #' @param meta      Manifest entry (used for package title/project).
+#' @param dataset_id Dataset id; prepended to each trap's locationID to make it
+#'   globally unique across datasets (trap codes are not unique on their own).
 #' @param taxonomy_cache Optional .rds cache path for ik_resolve_taxa().
 #' @param first_deployment_days Lead-in (days) for a trap's first check, which has
 #'   no previous check to start the deployment interval.
 #' @return Invisibly, the path to the written datapackage.json.
-convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(),
+convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "wkt_trapping",
                                  taxonomy_cache = NULL, first_deployment_days = 7) {
   na <- c("NA", "NULL", "")
   rd <- function(name, ...) utils::read.csv(
@@ -72,7 +74,7 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(),
   # --- join everything onto the checks -----------------------------------------
   d <- checks |>
     dplyr::left_join(outcomes, by = "outcome_id") |>
-    dplyr::left_join(traps[, c("trap_id", "trap_code", "line_id", "line_name",
+    dplyr::left_join(traps[, c("trap_id", "trap_code", "line_id",
                                "long", "lat", "trap_type_id")], by = "trap_id") |>
     dplyr::left_join(trap_types, by = "trap_type_id") |>
     dplyr::left_join(bait_outcomes, by = "bait_outcome_id")
@@ -100,17 +102,23 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(),
   d$deploy_start <- d$prev_date
   d$deploy_start[first] <- d$check_date[first] - first_deployment_days
 
-  iso <- function(x) ifelse(is.na(x), NA_character_, paste0(format(x, "%Y-%m-%d"), "T00:00:00Z"))
+  # Raw check dates are NAIVE (no time/offset); the manifest declares their zone.
+  # Write each as local midnight in that zone so the package carries correct
+  # instants (force_tz, DST-aware), not naive UTC.
+  src_tz <- meta$timezone %||% "UTC"
+  mid <- function(dates) {
+    lubridate::force_tz(as.POSIXct(paste0(format(dates), " 00:00:00"), tz = "UTC"), src_tz)
+  }
   dep_id <- paste0("wkt-trap-dep-", d$trapdata_id)
   is_animal <- !is.na(d$observationType) & d$observationType == "animal" & !is.na(d$scientificName)
 
   # --- deployments (one per check interval) ------------------------------------
   deployments <- data.frame(
     deploymentID = dep_id,
-    locationID = d$trap_code, locationName = d$trap_code,
+    locationID = paste0(dataset_id, "_", d$trap_code), locationName = d$trap_code,
     latitude = d$lat, longitude = d$long,
     coordinateUncertainty = NA_integer_,
-    deploymentStart = iso(d$deploy_start), deploymentEnd = iso(d$check_date),
+    deploymentStart = mid(d$deploy_start), deploymentEnd = mid(d$check_date),
     setupBy = NA_character_, cameraID = d$trap_code,
     cameraModel = ifelse(is.na(d$trap_type), "predator trap", d$trap_type),
     cameraDelay = NA_integer_, cameraHeight = NA_real_, cameraDepth = NA_real_,
@@ -119,7 +127,8 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(),
     # featureType for a trap device (it's a camera-feature enum), so trap-ness
     # rides in source_type ($meta) + a method tag, not here.
     timestampIssues = TRUE, baitUse = NA, featureType = NA_character_, habitat = NA_character_,
-    deploymentGroups = ifelse(is.na(d$line_name), NA_character_, paste0("line:", d$line_name)),
+    # line_id is the canonical (GIS) trapline id; line_code/line_name are hand-typed.
+    deploymentGroups = ifelse(is.na(d$line_id), NA_character_, paste0("line:", d$line_id)),
     deploymentTags = paste0("method:trapping | source_trap_id:", d$trap_id,
                             " | trap_type:", ifelse(is.na(d$trap_type), "", d$trap_type)),
     deploymentComments = "Converted from WKT trap checks; deployment = interval between checks.",
@@ -132,7 +141,7 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(),
     observationID = paste0("wkt-trap-obs-", d$trapdata_id),
     deploymentID = dep_id, mediaID = NA_character_,
     eventID = paste0("wkt-trap-evt-", d$trapdata_id),
-    eventStart = iso(d$deploy_start), eventEnd = iso(d$check_date),
+    eventStart = mid(d$deploy_start), eventEnd = mid(d$check_date),
     observationLevel = "event",
     observationType = ifelse(is.na(d$observationType), "unclassified", d$observationType),
     cameraSetupType = NA_character_,

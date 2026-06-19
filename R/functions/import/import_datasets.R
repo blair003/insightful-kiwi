@@ -43,7 +43,7 @@ ik_convert_raw <- function(id, entry, config) {
   if (!dir.exists(raw_dir)) {
     stop(sprintf("Raw dataset '%s': directory '%s' not found.", id, raw_dir), call. = FALSE)
   }
-  converter <- ik_converters[[entry$raw$converter]]
+  converter <- ik_registered("converter", entry$raw$converter)
   if (is.null(converter)) {
     stop(sprintf("Dataset '%s': no converter '%s' (see R/functions/import/converters.R).",
                  id, entry$raw$converter), call. = FALSE)
@@ -60,7 +60,7 @@ ik_convert_raw <- function(id, entry, config) {
   }
 
   logger::log_info("Converting raw dataset '%s' via '%s' ...", id, entry$raw$converter)
-  converter(raw_dir = raw_dir, out_dir = out_dir, meta = entry,
+  converter(raw_dir = raw_dir, out_dir = out_dir, meta = entry, dataset_id = id,
             taxonomy_cache = file.path(config$dirs$cache, "taxonomy.rds"))
   saveRDS(fp, fp_file)
   descriptor
@@ -85,11 +85,16 @@ ik_read_dataset <- function(id, entry, config) {
     }
   )
 
+  # Package-native taxon consolidation (manifest rules), e.g. rats -> genus Rattus.
+  package <- apply_taxon_consolidation(package, entry$consolidate_taxa)
+
   list(
     package = package,
     meta = list(
       id = id, source_type = entry$source_type, project = entry$project,
-      method = entry$method, name = entry$name %||% id, timezone = entry$timezone
+      method = entry$method, name = entry$name %||% id,
+      timezone = entry$timezone, force_timezone = entry$force_timezone,
+      geography = entry$geography
     )
   )
 }

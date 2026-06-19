@@ -2,9 +2,11 @@
 
 ## Project
 **Insightful Kiwi** — an **R / Shiny** app for community conservation groups to
-analyse wildlife monitoring and control data (cameras, traps, tracking tunnels,
+**analyse** wildlife monitoring and control data (cameras, traps, tracking tunnels,
 bait/poison stations) across one or many projects and areas, producing spatial,
-temporal and species-level insight.
+temporal and species-level insight. It aims to be **world-class**, scaling from a
+single group to **organisations that aggregate data across many conservation groups**
+— though that single-group case is our main focus for now.
 
 ## Status: greenfield v1.0 rebuild
 We are rebuilding the app from scratch as **v1.0**, feature by feature, prompted at
@@ -21,7 +23,7 @@ what is asked for.
 **Read [docs/data-model/01-data-structure.md](docs/data-model/01-data-structure.md)
 before touching data structures or import.** ([02-app-concept.md](docs/data-model/02-app-concept.md)
 = purpose/data-flow/views; [03-camtrapdp-capabilities.md](docs/data-model/03-camtrapdp-capabilities.md)
-= camtrapdp usage + spike.). A reference copy of the camtrapDP schema for [deployments](docs/camtrapdp/deployments-table-schema.json), [observations](docs/camtrapdp/observations-table-schema.json) and [media](docs/camtrapdp/media-table-schema.json) is in `docs/camtrapdp/`. 
+= camtrapdp usage + spike.). A reference copy of the camtrapDP schema for [deployments](docs/camtrapdp/deployments-table-schema.json), [observations](docs/camtrapdp/observations-table-schema.json) and [media](docs/camtrapdp/media-table-schema.json) is in `docs/camtrapdp/`. Field references for our derived `ik_data$app$*` tables (`taxonomy`, `geography`, `species_roles`, `period`, `relations`) are in [docs/app/](docs/app/) — **descriptive**, see [Documentation](#documentation). The data-**selection** model (deployment-first; period/geography/species/method axes) is [docs/data-model/04-data-selection.md](docs/data-model/04-data-selection.md). 
 
 Invariants:
 
@@ -30,13 +32,41 @@ Invariants:
 - All derived data is normalized into `$app` (shared) or `$meta` (per-dataset), **joined on demand** — never widened onto the fact tables. Placement rule: differs between datasets → `$meta`; shared reference → `$app`.
 - **Event-centric:** observations carry `eventStart`/`eventEnd`; **there is no `timestamp` column** — derive a single instant in-app only where needed.
 - **Geography (*where*)** and **project/organisation (*who*)** are independent axes. Geography is `app$geography` (canonical levels location/line/reserve/region/country/global); project is a dataset tag.
+- **Casing marks the layer:** camtrapdp package fields are camelCase (`locationID`, `eventStart`, `scientificName`); our derived `$app`/`$meta` columns are snake_case (`location_id`, `within_monitored_area`, `minutes_since_prev_same_species`). Keep new derived columns snake_case so the two never blur.
 
 
-## Packages
-**Any package may be used — but ASK FIRST.** Before `install.packages()`, adding to
-`renv`/`DESCRIPTION`, or otherwise introducing a dependency, **stop and ask.** New
-packages are welcome; silent installs are not. Core stack already chosen: `shiny`,
-`camtrapdp` (Camtrap DP reader; successor to `camtraptor`), `dplyr`, `sf`, `suncalc`.
+## Documentation
+Two kinds, kept deliberately separate — don't collapse them:
+- **This file (`AGENTS.md`) and `docs/data-model/` are prescriptive** — intent,
+  conventions, invariants, limitations: *how we want things, and what not to do.*
+  They are instruction. Keep them current when a **rule, convention, or
+  architecture decision** changes.
+- **`docs/app/` and `docs/camtrapdp/` are descriptive** — field references for the
+  data tables: *how things are.* **Code is the source of truth**; treat these as a
+  convenience data-dictionary that may lag. Don't cite them as authority over the
+  code, and don't make this file depend on them for facts.
+- **During the v1.0 rebuild, docs are not a hard per-change sync obligation.** Refresh
+  a `docs/app/` field reference when that table's **shape or public contract**
+  stabilises or changes — not on every internal tweak. (Tighten to "keep in sync"
+  once the data model settles.)
+
+
+## Packages & environment
+**Any package may be used — but ASK FIRST.** Before introducing a dependency, **stop
+and ask.** New packages are welcome; silent installs are not. Core stack already
+chosen: `shiny`, `camtrapdp` (Camtrap DP reader; successor to `camtraptor`), `dplyr`,
+`sf`, `suncalc`.
+
+- **R packages are declared in [`.devcontainer/setup-r.R`](.devcontainer/setup-r.R)**
+  (installed via `pak` by the Dockerfile). Once a package is agreed, add it to the
+  `pkgs` list there — that file is **yours to maintain**. `pak` takes CRAN packages by
+  name and **GitHub packages as `"user/repo"`** (e.g. `inbo/camtrapdp`; pin a ref with
+  `"user/repo@<tag|sha>"`). Adding a package does *not* rebuild the container (see
+  Runtime rules); the user does that.
+- **The rest of `.devcontainer/` is infrastructure — do NOT edit without asking.**
+  `Dockerfile`, `install-system-deps.sh` (system/`apt` libraries), and
+  `devcontainer.json` are owned by the user: propose changes or wait to be asked to
+  review them; don't edit them as a side effect of other work.
 
 ## Code organisation
 - **All R code in `R/`.** Keep `global.R` / `server.R` / `ui.R` thin — logic lives in

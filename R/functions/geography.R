@@ -1,0 +1,176 @@
+# geography.R — build the shared canonical place hierarchy (ik_data$app$geography)
+# from each dataset's locations + its per-dataset config (manifest `geography`).
+# Canonical levels: location < line < reserve < global.
+#
+# `line` and `reserve` are INDEPENDENT location attributes. Each dataset names a
+# registered DERIVER (`derive`) that produces what it can from its own data
+# (camera: line + canonical reserve; trap: line only). Datasets whose reserve is
+# not in their data declare a `reserve_match` strategy that assigns the reserve by
+# SPATIALLY matching to another dataset's canonical reserves (the cross-dataset
+# "hard open problem"; done in the app layer, never in a converter).
+#
+# Naming: our derived app$ tables use snake_case (location_id, within_monitored_area, ...)
+# so the casing distinguishes them from camtrapdp package fields (camelCase:
+# locationID, eventStart). `location_id` is taken straight from the package and is
+# globally unique already: cameras use Agouti hashes; converters namespace their
+# locationIDs at conversion (e.g. wkt_trapping_SS24). No separate source id is kept.
+
+# ---- derivers: deriver(package, config) -> data.frame(line, reserve) per location ----
+
+#' WKT camera locationName deriver: "NN A_B" -> line "1" (number only), reserve via map.
+derive_wkt_locationname <- function(package, config) {
+  ln       <- camtrapdp::locations(package)$locationName
+  code     <- sub(" .*$", "", ln)                       # "OH"
+  line_num <- sub("_.*$", "", sub("^\\S+ ", "", ln))    # "1" from "1_2"
+  data.frame(
+    line    = ifelse(is.na(ln), NA_character_, line_num),  # bare "1" (not "OH 1")
+    reserve = unname(config$reserves[code]),               # "Ohope" (canonical)
+    stringsAsFactors = FALSE
+  )
+}
+
+#' WKT trap deriver: line (name) from deploymentGroups "line:<name>"; reserve NA
+#' (filled by the reserve_match pass).
+derive_wkt_trap_line <- function(package, config) {
+  locs <- camtrapdp::locations(package)
+  deps <- camtrapdp::deployments(package)
+  line <- trimws(ifelse(grepl("line:", deps$deploymentGroups),
+                        sub(".*line:\\s*([^|]*).*", "\\1", deps$deploymentGroups),
+                        NA_character_))
+  by_loc <- tapply(line, as.character(deps$locationID), function(v) {
+    v <- v[!is.na(v)]; if (length(v)) v[[1]] else NA_character_
+  })
+  data.frame(
+    line    = unname(by_loc[as.character(locs$locationID)]),
+    reserve = NA_character_,
+    stringsAsFactors = FALSE
+  )
+}
+
+ik_register("geography_deriver", "wkt_locationname", derive_wkt_locationname)
+ik_register("geography_deriver", "wkt_trap_line",    derive_wkt_trap_line)
+
+# ---- build ----------------------------------------------------------------------
+
+#' Per-dataset base locations + self-derived line/reserve. @keywords internal
+build_geo_base <- function(id, ds) {
+  locs <- camtrapdp::locations(ds$package)
+  base <- data.frame(
+    location_id        = as.character(locs$locationID),  # globally unique already
+    dataset            = id,
+    name               = locs$locationName,
+    latitude           = locs$latitude,
+    longitude          = locs$longitude,
+    line               = NA_character_,
+    reserve            = NA_character_,
+    within_monitored_area     = NA,
+    nearest_monitoring_location    = NA_character_,
+    nearest_monitoring_distance_km = NA_real_,
+    stringsAsFactors = FALSE
+  )
+  cfg <- ds$meta$geography
+  if (!is.null(cfg) && !is.null(cfg$derive)) {
+    deriver <- ik_registered("geography_deriver", cfg$derive)
+    if (is.null(deriver)) {
+      logger::log_warn("geography: no deriver '%s' for dataset '%s' — locations only.",
+                       cfg$derive, id)
+    } else {
+      d <- deriver(ds$package, cfg)
+      base$line    <- d$line
+      base$reserve <- d$reserve
+      # A dataset that supplies its own reserve and isn't spatially matched is
+      # canonical -> its locations are "within" by definition.
+      if (is.null(cfg$reserve_match)) base$within_monitored_area <- !is.na(base$reserve)
+    }
+  }
+  base
+}
+
+#' Convex hulls (NZTM) per reserve from canonical points. @keywords internal
+reserve_hulls_nztm <- function(canon_sf, reserves) {
+  hulls <- list()
+  for (rn in unique(reserves)) {
+    pts <- canon_sf[reserves == rn, ]
+    if (nrow(pts) >= 3) hulls[[rn]] <- sf::st_convex_hull(sf::st_union(pts))
+  }
+  hulls
+}
+
+#' Spatially assign reserves for one dataset against a canonical dataset's reserves.
+#' Returns the computed columns (keyed by location_id) + WGS84 reserve hulls.
+#' @keywords internal
+assign_reserves_spatial <- function(locations, id, rm) {
+  buffer_m <- rm$buffer_m %||% 0
+  canon <- locations[locations$dataset == rm$canonical & !is.na(locations$reserve) &
+                       !is.na(locations$latitude) & !is.na(locations$longitude), ]
+  target <- locations[locations$dataset == id &
+                        !is.na(locations$latitude) & !is.na(locations$longitude), ]
+  if (nrow(canon) == 0 || nrow(target) == 0) return(NULL)
+
+  canon_sf  <- sf::st_transform(sf::st_as_sf(canon,  coords = c("longitude", "latitude"), crs = 4326), 2193)
+  target_sf <- sf::st_transform(sf::st_as_sf(target, coords = c("longitude", "latitude"), crs = 4326), 2193)
+
+  # Nearest monitoring location (always): distance to the camera POINTS, not hull edges.
+  dmat <- units::drop_units(sf::st_distance(target_sf, canon_sf))
+  ni   <- apply(dmat, 1, which.min)
+  near_km <- apply(dmat, 1, min) / 1000
+
+  # Containment in buffered hulls.
+  hulls   <- reserve_hulls_nztm(canon_sf, canon$reserve)
+  within  <- rep(FALSE, nrow(target))
+  contain <- rep(NA_character_, nrow(target))
+  for (rn in names(hulls)) {
+    inside <- lengths(sf::st_intersects(target_sf, sf::st_buffer(hulls[[rn]], buffer_m))) > 0
+    sel <- inside & is.na(contain)
+    contain[sel] <- rn
+    within[inside] <- TRUE
+  }
+
+  list(
+    cols = data.frame(
+      location_id = target$location_id,
+      reserve = ifelse(within, contain, canon$reserve[ni]),  # assigned: containing or nearest
+      within_monitored_area = within,
+      nearest_monitoring_location    = canon$name[ni],
+      nearest_monitoring_distance_km = round(near_km, 3),
+      stringsAsFactors = FALSE
+    ),
+    hulls = lapply(hulls, function(h) sf::st_transform(h, 4326))
+  )
+}
+
+#' Build ik_data$app$geography from all datasets.
+#'
+#' The line/reserve hierarchy is carried on `locations` (group/filter by the
+#' dataset/reserve/line columns directly); an explicit groups/tree table is added
+#' only when a feature needs it.
+#'
+#' @param datasets The ik_data$datasets list (each `$package` + `$meta$geography`).
+#' @return list(levels, locations, reserve_hulls).
+build_geography <- function(datasets) {
+  # Pass 1 — self-derive.
+  locations <- dplyr::bind_rows(lapply(names(datasets),
+                                       function(id) build_geo_base(id, datasets[[id]])))
+
+  # Pass 2 — spatial reserve assignment for datasets configured with reserve_match.
+  reserve_hulls <- list()
+  for (id in names(datasets)) {
+    rm <- datasets[[id]]$meta$geography$reserve_match
+    if (is.null(rm) || !identical(rm$strategy, "spatial_hull")) next
+    res <- assign_reserves_spatial(locations, id, rm)
+    if (is.null(res)) next
+    idx <- match(res$cols$location_id, locations$location_id)
+    for (col in setdiff(names(res$cols), "location_id")) locations[[col]][idx] <- res$cols[[col]]
+    reserve_hulls <- utils::modifyList(reserve_hulls, res$hulls)
+  }
+
+  list(levels = c("location", "line", "reserve", "global"),
+       locations = locations, reserve_hulls = reserve_hulls)
+}
+
+#' The shared geography registry.
+#' @param ik_data The ik_data container.
+#' @return ik_data$app$geography (see build_geography()).
+ik_geography <- function(ik_data) {
+  ik_data$app$geography
+}

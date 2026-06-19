@@ -5,7 +5,7 @@
 
 # Bump when the SHAPE of ik_data changes (new $meta tags, $app structure, ...) so
 # caches written by older code are treated as stale.
-IK_CACHE_VERSION <- 2L
+IK_CACHE_VERSION <- 10L
 
 #' Fingerprint the import inputs (manifest + package files).
 #'
@@ -15,7 +15,7 @@ IK_CACHE_VERSION <- 2L
 #' @param config   Runtime config (see build_config()).
 #' @param manifest The dataset manifest (see load_manifest()).
 #' @return A list used as the cache key.
-source_fingerprint <- function(config, manifest) {
+source_fingerprint <- function(config, manifest, project = list()) {
   files <- lapply(names(manifest), function(id) {
     entry <- manifest[[id]]
     if (isFALSE(entry$enabled)) return(NULL)
@@ -27,7 +27,7 @@ source_fingerprint <- function(config, manifest) {
     dir_fingerprint(dir)
   })
   names(files) <- names(manifest)
-  list(manifest = manifest, files = files)
+  list(manifest = manifest, project = project, files = files)
 }
 
 #' File-metadata fingerprint of a directory (size + mtime; no content hashing).
@@ -45,7 +45,8 @@ dir_fingerprint <- function(dir) {
 #' @return ik_data (see build_ik_data()).
 load_or_build_ik_data <- function(config, force = FALSE) {
   manifest    <- load_manifest(config)
-  fingerprint <- source_fingerprint(config, manifest)
+  project     <- load_project_config(config)
+  fingerprint <- source_fingerprint(config, manifest, project)
   cache_path  <- file.path(config$dirs$cache, "ik_data.rds")
 
   if (!force && file.exists(cache_path)) {
@@ -62,7 +63,7 @@ load_or_build_ik_data <- function(config, force = FALSE) {
     logger::log_info("ik_data: no cache — importing.")
   }
 
-  ik_data <- build_ik_data(config, manifest)
+  ik_data <- build_ik_data(config, manifest, project)
 
   dir.create(config$dirs$cache, recursive = TRUE, showWarnings = FALSE)
   saveRDS(

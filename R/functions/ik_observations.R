@@ -25,16 +25,26 @@ ik_tag_provenance <- function(df, id, ds) {
   df
 }
 
-#' Reinterpret datetime columns in the dataset's declared timezone.
+#' Present datetime columns in the dataset's timezone (manifest-driven).
 #'
-#' Override for sources that record local wall-clock but mislabel the UTC offset
-#' (see the `timezone` manifest field): force_tz keeps the clock time and applies
-#' the correct DST-aware offset. No-op when the dataset declares no timezone.
+#' Two manifest mechanisms (mutually exclusive per dataset):
+#' - `force_timezone`: the source mislabels its offset → reinterpret the wall-clock
+#'   in this zone (force_tz, DST-aware) — no shift. For read packages we can't fix.
+#' - `timezone`: the data is correctly offset (converters write it so) → convert to
+#'   this zone for display (with_tz).
+#' No-op when the dataset declares neither.
 #' @keywords internal
-ik_localize_times <- function(df, tz, cols) {
-  if (is.null(tz) || is.na(tz) || !nzchar(tz)) return(df)
+ik_localize_times <- function(df, meta, cols) {
+  set <- function(x) !is.null(x) && !is.na(x) && nzchar(x)
+  op <- if (set(meta$force_timezone)) {
+    function(x) lubridate::force_tz(x, meta$force_timezone)
+  } else if (set(meta$timezone)) {
+    function(x) lubridate::with_tz(x, meta$timezone)
+  } else {
+    return(df)
+  }
   for (col in intersect(cols, names(df))) {
-    if (inherits(df[[col]], "POSIXct")) df[[col]] <- lubridate::force_tz(df[[col]], tz)
+    if (inherits(df[[col]], "POSIXct")) df[[col]] <- op(df[[col]])
   }
   df
 }
@@ -49,7 +59,7 @@ ik_deployments <- function(ik_data, dataset = NULL) {
   dplyr::bind_rows(lapply(ids, function(id) {
     ds  <- ik_data$datasets[[id]]
     dep <- camtrapdp::deployments(ds$package)
-    dep <- ik_localize_times(dep, ds$meta$timezone, c("deploymentStart", "deploymentEnd"))
+    dep <- ik_localize_times(dep, ds$meta, c("deploymentStart", "deploymentEnd"))
     ik_tag_provenance(dep, id, ds)
   }))
 }
@@ -72,7 +82,7 @@ ik_observations <- function(ik_data, dataset = NULL, with_location = TRUE) {
       ]
       obs <- dplyr::left_join(obs, loc, by = "deploymentID")
     }
-    obs <- ik_localize_times(obs, ds$meta$timezone, c("eventStart", "eventEnd"))
+    obs <- ik_localize_times(obs, ds$meta, c("eventStart", "eventEnd"))
     ik_tag_provenance(obs, id, ds)
   }))
 }

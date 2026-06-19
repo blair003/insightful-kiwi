@@ -21,7 +21,7 @@ RECORDS_COLUMNS <- c(
   sex                       = "Sex",
   behavior                  = "Behaviour",
   cameraSetupType           = "Camera setup",
-  deploymentID              = "Deployment",
+  deploymentID              = "Deployment ID",
   latitude                  = "Latitude",
   longitude                 = "Longitude",
   individualID              = "Individual",
@@ -35,6 +35,24 @@ RECORDS_DEFAULT_COLS <- c("eventEnd", "Species", "count", "observationType",
 
 # Low-cardinality columns rendered as factors so DT's column filter is a dropdown.
 RECORDS_FACTOR_COLS <- c("Type", "Source", "Dataset")
+
+# Datetime columns are pre-formatted to LOCAL text for display. DT serializes a
+# POSIXct as UTC (adds a Z and shifts the clock), which undoes the timezone
+# correction — so we format the corrected wall-clock to a string ourselves. Trade:
+# DT then text-filters this column instead of a date-range widget (a proper date
+# filter belongs in the sidebar). Date-only when the local time is exactly midnight
+# (date-only sources like traps), else date + time:
+# "2024-01-10 13:37:40" (camera) / "2023-01-30" (trap).
+RECORDS_DATETIME_COLS <- c("When", "Event start")
+
+format_records_datetime <- function(x) {
+  ifelse(
+    is.na(x), NA_character_,
+    ifelse(format(x, "%H:%M:%S") == "00:00:00",
+           format(x, "%Y-%m-%d"),
+           format(x, "%Y-%m-%d %H:%M:%S"))
+  )
+}
 
 #' Records nav panel UI.
 #'
@@ -66,6 +84,9 @@ records_server <- function(id, ik_data, prefer_scientific) {
       present <- intersect(names(RECORDS_COLUMNS), names(obs))
       out <- obs[, present, drop = FALSE]
       names(out) <- RECORDS_COLUMNS[present]
+      for (col in intersect(RECORDS_DATETIME_COLS, names(out))) {
+        out[[col]] <- format_records_datetime(out[[col]])
+      }
       for (col in intersect(RECORDS_FACTOR_COLS, names(out))) {
         out[[col]] <- as.factor(out[[col]])
       }

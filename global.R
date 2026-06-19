@@ -27,14 +27,19 @@ source("R/modules/records.R")
 # Data import — build the ik_data container once at startup
 ################################################################
 
-attach_packages(c("camtrapdp", "dplyr", "tibble", "httr2", "lubridate"))
+attach_packages(c("camtrapdp", "dplyr", "tibble", "httr2", "lubridate", "sf"))
+source("R/functions/registry.R")   # ik_registry — sourced before files that register into it
 source("R/functions/config.R")
 source("R/functions/ik_resolve_taxa.R")
+source("R/functions/geography.R")
+source("R/functions/period.R")
 source("R/functions/import/import_datasets.R")
 source("R/functions/import/build_taxonomy.R")
+source("R/functions/import/consolidate_taxa.R")
 source("R/functions/import/camtrapdp_template.R")
 source("R/functions/import/converters/wkt_trapping.R")
 source("R/functions/import/converters.R")
+source("R/functions/observation_relations.R")
 source("R/functions/build_ik_data.R")
 source("R/functions/ik_data_cache.R")
 source("R/functions/ik_taxonomy.R")
