@@ -23,7 +23,7 @@ what is asked for.
 **Read [docs/data-model/01-data-structure.md](docs/data-model/01-data-structure.md)
 before touching data structures or import.** ([02-app-concept.md](docs/data-model/02-app-concept.md)
 = purpose/data-flow/views; [03-camtrapdp-capabilities.md](docs/data-model/03-camtrapdp-capabilities.md)
-= camtrapdp usage + spike.). A reference copy of the camtrapDP schema for [deployments](docs/camtrapdp/deployments-table-schema.json), [observations](docs/camtrapdp/observations-table-schema.json) and [media](docs/camtrapdp/media-table-schema.json) is in `docs/camtrapdp/`. Field references for our derived `ik_data$app$*` tables (`taxonomy`, `geography`, `species_roles`, `period`, `relations`) are in [docs/app/](docs/app/) — **descriptive**, see [Documentation](#documentation). The data-**selection** model (deployment-first; period/geography/species/method axes) is [docs/data-model/04-data-selection.md](docs/data-model/04-data-selection.md). 
+= camtrapdp usage + spike.). A reference copy of the camtrapDP schema for [deployments](docs/camtrapdp/deployments-table-schema.json), [observations](docs/camtrapdp/observations-table-schema.json) and [media](docs/camtrapdp/media-table-schema.json) is in `docs/camtrapdp/`. Field references for our derived `ik_data$app$*` tables (`taxonomy`, `geography`, `species_groups`, `period`, `relations`) are in [docs/app/](docs/app/) — **descriptive**, see [Documentation](#documentation). The data-**selection** model (deployment-first; period/geography/species/method axes) is [docs/data-model/04-data-selection.md](docs/data-model/04-data-selection.md). 
 
 Invariants:
 
@@ -92,8 +92,6 @@ chosen: `shiny`, `camtrapdp` (Camtrap DP reader; successor to `camtraptor`), `dp
   location assignment) lives in `instance/config/project.R`.
 
 ## Runtime rules
-- **DO NOT run the Shiny app unless explicitly asked** — it is a long-running GUI; the
-  user runs it to validate behaviour.
 - **DO NOT reinstall packages or rebuild the dev container** (VS Code / Docker)
   without asking.
 - **DO NOT search/parse large generated dirs:** `instance/cache/`,

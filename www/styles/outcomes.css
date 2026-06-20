@@ -1,0 +1,7 @@
+/* outcomes.css — the "Are we winning?" outcome view. */
+
+.ik-outcomes { padding-top: 0.5rem; }
+.ik-out-title { margin: 0 0 0.2rem; }
+.ik-out-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
+.out-controls { margin-bottom: 0.4rem; }
+.out-controls .control-label { font-weight: 600; margin-right: 0.6rem; }

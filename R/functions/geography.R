@@ -15,13 +15,31 @@
 # globally unique already: cameras use Agouti hashes; converters namespace their
 # locationIDs at conversion (e.g. wkt_trapping_SS24). No separate source id is kept.
 
+# Placeholder reserve for locations that can't be placed (e.g. coordless / mobile traps): keeps
+# them in the reserve→line→location hierarchy so they show in non-spatial views.
+GEO_UNPLACED_RESERVE <- "Unplaced"
+
 # ---- derivers: deriver(package, config) -> data.frame(line, reserve) per location ----
 
-#' WKT camera locationName deriver: "NN A_B" -> line "1" (number only), reserve via map.
-derive_wkt_locationname <- function(package, config) {
+#' Geography deriver for location names of the form `CODE LINE_SUBLOC` — a reserve CODE, a
+#' space, a LINE, an underscore, then the on-line position (e.g. "OH 1_2", "OHI North_4"). It
+#' produces `line` (for grouping) and `reserve` (the CODE mapped via `config$reserves`); the
+#' on-line position isn't parsed — the full locationName is already the unique location id.
+#'
+#' Grammar / what it tolerates (so you know when a NEW deriver is needed):
+#'   CODE    = the first whitespace-delimited token, ANY length ("OH", "OHI", "OF1"). Looked up
+#'             in `config$reserves` (e.g. `c(OH = "Ohope")`); an unmapped code → reserve NA.
+#'   <space> = the FIRST space splits CODE from the rest (required to find the line).
+#'   LINE    = from that space up to the FIRST underscore, ANY length ("1", "AA", "North").
+#'             No underscore → LINE is everything after the space.
+#'   _SUBLOC = ignored here (it only makes the location id unique).
+#' So "NNN A_B", "NN AA_B", "NN AA_BB" all parse. Limits: it needs exactly one space to split
+#' CODE|LINE (a space INSIDE the line is swallowed into LINE), and CODE must be in the reserves
+#' map. A fundamentally different scheme (no code prefix, other delimiters) wants its own deriver.
+derive_coded_locationname <- function(package, config) {
   ln       <- camtrapdp::locations(package)$locationName
-  code     <- sub(" .*$", "", ln)                       # "OH"
-  line_num <- sub("_.*$", "", sub("^\\S+ ", "", ln))    # "1" from "1_2"
+  code     <- sub(" .*$", "", ln)                       # first token, e.g. "OH"
+  line_num <- sub("_.*$", "", sub("^\\S+ ", "", ln))    # "1" from "1_2" (after first space, pre "_")
   data.frame(
     line    = ifelse(is.na(ln), NA_character_, line_num),  # bare "1" (not "OH 1")
     reserve = unname(config$reserves[code]),               # "Ohope" (canonical)
@@ -47,8 +65,35 @@ derive_wkt_trap_line <- function(package, config) {
   )
 }
 
-ik_register("geography_deriver", "wkt_locationname", derive_wkt_locationname)
-ik_register("geography_deriver", "wkt_trap_line",    derive_wkt_trap_line)
+#' trap.NZ deriver: reserve from the trap.NZ `project`, line from `line` — both carried in
+#' deploymentGroups "project:<p> | line:<l>" by the trapnz converter. Optional `config$reserves`
+#' remaps a project value to a canonical reserve (e.g. align a trap project with a camera
+#' reserve); default identity (the project IS the reserve).
+derive_trapnz <- function(package, config) {
+  locs <- camtrapdp::locations(package)
+  deps <- camtrapdp::deployments(package)
+  getg <- function(key) {
+    v <- ifelse(grepl(paste0(key, ":"), deps$deploymentGroups),
+                trimws(sub(paste0(".*", key, ":\\s*([^|]*).*"), "\\1", deps$deploymentGroups)),
+                NA_character_)
+    v[!is.na(v) & !nzchar(v)] <- NA_character_
+    v
+  }
+  by_loc <- function(v) tapply(v, as.character(deps$locationID), function(x) {
+    x <- x[!is.na(x)]; if (length(x)) x[[1]] else NA_character_ })
+  pr <- by_loc(getg("project")); li <- by_loc(getg("line"))
+  reserve <- unname(pr[as.character(locs$locationID)])
+  if (!is.null(config$reserves)) {                       # optional project → canonical reserve map
+    mapped  <- unname(config$reserves[reserve])
+    reserve <- ifelse(is.na(mapped), reserve, mapped)
+  }
+  data.frame(line = unname(li[as.character(locs$locationID)]), reserve = reserve,
+             stringsAsFactors = FALSE)
+}
+
+ik_register("geography_deriver", "coded_locationname", derive_coded_locationname)
+ik_register("geography_deriver", "wkt_trap_line",      derive_wkt_trap_line)
+ik_register("geography_deriver", "trapnz",             derive_trapnz)
 
 # ---- build ----------------------------------------------------------------------
 
@@ -162,6 +207,15 @@ build_geography <- function(datasets) {
     idx <- match(res$cols$location_id, locations$location_id)
     for (col in setdiff(names(res$cols), "location_id")) locations[[col]][idx] <- res$cols[[col]]
     reserve_hulls <- utils::modifyList(reserve_hulls, res$hulls)
+  }
+
+  # Pass 3 — anything still without a reserve (e.g. coordless / mobile traps that can't be
+  # spatially matched) goes to a placeholder reserve so it still fits the reserve→line→location
+  # hierarchy and appears in non-spatial views; map views simply have no point to draw.
+  unplaced <- is.na(locations$reserve)
+  if (any(unplaced)) {
+    locations$reserve[unplaced]               <- GEO_UNPLACED_RESERVE
+    locations$within_monitored_area[unplaced] <- FALSE
   }
 
   list(levels = c("location", "line", "reserve", "global"),

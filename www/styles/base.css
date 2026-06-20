@@ -13,3 +13,35 @@
 [data-bs-theme="dark"] {
   --ik-accent: #e8924d; /* brighter burnt-orange so it reads on dark surfaces */
 }
+
+/* Modal title convention: a small muted subtitle (e.g. an id) under the title. */
+.ik-modal-subtitle { font-size: 0.78rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); margin-top: 0.1rem; }
+
+/* Inline help: a small "?" / "i" button (.ik_info) that opens a description modal. */
+.ik-info-btn {
+  border: none; background: transparent; padding: 0 0.15rem; cursor: pointer; line-height: 1;
+  color: var(--bs-secondary-color, #6c757d); font-size: 0.95em; vertical-align: middle;
+}
+.ik-info-btn:hover { color: var(--ik-accent, #e8924d); }
+.ik-info-modal .modal-body { line-height: 1.5; }
+.ik-info-modal .modal-body h6 { margin: 0.9rem 0 0.25rem; font-weight: 600; }
+.ik-info-modal .modal-body p:last-child { margin-bottom: 0; }
+
+/* ── Data-table interaction standard (app-wide) ───────────────────────────────────────────
+   Use DT class "stripe hover row-border" for zebra striping + hover. A row with ONE action
+   gets class "ik-row-click" + DT selection="single" → the whole row is clickable (pointer).
+   A row with MULTIPLE distinct actions instead makes each actionable cell an .ik-link (the
+   cell-filling link below), no row selection. */
+table.dataTable.ik-row-click tbody tr { cursor: pointer; }
+/* per-cell action link for multi-action rows — fills the cell so the whole cell is the target */
+td .ik-link, .ik-link {
+  display: inline-block; width: 100%; font-weight: 600; text-decoration: underline;
+  text-underline-offset: 2px; cursor: pointer; color: inherit;
+}
+.ik-link:hover { color: var(--ik-accent, #e8924d); }
+/* small inline status badge (e.g. a trap's bait change) */
+.ik-badge {
+  display: inline-block; padding: 0.05rem 0.4rem; border-radius: 0.7rem; font-size: 0.72rem;
+  font-weight: 600; line-height: 1.4;
+}
+.ik-badge-changed { background: #fff3cd; color: #8a6d3b; }

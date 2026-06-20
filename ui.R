@@ -6,6 +6,7 @@ ui <- page_navbar(
     src = "images/insightful-kiwi.logo.svg", height = "32",
     alt = "Insightful Kiwi", title = "Insightful Kiwi"
   ),
+  window_title = "Insightful Kiwi",
   theme = bs_theme(version = 5, font_scale = 0.9),
   fillable = FALSE,
 
@@ -20,17 +21,29 @@ ui <- page_navbar(
   sidebar = sidebar(
     id = "global_sidebar",
     title = "Filters",
-    conditionalPanel("input.nav === 'overview'", tags$small("Overview controls will appear here.")),
+    conditionalPanel("input.nav === 'overview'",
+                     selection_ui("overview_selection",
+                                  show = c("period", "compare", "reserve"), ik_data = ik_data)),
+    conditionalPanel("input.nav === 'outcomes'", tags$small("All seasons · network mean across reserves.")),
+    conditionalPanel("input.nav === 'bait'", tags$small("Controls are above the chart.")),
+    conditionalPanel("input.nav === 'quality'", tags$small("Controls are within each tab.")),
     conditionalPanel("input.nav === 'maps'",     tags$small("Map controls will appear here.")),
     conditionalPanel("input.nav === 'species'",  tags$small("Species controls will appear here.")),
-    conditionalPanel("input.nav === 'records'",  tags$small("Records span all periods."))
+    conditionalPanel("input.nav === 'records'",
+                     selection_ui("selection",
+                                  show = c("dataset", "period", "reserve", "line", "location",
+                                           "device", "species", "net"), ik_data = ik_data))
   ),
 
   # Centre the menu: equal flexible space on both sides of the nav.
   nav_spacer(),
 
-  nav_panel("Overview", value = "overview", icon = icon("gauge"),
-    h2("Overview")
+  overview_ui("overview"),
+  # "Outcomes" is a dropdown: the headline trend + the operational bait analysis.
+  nav_menu(
+    "Outcomes", icon = icon("chart-line"),
+    outcomes_ui("outcomes"),
+    bait_ui("bait")
   ),
   nav_panel("Maps", value = "maps", icon = icon("map"),
     h2("Maps")
@@ -38,7 +51,18 @@ ui <- page_navbar(
   nav_panel("Species", value = "species", icon = icon("paw"),
     h2("Species")
   ),
-  records_ui("records"),
+  # "Data" groups the raw-data + data-quality stuff (room to grow: exports, …).
+  nav_menu(
+    "Data", icon = icon("database"),
+    records_ui("records"),
+    nav_panel(
+      "Quality", value = "quality", icon = icon("clipboard-check"),
+      tabsetPanel(
+        tabPanel("Cameras",  monitoring_ui("monitoring")),
+        tabPanel("Trapping", trapping_ui("trapping"))
+      )
+    )
+  ),
 
   nav_spacer(),
 

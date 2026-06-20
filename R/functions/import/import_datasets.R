@@ -115,9 +115,12 @@ ik_import_datasets <- function(manifest, config) {
     stop(sprintf("Packages directory '%s' does not exist.", packages_dir), call. = FALSE)
   }
 
-  # Reconcile only packaged (non-raw) entries against packages/.
+  # Reconcile only packaged (non-raw) entries against packages/. A package = any directory that
+  # holds a datapackage.json (found at ANY depth), so a grouping folder like
+  # packages/camera-monitoring/ that just CONTAINS packages isn't itself mistaken for one.
   packaged    <- Filter(function(e) is.null(e$raw), manifest)
-  on_disk     <- list.dirs(packages_dir, full.names = FALSE, recursive = FALSE)
+  descriptors <- list.files(packages_dir, pattern = "^datapackage\\.json$", recursive = TRUE)
+  on_disk     <- setdiff(unique(dirname(descriptors)), ".")   # relative package dirs (e.g. "camera-monitoring/x")
   listed_dirs <- vapply(packaged, function(e) e$dir %||% NA_character_, character(1))
   listed_dirs <- ifelse(is.na(listed_dirs), names(packaged), listed_dirs)
 

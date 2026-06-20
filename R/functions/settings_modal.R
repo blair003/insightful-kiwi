@@ -12,8 +12,10 @@
 #' @param prefer_scientific Current value of the name preference, used to seed the
 #'   switch. The modal is rebuilt on each open, so the live value must be passed in
 #'   (held server-side) or the switch resets — see server.R.
+#' @param datasets Named id→label vector of datasets to offer as show/hide checkboxes (NULL or
+#'   a single dataset → the section is omitted). @param active Currently-shown dataset ids.
 #' @return A [shiny::modalDialog()] for use with [shiny::showModal()].
-settings_modal <- function(prefer_scientific = FALSE) {
+settings_modal <- function(prefer_scientific = FALSE, datasets = NULL, active = NULL) {
   modalDialog(
     title = "Settings",
 
@@ -24,6 +26,18 @@ settings_modal <- function(prefer_scientific = FALSE) {
     tags$small(
       class = "text-muted",
       "Show scientific names instead of common (vernacular) names where available."
+    ),
+
+    # Datasets — show/hide which data sources feed the app (only when there's more than one).
+    # Records keeps its own dataset filter, so this is for the analysis views.
+    if (!is.null(datasets) && length(datasets) > 1) tagList(
+      tags$hr(),
+      tags$label("Datasets", class = "fw-semibold"),
+      checkboxGroupInput("active_datasets", NULL,
+                         choices = datasets, selected = active %||% unname(datasets)),
+      tags$small(class = "text-muted",
+                 "Hide a data source from the Overview and analysis views (e.g. a test or ",
+                 "separate-programme dataset). At least one stays on. Records has its own filter.")
     ),
 
     easyClose = TRUE,

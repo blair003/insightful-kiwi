@@ -1,0 +1,53 @@
+/* observation.css — the observation viewer modal (Photos + Details tabs). */
+
+.ovw-title-sp  { font-weight: 600; }
+.ovw-title-sub { font-size: 0.82rem; color: var(--bs-secondary-color, #6c757d); }
+
+/* Photos: a responsive grid of the burst, large images that scale down on narrow screens. */
+.ovw-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.ovw-figure { margin: 0; }
+.ovw-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+  background: var(--bs-tertiary-bg, #f1f3f5);   /* placeholder tone while loading */
+}
+.ovw-cap {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--bs-secondary-color, #6c757d);
+  padding: 0.25rem 0.1rem;
+}
+.ovw-orig { white-space: nowrap; }
+
+/* Details: tidy key/value sections. */
+.ovw-details { margin-top: 0.5rem; }
+.ovw-section { margin-bottom: 0.9rem; }
+.ovw-section h6 {
+  margin: 0 0 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.72rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+.ovw-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 0.5rem;
+  padding: 0.18rem 0;
+  border-bottom: 1px solid var(--bs-border-color, #eee);
+}
+.ovw-k { color: var(--bs-secondary-color, #6c757d); }
+.ovw-v { font-variant-numeric: tabular-nums; }
+
+/* Make Records rows read as clickable. */
+#records-table table.dataTable tbody tr { cursor: pointer; }

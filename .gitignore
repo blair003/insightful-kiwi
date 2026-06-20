@@ -17,6 +17,8 @@
 !.devcontainer/
 !instance/reports/
 !instance/reports/**
+!docs/app/
+!docs/app/**
 
 # Then control contents inside allowed dirs
 instance/config/*

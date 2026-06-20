@@ -1,0 +1,386 @@
+{
+  "profile": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/camtrap-dp-profile.json",
+  "name": "wkt-ohiwa-forest-monitoring-20260620051610",
+  "id": "a2ae91fe-86e2-4ef2-b830-28d066c9568a",
+  "created": "2026-06-20T05:16:10Z",
+  "contributors": [
+    {
+      "title": "Agouti Admins",
+      "email": "agouti@wur.nl",
+      "role": "contributor",
+      "organization": "Wageningen University"
+    },
+    {
+      "title": "Blair George",
+      "email": "stepped@gmail.com",
+      "role": "principalInvestigator",
+      "organization": "Whakatane Kiwi Trust"
+    },
+    {
+      "title": "Hilary Sheaff",
+      "email": "whakakiwi7@gmail.com",
+      "role": "principalInvestigator"
+    },
+    {
+      "title": "Thomas Armstrong",
+      "email": "whakakiwipc@gmail.com",
+      "role": "principalInvestigator"
+    },
+    {
+      "title": "Whakatane Kiwi Trust",
+      "role": "rightsHolder"
+    },
+    {
+      "title": "Hilary Sheaff",
+      "role": "contact"
+    }
+  ],
+  "sources": [
+    {
+      "title": "Agouti",
+      "path": "https://www.agouti.eu",
+      "email": "agouti@wur.nl",
+      "version": "v4"
+    }
+  ],
+  "project": {
+    "id": "b9fc1965-a5ac-4c3e-8375-ec0942c69538",
+    "title": "WKT Ohiwa Forest Monitoring",
+    "samplingDesign": "simpleRandom",
+    "captureMethod": [
+      "activityDetection"
+    ],
+    "individualAnimals": false,
+    "observationLevel": [
+      "event"
+    ]
+  },
+  "spatial": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          177.01583,
+          -38.018
+        ],
+        [
+          177.01583,
+          -38.018
+        ],
+        [
+          177.01583,
+          -38.018
+        ],
+        [
+          177.01583,
+          -38.018
+        ],
+        [
+          177.01583,
+          -38.018
+        ]
+      ]
+    ]
+  },
+  "temporal": {
+    "start": "2024-08-29",
+    "end": "2025-12-14"
+  },
+  "taxonomic": [
+    {
+      "scientificName": "Apteryx mantelli",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/FYYR",
+      "taxonRank": "species",
+      "order": "Apterygiformes",
+      "family": "Apterigidae",
+      "vernacularNames": {
+        "eng": "Northern brown kiwi"
+      }
+    },
+    {
+      "scientificName": "Aves",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/V2",
+      "taxonRank": "class",
+      "vernacularNames": {
+        "eng": "Bird sp.",
+        "nld": "Vogel"
+      }
+    },
+    {
+      "scientificName": "Canis lupus familiaris",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/5G6ZJ",
+      "taxonRank": "subspecies",
+      "order": "Carnivora",
+      "family": "Canidae",
+      "vernacularNames": {
+        "eng": "Dog",
+        "nld": "Hond"
+      }
+    },
+    {
+      "scientificName": "Cervus elaphus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/T56G",
+      "taxonRank": "species",
+      "order": "Artiodactyla",
+      "family": "Cervidae",
+      "vernacularNames": {
+        "eng": "Red deer",
+        "nld": "Edelhert"
+      }
+    },
+    {
+      "scientificName": "Fringilla coelebs",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/6JPSJ",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Fringillidae",
+      "vernacularNames": {
+        "eng": "Common chaffinch",
+        "nld": "Vink"
+      }
+    },
+    {
+      "scientificName": "Gallirallus australis",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/3F6WY",
+      "taxonRank": "species",
+      "order": "Gruiformes",
+      "family": "Rallidae",
+      "vernacularNames": {
+        "eng": "Weka"
+      }
+    },
+    {
+      "scientificName": "Gymnorhina tibicen",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/6L7RT",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Cracticidae",
+      "vernacularNames": {
+        "eng": "Australian magpie"
+      }
+    },
+    {
+      "scientificName": "Homo sapiens",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/6MB3T",
+      "taxonRank": "species",
+      "order": "Primates",
+      "family": "Hominidae",
+      "vernacularNames": {
+        "eng": "Human",
+        "nld": "Mens"
+      }
+    },
+    {
+      "scientificName": "Insecta",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/H6",
+      "taxonRank": "class",
+      "vernacularNames": {
+        "eng": "Insect sp.",
+        "nld": "Insect"
+      }
+    },
+    {
+      "scientificName": "Lepus europaeus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/6PPYF",
+      "taxonRank": "species",
+      "order": "Lagomorpha",
+      "family": "Leporidae",
+      "vernacularNames": {
+        "eng": "European hare",
+        "nld": "Haas"
+      }
+    },
+    {
+      "scientificName": "Mus musculus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/44NK3",
+      "taxonRank": "species",
+      "order": "Rodentia",
+      "family": "Muridae",
+      "vernacularNames": {
+        "eng": "House mouse",
+        "nld": "Huismuis"
+      }
+    },
+    {
+      "scientificName": "Mustela erminea",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/44QWG",
+      "taxonRank": "species",
+      "order": "Carnivora",
+      "family": "Mustelidae",
+      "vernacularNames": {
+        "eng": "Stoat",
+        "nld": "Hermelijn"
+      }
+    },
+    {
+      "scientificName": "Mustela nivalis/erminea",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/44QY4/44QWG",
+      "taxonRank": "species",
+      "order": "Carnivora",
+      "family": "Mustelidae",
+      "vernacularNames": {
+        "eng": "Weasel/stoat",
+        "nld": "Wezel/hermelijn"
+      }
+    },
+    {
+      "scientificName": "Ninox novaeseelandiae",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/73ZSC",
+      "taxonRank": "species",
+      "order": "Strigiformes",
+      "family": "Strigidae",
+      "vernacularNames": {
+        "eng": "Morepork",
+        "nld": "Nieuw-zeelandse boeboekuil"
+      }
+    },
+    {
+      "scientificName": "Passer domesticus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/4DXXM",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Passeridae",
+      "vernacularNames": {
+        "eng": "House sparrow",
+        "nld": "Huismus"
+      }
+    },
+    {
+      "scientificName": "Petroica australis longipes",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/6V6C4",
+      "taxonRank": "subspecies",
+      "order": "Passeriformes",
+      "family": "Petroicidae",
+      "vernacularNames": {
+        "eng": "New zealand robin",
+        "nld": "Noordereilandvliegenvanger"
+      }
+    },
+    {
+      "scientificName": "Phasianus colchicus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/4FWMN",
+      "taxonRank": "species",
+      "order": "Galliformes",
+      "family": "Phasianidae",
+      "vernacularNames": {
+        "eng": "Common pheasant",
+        "nld": "Fazant"
+      }
+    },
+    {
+      "scientificName": "Rattus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/63QK6",
+      "taxonRank": "genus",
+      "order": "Rodentia",
+      "family": "Muridae",
+      "vernacularNames": {
+        "eng": "Rats"
+      }
+    },
+    {
+      "scientificName": "Rattus rattus",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/4RM6W",
+      "taxonRank": "species",
+      "order": "Rodentia",
+      "family": "Muridae",
+      "vernacularNames": {
+        "eng": "Black rat",
+        "nld": "Zwarte rat"
+      }
+    },
+    {
+      "scientificName": "Rhipidura fuliginosa",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/794YC",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Rhipiduridae",
+      "vernacularNames": {
+        "eng": "New zealand fantail",
+        "nld": "Maoriwaaierstaart"
+      }
+    },
+    {
+      "scientificName": "Sus scrofa",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/53HGR",
+      "taxonRank": "species",
+      "order": "Artiodactyla",
+      "family": "Suidae",
+      "vernacularNames": {
+        "eng": "Wild boar",
+        "nld": "Everzwijn"
+      }
+    },
+    {
+      "scientificName": "Sylviidae sp.",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/626LT",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Sylviidae",
+      "vernacularNames": {
+        "eng": "Warbler sp.",
+        "nld": "Afrikaanse zangers"
+      }
+    },
+    {
+      "scientificName": "Trichosurus vulpecula",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/7D574",
+      "taxonRank": "species",
+      "order": "Diprotodontia",
+      "family": "Phalangeridae",
+      "vernacularNames": {
+        "eng": "Common brushtail"
+      }
+    },
+    {
+      "scientificName": "Turdus merula",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/7CYVX",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Turdidae",
+      "vernacularNames": {
+        "eng": "Common blackbird",
+        "nld": "Merel"
+      }
+    },
+    {
+      "scientificName": "Turdus philomelos",
+      "taxonID": "https://www.checklistbank.org/dataset/COL2023/taxon/59PMR",
+      "taxonRank": "species",
+      "order": "Passeriformes",
+      "family": "Turdidae",
+      "vernacularNames": {
+        "eng": "Song thrush",
+        "nld": "Zanglijster"
+      }
+    }
+  ],
+  "resources": [
+    {
+      "name": "deployments",
+      "path": "deployments.csv",
+      "profile": "tabular-data-resource",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "schema": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/deployments-table-schema.json"
+    },
+    {
+      "name": "media",
+      "path": "media.csv",
+      "profile": "tabular-data-resource",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "schema": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/media-table-schema.json"
+    },
+    {
+      "name": "observations",
+      "path": "observations.csv",
+      "profile": "tabular-data-resource",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "schema": "https://raw.githubusercontent.com/tdwg/camtrap-dp/1.0/observations-table-schema.json"
+    }
+  ]
+}

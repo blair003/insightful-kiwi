@@ -1,0 +1,11 @@
+/* selection.css — shared data-selection sidebar (R/modules/selection.R). */
+
+.ik-selection .form-group {
+  margin-bottom: 0.6rem;
+}
+
+.ik-selection .control-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.15rem;
+}

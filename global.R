@@ -6,10 +6,12 @@
 
 source("R/functions/bootstrap.R")
 
-# Only autoreload if code has changed
+# Auto-reload the running app when source files change — but ONLY under the editor's dev
+# runner (the Posit Shiny extension launches with `--devmode`). Production (Shiny Server) must
+# never autoreload. Previously hard-FALSE, which silently defeated the editor's live reload.
 options(
-  shiny.autoreload.pattern = ".*\\.(r|R|json)$",
-  shiny.autoreload = FALSE
+  shiny.autoreload         = any(grepl("devmode", commandArgs(FALSE), fixed = TRUE)),
+  shiny.autoreload.pattern = ".*\\.(r|R|json)$"
 )
 
 # logger is needed before instance/config/environment.R is sourced.
@@ -20,30 +22,49 @@ logger::log_formatter(logger::formatter_sprintf)
 attach_packages(c("shiny", "bslib", "DT"))
 
 # UI builders + modules — sourced after their packages are attached.
+source("R/functions/ui_helpers.R")
 source("R/functions/settings_modal.R")
+source("R/modules/observation_viewer.R")
+source("R/modules/monitoring.R")
+source("R/modules/trapping.R")
+source("R/modules/outcomes.R")
+source("R/modules/bait.R")
 source("R/modules/records.R")
+source("R/modules/selection.R")
+source("R/modules/overview.R")
 
 ################################################################
 # Data import — build the ik_data container once at startup
 ################################################################
 
-attach_packages(c("camtrapdp", "dplyr", "tibble", "httr2", "lubridate", "sf"))
+attach_packages(c("camtrapdp", "dplyr", "tibble", "httr2", "lubridate", "sf", "suncalc", "ggplot2"))
 source("R/functions/registry.R")   # ik_registry — sourced before files that register into it
 source("R/functions/config.R")
-source("R/functions/ik_resolve_taxa.R")
+source("R/functions/resolve_taxa.R")
 source("R/functions/geography.R")
 source("R/functions/period.R")
+source("R/functions/temporal.R")
+source("R/functions/monitoring.R")
+source("R/functions/trap_review.R")
+source("R/functions/bait.R")
+source("R/functions/outcomes.R")
+source("R/functions/species.R")
+source("R/functions/select.R")
+source("R/functions/metrics.R")
 source("R/functions/import/import_datasets.R")
 source("R/functions/import/build_taxonomy.R")
 source("R/functions/import/consolidate_taxa.R")
 source("R/functions/import/camtrapdp_template.R")
 source("R/functions/import/converters/wkt_trapping.R")
+source("R/functions/import/converters/trapnz.R")
 source("R/functions/import/converters.R")
 source("R/functions/observation_relations.R")
 source("R/functions/build_ik_data.R")
-source("R/functions/ik_data_cache.R")
-source("R/functions/ik_taxonomy.R")
-source("R/functions/ik_observations.R")
+source("R/functions/data_cache.R")
+source("R/functions/taxonomy.R")
+source("R/functions/observations.R")
+source("R/functions/media.R")
+source("R/functions/media_cache.R")
 
 # Runtime config (paths/toggles) — the input that builds ik_data.
 config <- build_config()

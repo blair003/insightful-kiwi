@@ -3,3 +3,4 @@
 # ik_convert_raw(). Add one registration per source export format; the converter
 # itself lives in converters/<name>.R.
 ik_register("converter", "wkt_trapping", convert_wkt_trapping)
+ik_register("converter", "trapnz",       convert_trapnz)

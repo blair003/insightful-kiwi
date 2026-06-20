@@ -11,7 +11,7 @@ RECORDS_COLUMNS <- c(
   Species                   = "Species",
   count                     = "Count",
   observationType           = "Type",
-  source_type               = "Source",
+  source_type               = "Device",
   locationName              = "Location",
   # --- available, hidden by default ---
   dataset                   = "Dataset",
@@ -26,15 +26,18 @@ RECORDS_COLUMNS <- c(
   longitude                 = "Longitude",
   individualID              = "Individual",
   classificationMethod      = "Classification method",
+  classifiedBy              = "Classified by",
   classificationProbability = "Classification prob.",
   observationComments       = "Comments",
+  possible_duplicate              = "Possible duplicate",   # from app$relations (camera only)
+  minutes_since_prev_same_species = "Mins since prev",
   observationID             = "Observation ID"
 )
 RECORDS_DEFAULT_COLS <- c("eventEnd", "Species", "count", "observationType",
                           "source_type", "locationName")
 
 # Low-cardinality columns rendered as factors so DT's column filter is a dropdown.
-RECORDS_FACTOR_COLS <- c("Type", "Source", "Dataset")
+RECORDS_FACTOR_COLS <- c("Type", "Device", "Dataset")
 
 # Datetime columns are pre-formatted to LOCAL text for display. DT serializes a
 # POSIXct as UTC (adds a Z and shifts the clock), which undoes the timezone
@@ -62,6 +65,7 @@ records_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     "Records", value = "records", icon = icon("table"),
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles/observation.css"),
     DT::DTOutput(ns("table"))
   )
 }
@@ -71,15 +75,29 @@ records_ui <- function(id) {
 #' @param id                Module id.
 #' @param ik_data           The ik_data container.
 #' @param prefer_scientific A reactive returning TRUE to show scientific names.
-records_server <- function(id, ik_data, prefer_scientific) {
+#' @param selection         A reactive returning the selection SPEC (sidebar); resolved
+#'   here via `ik_resolve()` — its `$observations` drive the table.
+records_server <- function(id, ik_data, prefer_scientific, selection) {
   moduleServer(id, function(input, output, session) {
 
-    # Observations + location, with the Species display column applied, then
-    # narrowed/renamed to the offered columns. Reactive on the name preference.
+    # The selected observations + location, with the Species display column applied,
+    # then narrowed/renamed to the offered columns. Reactive on selection + name pref.
     records <- reactive({
-      obs    <- ik_observations(ik_data)   # all datasets, unified
+      obs    <- ik_resolve(ik_data, selection())$observations   # resolve the spec
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       obs$Species <- ik_species_label(obs$scientificName, ik_data, prefer)
+
+      # surface the duplicate metrics (app$relations; camera/minute-resolution only)
+      rel <- ik_relations(ik_data)
+      mi  <- match(obs$observationID, rel$observationID)
+      obs$possible_duplicate              <- rel$possible_duplicate[mi]
+      obs$minutes_since_prev_same_species <- round(rel$minutes_since_prev_same_species[mi], 1)
+
+      # net view (sidebar toggle): drop flagged duplicates so the records match the RAI
+      # net individuals. Camera-only — traps have no duplicate flag, so they're unaffected.
+      if (isTRUE(selection()$net)) {
+        obs <- obs[is.na(obs$possible_duplicate) | !obs$possible_duplicate, , drop = FALSE]
+      }
 
       present <- intersect(names(RECORDS_COLUMNS), names(obs))
       out <- obs[, present, drop = FALSE]
@@ -93,8 +111,12 @@ records_server <- function(id, ik_data, prefer_scientific) {
       out
     })
 
+    # Build the widget ONCE (isolate), then push new rows via the proxy on each
+    # selection / name-preference change. A full re-render per change flickers the
+    # column filters and silently resets the user's column visibility + in-table
+    # filters — replaceData() keeps all of that and avoids the flash.
     output$table <- DT::renderDT(server = TRUE, {
-      df <- records()
+      df <- isolate(records())
 
       default_headers <- unname(RECORDS_COLUMNS[RECORDS_DEFAULT_COLS])
       hidden <- which(!names(df) %in% default_headers) - 1L  # 0-based for DT
@@ -103,6 +125,8 @@ records_server <- function(id, ik_data, prefer_scientific) {
         df,
         rownames   = FALSE,
         filter     = "top",
+        selection  = "single",                    # row click → observation viewer
+        class      = "stripe hover row-border ik-row-click",
         extensions = "Buttons",
         options = list(
           dom          = "Bfrtip",
@@ -113,5 +137,20 @@ records_server <- function(id, ik_data, prefer_scientific) {
         )
       )
     })
+
+    proxy <- DT::dataTableProxy("table")
+    observeEvent(records(), DT::replaceData(proxy, records(), rownames = FALSE),
+                 ignoreInit = TRUE)
+
+    # Row click → open the observation viewer for that record, then clear the selection so
+    # the same row can be reopened. The hidden "Observation ID" column carries the id.
+    observeEvent(input$table_rows_selected, {
+      i <- input$table_rows_selected
+      df <- records()
+      if (length(i) && "Observation ID" %in% names(df)) {
+        show_observation_modal(ik_data, df[["Observation ID"]][i], isTRUE(prefer_scientific()))
+      }
+      DT::selectRows(proxy, NULL)
+    }, ignoreInit = TRUE)
   })
 }

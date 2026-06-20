@@ -1,0 +1,49 @@
+/* monitoring.css — the camera deployment-review grid. */
+
+.ik-monitoring { padding-top: 0.5rem; }
+.mon-lead { color: var(--bs-secondary-color, #6c757d); margin-bottom: 0.4rem; }
+
+/* Legend */
+.mon-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.8rem; font-size: 0.85rem; }
+.mon-legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.mon-swatch { width: 0.9rem; height: 0.9rem; border-radius: 3px; border: 1px solid var(--bs-border-color, #dee2e6); display: inline-block; }
+
+/* Grid */
+.ik-monitoring-scroll { overflow-x: auto; }
+.ik-monitoring-table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+.ik-monitoring-table th {
+  position: sticky; top: 0;
+  background: var(--bs-body-bg, #fff);
+  padding: 0.3rem 0.5rem; text-align: center; font-weight: 600;
+  white-space: nowrap; border-bottom: 2px solid var(--bs-border-color, #dee2e6);
+}
+.ik-monitoring-table th:first-child { text-align: left; }
+.mon-cell {
+  text-align: center; padding: 0.25rem 0.45rem; min-width: 2.6rem;
+  border: 1px solid var(--bs-border-color, #e9ecef);
+}
+.mon-loc { text-align: left; white-space: nowrap; font-weight: 500; padding: 0.25rem 0.6rem 0.25rem 0.2rem; }
+.mon-reserve-row td {
+  font-weight: 600; background: var(--bs-secondary-bg, #e9ecef);
+  padding: 0.3rem 0.5rem; border: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+/* Severity gradient — green (ok) → yellow (mild) → orange (moderate) → red (serious). The
+   colour carries SEVERITY only; the specific issue is in the click detail. Grey = no deploy. */
+.mon-ok       { background: #e6f4ea; color: #1b5e20; }
+.mon-mild     { background: #fef6d6; color: #7a6500; }                   /* watch */
+.mon-moderate { background: #ffe0b2; color: #8a4b00; font-weight: 600; } /* concern */
+.mon-serious  { background: #fdd6da; color: #b71c1c; font-weight: 700; } /* problem */
+.mon-none     { background: repeating-linear-gradient(45deg, transparent, transparent 4px,
+                  rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 8px); }
+.mon-click  { cursor: pointer; }
+.mon-click:hover { outline: 2px solid var(--bs-primary, #0d6efd); outline-offset: -2px; }
+.mon-dim    { opacity: 0.18; }   /* de-emphasise severities unticked in "Highlight" */
+.mon-highlight { margin-bottom: 0.6rem; }
+.mon-highlight .control-label { font-weight: 600; margin-right: 0.5rem; }
+
+/* Detail modal */
+.mon-detail { width: 100%; border-collapse: collapse; }
+.mon-detail td { padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--bs-border-color, #eee); }
+.mon-detail .mon-k { color: var(--bs-secondary-color, #6c757d); width: 11rem; }
+.mon-badge { padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.85em; }

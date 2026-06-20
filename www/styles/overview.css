@@ -1,0 +1,105 @@
+/* overview.css — Overview page (R/modules/overview.R). */
+
+.ik-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ik-ov-header h3 {
+  margin: 0;
+  font-weight: 700;
+}
+.ik-ov-datasets {
+  color: var(--bs-secondary-color, #6c757d);
+  font-size: 0.85rem;
+  margin: 0.05rem 0 0.2rem;
+}
+.ik-ov-sub {
+  color: var(--bs-secondary-color, #6c757d);
+  font-size: 0.9rem;
+}
+.ik-ov-dot {
+  margin: 0 0.4rem;
+  opacity: 0.5;
+}
+
+/* Species-we-care-about panel */
+.ik-spp-class {
+  margin-bottom: 0.85rem;
+}
+.ik-spp-class h6 {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 0.35rem;
+}
+.ik-spp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.4rem;
+}
+.ik-spp-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.4rem;
+}
+.ik-spp-label { font-weight: 600; }
+.ik-spp-count { font-variant-numeric: tabular-nums; }
+.ik-spp-zero { opacity: 0.5; }
+.ik-spp-other {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+/* Outcome-metric table (RAI / capture rate) */
+.ik-metric { margin: 0.25rem 0 0.85rem; }
+.ik-metric-cap {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 0.3rem;
+}
+.ik-metric-table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+.ik-metric-table th,
+.ik-metric-table td {
+  padding: 0.25rem 0.7rem;
+  text-align: right;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+.ik-metric-table th { font-weight: 600; }
+.ik-metric-table .ik-metric-label { text-align: left; font-weight: 600; }
+.ik-metric-prev {
+  font-size: 0.78em;
+  color: var(--bs-secondary-color, #6c757d);
+  white-space: nowrap;
+}
+.ik-arrow { font-weight: 700; }
+.ik-arrow-good    { color: #2e7d32; }   /* desirable change (green) */
+.ik-arrow-bad     { color: #c62828; }   /* undesirable change (red) */
+.ik-arrow-neutral { color: var(--bs-secondary-color, #6c757d); }
+
+/* Drill-down */
+.ik-metric-table td.ik-drill,
+.ik-drill-table td.ik-drill { cursor: pointer; }
+.ik-metric-table td.ik-drill:hover,
+.ik-drill-table td.ik-drill:hover { background: var(--bs-tertiary-bg, #f1f3f5); }
+.ik-drill-table td.ik-drill { text-decoration: underline dotted; text-underline-offset: 2px; }
+.ik-drill-summary { color: var(--bs-secondary-color, #6c757d); }
+.ik-drill-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.ik-drill-table th, .ik-drill-table td {
+  padding: 0.3rem 0.7rem;
+  text-align: right;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+.ik-drill-table th:first-child, .ik-drill-table td:first-child { text-align: left; }

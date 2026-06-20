@@ -8,6 +8,15 @@
 # capture outcomes, else blank. Taxonomy (taxonID/rank) comes from GBIF via
 # ik_resolve_taxa(); vernacular is the curated one from outcomes.csv. Build NOT
 # reused from v0.1 — only the reference semantics were carried over.
+#
+# TIME RESOLUTION LIMITATION: an observation's eventStart = the deployment start
+# (previous check, or first-check minus the lead-in) and eventEnd = the CHECK DATE.
+# A capture is therefore only resolved to the interval [eventStart, eventEnd] — it
+# could have occurred any time after the previous check. Downstream we attribute a
+# capture to the check date (eventEnd) — what was recorded, and the Records "When" —
+# so a catch found early in a period may actually belong to the previous one. Both
+# instants are date-only (deployment timestampIssues = TRUE), excluding traps from
+# minute-resolution metrics (see observation_relations.R).
 
 # Standardised file names expected in the raw dir.
 WKT_TRAP_FILES <- c(
@@ -51,10 +60,23 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
   trap_types    <- rd("trap_types")
   bait_outcomes <- rd("bait_outcomes")
 
+  # --- conversion diagnostics: referenced ids absent from their lookup table, and rows with
+  # no reference id at all — collected for the conversion log so upstream gaps are auditable.
+  n_checks_read <- nrow(checks)
+  unmapped <- list(
+    trap_type_id    = setdiff(stats::na.omit(traps$trap_type_id),     trap_types$trap_type_id),
+    outcome_id      = setdiff(stats::na.omit(checks$outcome_id),      outcomes$outcome_id),
+    bait_outcome_id = setdiff(stats::na.omit(checks$bait_outcome_id), bait_outcomes$bait_outcome_id),
+    trap_id         = setdiff(stats::na.omit(checks$trap_id),         traps$trap_id))
+  no_ref <- list(
+    traps_without_trap_type = sum(is.na(traps$trap_type_id)),
+    checks_without_outcome  = sum(is.na(checks$outcome_id)),
+    checks_without_bait     = sum(is.na(checks$bait_outcome_id)))
+
   checks$check_date <- as.Date(checks$date, format = "%d/%m/%Y")
-  if (any(is.na(checks$check_date))) {
-    logger::log_warn("wkt_trapping: %d check(s) with unparseable date — dropped.",
-                     sum(is.na(checks$check_date)))
+  n_date_dropped <- sum(is.na(checks$check_date))
+  if (n_date_dropped > 0) {
+    logger::log_warn("wkt_trapping: %d check(s) with unparseable date — dropped.", n_date_dropped)
     checks <- checks[!is.na(checks$check_date), ]
   }
 
@@ -79,18 +101,17 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
     dplyr::left_join(trap_types, by = "trap_type_id") |>
     dplyr::left_join(bait_outcomes, by = "bait_outcome_id")
 
-  # Camtrap DP requires deployment latitude/longitude; checks at traps with no
-  # coordinates can't form valid deployments (and can't be mapped) — drop them,
-  # loudly, so the gap is auditable and fixable upstream.
+  # Traps with no coordinates (e.g. mobile traps) are KEPT — their checks are valid data. They
+  # carry NA lat/long (Camtrap DP tolerates this) and land in the "Unplaced" reserve downstream,
+  # so they appear in counts / capture-rate / the trapping review but fall out of spatial (map)
+  # views. (Previously dropped — that lost real catch data.)
   no_coord <- is.na(d$lat) | is.na(d$long)
-  if (any(no_coord)) {
-    dropped_traps <- sort(unique(d$trap_code[no_coord]))
-    logger::log_warn(
-      "wkt_trapping: dropped %d check(s) at %d trap(s) with no coordinates: %s",
-      sum(no_coord), length(dropped_traps), paste(dropped_traps, collapse = ", ")
-    )
-    d <- d[!no_coord, , drop = FALSE]
-  }
+  n_coordless <- sum(no_coord)
+  coordless_traps <- sort(unique(d$trap_code[no_coord]))
+  if (n_coordless > 0)
+    logger::log_info(
+      "wkt_trapping: %d check(s) at %d trap(s) have no coordinates — kept (Unplaced reserve): %s",
+      n_coordless, length(coordless_traps), paste(coordless_traps, collapse = ", "))
 
   d <- d |>
     dplyr::arrange(.data$trap_id, .data$check_date) |>
@@ -120,7 +141,8 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
     coordinateUncertainty = NA_integer_,
     deploymentStart = mid(d$deploy_start), deploymentEnd = mid(d$check_date),
     setupBy = NA_character_, cameraID = d$trap_code,
-    cameraModel = ifelse(is.na(d$trap_type), "predator trap", d$trap_type),
+    cameraModel = d$trap_type,                       # trap type; NA (→ blank) when unknown
+
     cameraDelay = NA_integer_, cameraHeight = NA_real_, cameraDepth = NA_real_,
     cameraTilt = NA_integer_, cameraHeading = NA_integer_, detectionDistance = NA_real_,
     # timestampIssues is boolean (dates only, no time); Camtrap DP has no
@@ -155,7 +177,15 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
     bboxWidth = NA_real_, bboxHeight = NA_real_,
     classificationMethod = NA_character_, classifiedBy = NA_character_,
     classificationTimestamp = NA_character_, classificationProbability = NA_real_,
-    observationTags = paste0("bait_outcome:", d$bait_outcome %||% NA, " | bait:", d$baitstatus %||% NA),
+    # Carry the check's source fields that have no native Camtrap DP slot as key:value tags
+    # (parsed by the observation viewer): the VOLUNTEER who did the check, the bait, and
+    # whether bait was changed. volunteer_id is an id only — the raw export has no name table.
+    observationTags = paste(
+      paste0("volunteer:",     d$volunteer_id %||% NA),
+      paste0("bait_outcome:",  d$bait_outcome %||% NA),
+      paste0("bait:",          d$baitstatus %||% NA),
+      paste0("bait_change:",   d$baitchange %||% NA),
+      sep = " | "),
     observationComments = d$description,
     taxon.taxonID = ifelse(is_animal, tl$taxonID, NA_character_),
     taxon.taxonRank = ifelse(is_animal, tl$taxonRank, NA_character_),
@@ -213,8 +243,41 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
   media_csv <- file.path(out_dir, "media.csv")
   writeLines(readLines(media_csv, n = 1L), media_csv)
 
-  logger::log_info("wkt_trapping: wrote package (%d deployments, %d observations: %d animal, %d blank).",
-                   nrow(deployments), nrow(observations), sum(is_animal),
-                   sum(!is_animal & observations$observationType == "blank"))
+  n_blank <- sum(!is_animal & observations$observationType == "blank")
+
+  # --- conversion log: a plain-text audit of what came in, what was dropped, and which
+  # referenced ids had no row in their lookup table (so data gaps are fixable upstream). ----
+  ids <- function(x) if (length(x)) paste(sort(x), collapse = ", ") else "none"
+  log_path <- file.path(out_dir, "conversion-log.txt")
+  writeLines(c(
+    "WKT trapping conversion log",
+    paste("Generated:", format(Sys.time())),
+    paste("Source:   ", raw_dir),
+    "",
+    "== Counts ==",
+    sprintf("Traps (reference table):     %d", nrow(traps)),
+    sprintf("Checks read:                 %d", n_checks_read),
+    sprintf("Checks dropped (bad date):   %d", n_date_dropped),
+    sprintf("Checks coordless (kept, Unplaced): %d  (at %d trap(s))", n_coordless, length(coordless_traps)),
+    sprintf("Deployments written:         %d", nrow(deployments)),
+    sprintf("Observations written:        %d  (animal: %d, blank: %d)", nrow(observations), sum(is_animal), n_blank),
+    "",
+    "== Referenced IDs with no row in their lookup table ==",
+    sprintf("trap_type_id  not in trap-types.csv:    %s", ids(unmapped$trap_type_id)),
+    sprintf("outcome_id    not in outcomes.csv:      %s", ids(unmapped$outcome_id)),
+    sprintf("bait_outcome_id not in bait-outcomes.csv: %s", ids(unmapped$bait_outcome_id)),
+    sprintf("trap_id       not in traps.csv:         %s", ids(unmapped$trap_id)),
+    "",
+    "== Rows with no reference ID (NA) ==",
+    sprintf("Traps with no trap_type_id (-> blank trap type): %d", no_ref$traps_without_trap_type),
+    sprintf("Checks with no outcome_id:                       %d", no_ref$checks_without_outcome),
+    sprintf("Checks with no bait_outcome_id:                  %d", no_ref$checks_without_bait),
+    "",
+    "== Coordless traps (no lat/long; kept, placed in 'Unplaced' reserve) ==",
+    ids(coordless_traps)
+  ), log_path)
+
+  logger::log_info("wkt_trapping: wrote package (%d deployments, %d observations: %d animal, %d blank); log -> %s",
+                   nrow(deployments), nrow(observations), sum(is_animal), n_blank, log_path)
   invisible(file.path(out_dir, "datapackage.json"))
 }
