@@ -142,7 +142,9 @@
       .ovw_row("Volunteer", .ovw_tag(ob$observationTags, "volunteer")),
       .ovw_row("Trap type", ob$cameraModel),
       .ovw_row("Bait (this check)", .ovw_tag(ob$observationTags, "bait")),
-      .ovw_row("Bait changed", .ovw_tag(ob$observationTags, "bait_change")),
+      # the raw trap.NZ "rebaited" flag (volunteer's "did you re-bait?"), NOT a computed change —
+      # so "Rebaited: Yes" with "Bait (prior check): None" just means the trap had no bait before.
+      .ovw_row("Rebaited", .ovw_tag(ob$observationTags, "bait_change")),
       .ovw_row("Prior check", r$prior_check_date),
       # the bait actually in the trap during the just-ended interval — i.e. what caught anything
       # found here. Lagged one check at the location (see observation_relations.R).
@@ -191,6 +193,45 @@
   )
 }
 
+#' The observation viewer TITLE block (species subject + reserve · line · datetime). Reused by
+#' the standalone modal (in the header) and the inline drill Record views (above the tabs).
+#' @keywords internal
+.ovw_title <- function(ik_data, ob, prefer) {
+  is_cam <- identical(ob$source_type, "camera")
+  tags$div(
+    class = "ovw-title",
+    tags$div(class = "ovw-title-sp", .ovw_subject(ik_data, ob, prefer)),
+    tags$div(class = "ovw-title-sub", paste(stats::na.omit(c(
+      ob$reserve,
+      if (length(ob$line) && !is.na(ob$line)) paste("Line", ob$line) else NA_character_,
+      .ovw_val(if (is_cam) ob$eventStart else ob$eventEnd))), collapse = " · "))
+  )
+}
+
+#' The observation viewer BODY: a tabset — Photos (camera w/ public media only) · Details ·
+#' Provenance — reused by the standalone modal AND inline (the drill Record tabs), so every
+#' record viewer looks the same. Warms the media cache as a side effect (no-op if cached).
+#'
+#' @param ik_data   The ik_data container.
+#' @param ob        An enriched observation row (`ik_observation`).
+#' @param prefer    "scientific" | "vernacular".
+#' @param tabset_id Optional id for the tabset (give a unique/namespaced one when embedding
+#'   inline so it doesn't collide with another viewer in the page).
+#' @return A `tabsetPanel`.
+#' @keywords internal
+.ovw_tabs <- function(ik_data, ob, prefer, tabset_id = NULL) {
+  is_cam  <- identical(ob$source_type, "camera")
+  mv      <- if (is_cam) ik_event_media_view(ik_data, ob$eventID) else NULL
+  has_med <- !is.null(mv) && nrow(mv) > 0
+  tabs <- Filter(Negate(is.null), list(
+    if (has_med) tabPanel("Photos", icon = icon("image"), .ovw_media(mv)),
+    tabPanel("Details",    icon = icon("circle-info"),    .ovw_details(ik_data, ob, prefer)),
+    tabPanel("Provenance", icon = icon("clipboard-list"), .ovw_provenance(ik_data, ob, prefer))))
+  body <- do.call(tabsetPanel, c(if (!is.null(tabset_id)) list(id = tabset_id), tabs))
+  if (has_med) ik_cache_event_async(ik_data, ob$eventID)   # warm rest of burst, never blocks
+  body
+}
+
 #' Open the observation viewer modal for one observation.
 #'
 #' @param ik_data          The ik_data container.
@@ -203,32 +244,10 @@ show_observation_modal <- function(ik_data, observation_id, prefer_scientific = 
     showModal(modalDialog("Observation not found.", easyClose = TRUE, footer = modalButton("Close")))
     return(invisible())
   }
-  prefer  <- if (isTRUE(prefer_scientific)) "scientific" else "vernacular"
-  is_cam  <- identical(ob$source_type, "camera")
-  mv      <- if (is_cam) ik_event_media_view(ik_data, ob$eventID) else NULL
-  has_med <- !is.null(mv) && nrow(mv) > 0
-  details <- .ovw_details(ik_data, ob, prefer)
-  prov    <- .ovw_provenance(ik_data, ob, prefer)
-
-  title <- tags$div(
-    class = "ovw-title",
-    tags$div(class = "ovw-title-sp", .ovw_subject(ik_data, ob, prefer)),
-    tags$div(class = "ovw-title-sub", paste(stats::na.omit(c(
-      ob$reserve,
-      if (length(ob$line) && !is.na(ob$line)) paste("Line", ob$line) else NA_character_,
-      .ovw_val(if (is_cam) ob$eventStart else ob$eventEnd))), collapse = " · "))
-  )
-
-  tabs <- Filter(Negate(is.null), list(
-    if (has_med) tabPanel("Photos", icon = icon("image"), .ovw_media(mv)),
-    tabPanel("Details",    icon = icon("circle-info"),   details),
-    tabPanel("Provenance", icon = icon("clipboard-list"), prov)))
-  body <- do.call(tabsetPanel, c(list(id = "ovw_tabs"), tabs))
-
-  showModal(modalDialog(title = title, body, size = "l", easyClose = TRUE,
-                        footer = modalButton("Close")))
-
-  # Warm the cache for next time (no-op if already cached); never blocks this session.
-  if (has_med) ik_cache_event_async(ik_data, ob$eventID)
+  prefer <- if (isTRUE(prefer_scientific)) "scientific" else "vernacular"
+  showModal(modalDialog(
+    title = .ovw_title(ik_data, ob, prefer),
+    .ovw_tabs(ik_data, ob, prefer, tabset_id = "ovw_tabs"),
+    size = "l", easyClose = TRUE, footer = modalButton("Close")))
   invisible()
 }

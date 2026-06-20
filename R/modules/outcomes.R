@@ -22,7 +22,7 @@ outcomes_ui <- function(id) {
         uiOutput(ns("intro")),
         div(class = "out-controls",
             checkboxGroupInput(ns("taxa"), "Show species", choices = NULL, inline = TRUE)),
-        plotOutput(ns("plot"), height = "660px"))
+        plotOutput(ns("plot"), height = "660px", click = ns("plot_click")))
   )
 }
 
@@ -47,9 +47,13 @@ outcomes_server <- function(id, ik_data) {
           tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
             "We ", tags$b("trap predators"), " → predator abundance on camera should ",
             tags$b("fall"), " → kiwi abundance should ", tags$b("rise"), ". ",
-            "Lines are the network mean across reserves; bands are ± 1 SE."))
+            "Lines are the network mean across reserves; bands are ± 1 SE. ",
+            tags$b("Click a point"), " for its per-reserve breakdown."))
       )
     })
+
+    # the data currently plotted (panel + ordered season factor) — read by the point-click handler
+    plotted <- reactiveVal(NULL)
 
     output$plot <- renderPlot({
       s <- series()
@@ -60,6 +64,7 @@ outcomes_server <- function(id, ik_data) {
                         ifelse(s$role == "protected", OUTCOME_PANELS[3], OUTCOME_PANELS[2])),
                         levels = OUTCOME_PANELS)
       s$season <- factor(s$season, levels = unique(s$season[order(s$season_order)]))
+      plotted(s)
       pal <- OUTCOME_PALETTE[names(OUTCOME_PALETTE) %in% unique(s$taxon)]
 
       ggplot(s, aes(.data$season, .data$value, colour = .data$taxon,
@@ -80,6 +85,47 @@ outcomes_server <- function(id, ik_data) {
           strip.background = element_blank(),
           panel.grid.minor = element_blank(),
           panel.spacing = unit(1.1, "lines"))
+    })
+
+    # Click a point → the per-reserve breakdown behind that (taxon × season) network value. The
+    # series keeps only network means, so we recompute the one season's per-reserve metric here
+    # (~0.5s) — wrapped in a progress indicator so the click clearly registers.
+    observeEvent(input$plot_click, {
+      cl <- input$plot_click; s <- plotted()
+      if (is.null(cl) || is.null(s) || !nrow(s)) return()
+      lv <- levels(s$season); xi <- round(cl$x)                  # discrete x → nearest season slot
+      if (is.na(xi) || xi < 1 || xi > length(lv)) return()
+      cand <- s[s$season == lv[xi] & (is.null(cl$panelvar1) | s$panel == cl$panelvar1) &
+                  !is.na(s$value), , drop = FALSE]
+      if (!nrow(cand)) return()
+      cand <- cand[which.min(abs(cand$value - cl$y)), , drop = FALSE]   # nearest line by value
+
+      is_cam <- identical(cand$metric_type, "camera_rai")
+      sci    <- sg$scientificName[sg$label == cand$taxon & !is.na(sg$scientificName)]
+      taxa   <- stats::setNames(list(sci), cand$taxon)
+      sp     <- list(season = ik_expand_period(paste0("season:", cand$season), ik_data))
+      R <- withProgress(message = "Loading breakdown…", value = 0.6, {
+        res <- if (is_cam) ik_rai(ik_data, sp, taxa) else ik_trap_rate(ik_data, sp, taxa)
+        res$summary
+      })
+      R  <- R[R$taxon == cand$taxon & !is.na(R$metric), , drop = FALSE]
+      R  <- R[order(R$reserve), , drop = FALSE]
+      dg <- if (is_cam) 2L else 3L; fd <- paste0("%.", dg, "f")
+      unit <- if (is_cam) "camera RAI" else "captures / 100 trap-nights"
+      body <- if (!nrow(R)) tags$p("No per-reserve records for this point.")
+        else tags$table(class = "ik-drill-table",
+          tags$thead(tags$tr(tags$th("Reserve"), tags$th(if (is_cam) "RAI" else "Rate"), tags$th("Lines"))),
+          tags$tbody(lapply(seq_len(nrow(R)), function(i) tags$tr(
+            tags$td(R$reserve[i]),
+            tags$td(sprintf(fd, R$metric[i]), if (!is.na(R$se[i])) sprintf(paste0(" ± ", fd), R$se[i])),
+            tags$td(.ov_num(R$n_lines[i]))))))
+      showModal(modalDialog(
+        title = .ik_modal_title(sprintf("%s · %s", cand$taxon, cand$season),
+          sprintf("network %s = %s%s over %d reserves — the per-reserve basis below", unit,
+                  sprintf(fd, cand$value),
+                  if (!is.na(cand$se)) sprintf(" ± %s SE", sprintf(fd, cand$se)) else "",
+                  cand$n_reserves)),
+        body, easyClose = TRUE, size = "m", footer = modalButton("Close")))
     })
   })
 }

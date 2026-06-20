@@ -157,7 +157,8 @@ ik_trap_review_lines <- function(per, ik_data) {
 #' @param seasons  Optional vector of `calendar_season` (the period). NULL = all.
 #' @return data.frame: check_date · interval_days (days since the prior check; NA for the trap's
 #'   FIRST record in our data, whose interval is fabricated) · is_first · outcome (caught
-#'   species, else the observationType) · bait · volunteer. NULL when none.
+#'   species, else the observationType) · bait · rebaited (raw trap.NZ re-bait flag) ·
+#'   volunteer. NULL when none.
 ik_trap_checks <- function(ik_data, location, seasons = NULL) {
   dp <- ik_deployment_period(ik_data)
   here <- dp[!is.na(dp$source_type) & dp$source_type == "trap" & dp$locationID == location, , drop = FALSE]
@@ -178,6 +179,7 @@ ik_trap_checks <- function(ik_data, location, seasons = NULL) {
                      ifelse(!is.na(obs$scientificName[oi]), obs$scientificName[oi],
                             tools::toTitleCase(as.character(obs$observationType[oi])))),
     bait          = vapply(obs$observationTags[oi], .ovw_tag, character(1), key = "bait"),
+    rebaited      = vapply(obs$observationTags[oi], .ovw_tag, character(1), key = "bait_change"),  # raw flag
     volunteer     = vapply(obs$observationTags[oi], .ovw_tag, character(1), key = "volunteer"),
     stringsAsFactors = FALSE)
 }

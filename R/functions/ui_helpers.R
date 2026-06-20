@@ -42,3 +42,22 @@
                         `data-bs-dismiss` = "modal", "Close")))))
   )
 }
+
+#' Highlight ONE row of a DT by a (usually hidden) id column — the "the row you came from"
+#' marker in our drill modals. Robust where a plain `target = "row"` background is NOT: under
+#' bslib/Bootstrap (and modern DataTables) zebra striping is painted on the CELLS (`td`), which
+#' sits ON TOP of any `<tr>` background and hides it. So we tint each VISIBLE cell directly
+#' (inline style beats the striping), driven by the id column via `valueColumns`. Apply this
+#' BEFORE any per-cell `formatStyle` (e.g. an amber status cell) you want to win over the tint.
+#'
+#' @param dt     A DT datatable (already built with `DT::datatable`).
+#' @param id_col Name of the column holding the row id (hide it via `columnDefs visible=FALSE`).
+#' @param id     The id value to highlight; `NULL`/`NA` → no-op (returns `dt` unchanged).
+#' @param colour Background colour (default our highlight tint — a clear, but not loud, blue).
+#' @return The datatable with the highlight applied.
+.ik_dt_highlight_row <- function(dt, id_col, id, colour = "#cfe2ff") {
+  if (is.null(id) || (length(id) == 1L && is.na(id))) return(dt)
+  vis <- setdiff(names(dt$x$data), id_col)
+  DT::formatStyle(dt, columns = vis, valueColumns = id_col,
+                  backgroundColor = DT::styleEqual(id, colour))
+}

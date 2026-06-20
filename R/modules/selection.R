@@ -26,7 +26,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL) {
   ns <- NS(id)
   ctrls <- list(
     dataset  = selectizeInput(ns("dataset"), "Dataset", choices = NULL, multiple = TRUE,
-                              options = list(placeholder = "All datasets")),
+                              options = list(placeholder = "All available")),
     period   = selectInput(ns("period"), "Period",
                            choices  = if (!is.null(ik_data)) ik_period_choices(ik_data),
                            selected = if (!is.null(ik_data)) ik_default_period(ik_data)),
@@ -60,9 +60,10 @@ selection_ui <- function(id, show = NULL, ik_data = NULL) {
 #' @param id                Module id.
 #' @param ik_data           The ik_data container.
 #' @param prefer_scientific A reactive returning TRUE to label species scientifically.
-#' @param datasets Optional named id→label vector enabling the Dataset axis (e.g. for Records,
-#'   which filters datasets INDEPENDENTLY of the global Settings toggle). When given, an empty
-#'   pick means ALL datasets EXPLICITLY (so it overrides the toggle); NULL omits the axis.
+#' @param datasets Optional named id→label vector enabling the Dataset axis (Records). The axis is
+#'   a sub-filter WITHIN the datasets currently shown in global Settings: its choices track the
+#'   active set, and an empty pick = "All available" (the active datasets, like every other view).
+#'   NULL omits the axis.
 #' @return A reactive returning `ik_select()` output (observations, deployments, effort).
 selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL) {
   moduleServer(id, function(input, output, session) {
@@ -78,8 +79,15 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL) {
     # state (which would resolve the view twice on first load). See ik_default_period().
     updateSelectizeInput(session, "reserve", choices = reserves, server = FALSE)
     updateSelectizeInput(session, "device",  choices = devices,  server = FALSE)
-    if (!is.null(datasets))                                     # Dataset axis (Records)
-      updateSelectizeInput(session, "dataset", choices = datasets, server = FALSE)
+    # Dataset axis (Records): list only the datasets ACTIVE in the global Settings toggle, so the
+    # filter respects show/hide like every other view; re-fires when the toggle changes (keeping
+    # any pick that's still available). Empty pick = all available (handled in the spec below).
+    if (!is.null(datasets)) observe({
+      active <- ik_active_datasets() %||% unname(datasets)     # reactive; NULL (no toggle) → all
+      avail  <- datasets[unname(datasets) %in% active]         # named id→label, active only
+      updateSelectizeInput(session, "dataset", choices = avail,
+                           selected = intersect(isolate(input$dataset), unname(avail)), server = FALSE)
+    })
 
     # Locations restricted to the chosen reserve(s) (all when none chosen).
     reserve_locs <- reactive({
@@ -129,10 +137,10 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL) {
       location    = input$location,
       source_type = input$device,
       species     = input$species,
-      # Dataset axis active (Records): an empty pick = ALL datasets EXPLICITLY (overrides the
-      # global toggle). Axis absent (other views): NULL → the global toggle applies.
-      dataset     = if (!is.null(datasets))
-                      (if (length(.ik_nz(input$dataset))) input$dataset else unname(datasets)) else NULL,
+      # Dataset axis (Records): a non-empty pick narrows to those datasets; an empty pick =
+      # "All available" → NULL, which lets the ambient global toggle (ik_active_datasets) apply,
+      # exactly like every other view. Axis absent (other views): also NULL.
+      dataset     = if (!is.null(datasets)) .ik_nz(input$dataset) else NULL,
       compare     = input$compare,                      # NULL unless the control is shown
       net         = isTRUE(input$net)                    # exclude possible duplicates (camera)
     ))

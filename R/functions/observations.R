@@ -52,26 +52,34 @@ ik_tag_provenance <- function(df, id, ds) {
   df
 }
 
-#' Present datetime columns in the dataset's timezone (manifest-driven).
+#' Present datetime columns in the dataset's timezone + trustworthy resolution (manifest-driven).
 #'
-#' Two manifest mechanisms (mutually exclusive per dataset):
+#' Timezone — two mutually-exclusive mechanisms per dataset:
 #' - `force_timezone`: the source mislabels its offset → reinterpret the wall-clock
 #'   in this zone (force_tz, DST-aware) — no shift. For read packages we can't fix.
 #' - `timezone`: the data is correctly offset (converters write it so) → convert to
 #'   this zone for display (with_tz).
-#' No-op when the dataset declares neither.
+#'
+#' Resolution — `temporal_resolution` (OPTIONAL: "day"/"hour"/"minute"/…): the FINEST
+#' granularity the source timestamps can actually be trusted to, regardless of what they
+#' appear to carry (a data-entry artefact — e.g. trap checks stamped with a spurious time
+#' that is really only good to the day). Timestamps are floored to this unit (in local time,
+#' AFTER the tz step), so a "day" source reads as 00:00:00 → the app already treats it as
+#' date-only everywhere (displays, diel, etc.). No-op / full precision when unset.
+#'
+#' No-op when the dataset declares none of these.
 #' @keywords internal
 ik_localize_times <- function(df, meta, cols) {
   set <- function(x) !is.null(x) && !is.na(x) && nzchar(x)
-  op <- if (set(meta$force_timezone)) {
-    function(x) lubridate::force_tz(x, meta$force_timezone)
-  } else if (set(meta$timezone)) {
-    function(x) lubridate::with_tz(x, meta$timezone)
-  } else {
-    return(df)
-  }
+  ops <- list()
+  if (set(meta$force_timezone))   ops[[length(ops) + 1L]] <- function(x) lubridate::force_tz(x, meta$force_timezone)
+  else if (set(meta$timezone))    ops[[length(ops) + 1L]] <- function(x) lubridate::with_tz(x, meta$timezone)
+  if (set(meta$temporal_resolution) && !identical(meta$temporal_resolution, "second"))
+    ops[[length(ops) + 1L]] <- function(x) lubridate::floor_date(x, unit = meta$temporal_resolution)
+  if (!length(ops)) return(df)
+  apply_ops <- function(x) Reduce(function(acc, f) f(acc), ops, x)
   for (col in intersect(cols, names(df))) {
-    if (inherits(df[[col]], "POSIXct")) df[[col]] <- op(df[[col]])
+    if (inherits(df[[col]], "POSIXct")) df[[col]] <- apply_ops(df[[col]])
   }
   df
 }

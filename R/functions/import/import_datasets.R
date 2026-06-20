@@ -94,6 +94,7 @@ ik_read_dataset <- function(id, entry, config) {
       id = id, source_type = entry$source_type, project = entry$project,
       method = entry$method, name = entry$name %||% id,
       timezone = entry$timezone, force_timezone = entry$force_timezone,
+      temporal_resolution = entry$temporal_resolution,   # trustworthy timestamp granularity (optional)
       geography = entry$geography
     )
   )

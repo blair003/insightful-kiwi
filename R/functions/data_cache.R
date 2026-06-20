@@ -5,7 +5,7 @@
 
 # Bump when the SHAPE of ik_data changes (new $meta tags, $app structure, ...) so
 # caches written by older code are treated as stale.
-IK_CACHE_VERSION <- 23L
+IK_CACHE_VERSION <- 24L   # v24: temporal_resolution flooring (trap data → day) in ik_localize_times
 
 #' Fingerprint the import inputs (manifest + package files).
 #'

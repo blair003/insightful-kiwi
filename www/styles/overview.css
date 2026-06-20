@@ -51,6 +51,12 @@
 .ik-spp-label { font-weight: 600; }
 .ik-spp-count { font-variant-numeric: tabular-nums; }
 .ik-spp-zero { opacity: 0.5; }
+/* a non-zero species item is clickable → its records */
+.ik-spp-click { cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.ik-spp-click:hover {
+  border-color: rgba(var(--bs-primary-rgb, 13,110,253), 0.6);
+  background: rgba(var(--bs-primary-rgb, 13,110,253), 0.07);
+}
 .ik-spp-other {
   margin-top: 0.5rem;
   font-size: 0.85rem;
@@ -84,17 +90,26 @@
   color: var(--bs-secondary-color, #6c757d);
   white-space: nowrap;
 }
+/* "value ± se" and the "arrow + prior" comparison each stay on one line; a cell may wrap only
+   BETWEEN the two groups, so cells break uniformly. */
+.ik-metric-main, .ik-metric-cmp { white-space: nowrap; }
+.ik-metric-cmp { display: inline-block; }
 .ik-arrow { font-weight: 700; }
 .ik-arrow-good    { color: #2e7d32; }   /* desirable change (green) */
 .ik-arrow-bad     { color: #c62828; }   /* undesirable change (red) */
 .ik-arrow-neutral { color: var(--bs-secondary-color, #6c757d); }
 
+/* Clickable value boxes (each drills to its underlying records). The wrapper fills the grid
+   cell so the whole box is the target. */
+.ov-box-click { cursor: pointer; height: 100%; border-radius: var(--bs-border-radius, 0.375rem); transition: box-shadow 0.12s; }
+.ov-box-click > * { height: 100%; }
+.ov-box-click:hover { box-shadow: 0 0 0 2px rgba(var(--bs-primary-rgb, 13,110,253), 0.45); }
+
 /* Drill-down */
-.ik-metric-table td.ik-drill,
-.ik-drill-table td.ik-drill { cursor: pointer; }
-.ik-metric-table td.ik-drill:hover,
-.ik-drill-table td.ik-drill:hover { background: var(--bs-tertiary-bg, #f1f3f5); }
-.ik-drill-table td.ik-drill { text-decoration: underline dotted; text-underline-offset: 2px; }
+/* Main metric table: MULTIPLE actions per row (each reserve cell drills) → per-cell affordance.
+   No underline — the pointer cursor + a clear hover tint are enough. */
+.ik-metric-table td.ik-drill { cursor: pointer; }
+.ik-metric-table td.ik-drill:hover { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.12); }
 .ik-drill-summary { color: var(--bs-secondary-color, #6c757d); }
 .ik-drill-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .ik-drill-table th, .ik-drill-table td {
@@ -103,3 +118,9 @@
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
 }
 .ik-drill-table th:first-child, .ik-drill-table td:first-child { text-align: left; }
+/* Breakdown follows the data-table standard: zebra + whole-row click (ONE action per row → the
+   whole row is the target, pointer cursor) for rows with records. Same light-blue family as the
+   Records DataTable so the two tabs read as one system — the tint is table chrome, NOT a status. */
+.ik-drill-table tbody tr:nth-child(even) { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.04); }
+.ik-drill-table tr.ik-drill-row { cursor: pointer; }
+.ik-drill-table tr.ik-drill-row:hover { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.12); }

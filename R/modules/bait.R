@@ -146,10 +146,13 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       h <- input$health %||% character(0)
       if (length(h) == 3) NULL else h            # all three = no filter; subset (incl none) = that set
     })
+    # The expensive (~7s) per-interval scan, computed ONCE per (period × species) and shared by the
+    # chart AND the captures drill — so clicking a bar reuses it instead of re-scanning every check.
+    intervals <- reactive(.bait_intervals(ik_data, seasons(), species()))
     data <- reactive(ik_bait_effectiveness(
       ik_data, seasons(), species = species(), group = group(),
       min_captures = max(1, input$min_cap %||% 3),
-      health = health(), by_health = isTRUE(input$split)))
+      health = health(), by_health = isTRUE(input$split), intervals = intervals()))
 
     # the data currently plotted, ordered + factored — read by the bar-click handler
     plotted <- reactiveVal(NULL)
@@ -208,7 +211,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
               axis.text.y = element_text(face = "bold"))
     })
 
-    # --- drill: click a bar → ONE modal, 3 tabs (Captures → Trap history → Check record) ----
+    # --- drill: click a bar → ONE modal, 3 tabs (Captures → Trap history → Record Details) ---
     # Standard whole-row interaction (one action per row, no cell links → no showModal race):
     # click a CAPTURE row → its trap's history with that catch highlighted; click a HISTORY row
     # → that check's record. Tabs flow left→right as you drill deeper.
@@ -222,7 +225,8 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       lv  <- levels(d$bait); idx <- round(cl$y)
       if (idx < 1 || idx > length(lv)) return()
       sel_trap(NULL); sel_hl(NULL); sel_obs(NULL)
-      caps(ik_bait_captures(ik_data, lv[[idx]], seasons(), species(), group(), health()))
+      caps(ik_bait_captures(ik_data, lv[[idx]], seasons(), species(), group(), health(),
+                            intervals = intervals()))                # reuse → instant modal
       showModal(modalDialog(
         title = .ik_modal_title(paste("Captures on", lv[[idx]]),
                                 paste0(period_label(input$period),
@@ -239,7 +243,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
             DT::dataTableOutput(session$ns("cap_table"))),
           tabPanel("Trap history", icon = icon("clock-rotate-left"),
             uiOutput(session$ns("hist_ui"))),
-          tabPanel("Check record", icon = icon("magnifying-glass"),
+          tabPanel("Record Details", icon = icon("magnifying-glass"),
             uiOutput(session$ns("obs_ui"))))
       ))
     })
@@ -271,8 +275,9 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       tagList(
         tags$p(class = "bait-cap-lead", "Trap ", tags$b(nm %||% ""),
                " — every check, newest first. The ", tags$b("highlighted"), " row is the catch you came ",
-               "from; ", tags$b("click any row"), " for its record. ‘changed’ marks where the recipe ",
-               "differs from the check before."),
+               "from; ", tags$b("click any row"), " for its record. ", tags$b("Rebaited"),
+               " is the volunteer's re-bait flag; ", tags$b("Yes · new recipe"),
+               " marks a re-bait with a different bait TYPE than the previous check."),
         DT::dataTableOutput(session$ns("hist_table")))
     })
 
@@ -282,23 +287,32 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       validate(need(!is.null(ch) && nrow(ch), "No checks found for this trap."))
       combo <- vapply(ch$bait, .bait_combo, character(1))        # recipe per check
       older <- c(combo[-1], NA)                                  # the check below (older)
-      changed <- ifelse(!is.na(older) & combo != older, "changed", "")
+      recipe_changed <- !is.na(older) & nzchar(combo) & combo != older   # bait TYPE differs from prior
+      reb  <- tolower(trimws(ifelse(is.na(ch$rebaited), "", ch$rebaited)))
+      # One "Rebaited" column (no background tint — an in-cell marker instead): a recipe change
+      # implies a re-bait, so it shows "Yes · new recipe" (a different bait type); otherwise the
+      # raw Yes/No flag, or "—" when the volunteer recorded nothing.
+      swap <- as.character(icon("arrows-rotate"))
+      rebaited <- ifelse(recipe_changed,
+          paste0("Yes <span style='color:#6c757d;font-size:.85em' ",
+                 "title='Re-baited with a different bait type than the previous check'>",
+                 swap, " new recipe</span>"),
+        ifelse(reb == "yes", "Yes",
+        ifelse(reb == "no",  "<span style='color:#adb5bd'>No</span>",
+                             "<span style='color:#adb5bd'>—</span>")))
       interval <- ifelse(ch$is_first, "first record", paste0(ch$interval_days, " d"))
       df <- data.frame(
         Date = format(ch$check_date, "%d %b %Y"),
         Interval = interval, Outcome = ch$outcome, Bait = ch$bait,
-        `Bait change` = changed, Volunteer = ch$volunteer, ObsID = ch$observationID,
+        Rebaited = rebaited, Volunteer = ch$volunteer, ObsID = ch$observationID,
         check.names = FALSE, stringsAsFactors = FALSE)
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",
+        escape = -which(names(df) == "Rebaited"),                # Rebaited holds an icon + tooltip
         class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 15, scrollX = TRUE, dom = "tip",
                        columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
-      dt <- DT::formatStyle(dt, "Bait change",                   # amber "changed" cell
-        backgroundColor = DT::styleEqual("changed", "#fff3cd"),
-        fontWeight = DT::styleEqual("changed", "600"))
-      if (length(sel_hl()) && !is.na(sel_hl()))                  # highlight the catch you came from
-        dt <- DT::formatStyle(dt, "ObsID", target = "row",
-          backgroundColor = DT::styleEqual(sel_hl(), "#e7f1ff"))
+      # Highlight the catch you came from (tints the whole row's cells). See .ik_dt_highlight_row.
+      dt <- .ik_dt_highlight_row(dt, "ObsID", sel_hl())
       dt
     })
 
@@ -306,7 +320,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       i <- input$hist_table_rows_selected
       ch <- ik_trap_checks(ik_data, sel_trap(), NULL)
       if (length(i) && !is.null(ch) && i <= nrow(ch)) {
-        sel_obs(ch$observationID[i]); updateTabsetPanel(session, "cap_tabs", selected = "Check record")
+        sel_obs(ch$observationID[i]); updateTabsetPanel(session, "cap_tabs", selected = "Record Details")
       }
       DT::selectRows(DT::dataTableProxy("hist_table"), NULL)
     })
@@ -317,14 +331,8 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       ob <- ik_observation(ik_data, sel_obs())
       if (is.null(ob)) return(tags$p("Record not found."))
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      tagList(
-        tags$div(class = "ovw-title",
-          tags$div(class = "ovw-title-sp", .ovw_subject(ik_data, ob, prefer)),
-          tags$div(class = "ovw-title-sub", paste(stats::na.omit(c(ob$reserve,
-            if (length(ob$line) && !is.na(ob$line)) paste("Line", ob$line) else NA_character_,
-            .ovw_val(ob$eventEnd))), collapse = " · "))),
-        .ovw_details(ik_data, ob, prefer),
-        .ovw_provenance(ik_data, ob, prefer))
+      tagList(.ovw_title(ik_data, ob, prefer),                       # same viewer as everywhere else
+              .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("rec_subtabs")))
     })
   })
 }
