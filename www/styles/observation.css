@@ -17,7 +17,27 @@
   display: block;
   border-radius: 6px;
   background: var(--bs-tertiary-bg, #f1f3f5);   /* placeholder tone while loading */
+  cursor: zoom-in;                              /* click → the sequence viewer (ovw-lightbox.js) */
+  transition: filter 0.12s;
 }
+.ovw-img:hover { filter: brightness(1.04); }
+
+/* Sequence viewer (lightbox) — a full-screen overlay above the modal; see ovw-lightbox.js. */
+.ovw-lightbox { position: fixed; inset: 0; z-index: 2000; display: none; background: rgba(0,0,0,0.92); }
+.ovw-lightbox.open { display: flex; align-items: center; justify-content: center; }
+.ovw-lb-fig { margin: 0; display: flex; flex-direction: column; align-items: center; max-width: 94vw; }
+.ovw-lb-img { max-width: 94vw; max-height: 84vh; object-fit: contain; border-radius: 4px; box-shadow: 0 6px 40px rgba(0,0,0,0.5); }
+.ovw-lb-cap { color: #e9ecef; margin-top: 0.7rem; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.ovw-lb-nav, .ovw-lb-close {
+  position: fixed; background: rgba(255,255,255,0.12); color: #fff; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+.ovw-lb-nav { top: 50%; transform: translateY(-50%); width: 3rem; height: 3rem; border-radius: 50%; font-size: 2rem; }
+.ovw-lb-nav:hover, .ovw-lb-close:hover { background: rgba(255,255,255,0.25); }
+.ovw-lb-prev { left: 1.5rem; }
+.ovw-lb-next { right: 1.5rem; }
+.ovw-lb-close { top: 1.1rem; right: 1.5rem; width: 2.4rem; height: 2.4rem; border-radius: 50%; font-size: 1.7rem; }
+.ovw-lb-single .ovw-lb-nav { display: none; }   /* a lone image needs no arrows */
 .ovw-cap {
   display: flex;
   justify-content: space-between;

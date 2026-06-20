@@ -13,7 +13,9 @@ ui <- page_navbar(
   header = tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/base.css"),
     tags$link(rel = "icon", href = "images/insightful-kiwi.logo.svg", type = "image/svg+xml"),
-    tags$link(rel = "icon", href = "images/icons/favicon.png", type = "image/png", sizes = "32x32")
+    tags$link(rel = "icon", href = "images/icons/favicon.png", type = "image/png", sizes = "32x32"),
+    # full-screen sequence viewer for the observation Photos burst (delegated clicks → works in modals)
+    tags$script(src = "js/ovw-lightbox.js")
   ),
 
   # Global sidebar — filters/controls for the active view.

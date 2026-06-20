@@ -174,14 +174,16 @@
 }
 
 #' Build the Photos tab: the image burst, each with its capture time + a link to the original.
-#' @keywords internal
+#' Clicking a thumbnail opens the full-screen sequence viewer (ovw-lightbox.js) — `data-cap`
+#' carries the timestamp it shows there. @keywords internal
 .ovw_media <- function(mv) {
   tags$div(
     class = "ovw-media",
     lapply(seq_len(nrow(mv)), function(i) {
       tags$figure(
         class = "ovw-figure",
-        tags$img(class = "ovw-img", src = mv$src[i], loading = "lazy", alt = ""),
+        tags$img(class = "ovw-img", src = mv$src[i], loading = "lazy", alt = "",
+                 `data-cap` = .ovw_val(mv$timestamp[i]), title = "Click to view the full sequence"),
         tags$figcaption(
           class = "ovw-cap",
           tags$span(.ovw_val(mv$timestamp[i])),

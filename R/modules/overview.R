@@ -530,11 +530,13 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     # species × count; deployments/effort → the deployment list with per-deployment effort.
     box_records <- reactiveVal(NULL)   # prepared records df (When·Species·Count·Location·ObsID)
     box_deps    <- reactiveVal(NULL)   # prepared deployments df
+    box_rec_obs <- reactiveVal(NULL)   # observationID open in the box drill's Record Details tab
     fmt_dt <- function(x) ifelse(is.na(x), "—",
       ifelse(format(x, "%H:%M:%S") == "00:00:00", format(x, "%d %b %Y"), format(x, "%d %b %Y · %H:%M")))
 
-    # Shared records modal (value-box "records" + the species-panel drill): a DT of the given
-    # animal observations, whole-row → the record viewer.
+    # Shared records modal (value-box "records" + the species-panel drill): a 2-tab modal —
+    # Records (a DT) → Record Details (the inline viewer) — so you can step into a record AND tab
+    # back to the list, same as the metric-cell drill (no replace-modal dead end).
     show_records_modal <- function(obs, is_cam, title, subtitle) {
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       when   <- if (is_cam) obs$eventStart else obs$eventEnd
@@ -542,10 +544,15 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
         When = fmt_dt(when), Species = ik_species_label(obs$scientificName, ik_data, prefer),
         Count = obs$count, Location = obs$locationName, ObsID = obs$observationID,
         check.names = FALSE, stringsAsFactors = FALSE))
+      box_rec_obs(NULL)
       showModal(modalDialog(
         title = .ik_modal_title(title, subtitle),
         size = "l", easyClose = TRUE, footer = modalButton("Close"),
-        DT::dataTableOutput(session$ns("box_records_table"))))
+        tabsetPanel(id = session$ns("box_tabs"),
+          tabPanel("Records", icon = icon("list"),
+                   DT::dataTableOutput(session$ns("box_records_table"))),
+          tabPanel("Record Details", icon = icon("circle-info"),
+                   uiOutput(session$ns("box_record"))))))
     }
 
     observeEvent(input$box_drill, {
@@ -598,17 +605,29 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     output$box_records_table <- DT::renderDT({
       df <- box_records()
       validate(need(!is.null(df) && nrow(df), "No records."))
-      DT::datatable(df, rownames = FALSE, selection = "single",     # whole row → the record viewer
+      dt <- DT::datatable(df, rownames = FALSE, selection = "single",  # whole row → Record Details
         class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 12, scrollX = TRUE, dom = "tip",
           columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
+      .ik_dt_highlight_row(dt, "ObsID", box_rec_obs())             # the record you're viewing
     })
 
     observeEvent(input$box_records_table_rows_selected, {
       i <- input$box_records_table_rows_selected; df <- box_records()
-      if (length(i) && !is.null(df) && i <= nrow(df))
-        show_observation_modal(ik_data, df$ObsID[i], isTRUE(prefer_scientific()))
+      if (length(i) && !is.null(df) && i <= nrow(df)) {
+        box_rec_obs(df$ObsID[i]); updateTabsetPanel(session, "box_tabs", selected = "Record Details")
+      }
       DT::selectRows(DT::dataTableProxy("box_records_table"), NULL)
+    })
+
+    output$box_record <- renderUI({
+      if (is.null(box_rec_obs()))
+        return(tags$p(class = "ik-drill-summary", "Click a record in the Records tab to see it in full here."))
+      ob <- ik_observation(ik_data, box_rec_obs())
+      if (is.null(ob)) return(tags$p("Record not found."))
+      prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
+      tagList(.ovw_title(ik_data, ob, prefer),
+              .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("box_rec_subtabs")))
     })
 
     output$box_deps_table <- DT::renderDT({
