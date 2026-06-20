@@ -1,40 +1,45 @@
-# Ignore all new top-level files/dirs by default
-/*
+# -------------------------------------------------------------------
+# Application Data, Caches, and Logs
+# -------------------------------------------------------------------
 
-# Re-include known top-level project files
-!.gitignore
-!README.md
-!deploy-sitehost-wkt.sh
-!renv.lock
-!global.R
-!server.R
-!ui.R
+# Old code
+instance-v0.1/
+R-v0.1/
+v0.1 server.R ui.R global.R
+www/custom-v0.1.css
+www/custom-v0.1.js
 
-# Re-include known top-level dirs
-!R/
-!www/
-!instance/
-!.devcontainer/
-!instance/reports/
-!instance/reports/**
-!docs/app/
-!docs/app/**
 
-# Then control contents inside allowed dirs
-instance/config/*
-!instance/config/base.R
-!instance/config/project.R
-!instance/config/environment.R
-
+# No 
 instance/cache/
 instance/app_cache/
 instance/logs/
+docs/data-model
+docs/dev
+# Raw data directory (untracked as requested)
+instance/extdata/raw/
 
+# Ignore all configs except the core required files
+instance/config/*
+!instance/config/project.R
+!instance/config/datasets.R
+
+# Ignore media cache contents but keep the folder via .gitkeep
 instance/www/media-cache/*
 !instance/www/media-cache/.gitkeep
 
-# Normal junk ignores
+# -------------------------------------------------------------------
+# Environment & OS files
+# -------------------------------------------------------------------
+app_cache/
 .DS_Store
+.vscode/
+.claude
+.positai/
+
+# -------------------------------------------------------------------
+# R / RStudio specific files
+# -------------------------------------------------------------------
 .Rproj.user/
 .Rhistory
 .RData
@@ -42,6 +47,4 @@ instance/www/media-cache/*
 .Renviron
 .Ruserdata/
 *.Rproj
-.vscode/
-.positai/
 .lintrdocs/

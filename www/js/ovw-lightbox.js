@@ -53,10 +53,17 @@
     if (!im) return;
     open(im.closest(".ovw-media"), im.getAttribute("src"));
   });
+  // CAPTURE phase: run BEFORE Bootstrap's modal Esc handler (which lives on the modal element,
+  // bubbling) and stop the event there — otherwise Esc closes the underlying modal, not the
+  // lightbox. Only intercept while the lightbox is actually open.
   document.addEventListener("keydown", function (e) {
     if (!lb || !lb.classList.contains("open")) return;
+    if (e.key === "Escape" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (e.key === "Escape") close();
     else if (e.key === "ArrowLeft") step(-1);
     else if (e.key === "ArrowRight") step(1);
-  });
+  }, true);
 })();
