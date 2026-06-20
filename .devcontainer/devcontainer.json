@@ -15,7 +15,7 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/srv/shiny-server/insightful.kiwi,type=bind,consistency=cached",
 
   "mounts": [
-    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind",
+    "source=${localEnv:HOME}/.ssh/ssh-agent.sock,target=/ssh-agent,type=bind",
     "source=claude-code-config-${devcontainerId},target=/root/.claude,type=volume",
     "source=codex-config-${devcontainerId},target=/root/.codex,type=volume"
   ],
