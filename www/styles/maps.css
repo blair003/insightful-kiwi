@@ -1,0 +1,70 @@
+/* maps.css — styles for the Maps module (R/modules/maps.R). App-wide tokens live in base.css. */
+
+.ik-maps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+/* Controls row: device · measure · group. */
+.ik-maps-controls {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.ik-maps-controls .form-group,
+.ik-maps-controls .shiny-input-container { margin-bottom: 0; }
+.ik-maps-controls .shiny-input-container { min-width: 12rem; }
+
+/* The map frame — theme-matched backdrop (no hardcoded grey), app font. */
+.ik-maps .leaflet-container {
+  border: 1px solid var(--bs-border-color, #ddd);
+  border-radius: 0.5rem;
+  background: var(--bs-tertiary-bg, var(--bs-body-bg, #ececec));
+  font-family: inherit;
+}
+
+/* Themed chrome: the legend and layers control read as cards in the active theme,
+   instead of the default white boxes that look pasted-on in dark mode. */
+.ik-maps .leaflet-control-layers,
+.ik-maps .leaflet-bar,
+.ik-maps .info.legend {
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #222);
+  border: 1px solid var(--bs-border-color, #ccc);
+  border-radius: 0.4rem;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+}
+.ik-maps .info.legend {
+  padding: 0.5rem 0.65rem;
+  line-height: 1.45;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.ik-maps .info.legend small { opacity: 0.75; }
+.ik-maps .leaflet-control-layers-expanded { padding: 0.5rem 0.75rem; }
+.ik-maps .leaflet-control-layers label { margin-bottom: 0.15rem; font-weight: 400; }
+
+/* Coordless-trap notice — surfaces data that can't be mapped, so totals reconcile. */
+.ik-maps-unplaced {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  color: var(--bs-warning-text-emphasis, #8a6d3b);
+  background: var(--bs-warning-bg-subtle, #fff3cd);
+  border: 1px solid var(--bs-warning-border-subtle, #ffe69c);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.6rem;
+}
+
+/* Records / servicing table. */
+.ik-maps-records { margin-top: 0.5rem; }
+.ik-maps-records-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.ik-maps-records-header small { color: var(--bs-secondary-color, #666); }

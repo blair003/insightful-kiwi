@@ -123,8 +123,7 @@
       .ovw_row("Device", tools::toTitleCase(ob$source_type %||% "")),
       .ovw_row("Coordinates",
                if (length(ob$latitude) && !is.na(ob$latitude))
-                 sprintf("%.5f, %.5f", ob$latitude, ob$longitude) else NA),
-      .ovw_row("Deployment", ob$deploymentID)),
+                 sprintf("%.5f, %.5f", ob$latitude, ob$longitude) else NA)),
     if (is_cam) .ovw_section("Detection context",
       .ovw_row("Diel period", diel),
       .ovw_row("Day / night", dn),
@@ -169,6 +168,7 @@
       .ovw_row("Dataset", ob$dataset),
       .ovw_row("Observation ID", ob$observationID),
       .ovw_row("Event ID", ob$eventID),
+      .ovw_row("Deployment ID", ob$deploymentID),
       .ovw_row("Comments", ob$observationComments))
   )
 }

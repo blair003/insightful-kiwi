@@ -9,6 +9,7 @@ trapping_ui <- function(id) {
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/trapping.css"),
     div(class = "ik-trapping",
+        tags$h5("Trap check-frequency review", class = "ik-review-head"),
         div(class = "trap-controls", selectInput(ns("period"), "Period", choices = NULL, width = "260px")),
         uiOutput(ns("intro")),
         div(class = "ik-trapping-scroll", uiOutput(ns("table"))))

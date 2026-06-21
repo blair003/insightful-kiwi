@@ -64,8 +64,9 @@ format_records_datetime <- function(x) {
 records_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
-    "Records", value = "records", icon = icon("table"),
+    "All records", value = "records", icon = icon("table"),
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/observation.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles/records.css"),
     DT::DTOutput(ns("table"))
   )
 }
@@ -131,7 +132,10 @@ records_server <- function(id, ik_data, prefer_scientific, selection) {
         options = list(
           dom          = "Bfrtip",
           buttons      = list(list(extend = "colvis", text = "Columns")),
-          columnDefs   = list(list(visible = FALSE, targets = hidden)),
+          columnDefs   = list(
+            list(visible = FALSE, targets = hidden),
+            list(className = "ik-nowrap",                          # datetime cells stay one line
+                 targets = which(names(df) %in% RECORDS_DATETIME_COLS) - 1L)),
           pageLength   = 25,
           scrollX      = TRUE
         )

@@ -16,6 +16,7 @@ instance/app_cache/
 instance/logs/
 docs/data-model
 docs/dev
+docs/reference
 # Raw data directory (untracked as requested)
 instance/extdata/raw/
 

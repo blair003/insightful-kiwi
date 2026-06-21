@@ -3,14 +3,21 @@
 # package's files by size + mtime) plus a structure version. Any change to the
 # manifest, the package files, or IK_CACHE_VERSION forces a re-import.
 
-# Bump when the SHAPE of ik_data changes (new $meta tags, $app structure, ...) so
-# caches written by older code are treated as stale.
-IK_CACHE_VERSION <- 24L   # v24: temporal_resolution flooring (trap data → day) in ik_localize_times
+# Bump when a change to BUILD LOGIC or shape changes ik_data's CONTENT (new $meta tags,
+# $app structure, a derivation tweak in geography/period/temporal/...). The fingerprint
+# tracks the manifest + package DATA files + the CONVERSION code (R/functions/import) — but
+# NOT the rest of the build code, so bump this (or run with IK_REBUILD=1) when you edit a
+# builder outside import/ and want the cache rebuilt.
+IK_CACHE_VERSION <- 25L   # v25: fingerprint conversion code (R/functions/import) in both cache layers
 
-#' Fingerprint the import inputs (manifest + package files).
+#' Fingerprint the import inputs (manifest + package files + conversion code).
 #'
 #' Cheap — file metadata only, no content hashing: two fingerprints compare equal
-#' iff the manifest and every enabled package's files are unchanged.
+#' iff the manifest, every enabled package's files, and the conversion code
+#' (R/functions/import) are unchanged. Conversion code is included so that editing a
+#' converter/template re-imports (it otherwise serves a stale generated package).
+#' Build code OUTSIDE import/ (geography, period, ...) is NOT tracked — bump
+#' IK_CACHE_VERSION or run with IK_REBUILD=1 after editing those.
 #'
 #' @param config   Runtime config (see build_config()).
 #' @param manifest The dataset manifest (see load_manifest()).
@@ -27,7 +34,8 @@ source_fingerprint <- function(config, manifest, project = list()) {
     dir_fingerprint(dir)
   })
   names(files) <- names(manifest)
-  list(manifest = manifest, project = project, files = files)
+  list(manifest = manifest, project = project, files = files,
+       import_code = dir_fingerprint("R/functions/import"))   # converter/template edits re-import
 }
 
 #' File-metadata fingerprint of a directory (size + mtime; no content hashing).

@@ -23,6 +23,7 @@ attach_packages(c("shiny", "bslib", "DT"))
 
 # UI builders + modules — sourced after their packages are attached.
 source("R/functions/ui_helpers.R")
+source("R/functions/species_icons.R")
 source("R/functions/settings_modal.R")
 source("R/modules/observation_viewer.R")
 source("R/modules/monitoring.R")
@@ -32,12 +33,14 @@ source("R/modules/bait.R")
 source("R/modules/records.R")
 source("R/modules/selection.R")
 source("R/modules/overview.R")
+source("R/modules/duplicates.R")
+source("R/modules/maps.R")
 
 ################################################################
 # Data import — build the ik_data container once at startup
 ################################################################
 
-attach_packages(c("camtrapdp", "dplyr", "tibble", "httr2", "lubridate", "sf", "suncalc", "ggplot2"))
+attach_packages(c("camtrapdp", "dplyr", "tibble", "httr2", "lubridate", "sf", "suncalc", "ggplot2", "leaflet"))
 source("R/functions/registry.R")   # ik_registry — sourced before files that register into it
 source("R/functions/config.R")
 source("R/functions/resolve_taxa.R")
@@ -46,11 +49,13 @@ source("R/functions/period.R")
 source("R/functions/temporal.R")
 source("R/functions/monitoring.R")
 source("R/functions/trap_review.R")
+source("R/functions/duplicate_review.R")
 source("R/functions/bait.R")
 source("R/functions/outcomes.R")
 source("R/functions/species.R")
 source("R/functions/select.R")
 source("R/functions/metrics.R")
+source("R/functions/spatial.R")
 source("R/functions/import/import_datasets.R")
 source("R/functions/import/build_taxonomy.R")
 source("R/functions/import/consolidate_taxa.R")
@@ -69,5 +74,8 @@ source("R/functions/media_cache.R")
 # Runtime config (paths/toggles) — the input that builds ik_data.
 config <- build_config()
 
-# Load ik_data from cache, re-importing only when the manifest or packages change.
-ik_data <- load_or_build_ik_data(config)
+# Load ik_data from cache, re-importing only when the manifest, package data, or conversion
+# code change. Set IK_REBUILD=1 to force a full rebuild — use it while editing BUILD code
+# outside R/functions/import (geography, period, temporal, ...), which the fingerprint
+# deliberately does NOT track (so the dev autoreload loop isn't a re-import every save).
+ik_data <- load_or_build_ik_data(config, force = nzchar(Sys.getenv("IK_REBUILD")))

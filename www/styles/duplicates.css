@@ -1,0 +1,50 @@
+/* duplicates.css — the "Duplicate window" tuner (R/modules/duplicates.R), Quality > Cameras tab. */
+
+.ik-dups {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+.ik-dups-head {
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+.ik-dups-lead {
+  font-size: 0.92rem;
+  margin-bottom: 0.6rem;
+}
+.ik-dups-sub {
+  color: var(--bs-secondary-color, #6c757d);
+  font-weight: 400;
+}
+.ik-dups-subhead {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  color: var(--bs-secondary-color, #6c757d);
+  margin: 0.5rem 0 0.5rem;
+}
+.ik-dups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+.ik-dups-panel h6 {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 0.4rem;
+}
+.ik-dups-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.ik-dups-pickers .form-group { min-width: 14rem; }
+/* burst-inspector thumbnails sit tidy in their cell */
+.ik-dups-bursts img {
+  border-radius: 0.25rem;
+  display: block;
+}

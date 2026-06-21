@@ -2,7 +2,7 @@
   "name": "insightful-kiwi-shiny",
   
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/node:2.1.0": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
   },
 
@@ -16,9 +16,10 @@
 
   "mounts": [
     "source=${localEnv:HOME}/.ssh/ssh-agent.sock,target=/ssh-agent,type=bind",
-    "source=claude-code-config-${devcontainerId},target=/root/.claude,type=volume",
-    "source=codex-config-${devcontainerId},target=/root/.codex,type=volume"
+    "source=insightful-kiwi-claude,target=/root/.claude,type=volume",
+    "source=insightful-kiwi-codex,target=/root/.codex,type=volume"
   ],
+  
   "containerEnv": {
     "SSH_AUTH_SOCK": "/ssh-agent"
   },
@@ -37,7 +38,9 @@
         "REditorSupport.r",
         "REditorSupport.r-debugger",
         "Posit.shiny",
-        "openai.chatgpt"
+        "openai.chatgpt",
+        "eamodio.gitlens",
+        "mhutchie.git-graph"
       ],
       "settings": {
         "r.lsp.enabled": true,

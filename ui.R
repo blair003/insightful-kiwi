@@ -22,14 +22,17 @@ ui <- page_navbar(
   # Populated per-view as modules are built; conditional on the selected nav.
   sidebar = sidebar(
     id = "global_sidebar",
-    title = "Filters",
+    title = "Data Selection",
     conditionalPanel("input.nav === 'overview'",
                      selection_ui("overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
     conditionalPanel("input.nav === 'outcomes'", tags$small("All seasons · network mean across reserves.")),
     conditionalPanel("input.nav === 'bait'", tags$small("Controls are above the chart.")),
-    conditionalPanel("input.nav === 'quality'", tags$small("Controls are within each tab.")),
-    conditionalPanel("input.nav === 'maps'",     tags$small("Map controls will appear here.")),
+    conditionalPanel("input.nav === 'camera-review' || input.nav === 'trap-review' || input.nav === 'duplicates'",
+                     tags$small("Controls are within the view.")),
+    conditionalPanel("input.nav === 'maps'",
+                     selection_ui("maps_selection",
+                                  show = c("period", "reserve", "line", "location"), ik_data = ik_data)),
     conditionalPanel("input.nav === 'species'",  tags$small("Species controls will appear here.")),
     conditionalPanel("input.nav === 'records'",
                      selection_ui("selection",
@@ -47,23 +50,21 @@ ui <- page_navbar(
     outcomes_ui("outcomes"),
     bait_ui("bait")
   ),
-  nav_panel("Maps", value = "maps", icon = icon("map"),
-    h2("Maps")
-  ),
+  maps_ui("maps"),
   nav_panel("Species", value = "species", icon = icon("paw"),
     h2("Species")
   ),
-  # "Data" groups the raw-data + data-quality stuff (room to grow: exports, …).
+  # "Data" groups the raw-data + data-quality views as direct pages (room to grow: exports, …).
   nav_menu(
     "Data", icon = icon("database"),
     records_ui("records"),
-    nav_panel(
-      "Quality", value = "quality", icon = icon("clipboard-check"),
-      tabsetPanel(
-        tabPanel("Cameras",  monitoring_ui("monitoring")),
-        tabPanel("Trapping", trapping_ui("trapping"))
-      )
-    )
+    "Quality",                                            # section header within the dropdown
+    nav_panel("Camera review",    value = "camera-review", icon = icon("camera"),
+              monitoring_ui("monitoring")),
+    nav_panel("Trap review",      value = "trap-review",   icon = icon("heart-pulse"),
+              trapping_ui("trapping")),
+    nav_panel("Duplicate window", value = "duplicates",    icon = icon("clone"),
+              duplicates_ui("duplicates"))
   ),
 
   nav_spacer(),

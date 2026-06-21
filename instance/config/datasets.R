@@ -1,9 +1,9 @@
 # datasets.R — the dataset manifest (USER-EDITED).
 #
 # The inventory of Camtrap DP packages to import. Edit this whenever a dataset is
-# added or removed; the app reads it but never writes it. Project structure
-# (geography levels, location assignment) lives in project.R instead — this file
-# changes far more often, hence the split.
+# added or removed; the app reads it but never writes it. Per-dataset geography
+# derivation (the `geography` block below) lives HERE, beside the dataset it belongs
+# to; project-wide ecology (species groups, metric methodology) lives in project.R.
 #
 # Each entry registers one package and tags it. Tags are domain facts the files
 # can't carry (source_type / project / method) and are how the app selects
@@ -49,10 +49,12 @@
 #                  trap: bare line only). `reserve_match` (optional) assigns the
 #                  reserve by SPATIALLY matching to another dataset's canonical
 #                  reserves: list(strategy="spatial_hull", canonical=<dataset id>,
-#                  buffer_m=<metres>). Stores per location: reserve (assigned),
+#                  buffer_m=<metres>, max_km=<km>). Stores per location: reserve (assigned),
 #                  within_monitored_area (inside the canonical dataset's camera
 #                  footprint — NOT the real reserve boundary), and
-#                  nearest_monitoring_location/distance_km.
+#                  nearest_monitoring_location/distance_km. A trap farther than `max_km`
+#                  from any monitored location is grouped as "Outside monitored areas"
+#                  instead of force-assigned to the nearest reserve (default max_km = Inf).
 
 datasets <- list(
 
@@ -88,8 +90,8 @@ datasets <- list(
     name        = "WKT Ohiwa Forest Monitoring",
     force_timezone = "Pacific/Auckland",        # match core if its timestamps are the same
     geography   = list(derive = "coded_locationname",
-                      reserves = c(OF = "Ohiwa Forest")),   # ← use Ohiwa's real code
-    enabled     = TRUE
+                       reserves = c(OF = "Ohiwa Forest")),   # ← use Ohiwa's real code
+    enabled     = FALSE
   ),
 
 
@@ -111,7 +113,8 @@ datasets <- list(
       reserve_match = list(         # reserve not in trap data -> match to camera reserves
         strategy  = "spatial_hull",
         canonical = "wkt_core_monitoring",  # match to this dataset's reserves
-        buffer_m  = 200
+        buffer_m  = 200,
+        max_km    = 2     # traps > this from any camera → "Outside monitored areas" (TUNE to taste)
       )
     )
   ),
@@ -126,7 +129,7 @@ datasets <- list(
     name        = "Southern Lakes Trapping",
     timezone    = "Pacific/Auckland",
     temporal_resolution = "day",        # trap.NZ check records — trustworthy to the day
-    enabled     = TRUE,
+    enabled     = FALSE,
     raw = list(dir = "southern-lakes-sanctuary/sls-trapping", converter = "trapnz"),
     geography = list(derive = "trapnz")            # reserve = trap.NZ project · line = trap.NZ line
   ),

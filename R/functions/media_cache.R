@@ -1,7 +1,8 @@
 # media_cache.R — local cache of camera image bursts, keyed by eventID. Agouti is slow
 # (1-2 Mbps), so we download each viewed sequence once and serve it from disk thereafter.
 #
-# Layout: instance/www/media-cache/<eventID>/<mediaID>.jpg          (original, retained)
+# Layout: instance/www/media-cache/<eventID>/<mediaID>.jpg          (original; retained unless
+#                                                                    project.R media$keep_originals=FALSE)
 #                                            /<mediaID>__display.jpg (1200px, aspect kept)
 # instance/www/media-cache is symlinked as www/media-cache, so a file there serves at the
 # web path "media-cache/<eventID>/<file>". Two split responsibilities:
@@ -90,7 +91,8 @@ ik_event_media_view <- function(ik_data, event_id) {
 #' @param event_dir Absolute path of the event's cache directory.
 #' @param width     Display width in px.
 #' @return Invisibly, the count of media whose display is now present.
-ik_cache_media_rows <- function(media_df, event_dir, width = IK_MEDIA_DISPLAY_WIDTH) {
+ik_cache_media_rows <- function(media_df, event_dir, width = IK_MEDIA_DISPLAY_WIDTH,
+                                keep_originals = TRUE) {
   dir.create(event_dir, recursive = TRUE, showWarnings = FALSE)
   done <- 0L
   for (i in seq_len(nrow(media_df))) {
@@ -98,6 +100,9 @@ ik_cache_media_rows <- function(media_df, event_dir, width = IK_MEDIA_DISPLAY_WI
     disp <- file.path(event_dir, paste0(media_df$mediaID[i], IK_MEDIA_DISPLAY_SUFFIX))
     ok_orig <- file.exists(orig) || .media_download(media_df$filePath[i], orig)
     ok_disp <- file.exists(disp) || (ok_orig && .media_resize(orig, disp, width))
+    # display-only mode: once the resized copy exists, drop the (large) original to save disk.
+    # Runs even for already-cached events, so re-caching with the flag off prunes old originals.
+    if (!isTRUE(keep_originals) && file.exists(disp) && file.exists(orig)) unlink(orig)
     if (ok_disp) done <- done + 1L
   }
   invisible(done)
@@ -114,7 +119,8 @@ ik_cache_event <- function(ik_data, event_id, width = IK_MEDIA_DISPLAY_WIDTH) {
   if (is.null(m) || !nrow(m)) return(invisible(NULL))
   ik_cache_media_rows(data.frame(mediaID = m$mediaID, filePath = m$filePath,
                                  stringsAsFactors = FALSE),
-                      .media_event_dir_abs(event_id), width)
+                      .media_event_dir_abs(event_id), width,
+                      keep_originals = isTRUE(ik_data$meta$media$keep_originals %||% TRUE))
   invisible(ik_event_media_view(ik_data, event_id))
 }
 
@@ -134,7 +140,8 @@ ik_cache_event_async <- function(ik_data, event_id, width = IK_MEDIA_DISPLAY_WID
     worker    = normalizePath(file.path("R", "functions", "media_cache.R")),
     rows      = data.frame(mediaID = m$mediaID[need], filePath = m$filePath[need],
                            stringsAsFactors = FALSE),
-    event_dir = .media_event_dir_abs(event_id), width = width)
+    event_dir = .media_event_dir_abs(event_id), width = width,
+    keep_originals = isTRUE(ik_data$meta$media$keep_originals %||% TRUE))
   rds <- tempfile(fileext = ".rds"); saveRDS(payload, rds)
   job <- normalizePath(file.path("R", "jobs", "cache_media_job.R"))
   system2("Rscript", c(shQuote(job), shQuote(rds)), wait = FALSE, stdout = FALSE, stderr = FALSE)

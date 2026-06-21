@@ -35,9 +35,10 @@ ik_materialize_package <- function(id, entry, config) {
   descriptor
 }
 
-#' Convert a raw dataset to a Camtrap DP package, cached by raw-input fingerprint.
+#' Convert a raw dataset to a Camtrap DP package, cached by raw-input + code fingerprint.
 #'
-#' Re-runs the converter only when the raw/reference files change. @keywords internal
+#' Re-runs the converter when the raw/reference files OR the conversion code change.
+#' @keywords internal
 ik_convert_raw <- function(id, entry, config) {
   raw_dir <- file.path(config$dirs$raw, entry$raw$dir %||% id)
   if (!dir.exists(raw_dir)) {
@@ -52,7 +53,11 @@ ik_convert_raw <- function(id, entry, config) {
   out_dir    <- file.path(config$dirs$cache, "generated-packages", id)
   descriptor <- file.path(out_dir, "datapackage.json")
   fp_file    <- file.path(out_dir, ".raw-fingerprint.rds")
-  fp         <- dir_fingerprint(raw_dir)
+  # Raw inputs AND conversion code: a converter/template edit must regenerate the package.
+  # (This inner cache is consulted only on an outer rebuild; source_fingerprint() tracks
+  # R/functions/import too, so the two layers invalidate together.)
+  fp         <- list(raw = dir_fingerprint(raw_dir),
+                     code = dir_fingerprint("R/functions/import"))
 
   if (file.exists(descriptor) && file.exists(fp_file) && identical(readRDS(fp_file), fp)) {
     logger::log_info("Raw dataset '%s': generated package up to date.", id)

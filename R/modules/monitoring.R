@@ -10,6 +10,7 @@ monitoring_ui <- function(id) {
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/monitoring.css"),
     div(class = "ik-monitoring",
+        tags$h5("Camera deployment review", class = "ik-review-head"),
         uiOutput(ns("intro")),
         div(class = "mon-highlight",
             checkboxGroupInput(ns("highlight"), "Highlight", inline = TRUE,

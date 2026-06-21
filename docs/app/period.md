@@ -28,7 +28,7 @@ Keyed by `deploymentID`; join to `ik_deployments()` / observations on demand.
 | Field | Type | Description |
 |---|---|---|
 | `deploymentID` | chr | The deployment (join key). |
-| `dataset` | chr | Source dataset id (e.g. `wkt_camera_monitoring`). |
+| `dataset` | chr | Source dataset id (e.g. `wkt_core_monitoring`). |
 | `source_type` | chr | Method: `camera`, `trap`, … (provenance tag). |
 | `locationID` | chr | The deployment's location (join key to `app$geography`). |
 | `reserve` | chr | Canonical reserve, from `app$geography$locations`. |

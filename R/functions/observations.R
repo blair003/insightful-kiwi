@@ -103,8 +103,9 @@ ik_deployments <- function(ik_data, dataset = NULL) {
 #'
 #' @param ik_data       The ik_data container.
 #' @param dataset       Dataset id(s), or NULL for all (unified view).
-#' @param with_location Join `locationName`/`latitude`/`longitude` from the
-#'   deployment (default TRUE). The join happens here, never on the fact table.
+#' @param with_location Join `locationID`/`locationName`/`latitude`/`longitude` from
+#'   the deployment (default TRUE). The join happens here, never on the fact table.
+#'   `locationID` is the canonical key into `app$geography$locations` (= `location_id`).
 #' @return Observations tibble with provenance (+ location) columns.
 ik_observations <- function(ik_data, dataset = NULL, with_location = TRUE) {
   ids <- ik_dataset_ids(ik_data, dataset)
@@ -113,7 +114,7 @@ ik_observations <- function(ik_data, dataset = NULL, with_location = TRUE) {
     obs <- camtrapdp::observations(ds$package)
     if (with_location) {
       loc <- camtrapdp::deployments(ds$package)[
-        , c("deploymentID", "locationName", "latitude", "longitude")
+        , c("deploymentID", "locationID", "locationName", "latitude", "longitude")
       ]
       obs <- dplyr::left_join(obs, loc, by = "deploymentID")
     }

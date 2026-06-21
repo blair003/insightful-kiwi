@@ -23,7 +23,7 @@ what is asked for.
 **Read [docs/data-model/01-data-structure.md](docs/data-model/01-data-structure.md)
 before touching data structures or import.** ([02-app-concept.md](docs/data-model/02-app-concept.md)
 = purpose/data-flow/views; [03-camtrapdp-capabilities.md](docs/data-model/03-camtrapdp-capabilities.md)
-= camtrapdp usage + spike.). A reference copy of the camtrapDP schema for [deployments](docs/camtrapdp/deployments-table-schema.json), [observations](docs/camtrapdp/observations-table-schema.json) and [media](docs/camtrapdp/media-table-schema.json) is in `docs/camtrapdp/`. Field references for our derived `ik_data$app$*` tables (`taxonomy`, `geography`, `species_groups`, `period`, `relations`) are in [docs/app/](docs/app/) — **descriptive**, see [Documentation](#documentation). The data-**selection** model (deployment-first; period/geography/species/method axes) is [docs/data-model/04-data-selection.md](docs/data-model/04-data-selection.md). 
+= camtrapdp usage + spike.). A reference copy of the camtrapDP schema for [deployments](docs/reference/camtrapdp/deployments-table-schema.json), [observations](docs/reference/camtrapdp/observations-table-schema.json) and [media](docs/reference/camtrapdp/media-table-schema.json) is in `docs/reference/camtrapdp/`. Field references for our derived `ik_data$app$*` tables (`taxonomy`, `geography`, `species_groups`, `period`, `relations`) are in [docs/app/](docs/app/) — **descriptive**, see [Documentation](#documentation). The data-**selection** model (deployment-first; period/geography/species/method axes) is [docs/data-model/04-data-selection.md](docs/data-model/04-data-selection.md). 
 
 Invariants:
 
@@ -31,8 +31,8 @@ Invariants:
 - Each `$datasets$<id>` = `{ $package` (a **pristine** `camtrapdp` object) `, $meta` (per-dataset tags: `source_type`, `project`, … ) `}`. **Never add custom columns to a `camtrapdp` object** — only package-native transforms (`update_taxon`, `filter_*`, `merge`).
 - All derived data is normalized into `$app` (shared) or `$meta` (per-dataset), **joined on demand** — never widened onto the fact tables. Placement rule: differs between datasets → `$meta`; shared reference → `$app`.
 - **Event-centric:** observations carry `eventStart`/`eventEnd`; **there is no `timestamp` column** — derive a single instant in-app only where needed.
-- **Geography (*where*)** and **project/organisation (*who*)** are independent axes. Geography is `app$geography` (canonical levels location/line/reserve/region/country/global); project is a dataset tag.
-- **Casing marks the layer:** camtrapdp package fields are camelCase (`locationID`, `eventStart`, `scientificName`); our derived `$app`/`$meta` columns are snake_case (`location_id`, `within_monitored_area`, `minutes_since_prev_same_species`). Keep new derived columns snake_case so the two never blur.
+- **Geography (*where*)** and **project/organisation (*who*)** are independent axes. Geography is `app$geography` (canonical levels **location/line/reserve/global**; `region`/`country` are reserved for future cross-project aggregation, not yet in the vocabulary); project is a dataset tag.
+- **Casing marks the layer:** camtrapdp package fields are camelCase (`locationID`, `eventStart`, `scientificName`); our derived `$app`/`$meta` columns are snake_case (`location_id`, `within_monitored_area`, `minutes_since_prev_same_species`). Keep new derived columns snake_case so the two never blur. (Native package columns *carried onto* a derived table keep their camelCase — e.g. `app$period$deployments` carries `deploymentStart`/`deploymentEnd`; only **newly-derived** columns must be snake_case.)
 
 
 ## Documentation
@@ -41,10 +41,15 @@ Two kinds, kept deliberately separate — don't collapse them:
   conventions, invariants, limitations: *how we want things, and what not to do.*
   They are instruction. Keep them current when a **rule, convention, or
   architecture decision** changes.
-- **`docs/app/` and `docs/camtrapdp/` are descriptive** — field references for the
+- **`docs/app/` and `docs/reference/camtrapdp/` are descriptive** — field references for the
   data tables: *how things are.* **Code is the source of truth**; treat these as a
   convenience data-dictionary that may lag. Don't cite them as authority over the
   code, and don't make this file depend on them for facts.
+- **`docs/reference/` holds external source material** — the camtrapDP table schemas
+  (`docs/reference/camtrapdp/`) and the *DOC trail-camera guide* (the methodology basis for
+  the **WKT Core Monitoring** dataset's RAI protocol: monitoring lines of 4 cameras × 21
+  nights; RAI computed per line, then mean ± SE across the lines in a reserve). Authoritative
+  for **that dataset's** methodology — **not** canonical for all Insightful Kiwi projects.
 - **During the v1.0 rebuild, docs are not a hard per-change sync obligation.** Refresh
   a `docs/app/` field reference when that table's **shape or public contract**
   stabilises or changes — not on every internal tweak. (Tighten to "keep in sync"
@@ -54,8 +59,10 @@ Two kinds, kept deliberately separate — don't collapse them:
 ## Packages & environment
 **Any package may be used — but ASK FIRST.** Before introducing a dependency, **stop
 and ask.** New packages are welcome; silent installs are not. Core stack already
-chosen: `shiny`, `camtrapdp` (Camtrap DP reader; successor to `camtraptor`), `dplyr`,
-`sf`, `suncalc`.
+chosen — the live attached set is in `global.R` (`attach_packages()`); the key
+data/spatial stack is `camtrapdp` (Camtrap DP reader; successor to `camtraptor`),
+`dplyr`, `sf`, `suncalc`. The mapping stack (`leaflet`, `leaflet.extras`, `geosphere`)
+is already declared in `setup-r.R`, so the map module needs no new package ask.
 
 - **R packages are declared in [`.devcontainer/setup-r.R`](.devcontainer/setup-r.R)**
   (installed via `pak` by the Dockerfile). Once a package is agreed, add it to the
@@ -67,6 +74,13 @@ chosen: `shiny`, `camtrapdp` (Camtrap DP reader; successor to `camtraptor`), `dp
   `Dockerfile`, `install-system-deps.sh` (system/`apt` libraries), and
   `devcontainer.json` are owned by the user: propose changes or wait to be asked to
   review them; don't edit them as a side effect of other work.
+- **Ad-hoc tooling for a task is yours to install freely.** System CLIs or utilities you
+  need to *do* the work — render an SVG to inspect it, convert a file, probe the data —
+  can be installed on the fly **without asking**; they're ephemeral dev aids (a container
+  rebuild discards them), not app dependencies. The line is *persistence*: do **not** add
+  anything to the `Dockerfile`, `install-system-deps.sh`, or `setup-r.R` to make a tool
+  survive a rebuild without confirming first — those define the environment everyone
+  shares.
 
 ## Code organisation
 - **All R code in `R/`.** Keep `global.R` / `server.R` / `ui.R` thin — logic lives in
@@ -76,9 +90,10 @@ chosen: `shiny`, `camtrapdp` (Camtrap DP reader; successor to `camtraptor`), `dp
   `custom.css`.** Put a module's styles in `www/styles/<module>.css` and load them
   from that module's UI (`tags$link(rel="stylesheet", href="styles/<module>.css")`).
   A single small `www/styles/base.css` holds only app-wide theme/tokens.
-- **Data access goes through `ik_`-prefixed helpers** (`ik_datasets()`,
-  `ik_observations()`, `ik_deployments()`) — these wrappers are the *only* place
-  dataset-selection + join logic lives. Filter first, then enrich the subset.
+- **Data access goes through `ik_`-prefixed helpers** (`ik_dataset_ids()`,
+  `ik_observations()`, `ik_deployments()`; resolvers `ik_select()` / `ik_resolve()`) —
+  these wrappers are the *only* place dataset-selection + join logic lives. Filter
+  first, then enrich the subset.
 
 ## Data & paths
 - Data is loaded **once** into `ik_data` (cached as `.RDS`). App code consumes
@@ -88,8 +103,12 @@ chosen: `shiny`, `camtrapdp` (Camtrap DP reader; successor to `camtraptor`), `dp
   `file.path(config$dirs$cache, "…")`). Subdirectories appended to a dynamic base
   are fine.
 - **`config` is a separate global** (paths, toggles, timezone, API keys) — an *input*
-  that builds `ik_data`, not part of it. **Project knowledge** (geography levels +
-  location assignment) lives in `instance/config/project.R`.
+  that builds `ik_data`, not part of it. **Project knowledge** splits by cadence:
+  project-wide ecology (species groups, metric methodology, organisation identity)
+  lives in `instance/config/project.R`; **per-dataset import + geography derivation
+  (the `geography` block: `derive`, reserve maps, `reserve_match`) lives in the
+  manifest `instance/config/datasets.R`.** The canonical level vocabulary itself is
+  fixed in `R/functions/geography.R`, not configured.
 
 ## Runtime rules
 - **DO NOT reinstall packages or rebuild the dev container** (VS Code / Docker)

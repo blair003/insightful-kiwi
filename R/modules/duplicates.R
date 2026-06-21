@@ -1,0 +1,135 @@
+# duplicates.R — the "Duplicate window" tuner, in the Cameras tab of Data → Quality. Helps judge the
+# project.R `duplicate_window`: a gap-distribution histogram (targets vs the rest) + a live
+# sensitivity table as you drag the window, and a burst inspector that puts the actual images of a
+# camera × species's detections in a column so you can confirm a flagged run is one individual.
+# Camera-only (traps are date-only). All views derive from ik_duplicate_gaps().
+
+#' Duplicate-window tuner UI (a section within the Quality > Cameras tab). @param id Module id.
+duplicates_ui <- function(id) {
+  ns <- NS(id)
+  tagList(
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles/duplicates.css"),
+    div(class = "ik-dups",
+        tags$h5("Duplicate window", class = "ik-dups-head"),
+        uiOutput(ns("intro")),
+        sliderInput(ns("window"), "Possible-duplicate window (minutes)",
+                    min = 5, max = 240, value = 30, step = 5, width = "100%"),
+        div(class = "ik-dups-grid",
+            div(class = "ik-dups-panel",
+                tags$h6("Gap distribution — targets vs the rest"),
+                plotOutput(ns("hist"), height = "300px")),
+            div(class = "ik-dups-panel",
+                tags$h6("Impact by species at this window"),
+                DT::dataTableOutput(ns("sens")))),
+        tags$hr(),
+        tags$h6("Inspect the images — is a flagged run one individual?", class = "ik-dups-subhead"),
+        div(class = "ik-dups-pickers",
+            selectInput(ns("camera"),  "Camera",  choices = NULL),
+            selectInput(ns("species"), "Species", choices = NULL)),
+        uiOutput(ns("burst_intro")),
+        DT::dataTableOutput(ns("bursts")))
+  )
+}
+
+#' Duplicate-window tuner server.
+#' @param id      Module id.
+#' @param ik_data The ik_data container.
+duplicates_server <- function(id, ik_data) {
+  moduleServer(id, function(input, output, session) {
+    gaps    <- ik_duplicate_gaps(ik_data)            # static (all camera data); compute once
+    sg      <- ik_species_groups(ik_data)
+    targets <- unique(sg$label[!is.na(sg$monitor) & sg$monitor == "target"])
+    fmt_dt  <- function(x) ifelse(is.na(x), "—", format(x, "%d %b %Y · %H:%M"))
+    w <- reactive(input$window %||% 30)
+
+    observe({
+      req(gaps)
+      dup_by_cam <- tapply(gaps$gap, gaps$camera, function(g) sum(g <= 30, na.rm = TRUE))
+      updateSelectInput(session, "camera",  choices = names(sort(dup_by_cam, decreasing = TRUE)))  # worst first
+      spp <- names(sort(table(gaps$species), decreasing = TRUE))
+      updateSelectInput(session, "species", choices = spp,
+                        selected = if ("Weka" %in% spp) "Weka" else spp[1])
+    })
+
+    output$intro <- renderUI({
+      if (is.null(gaps)) return(tags$p(class = "ik-dups-lead", "No camera detections to assess."))
+      W <- w(); n <- nrow(gaps); fl <- sum(gaps$gap <= W, na.rm = TRUE)
+      tags$p(class = "ik-dups-lead",
+        tags$b(sprintf("%s%% of camera detections flagged at %d min", round(100 * fl / n), W)),
+        tags$span(class = "ik-dups-sub", sprintf(
+          " — %s of %s. A possible duplicate is the same species at the same camera within the window (excluded from net RAI). Drag the window and watch the TARGET species stay near 0 — raise it until they start to be affected.",
+          format(fl, big.mark = ","), format(n, big.mark = ","))))
+    })
+
+    output$hist <- renderPlot({
+      req(gaps); W <- w()
+      d <- gaps[!is.na(gaps$gap) & gaps$gap <= 240, , drop = FALSE]
+      d$grp <- ifelse(d$species %in% targets, "Target species", "Other species")
+      ggplot2::ggplot(d, ggplot2::aes(x = gap)) +
+        ggplot2::geom_histogram(binwidth = 5, boundary = 0, fill = "#4a7fb5") +
+        ggplot2::geom_vline(xintercept = W, linetype = "dashed", colour = "#c0392b", linewidth = 0.7) +
+        ggplot2::facet_wrap(~grp, ncol = 1, scales = "free_y") +
+        ggplot2::labs(x = "Minutes since previous same-species detection at the camera", y = "Detections") +
+        ggplot2::theme_minimal(base_size = 13)
+    })
+
+    output$sens <- DT::renderDT({
+      req(gaps); W <- w()
+      ag <- do.call(rbind, lapply(split(gaps, gaps$species), function(s) {
+        rec <- nrow(s); fl <- sum(s$gap <= W, na.rm = TRUE)
+        data.frame(Species = s$species[1], Records = rec, Flagged = fl, Net = rec - fl,
+                   Rate = round(100 * fl / rec, 1), Target = s$species[1] %in% targets,
+                   stringsAsFactors = FALSE)
+      }))
+      ag <- ag[order(-ag$Records), , drop = FALSE]
+      DT::datatable(ag, rownames = FALSE, selection = "none", class = "stripe hover row-border",
+        options = list(pageLength = 12, dom = "tip",
+          columnDefs = list(list(visible = FALSE, targets = which(names(ag) == "Target") - 1L)))) |>
+        DT::formatStyle("Target", target = "row",
+          fontWeight      = DT::styleEqual(TRUE, "bold"),
+          backgroundColor = DT::styleEqual(TRUE, "rgba(47,158,68,0.10)"))
+    })
+
+    # Burst inspector — detections of the chosen camera × species, capped to the most recent 150 for
+    # the thumbnails. `selcap` + `thumbs` depend on the SELECTION only (not the window), so dragging
+    # the slider re-groups/re-flags without re-fetching images.
+    selcap <- reactive({
+      req(gaps, input$camera, input$species)
+      d <- gaps[gaps$camera == input$camera & gaps$species == input$species, , drop = FALSE]
+      d <- d[order(d$when), , drop = FALSE]
+      d[utils::tail(seq_len(nrow(d)), 150), , drop = FALSE]
+    })
+    thumbs <- reactive({
+      d <- selcap()
+      vapply(d$eventID, function(e) {
+        if (is.na(e)) return("")
+        v <- tryCatch(ik_event_media_view(ik_data, e), error = function(z) NULL)
+        if (is.null(v) || !nrow(v)) "" else sprintf('<img src="%s" height="46" loading="lazy">', v$src[1])
+      }, character(1))
+    })
+
+    output$burst_intro <- renderUI({
+      d <- tryCatch(selcap(), error = function(z) NULL); req(d)
+      if (!nrow(d)) return(tags$p(class = "ik-dups-sub", "No detections for this camera × species."))
+      W <- w(); nb <- max(cumsum(is.na(d$gap) | d$gap > W))
+      tags$p(class = "ik-dups-sub", sprintf(
+        "Most recent %s detections in %s burst%s at %d min. A burst is what the window collapses to ONE — scan the photos down a burst: same individual, or a new arrival?",
+        nrow(d), nb, if (nb == 1) "" else "s", W))
+    })
+
+    output$bursts <- DT::renderDT({
+      d <- selcap(); validate(need(nrow(d), "No detections.")); W <- w()
+      burst <- cumsum(is.na(d$gap) | d$gap > W)
+      df <- data.frame(
+        Burst = burst, When = fmt_dt(d$when),
+        `Gap (min)` = ifelse(is.na(d$gap), "—", as.character(round(d$gap))),
+        Photo = thumbs(),
+        Flag = ifelse(!is.na(d$gap) & d$gap <= W, "duplicate", ""),
+        check.names = FALSE, stringsAsFactors = FALSE)
+      df <- df[order(-df$Burst, seq_along(df$Burst)), , drop = FALSE]   # newest burst first, time-asc within
+      DT::datatable(df, rownames = FALSE, selection = "none", escape = FALSE,
+        class = "stripe hover row-border ik-dups-bursts",
+        options = list(pageLength = 15, dom = "tip", ordering = FALSE))
+    })
+  })
+}

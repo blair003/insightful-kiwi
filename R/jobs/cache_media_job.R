@@ -8,5 +8,6 @@ if (length(args) < 1L || !file.exists(args[1])) quit(save = "no", status = 1L)
 
 job <- readRDS(args[1])
 source(job$worker)                                   # ik_cache_media_rows + helpers
-try(ik_cache_media_rows(job$rows, job$event_dir, job$width), silent = TRUE)
+keep <- if (is.null(job$keep_originals)) TRUE else isTRUE(job$keep_originals)   # no %||% here
+try(ik_cache_media_rows(job$rows, job$event_dir, job$width, keep_originals = keep), silent = TRUE)
 unlink(args[1])                                      # drop the payload

@@ -1,5 +1,5 @@
 # outcomes.R — the "are we winning" outcome time-series. The trust's causal chain on one
-# seasonal timeline: trap predators → predator abundance (camera RAI) falls → kiwi abundance
+# seasonal timeline: trap predators → predator activity (camera RAI) falls → kiwi activity
 # (camera RAI) rises. ik_outcome_series() walks every season and computes, at NETWORK level
 # (mean over reserves ± SE, via the auditable metrics in metrics.R), three metric families:
 #   trap_rate   — predator captures / 100 trap-nights  (the control effort/outcome)

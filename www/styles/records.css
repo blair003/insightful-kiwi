@@ -1,0 +1,7 @@
+/* records.css — Records table (R/modules/records.R). */
+
+/* Keep the datetime cells ("When", "Event start") on a single line — the timestamp was wrapping
+   early (date above, time below) and starving the other columns (Count). scrollX handles any
+   overflow. Applied via the DT column className `ik-nowrap`. */
+table.dataTable td.ik-nowrap,
+table.dataTable th.ik-nowrap { white-space: nowrap; }

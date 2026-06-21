@@ -27,7 +27,8 @@ outcomes_ui <- function(id) {
 }
 
 #' Outcomes server. @param id Module id. @param ik_data The ik_data container.
-outcomes_server <- function(id, ik_data) {
+#' @param prefer_scientific A reactive TRUE to show scientific names (drill records/viewer).
+outcomes_server <- function(id, ik_data, prefer_scientific) {
   moduleServer(id, function(input, output, session) {
     series <- reactive(ik_outcome_series(ik_data))    # ~7s, computed once per session
 
@@ -45,8 +46,8 @@ outcomes_server <- function(id, ik_data) {
         tags$h3(class = "ik-out-title", "Are we winning?"),
         tags$p(class = "ik-out-lead",
           tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
-            "We ", tags$b("trap predators"), " → predator abundance on camera should ",
-            tags$b("fall"), " → kiwi abundance should ", tags$b("rise"), ". ",
+            "We ", tags$b("trap predators"), " → predator detections on camera should ",
+            tags$b("fall"), " → kiwi detections should ", tags$b("rise"), ". ",
             "Lines are the network mean across reserves; bands are ± 1 SE. ",
             tags$b("Click a point"), " for its per-reserve breakdown."))
       )
@@ -87,9 +88,16 @@ outcomes_server <- function(id, ik_data) {
           panel.spacing = unit(1.1, "lines"))
     })
 
-    # Click a point → the per-reserve breakdown behind that (taxon × season) network value. The
-    # series keeps only network means, so we recompute the one season's per-reserve metric here
-    # (~0.5s) — wrapped in a progress indicator so the click clearly registers.
+    # Click a point → the SAME tabbed drill as the Overview: Summary (per-reserve basis) → Records
+    # (a reserve's auditable records, via ik_metric_obs) → Record Details (the inline viewer). The
+    # series keeps only network means, so we recompute the one season's per-reserve metric here.
+    # Precision follows the Overview's adaptive rule (.ov_dp): camera 1 dp, trap 2–3 dp.
+    prefer  <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
+    drill   <- reactiveVal(NULL)   # {cand, sp, taxa, is_cam, R, nrec, dp, unit}
+    records <- reactiveVal(NULL)   # records behind a clicked reserve
+    rec_ctx <- reactiveVal(NULL)   # caption for the Records tab
+    rec_obs <- reactiveVal(NULL)   # observationID open in Record Details
+
     observeEvent(input$plot_click, {
       cl <- input$plot_click; s <- plotted()
       if (is.null(cl) || is.null(s) || !nrow(s)) return()
@@ -104,28 +112,99 @@ outcomes_server <- function(id, ik_data) {
       sci    <- sg$scientificName[sg$label == cand$taxon & !is.na(sg$scientificName)]
       taxa   <- stats::setNames(list(sci), cand$taxon)
       sp     <- list(season = ik_expand_period(paste0("season:", cand$season), ik_data))
-      R <- withProgress(message = "Loading breakdown…", value = 0.6, {
-        res <- if (is_cam) ik_rai(ik_data, sp, taxa) else ik_trap_rate(ik_data, sp, taxa)
-        res$summary
-      })
-      R  <- R[R$taxon == cand$taxon & !is.na(R$metric), , drop = FALSE]
-      R  <- R[order(R$reserve), , drop = FALSE]
-      dg <- if (is_cam) 2L else 3L; fd <- paste0("%.", dg, "f")
+      res <- withProgress(message = "Loading breakdown…", value = 0.6,
+        if (is_cam) ik_rai(ik_data, sp, taxa) else ik_trap_rate(ik_data, sp, taxa))
+      R    <- res$summary[res$summary$taxon == cand$taxon & !is.na(res$summary$metric), , drop = FALSE]
+      R    <- R[order(R$reserve), , drop = FALSE]
+      cnt  <- if (is_cam) "individuals" else "captures"
+      Ld   <- res$lines[res$lines$taxon == cand$taxon, , drop = FALSE]
+      nrec <- tapply(Ld[[cnt]], Ld$reserve, sum)
+      dp   <- .ov_dp(c(cand$value, cand$se, R$metric, R$se), if (is_cam) 1L else 2L, if (is_cam) 1L else 3L)
       unit <- if (is_cam) "camera RAI" else "captures / 100 trap-nights"
-      body <- if (!nrow(R)) tags$p("No per-reserve records for this point.")
-        else tags$table(class = "ik-drill-table",
-          tags$thead(tags$tr(tags$th("Reserve"), tags$th(if (is_cam) "RAI" else "Rate"), tags$th("Lines"))),
-          tags$tbody(lapply(seq_len(nrow(R)), function(i) tags$tr(
-            tags$td(R$reserve[i]),
-            tags$td(sprintf(fd, R$metric[i]), if (!is.na(R$se[i])) sprintf(paste0(" ± ", fd), R$se[i])),
-            tags$td(.ov_num(R$n_lines[i]))))))
+      drill(list(cand = cand, sp = sp, taxa = taxa, is_cam = is_cam, R = R, nrec = nrec, dp = dp, unit = unit))
+      records(NULL); rec_obs(NULL); rec_ctx(NULL)
+      fd <- paste0("%.", dp, "f")
       showModal(modalDialog(
         title = .ik_modal_title(sprintf("%s · %s", cand$taxon, cand$season),
-          sprintf("network %s = %s%s over %d reserves — the per-reserve basis below", unit,
+          sprintf("network %s = %s%s over %d reserves — open a reserve for its records", unit,
                   sprintf(fd, cand$value),
-                  if (!is.na(cand$se)) sprintf(" ± %s SE", sprintf(fd, cand$se)) else "",
-                  cand$n_reserves)),
-        body, easyClose = TRUE, size = "m", footer = modalButton("Close")))
+                  if (!is.na(cand$se)) sprintf(" ± %s SE", sprintf(fd, cand$se)) else "", cand$n_reserves)),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
+        tabsetPanel(id = session$ns("out_tabs"),
+          tabPanel("Summary",        icon = icon("table-list"),  uiOutput(session$ns("out_breakdown"))),
+          tabPanel("Records",        icon = icon("list"),        uiOutput(session$ns("out_records_ui"))),
+          tabPanel("Record Details", icon = icon("circle-info"), uiOutput(session$ns("out_record"))))))
+    })
+
+    # Summary tab: the per-reserve basis (Reserve · count · RAI/rate · Lines). A reserve with
+    # records is clickable → its records (Records tab).
+    output$out_breakdown <- renderUI({
+      d <- drill(); req(d); R <- d$R; fd <- paste0("%.", d$dp, "f")
+      if (!nrow(R)) return(tags$p(class = "ik-drill-summary", "No per-reserve records for this point."))
+      cnt_lab <- if (d$is_cam) "Detections" else "Catches"
+      tags$table(class = "ik-drill-table",
+        tags$thead(tags$tr(tags$th("Reserve"), tags$th(cnt_lab),
+                           tags$th(if (d$is_cam) "RAI" else "Rate"), tags$th("Lines"))),
+        tags$tbody(lapply(seq_len(nrow(R)), function(i) {
+          cn <- d$nrec[R$reserve[i]]; cn <- if (length(cn) == 0 || is.na(cn)) 0L else as.integer(cn)
+          drillable <- cn > 0
+          tags$tr(class = if (drillable) "ik-drill-row" else NULL,
+            title = if (drillable) "Show this reserve's records" else NULL,
+            onclick = if (drillable) sprintf(
+              "Shiny.setInputValue('%s',{reserve:'%s'},{priority:'event'})",
+              session$ns("out_obs"), R$reserve[i]) else NULL,
+            tags$td(R$reserve[i]), tags$td(.ov_num(cn)),
+            tags$td(sprintf(fd, R$metric[i]), if (!is.na(R$se[i])) sprintf(paste0(" ± ", fd), R$se[i])),
+            tags$td(.ov_num(R$n_lines[i])))
+        })))
+    })
+
+    observeEvent(input$out_obs, {
+      d <- drill(); req(d)
+      records(ik_metric_obs(ik_data, d$sp, d$taxa, d$cand$taxon, reserve = input$out_obs$reserve,
+                            source_type = if (d$is_cam) "camera" else "trap"))
+      rec_obs(NULL)
+      rec_ctx(sprintf("The %s behind %s · %s · %s. ", if (d$is_cam) "detections" else "captures",
+                      d$cand$taxon, input$out_obs$reserve, d$cand$season))
+      updateTabsetPanel(session, "out_tabs", selected = "Records")
+    })
+
+    output$out_records_ui <- renderUI({
+      if (is.null(records()))
+        return(tags$p(class = "ik-drill-summary", "Open a reserve in the Summary tab to list its records."))
+      tagList(
+        tags$p(class = "ik-drill-summary", rec_ctx(), tags$b("Click a row"), " for the full record."),
+        DT::dataTableOutput(session$ns("out_records_table")))
+    })
+
+    output$out_records_table <- DT::renderDT({
+      o <- records(); validate(need(!is.null(o) && nrow(o), "No records."))
+      has_t    <- format(o$when, "%H:%M:%S") != "00:00:00"
+      when_lab <- ifelse(has_t, format(o$when, "%d %b %Y · %H:%M"), format(o$when, "%d %b %Y"))
+      df <- data.frame(When = when_lab, Species = ik_species_label(o$scientificName, ik_data, prefer()),
+                       Count = o$count, Location = o$locationName, ObsID = o$observationID,
+                       check.names = FALSE, stringsAsFactors = FALSE)
+      dt <- DT::datatable(df, rownames = FALSE, selection = "single",
+        class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 12, scrollX = TRUE, dom = "tip", destroy = TRUE,
+          columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))   # hide ObsID
+      .ik_dt_highlight_row(dt, "ObsID", rec_obs())
+    })
+
+    observeEvent(input$out_records_table_rows_selected, {
+      i <- input$out_records_table_rows_selected; o <- records()
+      if (length(i) && !is.null(o) && i <= nrow(o)) {
+        rec_obs(o$observationID[i]); updateTabsetPanel(session, "out_tabs", selected = "Record Details")
+      }
+      DT::selectRows(DT::dataTableProxy("out_records_table"), NULL)
+    })
+
+    output$out_record <- renderUI({
+      if (is.null(rec_obs()))
+        return(tags$p(class = "ik-drill-summary", "Click a record in the Records tab to see it here."))
+      ob <- ik_observation(ik_data, rec_obs()); if (is.null(ob)) return(tags$p("Record not found."))
+      tagList(.ovw_title(ik_data, ob, prefer()),
+              .ovw_tabs(ik_data, ob, prefer(), tabset_id = session$ns("out_rec_subtabs")))
     })
   })
 }

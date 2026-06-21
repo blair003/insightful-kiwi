@@ -1,11 +1,16 @@
 # metrics.R — effort & outcome metrics, in ONE auditable place. Each function returns its
-# INPUTS (the per-line table) beside the rolled-up summary, so the maths is inspectable and
+# INPUTS (the per-group table) beside the rolled-up summary, so the maths is inspectable and
 # exportable. Camera RAI (individuals / camera-hours × norm) and trap capture rate
 # (captures / trap-days × 100) both roll up line -> reserve as mean ± SE (sd/√n): the
-# monitoring/trap LINE is the unit of replication. Zero-detection lines (that HAVE effort)
-# contribute 0; zero-effort lines are excluded. Methodology (norm, net/raw) is project
+# monitoring/trap LINE is the unit of replication. Zero-detection groups (that HAVE effort)
+# contribute 0; zero-effort groups are excluded. Methodology (norm, net/raw) is project
 # config, read at display time from ik_data$meta. Cameras only: net excludes
 # possible_duplicate; traps are date-only so net == raw.
+#
+# The RAI/rate ATOM — value / effort × norm — lives in ONE grain-agnostic core
+# (.metrics_effort + .metrics_grouped). ik_rai/ik_trap_rate group it by reserve·line and roll
+# up with SE; ik_location_metric() groups the SAME atom by location for the map (one point per
+# location, NO SE — a location is a single point, not a sample of replicate lines).
 
 #' Build a taxa list (label -> scientificNames) from the registry, for one method/class.
 #'
@@ -19,8 +24,8 @@ ik_taxa_groups <- function(sg, by = "monitor", class = "target") {
   split(s$scientificName, factor(s$label, levels = unique(s$label)))
 }
 
-#' Animal observations of the resolved selection, tagged with reserve/line and (camera
-#' only, when `net`) with possible-duplicates dropped. @keywords internal
+#' Animal observations of the resolved selection, tagged with location_id/reserve/line and
+#' (camera only, when `net`) with possible-duplicates dropped. @keywords internal
 .metrics_obs <- function(ik_data, r, locs, net = FALSE) {
   obs <- r$observations
   obs <- obs[!is.na(obs$observationType) & obs$observationType == "animal", , drop = FALSE]
@@ -30,36 +35,44 @@ ik_taxa_groups <- function(sg, by = "monitor", class = "target") {
     obs <- obs[is.na(dup) | !dup, , drop = FALSE]                 # keep non-duplicates
   }
   obs$count[is.na(obs$count)] <- 1L
-  alld <- ik_deployments(ik_data)
-  obs$locationID <- alld$locationID[match(obs$deploymentID, alld$deploymentID)]
-  obs$line       <- locs$line[match(obs$locationID, locs$location_id)]
-  obs$reserve    <- locs$reserve[match(obs$locationID, locs$location_id)]
+  obs$location_id <- obs$locationID                                # carried by ik_observations(with_location)
+  obs$line        <- locs$line[match(obs$location_id, locs$location_id)]
+  obs$reserve     <- locs$reserve[match(obs$location_id, locs$location_id)]
   obs
 }
 
-#' Effort per (reserve, line) for the resolved deployments — defines the line set (lines
-#' WITH effort), `effort_hours` transformed by `unit_fn`. @keywords internal
-.metrics_effort <- function(r, locs, unit_fn = identity) {
+#' Effort per group for the resolved deployments — the groups WITH effort (a metric's
+#' denominator), `effort_hours` transformed by `unit_fn`. `by` = the grouping/carry columns
+#' (default reserve·line; the per-location metric adds location_id + coords); `key` = the
+#' columns a deployment must have non-NA to be kept (defaults to `by`). @keywords internal
+.metrics_effort <- function(r, locs, by = c("reserve", "line"), key = by, unit_fn = identity) {
   dep <- r$deployments
   dep$effort_hours <- as.numeric(difftime(dep$deploymentEnd, dep$deploymentStart, units = "hours"))
-  dep$line    <- locs$line[match(dep$locationID, locs$location_id)]
-  dep$reserve <- locs$reserve[match(dep$locationID, locs$location_id)]
+  m <- match(dep$locationID, locs$location_id)
+  dep$location_id <- locs$location_id[m]
+  dep$name        <- locs$name[m]
+  dep$latitude    <- locs$latitude[m]
+  dep$longitude   <- locs$longitude[m]
+  dep$line        <- locs$line[m]
+  dep$reserve     <- locs$reserve[m]
+  dep <- dep[stats::complete.cases(dep[, key, drop = FALSE]), , drop = FALSE]   # drop NA-key deployments
   dep |>
-    dplyr::filter(!is.na(.data$line), !is.na(.data$reserve)) |>
-    dplyr::group_by(.data$reserve, .data$line) |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(by))) |>
     dplyr::summarise(effort = unit_fn(sum(.data$effort_hours, na.rm = TRUE)), .groups = "drop")
 }
 
-#' Per-line value (individuals) per taxon joined to ALL effort-lines (0 where no
-#' detections), then `metric = value / effort × norm`. @keywords internal
-.metrics_lines <- function(effort, obs, taxa, norm) {
+#' THE RAI/rate atom: per-taxon value joined to ALL effort-groups (0 where no detections), then
+#' `metric = value / effort × norm`. `key` = the grouping columns (present on both `effort` and
+#' `obs`); the SAME maths whether key is reserve·line (ik_rai/ik_trap_rate) or location_id (the
+#' map). @keywords internal
+.metrics_grouped <- function(effort, obs, taxa, norm, key = c("reserve", "line")) {
   dplyr::bind_rows(lapply(names(taxa), function(lab) {
     o <- obs[obs$scientificName %in% taxa[[lab]], , drop = FALSE]
     cnt <- if (nrow(o)) {
-      dplyr::summarise(dplyr::group_by(o, .data$reserve, .data$line),
+      dplyr::summarise(dplyr::group_by(o, dplyr::across(dplyr::all_of(key))),
                        value = sum(.data$count), .groups = "drop")
-    } else data.frame(reserve = character(), line = character(), value = numeric())
-    out <- dplyr::left_join(effort, cnt, by = c("reserve", "line"))
+    } else dplyr::mutate(effort[0, key, drop = FALSE], value = numeric(0))
+    out <- dplyr::left_join(effort, cnt, by = key)
     out$value[is.na(out$value)] <- 0
     out$taxon  <- lab
     out$metric <- out$value / out$effort * norm
@@ -93,9 +106,9 @@ ik_rai <- function(ik_data, spec, taxa, level = "reserve") {
   locs <- ik_data$app$geography$locations
 
   r      <- ik_resolve(ik_data, spec, source_type = "camera")
-  effort <- .metrics_effort(r, locs)                              # camera-hours / line (pulse = exact)
+  effort <- .metrics_effort(r, locs, by = c("reserve", "line"))   # camera-hours / line (pulse = exact)
   obs    <- .metrics_obs(ik_data, r, locs, net = net)
-  lines  <- dplyr::rename(.metrics_lines(effort, obs, taxa, norm),
+  lines  <- dplyr::rename(.metrics_grouped(effort, obs, taxa, norm, key = c("reserve", "line")),
                           individuals = "value", camera_hours = "effort")
 
   summary <- .metrics_rollup(lines, level)
@@ -117,14 +130,63 @@ ik_trap_rate <- function(ik_data, spec, taxa, level = "reserve") {
   locs <- ik_data$app$geography$locations
 
   r      <- ik_resolve(ik_data, spec, source_type = "trap")
-  effort <- .metrics_effort(r, locs, unit_fn = function(h) h / 24)   # trap-days
+  effort <- .metrics_effort(r, locs, by = c("reserve", "line"), unit_fn = function(h) h / 24)  # trap-days
   obs    <- .metrics_obs(ik_data, r, locs, net = FALSE)              # date-only: net == raw
-  lines  <- dplyr::rename(.metrics_lines(effort, obs, taxa, norm),
+  lines  <- dplyr::rename(.metrics_grouped(effort, obs, taxa, norm, key = c("reserve", "line")),
                           captures = "value", trap_days = "effort")
 
   summary <- .metrics_rollup(lines, level)
   summary$norm_trap_days <- norm
   list(lines = lines, summary = summary)
+}
+
+#' Per-LOCATION detection rate per taxon — the camera-RAI / trap-rate atom evaluated at a single
+#' point, for the map (markers + IDW surface). Same maths and config as ik_rai/ik_trap_rate
+#' (value / effort × norm — the SAME atom as ik_rai, at point grain), grouped by LOCATION not line,
+#' with NO SE: a location is one point, not a sample of replicate lines. A location with effort
+#' but no detections of a taxon carries value 0 (a true zero on the map), so the denominator is
+#' the deployed-location set, not just where the animal was seen.
+#'
+#' @param ik_data The ik_data container.
+#' @param spec    A selection spec (named list; see ik_select / ik_resolve).
+#' @param taxa    Named list label -> scientificNames (e.g. ik_taxa_groups(sg)).
+#' @param source_type "camera" (detection rate) or "trap" (capture rate).
+#' @param norm Normalisation constant (override). Default = the project config norm
+#'   (camera = `norm_hours` 2000; trap = `norm_trap_days` 100). NB the 2000 CH norm is a
+#'   per-LINE construct (DOC protocol: index per line, mean ± SE across lines — see ik_rai);
+#'   for a PER-CAMERA detection rate the map passes a per-camera norm (one 21-night
+#'   deployment ≈ 500 CH = one camera's share of the 2000 CH line norm), so a point reads as a per-camera rate, not a
+#'   line-scaled "RAI". This function is point-grain only; the protocol RAI is ik_rai().
+#' @return data.frame, one row per location × taxon: location_id · name · latitude · longitude ·
+#'   reserve · line · taxon · (individuals|captures) · (camera_hours|trap_days) · metric · norm.
+#'   NULL when the selection has no deployed locations. Rows may have NA coords (e.g. coordless
+#'   traps) — the map filters those.
+ik_location_metric <- function(ik_data, spec, taxa, source_type = c("camera", "trap"), norm = NULL) {
+  source_type <- match.arg(source_type)
+  locs <- ik_data$app$geography$locations
+  by   <- c("location_id", "name", "latitude", "longitude", "reserve", "line")  # carry coords
+  key  <- "location_id"                                                          # the point is the unit
+
+  if (source_type == "camera") {
+    cfg    <- ik_data$meta$camera$rai %||% list(norm_hours = 2000, use_net = TRUE)
+    nrm    <- norm %||% cfg$norm_hours %||% 2000
+    r      <- ik_resolve(ik_data, spec, source_type = "camera")
+    effort <- .metrics_effort(r, locs, by = by, key = key)              # camera-hours / location
+    obs    <- .metrics_obs(ik_data, r, locs, net = isTRUE(cfg$use_net))
+    out    <- dplyr::rename(.metrics_grouped(effort, obs, taxa, nrm, key = key),
+                            individuals = "value", camera_hours = "effort")
+  } else {
+    cfg    <- ik_data$meta$trapping$rate %||% list(norm_trap_days = 100)
+    nrm    <- norm %||% cfg$norm_trap_days %||% 100
+    r      <- ik_resolve(ik_data, spec, source_type = "trap")
+    effort <- .metrics_effort(r, locs, by = by, key = key, unit_fn = function(h) h / 24)  # trap-days
+    obs    <- .metrics_obs(ik_data, r, locs, net = FALSE)
+    out    <- dplyr::rename(.metrics_grouped(effort, obs, taxa, nrm, key = key),
+                            captures = "value", trap_days = "effort")
+  }
+  if (!nrow(out)) return(NULL)
+  out$norm <- nrm
+  out
 }
 
 #' The animal observations BEHIND a metric cell — the auditable basis a RAI/rate figure is built
@@ -135,8 +197,9 @@ ik_trap_rate <- function(ik_data, spec, taxa, level = "reserve") {
 #'   label -> scientificNames (as passed to ik_rai/ik_trap_rate).
 #' @param taxon The group label (a name of `taxa`). @param reserve,line Optional cell coords.
 #' @param source_type "camera" (RAI) or "trap" (rate).
-#' @return data.frame: observationID · when · scientificName · count · reserve · line ·
-#'   locationName, newest first; NULL when none.
+#' @return data.frame: observationID · when · scientificName · count · location_id · reserve ·
+#'   line · locationName, newest first; NULL when none. (`location_id` lets the map link a
+#'   record to its marker.)
 ik_metric_obs <- function(ik_data, spec, taxa, taxon, reserve = NULL, line = NULL,
                           source_type = c("camera", "trap")) {
   source_type <- match.arg(source_type)
@@ -152,7 +215,7 @@ ik_metric_obs <- function(ik_data, spec, taxa, taxon, reserve = NULL, line = NUL
   ord  <- order(when, decreasing = TRUE)
   data.frame(observationID = o$observationID[ord], when = when[ord],
              scientificName = o$scientificName[ord], count = o$count[ord],
-             reserve = o$reserve[ord], line = o$line[ord],
+             location_id = o$location_id[ord], reserve = o$reserve[ord], line = o$line[ord],
              locationName = o$locationName[ord], stringsAsFactors = FALSE)
 }
 

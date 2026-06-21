@@ -31,7 +31,10 @@ build_ik_data <- function(config, manifest = load_manifest(config),
       n_datasets   = length(datasets),
       organisation = project$organisation,   # instance identity (project.R), shown in the header
       camera     = project$camera   %||% list(rai = list(norm_hours = 2000, use_net = TRUE)),
-      trapping   = project$trapping %||% list(rate = list(norm_trap_days = 100), season_by = "check_date")
+      trapping   = project$trapping %||% list(rate = list(norm_trap_days = 100), season_by = "check_date"),
+      overview   = project$overview %||% list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
+                                              default_compare = "none"),
+      media      = project$media    %||% list(keep_originals = TRUE)
     )
   )
 

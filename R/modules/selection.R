@@ -32,7 +32,8 @@ selection_ui <- function(id, show = NULL, ik_data = NULL) {
                            selected = if (!is.null(ik_data)) ik_default_period(ik_data)),
     compare  = selectInput(ns("compare"), "Compare to",
                            choices = c("No comparison" = "none", "Prior period" = "prior",
-                                       "Same period last year" = "last_year")),
+                                       "Same period last year" = "last_year"),
+                           selected = if (!is.null(ik_data)) ik_data$meta$overview$default_compare %||% "none" else "none"),
     reserve  = selectizeInput(ns("reserve"),  "Reserve",  choices = NULL, multiple = TRUE,
                               options = list(placeholder = "All reserves")),
     line     = selectizeInput(ns("line"),     "Line",     choices = NULL, multiple = TRUE,
@@ -45,7 +46,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL) {
                               options = list(placeholder = "All species")),
     # Duplicate handling is a data-subset choice (it removes rows), so it lives here in the
     # sidebar, not as an in-table filter. Camera-only (traps have no duplicate flag).
-    net      = checkboxInput(ns("net"), "Exclude possible duplicates (net)", FALSE)
+    net      = checkboxInput(ns("net"), "Exclude possible duplicates observations", FALSE)
   )
   # default shows the six axis controls; `compare` and `net` are opt-in (request via `show`).
   ctrls <- ctrls[show %||% c("period", "reserve", "line", "location", "device", "species")]

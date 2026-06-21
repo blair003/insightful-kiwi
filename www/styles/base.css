@@ -17,6 +17,10 @@
 /* Modal title convention: a small muted subtitle (e.g. an id) under the title. */
 .ik-modal-subtitle { font-size: 0.78rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); margin-top: 0.1rem; }
 
+/* Review-page heading convention: the Data → Quality views (Camera review, Trap review,
+   Duplicate window) each lead with a bold page title. */
+.ik-review-head { font-weight: 700; margin: 0 0 0.6rem; }
+
 /* Inline help: a small "?" / "i" button (.ik_info) that opens a description modal. */
 .ik-info-btn {
   border: none; background: transparent; padding: 0 0.15rem; cursor: pointer; line-height: 1;

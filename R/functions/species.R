@@ -15,7 +15,10 @@ load_project_config <- function(config) {
                    trapping = list(rate = list(norm_trap_days = 100),
                                    health = list(percentiles = c(good = 0.5, watch = 0.9),
                                                  floor = 14, ceiling = 60),
-                                   season_by = "check_date"))
+                                   season_by = "check_date"),
+                   overview = list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
+                                   default_compare = "none"),
+                   media    = list(keep_originals = TRUE))
   if (!file.exists(path)) return(defaults)
   e <- new.env()
   sys.source(path, envir = e)
@@ -24,7 +27,12 @@ load_project_config <- function(config) {
     duplicate_window = get0("duplicate_window", envir = e, ifnotfound = defaults$duplicate_window),
     organisation     = get0("organisation", envir = e, ifnotfound = defaults$organisation),  # instance identity
     camera           = get0("camera",   envir = e, ifnotfound = defaults$camera),
-    trapping         = get0("trapping", envir = e, ifnotfound = defaults$trapping)
+    trapping         = get0("trapping", envir = e, ifnotfound = defaults$trapping),
+    # merge onto defaults so a project that sets only SOME overview keys still gets the rest
+    overview         = utils::modifyList(defaults$overview,
+                                         get0("overview", envir = e, ifnotfound = list())),
+    media            = utils::modifyList(defaults$media,
+                                         get0("media", envir = e, ifnotfound = list()))
   )
 }
 
@@ -36,14 +44,16 @@ load_project_config <- function(config) {
 #'
 #' @param taxonomy ik_data$app$taxonomy.
 #' @param project  Loaded project config (load_project_config()).
-#' @return tibble: scientificName, group, label, role, monitor, control, priority (one
-#'   row per matched taxon). `monitor`/`control` are the per-method prominence classes
-#'   (target / interesting / NA).
+#' @return tibble: scientificName, group, label, role, monitor, control, sentiment, priority
+#'   (one row per matched taxon). `monitor`/`control` are the per-method prominence classes
+#'   (target / interesting / NA); `sentiment` (bad/good/neutral) tints the Overview card icon,
+#'   defaulting from `role` (predator→bad, protected→good, other→neutral) unless set explicitly.
 resolve_species_groups <- function(taxonomy, project) {
   groups <- project$species_groups
   empty  <- data.frame(scientificName = character(), group = character(),
                        label = character(), role = character(), monitor = character(),
-                       control = character(), priority = integer(), stringsAsFactors = FALSE)
+                       control = character(), sentiment = character(), priority = integer(),
+                       stringsAsFactors = FALSE)
   if (is.null(groups) || length(groups) == 0 || nrow(taxonomy) == 0) return(empty)
 
   genus_of <- function(sn) sub(" .*$", "", sn)
@@ -62,6 +72,7 @@ resolve_species_groups <- function(taxonomy, project) {
       role     = g$role    %||% "other",
       monitor  = g$monitor %||% NA_character_,
       control  = g$control %||% NA_character_,
+      sentiment = g$sentiment %||% switch(g$role %||% "other", predator = "bad", protected = "good", "neutral"),
       priority = gi,
       stringsAsFactors = FALSE
     )

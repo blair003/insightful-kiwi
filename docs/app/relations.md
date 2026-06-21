@@ -35,7 +35,7 @@ same-species duplicate threshold. Editing either re-derives this table.
 | Field | Type | Description |
 |---|---|---|
 | `observationID` | chr | The observation (join key to `observations()`). |
-| `dataset` | chr | Source dataset id (e.g. `wkt_camera_monitoring`). |
+| `dataset` | chr | Source dataset id (e.g. `wkt_core_monitoring`). |
 
 ### Same-species timing & duplicates
 | Field | Type | Description |

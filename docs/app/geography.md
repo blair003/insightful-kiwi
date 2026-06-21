@@ -28,7 +28,7 @@ reconciliation, done here in the app layer, never in a converter.
 | Field | Type | Description |
 |---|---|---|
 | `location_id` | chr | The location identifier, taken straight from the package's `locationID` and globally unique already (cameras use Agouti hashes; converters namespace theirs, e.g. `wkt_trapping_SS24`). The join key to `deployments()`/`observations()`. |
-| `dataset` | chr | Source dataset id (`wkt_camera_monitoring`, `wkt_trapping`). |
+| `dataset` | chr | Source dataset id (`wkt_core_monitoring`, `wkt_trapping`). |
 | `name` | chr | The location's `locationName` (e.g. `OH 1_4`, `SS24`). |
 | `latitude` | num | WGS84 latitude (`NA` if the source had no coordinates). |
 | `longitude` | num | WGS84 longitude (`NA` if the source had no coordinates). |

@@ -19,6 +19,11 @@
 # them in the reserve→line→location hierarchy so they show in non-spatial views.
 GEO_UNPLACED_RESERVE <- "Unplaced"
 
+# Placeholder reserve for LOCATED traps that fall too far (> reserve_match$max_km) from any
+# monitored location to belong to a real reserve — so distant control work isn't force-credited
+# to the nearest reserve (and its capture surface). Has coords (unlike "Unplaced"), so it maps.
+GEO_OUTSIDE_RESERVE <- "Outside monitored areas"
+
 # ---- derivers: deriver(package, config) -> data.frame(line, reserve) per location ----
 
 #' Geography deriver for location names of the form `CODE LINE_SUBLOC` — a reserve CODE, a
@@ -146,6 +151,7 @@ reserve_hulls_nztm <- function(canon_sf, reserves) {
 #' @keywords internal
 assign_reserves_spatial <- function(locations, id, rm) {
   buffer_m <- rm$buffer_m %||% 0
+  max_km   <- rm$max_km %||% Inf      # farther than this from any monitored location → Outside
   canon <- locations[locations$dataset == rm$canonical & !is.na(locations$reserve) &
                        !is.na(locations$latitude) & !is.na(locations$longitude), ]
   target <- locations[locations$dataset == id &
@@ -174,7 +180,9 @@ assign_reserves_spatial <- function(locations, id, rm) {
   list(
     cols = data.frame(
       location_id = target$location_id,
-      reserve = ifelse(within, contain, canon$reserve[ni]),  # assigned: containing or nearest
+      # within a reserve hull → that reserve; else the nearest reserve IF within max_km, otherwise
+      # grouped as "Outside monitored areas" (so distant traps aren't force-credited to a reserve).
+      reserve = ifelse(within, contain, ifelse(near_km <= max_km, canon$reserve[ni], GEO_OUTSIDE_RESERVE)),
       within_monitored_area = within,
       nearest_monitoring_location    = canon$name[ni],
       nearest_monitoring_distance_km = round(near_km, 3),
