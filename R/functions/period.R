@@ -123,6 +123,7 @@ build_period <- function(datasets, geography) {
     )
   })
   deployments <- dplyr::bind_rows(per)
+  .warn_duplicate_deployment_windows(deployments, geography$locations)   # flag duplicate uploads at import
 
   # Observation seasons. PULSE sources (camera) are ANCHORED ON THE DEPLOYMENT: every
   # detection inherits its deployment's (majority-overlap) season, so a ~3-week monitoring

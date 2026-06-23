@@ -79,6 +79,7 @@ source("R/functions/taxonomy.R")
 source("R/functions/observations.R")
 source("R/functions/media.R")
 source("R/functions/media_cache.R")
+source("R/functions/media_validate.R")
 
 # Runtime config (paths/toggles) — the input that builds ik_data.
 config <- build_config()
