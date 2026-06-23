@@ -822,10 +822,11 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                        Species = ik_species_label(o$scientificName, ik_data, prefer),
                        Count = o$count, Location = o$locationName, ObsID = o$observationID,
                        check.names = FALSE, stringsAsFactors = FALSE)
+      df$.when_sort <- as.numeric(o$when)                            # chronological sort key for "When"
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",   # whole row → the record
                     class = "stripe hover row-border ik-row-click",
                     options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
-                      columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
+                      columnDefs = .ik_dt_when_defs(df, "When", "ObsID")))
       .ik_dt_highlight_row(dt, "ObsID", rec_obs())                  # the record you're viewing
     })
 
@@ -919,7 +920,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       box_records(data.frame(
         When = fmt_dt(when), Species = ik_species_label(obs$scientificName, ik_data, prefer),
         Count = obs$count, Location = obs$locationName, ObsID = obs$observationID,
-        check.names = FALSE, stringsAsFactors = FALSE))
+        .when_sort = as.numeric(when), check.names = FALSE, stringsAsFactors = FALSE))
       box_rec_obs(NULL)
       showModal(modalDialog(
         title = .ik_modal_title(title, subtitle),
@@ -1003,7 +1004,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",  # whole row → Record Details
         class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
-          columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
+          columnDefs = .ik_dt_when_defs(df, "When", "ObsID")))
       .ik_dt_highlight_row(dt, "ObsID", box_rec_obs())             # the record you're viewing
     })
 

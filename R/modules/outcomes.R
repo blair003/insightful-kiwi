@@ -264,10 +264,11 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
       df <- data.frame(When = when_lab, Species = ik_species_label(o$scientificName, ik_data, prefer()),
                        Count = o$count, Location = o$locationName, ObsID = o$observationID,
                        check.names = FALSE, stringsAsFactors = FALSE)
+      df$.when_sort <- as.numeric(o$when)                            # chronological sort key for "When"
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",
         class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
-          columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))   # hide ObsID
+          columnDefs = .ik_dt_when_defs(df, "When", "ObsID")))
       .ik_dt_highlight_row(dt, "ObsID", rec_obs())
     })
 

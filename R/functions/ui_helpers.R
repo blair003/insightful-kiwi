@@ -44,6 +44,21 @@
   paste0(path, "?v=", if (is.na(v)) 1L else v)
 }
 
+#' DT `columnDefs` that make a formatted date column (shown as a nice string like "15 Mar 2026 ·
+#' 14:30") sort CHRONOLOGICALLY, plus hide any helper columns. Append a numeric sort key to the data
+#' first (`df$.when_sort <- as.numeric(<POSIXct>)`), then pass the df here. Mirrors the Deployments
+#' Start/End fix (orderData → a hidden numeric key) so EVERY modal "When" column is sortable.
+#' @param df       The data.frame (with `.when_sort` already appended).
+#' @param when_col Display column to order chronologically (default "When").
+#' @param hide     Extra column names to hide (e.g. "ObsID", ".loc").
+#' @return A list for `DT::datatable(options = list(columnDefs = ...))`. @keywords internal
+.ik_dt_when_defs <- function(df, when_col = "When", hide = character()) {
+  idx <- function(nm) match(nm, names(df)) - 1L              # DT targets are 0-based
+  hidden <- unname(vapply(unique(c(".when_sort", hide)), idx, integer(1)))
+  list(list(visible = FALSE, targets = hidden),
+       list(orderData = idx(".when_sort"), targets = idx(when_col)))
+}
+
 #' An inline help affordance: a small "?" (or "i") button that opens a Bootstrap modal with a
 #' description. Pure client-side (Bootstrap's own modal JS) — no server observer needed, so it
 #' drops into any UI. Use a "?" for whole-feature/page explainers, an "i" for a single field.

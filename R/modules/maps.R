@@ -750,10 +750,11 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         Role = det$role,
         Species = mapply(.lnk, ik_species_label(det$scientificName, ik_data, prefer), det$observationID),
         When = format(det$eventStart, "%d %b %Y · %H:%M"),
-        check.names = FALSE, stringsAsFactors = FALSE)
+        .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "none", escape = -2,
         class = "stripe hover row-border",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE))
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
+          columnDefs = .ik_dt_when_defs(df, "When")))
     })
     observeEvent(input$prio_view, {
       id <- input$prio_view$id
