@@ -14,7 +14,7 @@
 #     (norm camera_hours ≈ 500; NOT the 2000-CH line yardstick). Surface = per-camera rate field.
 #   • Trap / "Captures" (default) — raw catch COUNT per trap (robust to effort/sparsity; "where are
 #     catches"). Trap captures are sparse, so count beats rate as the activity signal.
-#   • Trap / "Capture rate" — captures / trap-days × 100 (noisy at low effort — robust colour helps).
+#   • Trap / "Capture rate" — captures / trap-days × norm_trap_days (default 100; noisy at low effort — robust colour helps).
 #   • Trap / "Servicing health" — per-trap glyph: size = trap-nights, fill/ring = check-frequency
 #     status (good/watch/neglected) from ik_trap_review(). Two honest channels.
 # Robust colour/size: per-location colour + radius are clamped at the 95th percentile so a single
@@ -40,7 +40,8 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 #' The "Measure" help body, written for the map's OWN device (each map is device-locked, so the
 #' camera map shouldn't explain trap measures or vice versa). NULL device → both (combined map).
 #' @keywords internal
-.maps_measure_help <- function(device = NULL) {
+.maps_measure_help <- function(device = NULL, norm = 100) {
+  ntn <- paste0(format(norm, big.mark = ","), " trap-nights")
   cam <- list(
     tags$p("What the camera markers and shaded surface show — switch with the ", tags$b("Measure"), " buttons."),
     tags$p(tags$b("Relative activity (RAI)"), " — detection rate for the chosen species group, effort-adjusted ",
@@ -57,7 +58,7 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
     tags$p("How each trap is coloured and sized — switch with the ", tags$b("Measure"), " buttons."),
     tags$p(tags$b("Captures"), " — total predators of the chosen group caught per trap in the selected period. ",
       "Raw counts: catches are sparse, so a count reads more honestly than a rate at low effort."),
-    tags$p(tags$b("Capture rate"), " — captures per ", tags$b("100 trap-nights"), " (effort-adjusted), so heavily- ",
+    tags$p(tags$b("Capture rate"), " — captures per ", tags$b(ntn), " (effort-adjusted), so heavily- ",
       "and lightly-checked traps compare fairly. Colour and size are clamped at the 95th percentile so one ",
       "low-effort outlier (e.g. 1 catch in a few trap-nights) can't flatten the rest."),
     tags$p(tags$b("Servicing health"), " — each trap judged ", tags$b("as of the period end"), " by its gap ",
@@ -97,6 +98,7 @@ maps_ui <- function(id, device = NULL, label = "Map", value = "map", ik_data = N
   ns <- NS(id)
   meas <- .MAPS_MEASURES[[device %||% "camera"]]
   pk   <- .maps_picker_defs(ik_data)                            # baked picker defaults (dropdown-lazy-safe)
+  norm <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100   # rate normalisation (config)
   nav_panel(
     label, value = value, icon = icon("map"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
@@ -112,7 +114,7 @@ maps_ui <- function(id, device = NULL, label = "Map", value = "map", ik_data = N
           radioButtons(ns("measure"), tagList("Measure", .ik_info(ns("measure_help"),
             if (identical(device, "trap")) "Trapping map — measures"
             else if (identical(device, "camera")) "Monitoring map — measures" else "Map measures",
-            .maps_measure_help(device))),
+            .maps_measure_help(device, norm))),
             choices = meas, selected = unname(meas)[1], inline = TRUE)),
         # Species sits with the other map controls (it's a GROUPING choice, like Device/Measure) and only
         # for the measures that group by it (camera RAI, trap captures/rate); priority & timing instead
@@ -205,6 +207,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     is_dark  <- reactive(identical(color_mode(), "dark"))
     halo     <- reactive(if (is_dark()) "#1a1a1a" else "#ffffff")
     per_cam  <- reactive((ik_data$meta$camera$rai %||% list())$camera_hours %||% 500)
+    norm     <- ik_data$meta$trapping$rate$norm_trap_days %||% 100   # trap rate normalisation (config)
     has_group <- reactive(!is.null(group_taxa()))
     # the per-location value column + its label, for the active rate/count measure
     valcol   <- reactive(if (src() == "trap" && measure() == "captures") "captures" else "metric")
@@ -332,7 +335,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, d$metric, pred_label(), d$predator, prot_label(), d$protected)
     rate_popup <- function(d) {
       if (src() == "trap") {
-        head  <- if (measure() == "captures") sprintf("Captures: %d", as.integer(d$captures)) else sprintf("Capture rate: %.2f / 100 trap-days", d$metric)
+        head  <- if (measure() == "captures") sprintf("Captures: %d", as.integer(d$captures)) else sprintf("Capture rate: %.2f / %s trap-nights", d$metric, format(norm, big.mark = ","))
         extra <- sprintf("Captures: %d &middot; Trap-days: %s", as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
       } else {
         head  <- sprintf("Detections / deployment: %.2f", d$metric)

@@ -1,5 +1,5 @@
 # trapping_effectiveness.R — "Trapping effectiveness": does checking more often catch more PER
-# trap-night? Catch rate (per 100 trap-nights) by check cadence, faceted by austral season so the
+# trap-night? Catch rate (per norm_trap_days trap-nights, default 100) by check cadence, faceted by austral season so the
 # seasonal peak isn't mistaken for a checking effect. Species-filterable; a basis toggle switches the
 # denominator between nominal trap-nights (counts dead/sprung time as effort) and operational
 # (availability-corrected). Sibling to Bait effectiveness. Data from ik_trap_effectiveness().

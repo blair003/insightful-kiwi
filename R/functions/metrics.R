@@ -1,7 +1,7 @@
 # metrics.R — effort & outcome metrics, in ONE auditable place. Each function returns its
 # INPUTS (the per-group table) beside the rolled-up summary, so the maths is inspectable and
 # exportable. Camera RAI (individuals / camera-hours × norm) and trap capture rate
-# (captures / trap-days × 100) both roll up line -> reserve as mean ± SE (sd/√n): the
+# (captures / trap-days × norm_trap_days, default 100) both roll up line -> reserve as mean ± SE (sd/√n): the
 # monitoring/trap LINE is the unit of replication. Zero-detection groups (that HAVE effort)
 # contribute 0; zero-effort groups are excluded. Methodology (norm, net/raw) is project
 # config, read at display time from ik_data$meta. Cameras only: net excludes

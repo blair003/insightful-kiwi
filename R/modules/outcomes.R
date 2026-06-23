@@ -8,9 +8,12 @@ OUTCOME_PALETTE <- c(Mustelids = "#c62828", Rats = "#ef6c00", Cats = "#8e24aa",
                      Dogs = "#6d4c41", Hedgehogs = "#5d4037", Possums = "#795548",
                      Kiwi = "#2e7d32")
 
-OUTCOME_PANELS <- c("Catches · per 100 trap-nights",
-                    "Predators · camera RAI (lower is better)",
-                    "Protected · camera RAI (higher is better)")
+#' Stacked-panel titles. `norm` (trap-nights normalisation, from project config) is woven into the
+#' catches title so it never disagrees with the actual rate. @keywords internal
+outcome_panels <- function(norm = 100) c(
+  sprintf("Catches · per %s trap-nights", format(norm, big.mark = ",")),
+  "Predators · camera RAI (lower is better)",
+  "Protected · camera RAI (higher is better)")
 
 #' Outcomes nav panel UI. @param id Module id.
 outcomes_ui <- function(id) {
@@ -32,6 +35,8 @@ outcomes_ui <- function(id) {
 outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
+    norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100   # trap-nights normalisation (config)
+    OP   <- outcome_panels(norm)                                 # panel titles (catches title uses norm)
     series <- reactive(ik_outcome_series(ik_data)) |>  # slow (~15-20s, per-season scan) → cache it
       bindCache("outcome_series", ik_active_datasets())   # once per active-dataset set, across sessions
 
@@ -79,9 +84,9 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
       validate(need(!is.null(s) && nrow(s), "Not enough data to chart outcomes."))
       s <- s[s$taxon %in% sel_taxa(), , drop = FALSE]
       validate(need(nrow(s) > 0, "Select at least one predator or protected species to chart."))
-      s$panel <- factor(ifelse(s$metric_type == "trap_rate", OUTCOME_PANELS[1],
-                        ifelse(s$role == "protected", OUTCOME_PANELS[3], OUTCOME_PANELS[2])),
-                        levels = OUTCOME_PANELS)
+      s$panel <- factor(ifelse(s$metric_type == "trap_rate", OP[1],
+                        ifelse(s$role == "protected", OP[3], OP[2])),
+                        levels = OP)
       s$season <- factor(s$season, levels = unique(s$season[order(s$season_order)]))
       plotted(s)
       keys <- unique(s$taxon)                                   # known groups keep their semantic colour; sub-species get a generated one
@@ -141,7 +146,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
       Ld   <- res$lines[res$lines$taxon == cand$taxon, , drop = FALSE]
       nrec <- tapply(Ld[[cnt]], Ld$reserve, sum)
       dp   <- .ov_dp(c(cand$value, cand$se, R$metric, R$se), if (is_cam) 1L else 2L, if (is_cam) 1L else 3L)
-      unit <- if (is_cam) "camera RAI" else "captures / 100 trap-nights"
+      unit <- if (is_cam) "camera RAI" else sprintf("captures / %s trap-nights", format(norm, big.mark = ","))
       drill(list(cand = cand, sp = sp, taxa = taxa, is_cam = is_cam, R = R, nrec = nrec, dp = dp, unit = unit))
       records(NULL); rec_obs(NULL); rec_ctx(NULL)
       fd <- paste0("%.", dp, "f")

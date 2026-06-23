@@ -1,4 +1,4 @@
-# bait.R — bait effectiveness: trap capture rate (captures / 100 trap-nights) BY bait recipe. A
+# bait.R — bait effectiveness: trap capture rate (captures / trap-days × norm_trap_days, default 100) BY bait recipe. A
 # catch is found at a check, but the bait that caught it is the bait that was in the trap during
 # the interval = the PRIOR check's `baitstatus` (the check's own baitstatus is the rebait set
 # that day). So we lag the bait by one check per trap. baitstatus is a messy comma list —
@@ -71,7 +71,11 @@
 #' @param seasons       Optional `calendar_season` vector (a period); NULL = all. Filtered by
 #'   the CHECK DATE (when the catch was found), consistent with the capture-rate metric.
 #' @param species       Optional scientificName(s) to count as captures; NULL = any animal.
-#' @param min_trap_days Drop baits with less than this much effort (too noisy). Default 100.
+#' @param norm          Trap-nights the rate is normalised to (captures / trap-days × `norm`).
+#'   Pass the project's `norm_trap_days` so the bait rate is on the same scale as every other
+#'   capture rate in the app. Default 100.
+#' @param min_trap_days Drop baits with less than this much effort (too noisy). Default `norm`
+#'   (one normalisation unit of effort — the same floor the other rate views use).
 #' @param min_captures  Drop baits with fewer than this many captures (one lucky catch on a
 #'   rare species otherwise tops the rate chart — a 1-catch / ~100-trap-day bait reads as
 #'   rate ≈ 1.0). Default 3.
@@ -87,7 +91,7 @@
 #' @return data.frame: bait · n_intervals · trap_days · captures · rate, ordered by rate desc.
 #'   With `by_health`: bait · health · trap_days · captures · rate · overall_rate. NULL = no data.
 ik_bait_effectiveness <- function(ik_data, seasons = NULL, species = NULL,
-                                  min_trap_days = 100, min_captures = 3,
+                                  norm = 100, min_trap_days = norm, min_captures = 3,
                                   group = c("recipe", "ingredient"),
                                   health = NULL, by_health = FALSE, intervals = NULL) {
   group <- match.arg(group)
@@ -113,7 +117,7 @@ ik_bait_effectiveness <- function(ik_data, seasons = NULL, species = NULL,
     dplyr::group_by(ex, .data$bait),
     n_intervals = dplyr::n(), trap_days = sum(.data$trap_days),
     captures = sum(.data$capture), .groups = "drop")
-  agg$rate <- agg$captures / agg$trap_days * 100
+  agg$rate <- agg$captures / agg$trap_days * norm
   agg <- agg[agg$trap_days >= min_trap_days & agg$captures >= min_captures, , drop = FALSE]
   agg <- agg[order(-agg$rate), , drop = FALSE]
   if (!by_health || !nrow(agg)) return(agg)
@@ -125,7 +129,7 @@ ik_bait_effectiveness <- function(ik_data, seasons = NULL, species = NULL,
     dplyr::group_by(ex2, .data$bait, .data$health),
     trap_days = sum(.data$trap_days), captures = sum(.data$capture), .groups = "drop")
   h <- h[h$trap_days >= min_trap_days / 2, , drop = FALSE]
-  h$rate <- h$captures / h$trap_days * 100
+  h$rate <- h$captures / h$trap_days * norm
   h$overall_rate <- agg$rate[match(h$bait, agg$bait)]
   h[order(-h$overall_rate, h$bait), , drop = FALSE]
 }

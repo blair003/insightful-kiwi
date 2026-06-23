@@ -2,7 +2,7 @@
 # seasonal timeline: trap predators → predator activity (camera RAI) falls → kiwi activity
 # (camera RAI) rises. ik_outcome_series() walks every season and computes, at NETWORK level
 # (mean over reserves ± SE, via the auditable metrics in metrics.R), three metric families:
-#   trap_rate   — predator captures / 100 trap-nights  (the control effort/outcome)
+#   trap_rate   — predator captures / norm_trap_days trap-nights (default 100; the control effort/outcome)
 #   camera_rai  — predator RAI                          (want DOWN)
 #   camera_rai  — kiwi RAI                              (want UP)
 # Long/tidy so the Outcomes view facets it. Network SE = spread across reserves (NA for <2).

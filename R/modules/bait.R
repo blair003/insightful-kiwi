@@ -4,16 +4,18 @@
 # there into the observation viewer. Data from ik_bait_effectiveness() / ik_bait_captures()
 # (prior-check bait attribution, the whole recipe as the unit).
 
-#' Bait effectiveness nav panel. @param id Module id.
-bait_ui <- function(id) {
+#' Bait effectiveness nav panel. @param id Module id. @param ik_data The container (for the
+#'   catch-rate normalisation unit woven into the help/labels).
+bait_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
+  norm <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100
   nav_panel(
     "Bait effectiveness", value = "bait", icon = icon("drumstick-bite"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/bait.css")),
     div(class = "ik-bait",
         div(class = "ik-bait-head",
             tags$h3(class = "ik-bait-title", "Bait effectiveness"),
-            .ik_info(ns("help"), "Bait effectiveness — how to read this", bait_help_body())),
+            .ik_info(ns("help"), "Bait effectiveness — how to read this", bait_help_body(norm))),
         tags$p(class = "ik-bait-lead",
           "Captures by bait — attributed to the bait that was in the trap during the catching ",
           "interval (the ", tags$b("prior check's"), " bait). ", tags$b("Click a bar"),
@@ -35,10 +37,12 @@ bait_ui <- function(id) {
   )
 }
 
-#' The body of the "how to read this" help modal for the bait view. @keywords internal
-bait_help_body <- function() {
+#' The body of the "how to read this" help modal for the bait view. `norm` = trap-nights the rate
+#' is normalised to (from project config), woven in so the help matches the chart. @keywords internal
+bait_help_body <- function(norm = 100) {
+  ntn <- paste0(format(norm, big.mark = ","), " trap-nights")
   tagList(
-    tags$p("This ranks baits by how often they catch — ", tags$b("captures per 100 trap-nights"),
+    tags$p("This ranks baits by how often they catch — ", tags$b(paste0("captures per ", ntn)),
            " (a rate that accounts for how long each bait was out), or total captures if you ",
            "switch ", tags$em("Measure"), " to “Total caught”."),
     tags$h6("Which bait gets the credit"),
@@ -56,7 +60,7 @@ bait_help_body <- function() {
            "their numbers blur and you can't tell which one did the work. Read it as ",
            "“appears in successful baits”, not “causes catches”."),
     tags$h6("What's left off"),
-    tags$p("Baits with under 100 trap-nights of use, or fewer than the ", tags$em("Min captures"),
+    tags$p("Baits with under ", ntn, " of use, or fewer than the ", tags$em("Min captures"),
            " floor, are dropped — too little to compare (one lucky catch on a rarely-used bait ",
            "would otherwise top the chart). The chart shows the top 15."),
     tags$h6("Digging in"),
@@ -73,6 +77,8 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                         color_mode = reactive("light"), selection = reactive(list())) {
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
+    norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100   # rate normalisation (config)
+    ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
     sg  <- ik_species_groups(ik_data)
     ctl <- ik_taxa_groups(sg, "control", "target")           # trapped predators
     # Period now comes from the sidebar (selection); default set there (latest whole year).
@@ -136,7 +142,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     # chart AND the captures drill — so clicking a bar reuses it instead of re-scanning every check.
     intervals <- reactive(.bait_intervals(ik_data, seasons(), species()))
     data <- reactive(ik_bait_effectiveness(
-      ik_data, seasons(), species = species(), group = group(),
+      ik_data, seasons(), species = species(), group = group(), norm = norm,
       min_captures = max(1, input$min_cap %||% 3),
       health = NULL, by_health = FALSE, intervals = intervals()))
 
@@ -168,7 +174,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         geom_text(aes(label = lab), hjust = 0, size = 3.4, colour = ik_plot_ink(is_dark())) +
         scale_fill_gradient(low = "#d7ccc8", high = "#5d4037", guide = "none") +
         scale_x_continuous(expand = expansion(mult = c(0, 0.55))) +
-        labs(x = if (count) "Total captures" else "Captures per 100 trap-nights", y = NULL,
+        labs(x = if (count) "Total captures" else paste0("Captures per ", ntn), y = NULL,
              subtitle = sprintf("Top %d of %d %s, by %s", nrow(d), total, unit,
                                 if (count) "total caught" else "capture rate")) +
         ik_ggtheme(is_dark()) +
