@@ -517,8 +517,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     sg       <- ik_species_groups(ik_data)
     locs     <- ik_data$app$geography$locations
     projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
-    has_dev  <- function(st) any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, st), logical(1)))
-    has_camera <- has_dev("camera"); has_trap <- has_dev("trap")
+    has_camera <- ik_has_source_type(ik_data, "camera"); has_trap <- ik_has_source_type(ik_data, "trap")
     mon_t <- ik_taxa_groups(sg, "monitor", "target")        # lead cards (protocol targets)
     mon_i <- ik_taxa_groups(sg, "monitor", "interesting")   # secondary "of interest" tier
     mon_targets <- c(mon_t, mon_i)                          # camera metric/drill set = target + interesting

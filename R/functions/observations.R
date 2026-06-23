@@ -28,6 +28,17 @@ ik_active_filter <- function(df) {
   df[df$dataset %in% active, , drop = FALSE]
 }
 
+#' Source type ("camera"/"trap"/…) of each dataset, as a named vector keyed by dataset id. The one
+#' home for the `vapply(datasets, \(d) d$meta$source_type)` idiom. @param datasets `ik_data$datasets`
+#' (or the raw datasets list at build time). @keywords internal
+ik_dataset_source_types <- function(datasets)
+  vapply(datasets, function(d) d$meta$source_type %||% NA_character_, character(1))
+
+#' Does the container have ANY dataset of `source_type`? Replaces the scattered
+#' `any(vapply(ik_data$datasets, \(d) identical(d$meta$source_type, st)))` checks. @keywords internal
+ik_has_source_type <- function(ik_data, source_type)
+  any(ik_dataset_source_types(ik_data$datasets) == source_type, na.rm = TRUE)
+
 #' The canonical locations table SCOPED to the active datasets — use this (not the raw
 #' `ik_data$app$geography$locations`) anywhere a view ENUMERATES places (reserve/line/location
 #' choices, boundary hulls, density, the project header), so a hidden dataset's reserves/lines/sites

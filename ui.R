@@ -7,8 +7,8 @@
 
 # Device-organised menus are shown only when the org actually has that kind of data, so a
 # trapping-only (or monitoring-only) group sees just its menu (bslib drops the NULL nav items).
-.has_camera <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "camera"), logical(1)))
-.has_trap   <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "trap"),   logical(1)))
+.has_camera <- ik_has_source_type(ik_data, "camera")
+.has_trap   <- ik_has_source_type(ik_data, "trap")
 .species_specs <- ik_species_taxa(ik_data)   # per-species dashboard pages (Species menu); see modules/species.R
 
 ui <- page_navbar(

@@ -13,7 +13,7 @@
 #' @return data.frame: reserve · area_km2 · n_cameras · n_traps · cameras_per_km2 · traps_per_km2 ·
 #'   mean_trap_spacing_m · mean_cam_spacing_m (ordered by area desc); NULL when none.
 build_coverage <- function(locations, datasets) {
-  st_map <- vapply(datasets, function(d) d$meta$source_type %||% NA_character_, character(1))
+  st_map <- ik_dataset_source_types(datasets)
   loc <- locations[is.finite(locations$latitude) & is.finite(locations$longitude), , drop = FALSE]
   loc$source_type <- unname(st_map[loc$dataset])
   loc <- loc[!is.na(loc$source_type) & !is.na(loc$reserve) &

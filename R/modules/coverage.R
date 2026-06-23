@@ -348,7 +348,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       d
     }
 
-    has_camera <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "camera"), logical(1)))
+    has_camera <- ik_has_source_type(ik_data, "camera")
     output$gaps <- DT::renderDT({
       g <- gaps()
       validate(need(!is.null(g) && nrow(g), if (!has_camera)

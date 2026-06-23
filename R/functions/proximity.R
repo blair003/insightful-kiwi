@@ -21,7 +21,7 @@
 #' @return tidy data.frame: from_id · from_type · to_id · to_type · distance_m (one row per directed
 #'   camera→neighbour pair within `max_radius_m`, self excluded; ordered by from_id then distance).
 build_proximity <- function(locations, datasets, max_radius_m = 2000) {
-  st_map <- vapply(datasets, function(d) d$meta$source_type %||% NA_character_, character(1))
+  st_map <- ik_dataset_source_types(datasets)
   loc <- locations
   loc$source_type <- unname(st_map[loc$dataset])
   loc <- loc[is.finite(loc$latitude) & is.finite(loc$longitude) & !is.na(loc$source_type), , drop = FALSE]
