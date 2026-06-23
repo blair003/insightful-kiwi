@@ -1,6 +1,7 @@
 /* cooccurrence.css — the Co-occurrence (protected ↔ predator timing) view. */
 
 .ik-cooc { padding-top: 0.5rem; }
+.ik-cooc-titlebar { display: flex; align-items: center; gap: 0.4rem; }
 .ik-cooc-title { margin: 0 0 0.2rem; }
 .ik-cooc-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
 .ik-cooc-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.4rem; }

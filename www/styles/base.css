@@ -20,6 +20,9 @@
 /* Review-page heading convention: the Data → Quality views (Camera review, Trap review,
    Duplicate window) each lead with a bold page title. */
 .ik-review-head { font-weight: 700; margin: 0 0 0.6rem; }
+/* review-page heading + its inline help (?) button on one row */
+.ik-review-headrow { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.6rem; }
+.ik-review-headrow .ik-review-head { margin: 0; }
 
 /* "← Back" link on deeper drill-modal tabs (see .ik_tab_back). Subtle — the tab headers remain. */
 .ik-tab-back { display: inline-block; font-size: 0.82rem; margin-bottom: 0.55rem;

@@ -3,13 +3,79 @@
 # its traps are checked (mean interval); click a line for its per-trap breakdown (the same
 # per-trap data that will feed the map). Driven by ik_trap_review() / ik_trap_review_lines().
 
+#' "How to read this" help body for Trap review — tabbed. `tr_meta` = ik_data$meta$trapping (the
+#' servicing-health + rate config), so the cutoffs and norm match what's actually used. @keywords internal
+trapping_help_body <- function(tr_meta = NULL) {
+  P  <- function(...) tags$p(...)
+  h  <- tr_meta$health %||% list()
+  pc <- h$percentiles %||% c(good = 0.5, watch = 0.9)
+  pg <- round(100 * (pc[["good"]]  %||% 0.5))
+  pw <- round(100 * (pc[["watch"]] %||% 0.9))
+  fl <- h$floor %||% 14; ce <- h$ceiling %||% 60
+  dorm <- round((tr_meta$dormant_after_days  %||% 182) / 30.4)
+  hist <- round((tr_meta$historic_after_days %||% 365) / 30.4)
+  mc   <- tr_meta$min_checks_for_cadence %||% 2
+  norm <- (tr_meta$rate %||% list())$norm_trap_days %||% 100
+  ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "Is the trapping actually being ", tags$b("run"), "? Two views:"),
+      tags$ul(
+        tags$li(tags$b("By trapline"), " — each trap graded on how often it's been checked this period: ",
+                tags$b("good"), " / ", tags$b("watch"), " / ", tags$b("neglected"), ", so you can see at a ",
+                "glance which lines are slipping. The management view."),
+        tags$li(tags$b("Over time"), " — the mix of good/watch/neglected ", tags$b("and"), " the catch rate ",
+                "(per ", ntn, ") across seasons or years: is servicing improving, and is catching following it?")),
+      P("The By-trapline table is driven by the sidebar ", tags$b("Period"), "; the Over-time trend deliberately ",
+        "ignores Period (it spans all of time). Click through for the traps behind a line.")),
+    tabPanel(
+      "Servicing health", icon = icon("heart-pulse"),
+      P(tags$br(), "Each trap's grade comes from its ", tags$b("mean gap between checks"), " — but “good” isn't a ",
+        "fixed number of days. It's ", tags$b("relative to this project's own"), " checking pattern, ",
+        "calibrated separately ", tags$b("per reserve"), " (a remote block and a roadside block have different ",
+        "normal cadences):"),
+      tags$ul(
+        tags$li(tags$b("Good"), " — checked at least as often as the reserve's typical (≤ its ", pg, "th percentile)."),
+        tags$li(tags$b("Watch"), " — slower than typical (≤ the ", pw, "th percentile)."),
+        tags$li(tags$b("Neglected"), " — slower than the ", pw, "th percentile (the worst-serviced tail).")),
+      P("Two ", tags$b("guardrails"), " stop the percentiles branding someone unfairly when everyone's fine ",
+        "(or letting everyone off when they're not): a trap checked every ", tags$b(paste0(fl, " days")),
+        " or better is ", tags$b("always good"), "; a gap longer than ", tags$b(paste0(ce, " days")),
+        " is ", tags$b("always neglected"), "."),
+      P(tags$b("Insufficient data"), " — fewer than ", mc, " checks in the period is too little to judge a cadence. ",
+        tags$b("Dormant"), " (~", dorm, " mo+ since a check) and ", tags$b("historic"), " (~", hist, " mo+) traps ",
+        "are shown faint — likely paused or retired, not neglected.")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Cutoffs"), " = percentiles (", pg, "th / ", pw, "th) of each reserve's own per-trap ",
+                "mean-interval distribution, computed at import and ", tags$b("frozen on the cache"), " — so they ",
+                "recalibrate when data is re-imported, not as you change the period. The resolved day values show ",
+                "in the table legend."),
+        tags$li(tags$b("Guardrails"), " — floor ", fl, " d (always good) and ceiling ", ce, " d (always neglected) ",
+                "override the percentiles."),
+        tags$li(tags$b("Period-relative"), " — a trap's gap is days since its last check up to the ", tags$b("period "),
+                tags$b("end"), " (no peek at later checks); the same trap ages to dormant then historic in later periods."),
+        tags$li(tags$b("Catch rate"), " (Over time) = catches ÷ trap-nights × ", format(norm, big.mark = ","),
+                ", so the trend is comparable across periods regardless of how much trapping was done.")),
+      P(tags$em("Servicing buckets are per-reserve and frozen on import; the catch rate is computed live for the ",
+                "trend's seasons/years.")))
+  )
+}
+
 #' Trapping review tab content (lives inside the Quality nav_panel). @param id Module id.
-trapping_ui <- function(id) {
+#'   @param ik_data The container (servicing-health + rate config for the help modal).
+trapping_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping.css")),
     div(class = "ik-trapping",
-        tags$h5("Trap check-frequency review", class = "ik-review-head"),
+        div(class = "ik-review-headrow",
+            tags$h5("Trap check-frequency review", class = "ik-review-head"),
+            .ik_info(ns("trap_help"), "Trap review — how to read this", trapping_help_body(ik_data$meta$trapping))),
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
         # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
         # "By trapline" leads (default): it's the day-to-day management view and the quicker to load;

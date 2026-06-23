@@ -94,7 +94,7 @@ ui <- page_navbar(
     "Trapping", icon = icon("location-crosshairs"),
     maps_ui("trapping_map", device = "trap", label = "Map", value = "trapping-map", ik_data = ik_data),
     nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"),
-              trapping_ui("trapping")),
+              trapping_ui("trapping", ik_data)),
     bait_ui("bait", ik_data),                              # bait effectiveness (trap)
     trapping_effectiveness_ui("trapping_eff", ik_data),    # catch rate vs cadence, by season
     records_ui("control_records", label = "Records", value = "trapping-records")

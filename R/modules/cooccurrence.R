@@ -9,6 +9,52 @@
 GAP_BREAKS <- c(0, 1, 6, 24, 168, 720, Inf)                                  # hours
 GAP_LABELS <- c("< 1 h", "1–6 h", "6–24 h", "1–7 d", "1–4 wk", "> 1 mo")
 
+#' "How to read this" help body for Co-occurrence — a tabbed walkthrough. @keywords internal
+cooccurrence_help_body <- function() {
+  P <- function(...) tags$p(...)
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "For every ", tags$b("protected"), "-species detection on camera, this measures how long ",
+        "until the nearest ", tags$b("predator"), " detection ", tags$b("at the same camera"), " — the ",
+        tags$b("time gap"), " between the two species using the same spot."),
+      P("Two views: a ", tags$b("distribution"), " of those gaps (how often predator and protected are close ",
+        "in time vs far apart) and a ", tags$b("seasonal trend"), " of the median gap. Click a distribution ",
+        "bar to see the detections behind it, down to the record."),
+      P("Rats are nearly everywhere, so the default predator is ", tags$b("Mustelids"), " — switch to the ",
+        "predator that matters to you.")),
+    tabPanel(
+      "Reading it", icon = icon("chart-column"),
+      P(tags$br(), tags$b("Short gaps"), " (left of the distribution) mean the two species share the same ",
+        "ground close in time; ", tags$b("long gaps"), " mean they mostly don't overlap."),
+      tags$ul(
+        tags$li("The ", tags$b("median gap by season"), " ", tags$b("rising"), " over time ⇒ they're ",
+                "separating in time — what you'd hope to see where control is thinning predators or shifting ",
+                "their behaviour."),
+        tags$li(tags$b("Falling / flat"), " ⇒ predator and protected are overlapping as much as ever."),
+        tags$li(tags$b("Predator after only"), " restricts to gaps where the predator arrives ", tags$em("after"),
+                " the protected animal — the “stalking” direction (following), rather than either order.")),
+      P("It's ", tags$b("exploratory"), ": sharing a camera close in time is suggestive of risk, not proof of ",
+        "a kill or even a meeting.")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Pairing"), " — each protected detection is matched to the ", tags$b("nearest in time"),
+                " predator detection ", tags$b("at the same camera"), "; the gap is the hours between them."),
+        tags$li(tags$b("Direction"), " — by default the nearest predator detection either side counts; ",
+                tags$b("Predator after only"), " keeps just those where the predator came later."),
+        tags$li(tags$b("Buckets"), " — gaps are grouped < 1 h · 1–6 h · 6–24 h · 1–7 d · 1–4 wk · > 1 mo."),
+        tags$li(tags$b("Seasonal median"), " — within each season, the median gap (robust to a few extreme ",
+                "values), plotted over time."),
+        tags$li(tags$b("Needs both on one camera"), " — only cameras that saw ", tags$b("both"), " a protected ",
+                "and a predator contribute; a camera that saw only one never forms a pair.")),
+      P(tags$em("Camera timestamps must be true clock times for this (trapping has no clock time, so it's ",
+                "camera-only). Treat proximity in time as co-occurrence risk, not a confirmed interaction.")))
+  )
+}
+
 #' Co-occurrence nav panel. @param id Module id.
 cooccurrence_ui <- function(id) {
   ns <- NS(id)
@@ -16,7 +62,9 @@ cooccurrence_ui <- function(id) {
     "Co-occurrence", value = "cooccurrence", icon = icon("hourglass-half"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/cooccurrence.css")),
     div(class = "ik-cooc",
-        tags$h3(class = "ik-cooc-title", "Protected ↔ predator timing"),
+        div(class = "ik-cooc-titlebar",
+            tags$h3(class = "ik-cooc-title", "Protected ↔ predator timing"),
+            .ik_info(ns("cooc_help"), "Co-occurrence — how to read this", cooccurrence_help_body())),
         tags$p(class = "ik-cooc-lead",
           "For every protected-species detection on camera, how long until the nearest ", tags$b("predator"),
           " detection at the same camera. Short gaps mean they share the same ground close in time. ",
