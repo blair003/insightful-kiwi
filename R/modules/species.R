@@ -56,8 +56,11 @@ diel_class_help_body <- function() {
       tags$p(tags$br(), "One headline ", tags$b("diel class"), " summarising when this species is active ",
              "on camera, with the four diel periods' shares beneath it."),
       tags$p("Shares come from ", tags$b("effort-normalised rates"), " — detections per ",
-             tags$em("available hour"), " in each period, not raw counts — so a long winter night can't ",
-             "masquerade as more activity just because it's longer."),
+             tags$em("available hour"), " in each period, not raw counts. This matters most for ",
+             tags$b("Matutinal"), " and ", tags$b("Vespertine"), ": civil twilight is only a thin sliver ",
+             "of the day (often under an hour), so a species could be intensely active at dawn or dusk yet ",
+             "log few raw detections simply because the window is so short. Dividing by each period's ",
+             "available hours puts all four on an equal footing."),
       tags$h6("The four diel periods"),
       tags$table(class = "table table-sm ik-help-table", tags$tbody(
         pc("Matutinal",  "Civil dawn to sunrise (first light)."),
@@ -123,9 +126,10 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                 selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__", width = "220px")),
             plotOutput(ns("trend"), height = "460px")),
           tabPanel("Where", icon = icon("ranking-star"),
-            tags$p(class = "ik-species-hint", "This species' hotspots — top camera lines by activity and reserves by catches."),
-            if (spec$camera) plotOutput(ns("where_cam"), height = "320px"),
-            if (spec$trapped) plotOutput(ns("where_trap"), height = "320px")),
+            tags$p(class = "ik-species-hint", "This species' hotspots — top camera lines by activity and ",
+                   "reserves by catches. ", tags$b("Click a bar"), " for the records behind it."),
+            if (spec$camera) plotOutput(ns("where_cam"), height = "320px", click = ns("where_cam_click")),
+            if (spec$trapped) plotOutput(ns("where_trap"), height = "320px", click = ns("where_trap_click"))),
           if (spec$camera) tabPanel("Behaviour", icon = icon("clock"),
             tags$p(class = "ik-species-hint",
                    "When this species is active on camera — the daily clock, and an overall diel class."),
@@ -145,17 +149,19 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                 div(class = "ik-card-body", uiOutput(ns("diel_card")))))),
           if (spec$trapped) tabPanel("Bait", icon = icon("drumstick-bite"),
             tags$p(class = "ik-species-hint",
-                   "Which baits catch this species best — captures per trap-night. Group by the full recipe (the whole bait set) or by individual ingredient."),
+                   "Which baits catch this species best — captures per trap-night. Group by the full recipe (the whole bait set) or by individual ingredient. ",
+                   tags$b("Click a bar"), " for the captures behind it."),
             div(class = "ik-species-controls",
                 radioButtons(ns("bait_group"), NULL, inline = TRUE,
                              choices = c("Full recipe" = "recipe", "Ingredient" = "ingredient"),
                              selected = "recipe")),
-            plotOutput(ns("bait"), height = "440px")),
+            plotOutput(ns("bait"), height = "440px", click = ns("bait_click"))),
           if (.cooc_ok) tabPanel("Co-occurrence", icon = icon("hourglass-half"),
-            tags$p(class = "ik-species-hint", .cooc_hint),
-            plotOutput(ns("cooc"), height = "340px")),
+            tags$p(class = "ik-species-hint", .cooc_hint, " ", tags$b("Click a bar"), " for the co-detections."),
+            plotOutput(ns("cooc"), height = "340px", click = ns("cooc_click"))),
           tabPanel("Records", icon = icon("list"),
-            tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection."),
+            tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",
+                   tags$b("Click a row"), " to open the full record."),
             DT::DTOutput(ns("records"))),
           tabPanel("Map", icon = icon("map"),
             tags$p(class = "ik-species-hint",
@@ -195,6 +201,49 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       c(if (isTRUE(spec$camera))  spec$label, if (!is.null(o) && isTRUE(o$camera))  o$label) })
     trapped_labels <- reactive({ o <- .other_spec()
       c(if (isTRUE(spec$trapped)) spec$label, if (!is.null(o) && isTRUE(o$trapped)) o$label) })
+
+    # ---- shared "records behind the chart" drill: a 2-tab modal (Records summary → Record Details).
+    #      Each plot stores its rows (a df with an observationID column) in a reactiveVal and calls the
+    #      returned opener; one DT + row-click + viewer + back serves diel / where / bait / co-occurrence.
+    #      `build_df(d)` returns the display frame (When first, plus a `.when_sort` numeric). ----
+    .make_drill <- function(prefix, recs_rv, build_df) {
+      obs_rv <- reactiveVal(NULL); tabs <- paste0(prefix, "_tabs")
+      output[[paste0(prefix, "_recs")]] <- DT::renderDT({
+        d <- recs_rv(); validate(need(!is.null(d) && nrow(d), "No records for this selection."))
+        df <- build_df(d)
+        DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+          options = list(pageLength = 15, scrollX = TRUE, dom = "ftip", order = list(list(0, "desc")),
+                         columnDefs = .ik_dt_when_defs(df, "When")))
+      })
+      observeEvent(input[[paste0(prefix, "_recs_rows_selected")]], {
+        i <- input[[paste0(prefix, "_recs_rows_selected")]]; d <- recs_rv()
+        if (length(i) && !is.null(d) && i <= nrow(d)) {
+          obs_rv(d$observationID[i]); updateTabsetPanel(session, tabs, selected = "Record Details")
+        }
+        DT::selectRows(DT::dataTableProxy(paste0(prefix, "_recs")), NULL)   # clear → same row re-clickable
+      })
+      output[[paste0(prefix, "_obs_ui")]] <- renderUI({
+        if (is.null(obs_rv())) return(tags$p(class = "ik-species-hint", "Click a record above to open it here."))
+        ob <- ik_observation(ik_data, obs_rv()); if (is.null(ob)) return(tags$p("Record not found."))
+        pr <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
+        tagList(.ik_tab_back(session$ns(paste0(prefix, "_back")), tabs, "Records summary", "Back to records"),
+                .ovw_title(ik_data, ob, pr),
+                .ovw_tabs(ik_data, ob, pr, tabset_id = session$ns(paste0(prefix, "_sub"))))
+      })
+      observeEvent(input[[paste0(prefix, "_back")]],
+        updateTabsetPanel(session, input[[paste0(prefix, "_back")]]$tabset, selected = input[[paste0(prefix, "_back")]]$to))
+      function(title, subtitle = NULL, intro = NULL) {
+        obs_rv(NULL)
+        showModal(modalDialog(title = .ik_modal_title(title, subtitle), size = "l", easyClose = TRUE,
+          footer = modalButton("Close"),
+          tabsetPanel(id = session$ns(tabs),
+            tabPanel("Records summary", icon = icon("table-list"),
+              if (!is.null(intro)) tags$p(class = "ik-species-hint", intro),
+              DT::DTOutput(session$ns(paste0(prefix, "_recs")))),
+            tabPanel("Record Details", icon = icon("magnifying-glass"),
+              uiOutput(session$ns(paste0(prefix, "_obs_ui")))))))
+      }
+    }
 
     # ---- Trend ----
     trend <- reactive({
@@ -252,9 +301,22 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                        Species = ik_species_label(o$scientificName, ik_data, p), Count = o$count,
                        Reserve = o$reserve, Line = ifelse(is.na(o$line), "—", o$line), Location = o$locationName,
                        .when_sort = as.numeric(o$when), check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border",
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 15, scrollX = TRUE, dom = "ftip",
                        order = list(list(0, "desc")), columnDefs = .ik_dt_when_defs(df, "When")))
+    })
+
+    observeEvent(input$records_rows_selected, {       # row → the full record (the shared viewer)
+      i <- input$records_rows_selected; o <- records()
+      if (length(i) && !is.null(o) && i <= nrow(o)) {
+        ob <- ik_observation(ik_data, o$observationID[i])
+        if (!is.null(ob)) { pr <- prefer()
+          showModal(modalDialog(title = .ik_modal_title(spec$label, "Record"), size = "l",
+            easyClose = TRUE, footer = modalButton("Close"),
+            .ovw_title(ik_data, ob, pr),
+            .ovw_tabs(ik_data, ob, pr, tabset_id = session$ns("rec_view_sub")))) }
+      }
+      DT::selectRows(DT::dataTableProxy("records"), NULL)
     })
 
     # ---- Map (camera RAI + trap catches as layers; drawn in-render so it's lazy + no proxy race) ----
@@ -292,11 +354,13 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     })
 
     # ---- Where (hotspots): top camera lines by RAI · reserves by catch rate ----
-    .hbar <- function(d, xcol, lab, xtitle, fill) {            # horizontal ranked bar, top 15
+    .hbar_prep <- function(d, xcol) {                          # filter >0, top 15, factor labels (best on top)
       d <- d[is.finite(d[[xcol]]) & d[[xcol]] > 0, , drop = FALSE]
-      validate(need(nrow(d), paste0("No ", lab, " for this species in the selection.")))
+      if (!nrow(d)) return(d)
       d <- utils::head(d[order(-d[[xcol]]), , drop = FALSE], 15)
-      d$.lab <- factor(d$.lab, levels = rev(d$.lab))
+      d$.lab <- factor(d$.lab, levels = rev(d$.lab)); d
+    }
+    .hbar_plot <- function(d, xcol, lab, xtitle, fill) {
       ggplot2::ggplot(d, ggplot2::aes(.data[[xcol]], .data$.lab)) +
         ggplot2::geom_col(fill = fill, width = 0.72) +
         ggplot2::labs(x = xtitle, y = NULL, title = lab) +
@@ -309,17 +373,60 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
            trap = if (spec$trapped) tryCatch(ik_trap_rate(ik_data, selection(), taxa, level = "reserve")$summary, error = function(e) NULL) else NULL)
     }) |> bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
 
+    where_cam_plotted <- reactiveVal(NULL); where_trap_plotted <- reactiveVal(NULL)
     output$where_cam <- renderPlot({
       d <- where()$cam; validate(need(!is.null(d) && nrow(d), "No camera activity for this species in the selection."))
       d$.lab <- ifelse(is.na(d$line), "(unlined)", sprintf("%s · %s", d$reserve, d$line))
-      .hbar(d, "metric", "Camera activity by line (RAI)", sprintf("RAI / %s ch", format(per_cam, big.mark = ",")), "#1f78b4")
+      d <- .hbar_prep(d, "metric"); validate(need(nrow(d), "No camera activity for this species in the selection."))
+      where_cam_plotted(d)
+      .hbar_plot(d, "metric", "Camera activity by line (RAI)", sprintf("RAI / %s ch", format(per_cam, big.mark = ",")), "#1f78b4")
     }, bg = "transparent")
 
     output$where_trap <- renderPlot({
       d <- where()$trap; validate(need(!is.null(d) && nrow(d), "No catches for this species in the selection."))
       d <- d[d$reserve != "Combined", , drop = FALSE]; d$.lab <- d$reserve
-      .hbar(d, "metric", "Catch rate by reserve", sprintf("catches / %s TN", format(nt, big.mark = ",")), "#6a3d9a")
+      d <- .hbar_prep(d, "metric"); validate(need(nrow(d), "No catches for this species in the selection."))
+      where_trap_plotted(d)
+      .hbar_plot(d, "metric", "Catch rate by reserve", sprintf("catches / %s TN", format(nt, big.mark = ",")), "#6a3d9a")
     }, bg = "transparent")
+
+    # Where drills: click a bar → the camera detections on that line / the catches in that reserve.
+    where_cam_recs <- reactiveVal(NULL); where_trap_recs <- reactiveVal(NULL)
+    .where_recs_df <- function(d)
+      data.frame(When = .ik_when_label(d$when), Species = ik_species_label(d$scientificName, ik_data, prefer()),
+        Count = d$count, Reserve = d$reserve, Line = ifelse(is.na(d$line), "—", d$line), Location = d$locationName,
+        .when_sort = as.numeric(d$when), check.names = FALSE, stringsAsFactors = FALSE)
+    where_cam_open  <- .make_drill("where_cam",  where_cam_recs,  .where_recs_df)
+    where_trap_open <- .make_drill("where_trap", where_trap_recs, .where_recs_df)
+    .where_bar <- function(plotted, click) {                  # clicked bar's source row, or NULL
+      d <- plotted(); if (is.null(d) || is.null(click) || is.null(click$y)) return(NULL)
+      k <- round(click$y); lv <- levels(d$.lab); if (k < 1 || k > length(lv)) return(NULL)
+      d[as.character(d$.lab) == lv[k], , drop = FALSE][1, , drop = FALSE]
+    }
+    observeEvent(input$where_cam_click, {
+      row <- .where_bar(where_cam_plotted, input$where_cam_click); if (is.null(row)) return()
+      o <- tryCatch(ik_metric_obs(ik_data, selection(), taxa, spec$label, source_type = "camera"), error = function(e) NULL)
+      if (is.null(o) || !nrow(o)) return()
+      keep <- !is.na(o$reserve) & o$reserve == row$reserve &
+        (if (is.na(row$line)) is.na(o$line) else (!is.na(o$line) & o$line == row$line))
+      r <- o[keep, , drop = FALSE]; if (!nrow(r)) return()
+      where_cam_recs(r[order(r$when, decreasing = TRUE), , drop = FALSE])
+      where_cam_open(sprintf("%s — %s", spec$label,
+          if (is.na(row$line)) sprintf("%s · (unlined)", row$reserve) else as.character(row$.lab)),
+        "Camera detections on this line",
+        tagList("Every camera detection on this line in the selection — the records behind its RAI. ",
+                tags$b("Click a row"), " for the full record."))
+    })
+    observeEvent(input$where_trap_click, {
+      row <- .where_bar(where_trap_plotted, input$where_trap_click); if (is.null(row)) return()
+      o <- tryCatch(ik_metric_obs(ik_data, selection(), taxa, spec$label, source_type = "trap"), error = function(e) NULL)
+      if (is.null(o) || !nrow(o)) return()
+      r <- o[!is.na(o$reserve) & o$reserve == row$reserve, , drop = FALSE]; if (!nrow(r)) return()
+      where_trap_recs(r[order(r$when, decreasing = TRUE), , drop = FALSE])
+      where_trap_open(sprintf("%s — %s", spec$label, row$reserve), "Catches in this reserve",
+        tagList("Every capture in this reserve in the selection — the records behind its catch rate. ",
+                tags$b("Click a row"), " for the full record."))
+    })
 
     # ---- Behaviour (camera): time-of-day histogram + effort-normalised diel ----
     cam_events <- reactive({ req(active(), spec$camera); ik_species_camera_events(ik_data, taxa, selection()) }) |>
@@ -394,7 +501,6 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     # ---- Diel drill: click a period (bar segment or legend) → its records with the sun boundaries
     #      used to classify each one, so a class can be checked by eye → click a row for the record ----
     diel_pick <- reactiveVal(NULL)            # the clicked diel period
-    diel_obs  <- reactiveVal(NULL)            # observationID shown in Record Details
     DIEL_DEF  <- c(Matutinal = "civil dawn → sunrise", Diurnal = "sunrise → sunset",
                    Vespertine = "sunset → civil dusk", Nocturnal = "civil dusk → civil dawn")
     diel_recs_df <- reactive({
@@ -405,59 +511,23 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       if (!nrow(d)) return(NULL)
       d[order(d$when, decreasing = TRUE), , drop = FALSE]
     })
-
-    observeEvent(input$diel_pick, {
-      p <- input$diel_pick; if (is.null(p) || !nzchar(p)) return()
-      diel_pick(p); diel_obs(NULL)
-      showModal(modalDialog(
-        title = .ik_modal_title(sprintf("%s — %s records", spec$label, p),
-                  sprintf("Diel period: %s", if (p %in% names(DIEL_DEF)) DIEL_DEF[[p]] else p)),
-        size = "l", easyClose = TRUE, footer = modalButton("Close"),
-        tabsetPanel(id = session$ns("diel_tabs"),
-          tabPanel("Records summary", icon = icon("table-list"),
-            tags$p(class = "ik-species-hint",
-              "Every detection classified ", tags$b(tolower(p)), ". Sun times are for each detection's ",
-              "own date & reserve — check its time against them to verify the class. ",
-              tags$b("Click a row"), " for the full record."),
-            DT::DTOutput(session$ns("diel_recs"))),
-          tabPanel("Record Details", icon = icon("magnifying-glass"),
-            uiOutput(session$ns("diel_obs_ui"))))
-      ))
-    })
-
-    output$diel_recs <- DT::renderDT({
-      d <- diel_recs_df()
-      validate(need(!is.null(d) && nrow(d), "No records in this diel period for the selection."))
+    diel_open <- .make_drill("diel", diel_recs_df, function(d) {
       hm <- function(t) ifelse(is.na(t), "—", format(t, "%H:%M"))
-      df <- data.frame(
-        When = .ik_when_label(d$when), Class = d$diel,
+      data.frame(When = .ik_when_label(d$when), Class = d$diel,
         `Civil dawn` = hm(d$civil_dawn), Sunrise = hm(d$sunrise),
         Sunset = hm(d$sunset), `Civil dusk` = hm(d$civil_dusk),
         Reserve = d$reserve, Location = d$location,
         .when_sort = as.numeric(d$when), check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 15, scrollX = TRUE, dom = "ftip", order = list(list(0, "desc")),
-                       columnDefs = .ik_dt_when_defs(df, "When")))
     })
-
-    observeEvent(input$diel_recs_rows_selected, {
-      i <- input$diel_recs_rows_selected; d <- diel_recs_df()
-      if (length(i) && !is.null(d) && i <= nrow(d)) {
-        diel_obs(d$observationID[i]); updateTabsetPanel(session, "diel_tabs", selected = "Record Details")
-      }
-      DT::selectRows(DT::dataTableProxy("diel_recs"), NULL)     # clear → same row re-clickable
+    observeEvent(input$diel_pick, {
+      p <- input$diel_pick; if (is.null(p) || !nzchar(p)) return()
+      diel_pick(p)
+      diel_open(sprintf("%s — %s records", spec$label, p),
+        sprintf("Diel period: %s", if (p %in% names(DIEL_DEF)) DIEL_DEF[[p]] else p),
+        tagList("Every detection classified ", tags$b(tolower(p)), ". Sun times are for each detection's ",
+                "own date & reserve — check its time against them to verify the class. ",
+                tags$b("Click a row"), " for the full record."))
     })
-
-    output$diel_obs_ui <- renderUI({
-      if (is.null(diel_obs()))
-        return(tags$p(class = "ik-species-hint", "Click a record in the Records summary tab to see it here."))
-      ob <- ik_observation(ik_data, diel_obs()); if (is.null(ob)) return(tags$p("Record not found."))
-      prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      tagList(.ik_tab_back(session$ns("diel_back"), "diel_tabs", "Records summary", "Back to records"),
-              .ovw_title(ik_data, ob, prefer),
-              .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("diel_rec_subtabs")))
-    })
-    observeEvent(input$diel_back, updateTabsetPanel(session, input$diel_back$tabset, selected = input$diel_back$to))
 
     # ---- Bait (trapped species): which baits catch it best ----
     # honours the sidebar period + reserve (bait recipes are network-wide, but a reserve scopes them)
@@ -467,11 +537,13 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                  reserve = .ik_nz(selection()$reserve)), error = function(e) NULL)
     }) |> bindCache(spec$key, input$bait_group, selection()$season, selection()$reserve, ik_active_datasets())
 
+    bait_plotted <- reactiveVal(NULL)
     output$bait <- renderPlot({
       grp <- input$bait_group %||% "recipe"
       d <- bait_data()
       validate(need(!is.null(d) && nrow(d), "Not enough baited captures of this species to compare baits."))
       d <- utils::head(d[order(-d$rate), , drop = FALSE], 15); d$bait <- factor(d$bait, levels = rev(d$bait))
+      bait_plotted(d)
       lab  <- sprintf("  %.2f  (%s caught · %s trap-days)", d$rate,
                       format(d$captures, big.mark = ","), format(round(d$trap_days), big.mark = ","))
       unit <- if (identical(grp, "ingredient")) "ingredients" else "recipes"
@@ -486,6 +558,24 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
         ggplot2::theme(panel.grid.major.y = ggplot2::element_blank(),
                        plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
     }, bg = "transparent")
+
+    # Bait drill: click a bar → the individual captures credited to that bait.
+    bait_recs <- reactiveVal(NULL)
+    bait_open <- .make_drill("bait", bait_recs, function(d)
+      data.frame(When = .ik_when_label(d$check_date), Trap = d$trap, Species = d$species,
+        .when_sort = as.numeric(d$check_date), check.names = FALSE, stringsAsFactors = FALSE))
+    observeEvent(input$bait_click, {
+      d <- bait_plotted(); cl <- input$bait_click
+      if (is.null(d) || is.null(cl) || is.null(cl$y)) return()
+      k <- round(cl$y); lv <- levels(d$bait); if (k < 1 || k > length(lv)) return()
+      caps <- tryCatch(ik_bait_captures(ik_data, lv[k], seasons = .ik_nz(selection()$season), species = spec$sci,
+        group = input$bait_group %||% "recipe", reserve = .ik_nz(selection()$reserve)), error = function(e) NULL)
+      if (is.null(caps) || !nrow(caps)) return()
+      bait_recs(caps[order(caps$check_date, decreasing = TRUE), , drop = FALSE])
+      bait_open(sprintf("%s — %s", spec$label, lv[k]), "Captures on this bait",
+        tagList("Every capture credited to this bait in the selection. ", tags$b("Click a row"),
+                " for the full record."))
+    })
 
     # ---- Co-occurrence (predator/protected): time to the nearest opposing-role detection ----
     opp_role <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
@@ -508,5 +598,26 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
         ik_ggtheme(is_dark()) +
         ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
     }, bg = "transparent")
+
+    # Co-occurrence drill: click a gap bucket → the co-detections in it (the anchor detection + its
+    # nearest opposing-role detection). Each row → the anchor record.
+    cooc_recs <- reactiveVal(NULL)
+    cooc_open <- .make_drill("cooc", cooc_recs, function(d)
+      data.frame(When = .ik_when_label(d$when), Species = ik_species_label(d$scientificName, ik_data, prefer()),
+        `Gap (h)` = round(d$gap_h, 1), `Nearest predator` = ik_species_label(d$pred_sci, ik_data, prefer()),
+        `Predator at` = .ik_when_label(d$pred_when),
+        .when_sort = as.numeric(d$when), check.names = FALSE, stringsAsFactors = FALSE))
+    observeEvent(input$cooc_click, {
+      g <- cooc_gaps(); cl <- input$cooc_click
+      if (is.null(g) || !nrow(g) || is.null(cl) || is.null(cl$x)) return()
+      k <- round(cl$x); if (k < 1 || k > length(GAP_LABELS)) return()
+      lab    <- GAP_LABELS[k]
+      bucket <- cut(g$gap_h, breaks = GAP_BREAKS, labels = GAP_LABELS, right = FALSE, include.lowest = TRUE)
+      r <- g[!is.na(bucket) & as.character(bucket) == lab, , drop = FALSE]; if (!nrow(r)) return()
+      cooc_recs(r[order(r$when, decreasing = TRUE), , drop = FALSE])
+      cooc_open(sprintf("%s — co-detections %s away", spec$label, lab),
+        sprintf("Each detection and its nearest %s at the same camera", opp_role),
+        tagList("The pairs in this time bucket. ", tags$b("Click a row"), " for the full record."))
+    })
   })
 }
