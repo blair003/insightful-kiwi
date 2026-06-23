@@ -497,11 +497,16 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         label = sprintf("%s — no records", d$name), options = leaflet::pathOptions(pane = "zeros"))
     })
 
-    observe({                                                   # Boundary
+    observe({                                                   # Boundary — names the reserve on hover of the line
       p <- proxy(); leaflet::clearGroup(p, "Boundary")
       h <- ik_selection_hulls(frame_pts(), "reserve"); if (is.null(h) || !nrow(h)) return()
-      leaflet::addPolygons(p, data = h, group = "Boundary", fill = FALSE,
-        color = if (is_dark()) "#9ccc65" else "#2e7d32", weight = 2, dashArray = "5,5", options = leaflet::pathOptions(pane = "boundary"))
+      # Outline only (fill = FALSE), so the reserve label fires only when you hover the dashed line —
+      # not the interior gaps between markers (same behaviour as the Coverage map).
+      leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
+        labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
+        highlightOptions = leaflet::highlightOptions(weight = 3.5, color = "#1565c0", bringToFront = TRUE),
+        fill = FALSE, color = if (is_dark()) "#9ccc65" else "#2e7d32", weight = 2, dashArray = "5,5",
+        options = leaflet::pathOptions(pane = "boundary"))
     })
 
     observe({                                                   # Activity heatmap (default off)
