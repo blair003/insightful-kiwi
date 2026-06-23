@@ -20,14 +20,20 @@ server <- function(input, output, session) {
   ds_labels <- vapply(ik_data$datasets, function(d) d$meta$name %||% "", character(1))
   active_datasets <- reactiveVal(ds_ids)
   session$userData$active_datasets <- active_datasets
-  observeEvent(input$active_datasets, active_datasets(input$active_datasets))
+  # DEFERRED: apply the dataset selection only on "Save & refresh", not on each checkbox toggle, so
+  # the heavy analysis views recompute once on demand. Empty selection (all unticked) is ignored —
+  # at least one dataset always stays on. Single-dataset projects have no toggle (shown disabled).
+  observeEvent(input$apply_datasets, {
+    sel <- input$active_datasets
+    if (length(sel)) { active_datasets(sel); removeModal() }
+  })
 
   # Settings modal — opened from the navbar gear icon (see ui.R).
   # Dialog is built by settings_modal() in R/functions/settings_modal.R.
   observeEvent(input$settings_btn, {
     showModal(settings_modal(
       prefer_scientific = prefer_scientific(),
-      datasets = if (length(ds_ids) > 1) stats::setNames(ds_ids, ds_labels) else NULL,
+      datasets = stats::setNames(ds_ids, ds_labels),   # always shown (single → disabled, can't unselect)
       active   = active_datasets()))
   })
 
