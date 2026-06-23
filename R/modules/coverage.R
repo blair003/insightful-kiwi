@@ -249,6 +249,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       if (is.null(d) || !nrow(d)) return()
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Catches",
         radius = .radius(d$captures, 6, 22), fillColor = "#6a3d9a", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1,
+        label = sprintf("%s — %s caught: %d", d$name, pred_lab(), as.integer(d$captures)),
         popup = ~sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>%s caught: %d</b><br/>Trap-days: %s",
                          name, ifelse(is.na(line), "—", line), reserve, pred_lab(), as.integer(captures), format(round(trap_days), big.mark = ",")),
         options = leaflet::pathOptions(pane = "catches"))
@@ -261,6 +262,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       # dots without hiding them — green fill shows through a red ring where both are present.
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Predators",
         radius = .radius(d$metric, 6, 22) + 2, fill = FALSE, stroke = TRUE, color = "#c62828", weight = 2.5, opacity = 0.95,
+        label = sprintf("%s — %s %.2f / %s ch · %d detections", d$name, pred_lab(), d$metric,
+                        format(per_cam, big.mark = ","), as.integer(d$individuals)),
         popup = ~sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>%s: %.2f</b> / %s ch<br/>%d detections",
                          name, ifelse(is.na(line), "—", line), reserve, pred_lab(), metric, format(per_cam, big.mark = ","), as.integer(individuals)),
         options = leaflet::pathOptions(pane = "predators"))
@@ -271,6 +274,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       if (is.null(d) || !nrow(d)) return()
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Protected",
         radius = .radius(d$metric, 7, 24), fillColor = "#2e7d32", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1.5,
+        label = sprintf("%s — %s %.2f / %s ch · %d detections", d$name, prot_lab(), d$metric,
+                        format(per_cam, big.mark = ","), as.integer(d$individuals)),
         popup = ~sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>%s: %.2f</b> / %s ch<br/>%d detections",
                          name, ifelse(is.na(line), "—", line), reserve, prot_lab(), metric, format(per_cam, big.mark = ","), as.integer(individuals)),
         options = leaflet::pathOptions(pane = "protected"))

@@ -13,6 +13,20 @@ $(document).on('shown.bs.tab', function () {
         var m  = (w && w.getMap) ? w.getMap() : null;
         if (!m) return;
         m.invalidateSize();
+        // Hit-area "slop": the canvas renderer adds its `tolerance` (px) to every layer's hover/click
+        // target, so a marker is grabbable a few px beyond its drawn edge — easier to hover/click
+        // without changing how it looks. Set once per map (existing + future-added layers).
+        if (!m._ikTol) {
+          m._ikTol = true;
+          var TOL = 8;
+          var setTol = function (l) {
+            if (l && l._renderer && l._renderer.options && (l._renderer.options.tolerance || 0) < TOL) {
+              l._renderer.options.tolerance = TOL;
+            }
+          };
+          m.eachLayer(setTol);
+          m.on('layeradd', function (e) { setTol(e.layer); });
+        }
         if (m.getZoom() > 4) return;                       // already fitted / user-zoomed — don't disturb
         var b = L.latLngBounds([]);
         m.eachLayer(function (l) {

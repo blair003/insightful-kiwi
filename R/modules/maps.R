@@ -388,7 +388,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
       m <- leaflet::addProviderTiles(m, canvas, group = "Map")
       m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("surface", "heat", "zeros", "points", "boundary", "selected")
+      # Boundary sits ABOVE the surface fill but BELOW every marker layer, so markers always win
+      # the hover/click (a boundary on top would steal a marker's tooltip — see the Coverage map).
+      pns <- c("surface", "boundary", "heat", "zeros", "points", "selected")
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 400 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
         overlayGroups = c("Surface", "Points", "No records", "Boundary", "Activity"),
