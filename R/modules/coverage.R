@@ -393,32 +393,38 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     }, ignoreNULL = FALSE)
 
     # Click a gaps row → the traps reaching that line, in a modal (status · checks · trap-days · caught).
+    # The table is a DTOutput rendered server-side (NOT a static DT in the modal body — a freshly-shown
+    # modal initialises an htmlwidget while it's still hidden, so a static table renders blank).
+    gaps_drill <- reactiveVal(NULL)                           # the clicked line's neighbourhood traps
     observeEvent(input$gaps_rows_selected, {
       i <- input$gaps_rows_selected; g <- gaps_shown(); req(i, !is.null(g), i <= nrow(g))
       DT::selectRows(gaps_dt_proxy, NULL)                     # clear so the same row can be re-clicked
       row <- g[i, , drop = FALSE]
-      d <- .line_traps(row$reserve, row$line)
+      d <- .line_traps(row$reserve, row$line); gaps_drill(d)
       rad <- as.numeric(input$radius %||% 500)
       rad_lab <- if (rad >= 1000) sprintf("%g km", rad / 1000) else sprintf("%g m", rad)
       body <- if (is.null(d) || !nrow(d))
         tags$p(class = "ik-spp-other", "No traps within this radius of the line's cameras.")
-      else {
-        st_lab <- c(good = "Good", watch = "Watch", neglected = "Neglected",
-                    insufficient_data = "Insufficient data", dormant = "Dormant", historic = "Historic")
-        d <- d[order(match(d$status, c("neglected", "watch", "good", "insufficient_data", "dormant", "historic"))), , drop = FALSE]
-        tbl <- data.frame(Trap = d$name, Line = ifelse(is.na(d$line), "—", d$line),
-          Status = ifelse(is.na(d$status), "—", st_lab[d$status] %||% d$status),
-          Checks = ifelse(is.na(d$n_checks), 0L, as.integer(d$n_checks)),
-          `Trap-days` = ifelse(is.na(d$trap_days), 0, round(d$trap_days)),
-          Caught = as.integer(d$captures), check.names = FALSE, stringsAsFactors = FALSE)
-        DT::datatable(tbl, rownames = FALSE, class = "stripe hover row-border",
-          options = list(dom = "tp", pageLength = 15, order = list(list(5, "desc"))))
-      }
+      else DT::DTOutput(session$ns("gaps_drill_table"))
       showModal(modalDialog(
         title = .ik_modal_title(sprintf("Line %s · %s", row$line, row$reserve),
                                 sprintf("%d trap%s within %s of the line's cameras", if (is.null(d)) 0L else nrow(d),
                                         if (!is.null(d) && nrow(d) == 1) "" else "s", rad_lab)),
         size = "l", easyClose = TRUE, footer = modalButton("Close"), body))
+    })
+
+    output$gaps_drill_table <- DT::renderDT({
+      d <- gaps_drill(); req(!is.null(d) && nrow(d))
+      st_lab <- c(good = "Good", watch = "Watch", neglected = "Neglected",
+                  insufficient_data = "Insufficient data", dormant = "Dormant", historic = "Historic")
+      d <- d[order(match(d$status, c("neglected", "watch", "good", "insufficient_data", "dormant", "historic"))), , drop = FALSE]
+      tbl <- data.frame(Trap = d$name, Line = ifelse(is.na(d$line), "—", d$line),
+        Status = ifelse(is.na(d$status), "—", unname(st_lab[d$status])),
+        Checks = ifelse(is.na(d$n_checks), 0L, as.integer(d$n_checks)),
+        `Trap-days` = ifelse(is.na(d$trap_days), 0, round(d$trap_days)),
+        Caught = as.integer(d$captures), check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(tbl, rownames = FALSE, class = "stripe hover row-border",
+        options = list(dom = "tp", pageLength = 15, order = list(list(5, "desc"))))
     })
 
     # ---- per-reserve network density (structural coverage — is it dense enough?) ----
