@@ -82,6 +82,7 @@ server <- function(input, output, session) {
   bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific,
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
+  trapping_effectiveness_server("trapping_eff", ik_data, prefer_scientific, color_mode = cm)
 
   # Auto-hide the sidebar on views that have no sidebar controls — only Overview and Records
   # populate it; every other view keeps its controls in-page, so an empty rail is just clutter.

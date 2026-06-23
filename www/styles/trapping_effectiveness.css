@@ -1,0 +1,15 @@
+/* trapping_effectiveness.css — the Trapping effectiveness analysis (Trapping menu). */
+
+.ik-teff { padding-top: 0.25rem; }
+.ik-teff-titlebar { display: flex; align-items: center; gap: 0.4rem; }
+.ik-teff-title { margin-bottom: 0.25rem; }
+/* roomier, scrollable help modal so the tabbed walkthrough is comfortable to read */
+.ik-info-modal .modal-body { max-height: 70vh; overflow-y: auto; }
+.ik-info-modal .nav-tabs { margin-bottom: 0.75rem; }
+.ik-teff-lead { color: var(--bs-secondary-color, #6c757d); max-width: 64rem; margin-bottom: 0.7rem; }
+
+.teff-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 0.4rem; }
+.teff-controls .form-group,
+.teff-controls .shiny-input-container { margin-bottom: 0; }
+
+.teff-note { color: var(--bs-secondary-color, #6c757d); font-size: 0.82rem; max-width: 64rem; margin-bottom: 0.5rem; }

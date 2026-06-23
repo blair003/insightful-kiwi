@@ -46,13 +46,15 @@ TRAP_WATCH_INTERVAL_DAYS   <- 56   # ≤ this → watch; above → neglected
 #' checks. Computed at build and frozen on `meta$trapping$health` so the buckets recalibrate only
 #' on re-import, not as the viewed period changes. @return list(good_max, watch_max, percentiles,
 #' n_traps, median) or NULL when there are no trap checks.
-ik_trap_health_thresholds <- function(ik_data, percentiles = c(good = 0.5, watch = 0.9), dataset = NULL) {
+ik_trap_health_thresholds <- function(ik_data, percentiles = c(good = 0.5, watch = 0.9),
+                                      dataset = NULL, reserve = NULL, min_n = 10L) {
   dp <- ik_deployment_period(ik_data, dataset = dataset)        # one dataset, or all when NULL
   tr <- dp[!is.na(dp$source_type) & dp$source_type == "trap", , drop = FALSE]
+  if (!is.null(reserve)) tr <- tr[!is.na(tr$reserve) & tr$reserve %in% reserve, , drop = FALSE]
   if (!nrow(tr)) return(NULL)
   mi <- .trap_mean_intervals(tr)
   mi <- mi[is.finite(mi) & mi > 0]
-  if (!length(mi)) return(NULL)
+  if (length(mi) < min_n) return(NULL)                          # too few traps to calibrate → caller falls back
   q <- stats::quantile(mi, probs = percentiles, names = FALSE, na.rm = TRUE)
   list(good_max = unname(q[1]), watch_max = unname(q[2]), percentiles = percentiles,
        n_traps = length(mi), median = stats::median(mi))
@@ -65,19 +67,28 @@ ik_trap_health_thresholds <- function(ik_data, percentiles = c(good = 0.5, watch
 #' tighter), `ceiling` lowers the watch cutoff (a gap longer than this is always neglected, even
 #' if the project is sluggish). Keeps the relative buckets meaningful in an unusually good or bad
 #' project. @return ordered factor.
-ik_trap_health <- function(mean_interval_days, ik_data, dataset = NULL) {
+ik_trap_health <- function(mean_interval_days, ik_data, dataset = NULL, reserve = NULL) {
   h   <- ik_data$meta$trapping$health %||% list()
   hbd <- ik_data$meta$trapping$health_by_dataset
+  hbr <- ik_data$meta$trapping$health_by_reserve
   gm0 <- h$good_max  %||% TRAP_GOOD_INTERVAL_DAYS
   wm0 <- h$watch_max %||% TRAP_WATCH_INTERVAL_DAYS
   # Per-dataset cutoffs when a dataset is given (each trap judged by its OWN check-rate spread),
-  # falling back to the global figure. `dataset` may be a vector aligned to mean_interval_days.
+  # falling back to the global figure. `dataset`/`reserve` may be vectors aligned to mean_interval_days.
   if (is.null(dataset) || is.null(hbd)) {
-    gm <- gm0; wm <- wm0
+    gm <- rep(gm0, length(mean_interval_days)); wm <- rep(wm0, length(mean_interval_days))
   } else {
     pick <- function(ds, key, dflt) if (is.na(ds)) dflt else hbd[[ds]][[key]] %||% dflt
     gm <- vapply(dataset, pick, numeric(1), key = "good_max",  dflt = gm0)
     wm <- vapply(dataset, pick, numeric(1), key = "watch_max", dflt = wm0)
+  }
+  # Per-RESERVE override where calibrated: reserves differ in size / access / teams, so each is judged
+  # against its OWN cadence spread. A thin (uncalibrated) reserve keeps the dataset/global figure above.
+  if (!is.null(reserve) && !is.null(hbr)) {
+    rpick <- function(r, key) if (!is.na(r) && !is.null(hbr[[r]])) hbr[[r]][[key]] %||% NA_real_ else NA_real_
+    rg <- vapply(reserve, rpick, numeric(1), key = "good_max")
+    rw <- vapply(reserve, rpick, numeric(1), key = "watch_max")
+    gm <- ifelse(is.na(rg), gm, rg); wm <- ifelse(is.na(rw), wm, rw)
   }
   if (!is.null(h$floor))   gm <- pmax(gm, h$floor)             # never call a well-checked trap "watch"
   if (!is.null(h$ceiling)) wm <- pmin(wm, h$ceiling)           # never call a long-gap trap "good/watch"
@@ -91,15 +102,24 @@ ik_trap_health <- function(mean_interval_days, ik_data, dataset = NULL) {
 #' given datasets (default = the session's active datasets), keeping the project's shared
 #' percentiles + floor/ceiling. A multi-dataset view shows a blended cutoff while each trap stays
 #' coloured by its OWN dataset (ik_trap_health). Falls back to the global thresholds. @keywords internal
-ik_trap_health_cutoffs <- function(ik_data, datasets = NULL) {
+ik_trap_health_cutoffs <- function(ik_data, reserves = NULL, datasets = NULL) {
   base <- ik_data$meta$trapping$health %||% list()
+  avg  <- function(hs) utils::modifyList(base, list(
+    good_max  = mean(vapply(hs, function(h) h$good_max  %||% NA_real_, numeric(1)), na.rm = TRUE),
+    watch_max = mean(vapply(hs, function(h) h$watch_max %||% NA_real_, numeric(1)), na.rm = TRUE)))
+  # Prefer the RESERVE-level cutoffs for the reserves in view (so the legend follows the reserve
+  # filter); a reserve with no own calibration just isn't in this average.
+  hbr <- ik_data$meta$trapping$health_by_reserve
+  if (!is.null(reserves) && !is.null(hbr)) {
+    hs <- Filter(Negate(is.null), hbr[intersect(reserves, names(hbr))])
+    if (length(hs)) { out <- avg(hs); if (is.finite(out$good_max) && is.finite(out$watch_max)) return(out) }
+  }
+  # else fall back to the per-dataset average (the previous behaviour).
   hbd  <- ik_data$meta$trapping$health_by_dataset
   ids  <- datasets %||% ik_active_datasets() %||% names(hbd)
   hs   <- Filter(Negate(is.null), hbd[intersect(ids, names(hbd))])
   if (!length(hs)) return(base)
-  gm <- mean(vapply(hs, function(h) h$good_max  %||% NA_real_, numeric(1)), na.rm = TRUE)
-  wm <- mean(vapply(hs, function(h) h$watch_max %||% NA_real_, numeric(1)), na.rm = TRUE)
-  utils::modifyList(base, list(good_max = gm, watch_max = wm))
+  avg(hs)
 }
 
 #' The latest trap season with a near-full data envelope (≥ `min_days` of ~90), so a current
@@ -200,7 +220,7 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   names(per)[names(per) == "locationID"] <- "location"
   # cadence health, or "insufficient_data" when too few checks in the period to judge a cadence
   per$status <- ifelse(per$n_checks >= min_checks,
-                       as.character(ik_trap_health(per$mean_interval_days, ik_data, dataset = per$dataset)),
+                       as.character(ik_trap_health(per$mean_interval_days, ik_data, dataset = per$dataset, reserve = per$reserve)),
                        "insufficient_data")
 
   # existed-but-unchecked-this-period traps → start as neglected (tiered to dormant/historic below)
@@ -253,7 +273,7 @@ ik_trap_review_lines <- function(per, ik_data) {
     mean_interval_days = mean(.data$mean_interval_days[!.data$status %in% c("dormant", "historic")], na.rm = TRUE),
     .groups = "drop")
   out$mean_interval_days[is.nan(out$mean_interval_days)] <- NA_real_
-  out$status <- as.character(ik_trap_health(out$mean_interval_days, ik_data, dataset = out$dataset))
+  out$status <- as.character(ik_trap_health(out$mean_interval_days, ik_data, dataset = out$dataset, reserve = out$reserve))
   out$status[is.na(out$mean_interval_days)] <- "dormant"      # a line with only dormant/historic traps
   out[order(out$reserve, suppressWarnings(as.numeric(out$line)), out$line), , drop = FALSE]
 }
@@ -357,4 +377,82 @@ ik_trap_checks <- function(ik_data, location, seasons = NULL) {
     rebaited      = vapply(obs$observationTags[oi], .ovw_tag, character(1), key = "bait_change"),  # raw flag
     volunteer     = vapply(obs$observationTags[oi], .ovw_tag, character(1), key = "volunteer"),
     stringsAsFactors = FALSE)
+}
+
+#' Trapping EFFECTIVENESS — catch rate by check cadence, within austral season.
+#'
+#' Tests whether checking more often actually catches more PER trap-night, holding the big confound
+#' (season) constant. For every trap × calendar season: captures of `taxa`, the mean check interval
+#' (cadence), nominal trap-nights, and OPERATIONAL trap-nights. Traps are banded by cadence; the
+#' catch rate (per `norm` trap-nights) is pooled across YEARS within each austral season (Summer/
+#' Autumn/Winter/Spring) — pooling lifts sample size and holds season-of-year fixed.
+#'
+#' basis:
+#'  - "nominal": every check interval counts in full. This is the metric that demonstrates the
+#'    "effort is more than trap-nights" idea — a trap left sprung/empty between sparse checks still
+#'    accrues trap-nights but no catches, so poor servicing reads as a low rate.
+#'  - "operational": an interval ENDING in a catch or sprung event is credited at HALF (the trap sat
+#'    non-operational for the unknown remainder of the window — a Nelson–Clark-style expected-value
+#'    correction; catch timing within a check window is unknowable here). Correcting for availability
+#'    should FLATTEN the cadence gradient if sprung/dead time is what drives it — i.e. it explains a
+#'    nominal effect rather than restating it.
+#'
+#' @param ik_data The container. @param taxa scientificNames to count (NULL = all caught species).
+#' @param reserve Optional reserve filter.
+#' @param bands Cadence cut points in days (default 7/14/30 → ≤7d · 7–14d · 14–30d · >30d).
+#' @return tidy data.frame in LONG form — a Nominal AND an Operational row per cell (so both can be
+#'   drawn together): season (ordered factor) · band (ordered factor) · n_traps · basis (factor
+#'   Nominal/Operational) · rate. With attr "norm". NULL when there are no trap checks in scope.
+ik_trap_effectiveness <- function(ik_data, taxa = NULL, reserve = NULL, bands = c(7, 14, 30)) {
+  norm  <- ik_data$meta$trapping$rate$norm_trap_days %||% 100
+  dp <- ik_deployment_period(ik_data)
+  dp <- dp[!is.na(dp$source_type) & dp$source_type == "trap" & !is.na(dp$deploymentEnd), , drop = FALSE]
+  if (!is.null(reserve)) dp <- dp[dp$reserve %in% reserve, , drop = FALSE]
+  if (!nrow(dp)) return(NULL)
+
+  obs    <- ik_observations(ik_data, with_location = FALSE)
+  oi     <- match(dp$deploymentID, obs$deploymentID)
+  status <- vapply(obs$observationTags[oi], .ovw_tag, character(1), key = "status")
+  otype  <- obs$observationType[oi]; sci <- obs$scientificName[oi]
+  caught <- !is.na(otype) & otype == "animal" & !is.na(sci) & (is.null(taxa) | sci %in% taxa)
+  event  <- (!is.na(otype) & otype == "animal") | (!is.na(status) & grepl("sprung", status, ignore.case = TRUE))
+  interval_d <- dp$effort_hours / 24
+  oper_d     <- interval_d * ifelse(event, 0.5, 1)   # operational: half-credit an interval ending in a catch/sprung event
+  season_nm  <- sub(" .*", "", dp$check_calendar_season %||% dp$calendar_season)   # austral season name, by check date
+
+  d <- data.frame(loc = dp$locationID, season = season_nm, interval_d = interval_d,
+                  oper_d = oper_d, caught = as.integer(caught), stringsAsFactors = FALSE)
+  d <- d[!is.na(d$season) & nzchar(d$season), , drop = FALSE]
+  if (!nrow(d)) return(NULL)
+
+  per <- dplyr::summarise(dplyr::group_by(d, .data$loc, .data$season),   # per trap × season
+    cadence = sum(.data$interval_d) / dplyr::n(), captures = sum(.data$caught),
+    nominal_d = sum(.data$interval_d), oper_d = sum(.data$oper_d), .groups = "drop")
+  per <- per[per$nominal_d > 0, , drop = FALSE]
+  if (!nrow(per)) return(NULL)
+
+  labs <- c(paste0("≤", bands[1], "d"),
+            if (length(bands) > 1) vapply(seq_len(length(bands) - 1L),
+              function(i) sprintf("%d–%dd", bands[i], bands[i + 1L]), character(1)),
+            paste0(">", bands[length(bands)], "d"))
+  per$band <- cut(per$cadence, breaks = c(0, bands, Inf), labels = labs, include.lowest = TRUE)
+
+  agg <- dplyr::summarise(dplyr::group_by(per, .data$season, .data$band),   # pool years within season×band
+    n_traps = dplyr::n(), captures = sum(.data$captures),
+    nominal_days = sum(.data$nominal_d), oper_days = sum(.data$oper_d), .groups = "drop")
+  # Drop cells with under one normalisation unit of effort — too little to trust a per-`norm` rate
+  # (one lucky catch on a handful of trap-nights would otherwise spike the bar). Same floor as Bait.
+  agg <- agg[!is.na(agg$band) & agg$nominal_days >= norm, , drop = FALSE]
+  if (!nrow(agg)) return(NULL)
+
+  out <- rbind(   # LONG: a Nominal and an Operational row per cell, so the chart can dodge them
+    data.frame(season = agg$season, band = agg$band, n_traps = agg$n_traps, basis = "Nominal",
+               rate = norm * agg$captures / agg$nominal_days, stringsAsFactors = FALSE),
+    data.frame(season = agg$season, band = agg$band, n_traps = agg$n_traps, basis = "Operational",
+               rate = norm * agg$captures / agg$oper_days, stringsAsFactors = FALSE))
+  out$season <- factor(out$season, levels = intersect(c("Summer", "Autumn", "Winter", "Spring"), out$season))
+  out$band   <- factor(out$band, levels = labs)
+  out$basis  <- factor(out$basis, levels = c("Nominal", "Operational"))
+  attr(out, "norm") <- norm
+  out
 }

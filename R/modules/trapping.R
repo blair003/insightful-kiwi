@@ -7,7 +7,7 @@
 trapping_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/trapping.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping.css")),
     div(class = "ik-trapping",
         tags$h5("Trap check-frequency review", class = "ik-review-head"),
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
@@ -48,7 +48,8 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
 
     # Status cell text: cadence "X d" for good/watch/neglected; sparse → check count; else the tier name.
     .iv <- function(status, mean, n) {
-      if (status %in% c("dormant", "historic")) tools::toTitleCase(status)
+      if (is.na(status))                        "—"
+      else if (status %in% c("dormant", "historic")) tools::toTitleCase(status)
       else if (status == "insufficient_data")   sprintf("%d check%s", n, if (identical(n, 1L) || identical(n, 1)) "" else "s")
       else if (is.finite(mean))                 sprintf("%.0f d", mean) else "—"
     }
@@ -99,9 +100,10 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       per <- review()$all                       # counts over ALL traps (so hidden tiers still show a count)
       if (is.null(per)) return(tags$p("No trap checks in this period."))
       st <- table(factor(per$status, c("good", "watch", "neglected", "insufficient_data", "dormant", "historic")))
-      # Legend cutoffs scoped to the dataset(s) actually IN VIEW (a Reserve usually narrows to one
-      # dataset → the legend shows that dataset's exact cadence cutoff, not a blend across all active).
-      h  <- ik_trap_health_cutoffs(ik_data, datasets = unique(per$dataset))
+      # Legend cutoffs scoped to the RESERVE(s) in view — each reserve is calibrated against its own
+      # cadence spread, so filtering to a reserve shows that reserve's exact cutoff (falls back to the
+      # in-view dataset blend when a reserve has no own calibration).
+      h  <- ik_trap_health_cutoffs(ik_data, reserves = unique(per$reserve), datasets = unique(per$dataset))
       gm <- round(max(h$good_max  %||% TRAP_GOOD_INTERVAL_DAYS, h$floor   %||% 0))
       wm <- round(min(h$watch_max %||% TRAP_WATCH_INTERVAL_DAYS, h$ceiling %||% Inf))
       leg <- function(cls, lab, n) tags$span(class = "trap-legend-item",
@@ -135,8 +137,8 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         res_row <- tags$tr(class = "trap-reserve-row", tags$td(lr$reserve[1], colspan = 6))
         rows <- lapply(seq_len(nrow(lr)), function(i) {
           tags$tr(class = "trap-click",
-            onclick = sprintf("Shiny.setInputValue('%s',{line:'%s',reserve:'%s'},{priority:'event'})",
-                              ns("line"), lr$line[i], lr$reserve[i]),
+            onclick = sprintf("Shiny.setInputValue('%s',{line:%s,reserve:%s},{priority:'event'})",
+                              ns("line"), .ik_jsq(lr$line[i]), .ik_jsq(lr$reserve[i])),
             tags$td(class = "trap-loc", lr$line[i]),
             tags$td(.ov_num(lr$n_traps[i])),
             tags$td(.ov_num(lr$checks[i])),
@@ -160,8 +162,8 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
                          tags$th("Last check"), tags$th("Captures"))),
       tags$tbody(lapply(seq_len(nrow(t)), function(i) tags$tr(
         class = "trap-click",
-        onclick = sprintf("Shiny.setInputValue('%s',{location:'%s',name:'%s'},{priority:'event'})",
-                          ns("trap"), t$location[i], t$name[i]),
+        onclick = sprintf("Shiny.setInputValue('%s',{location:%s,name:%s},{priority:'event'})",
+                          ns("trap"), .ik_jsq(t$location[i]), .ik_jsq(t$name[i])),
         tags$td(t$name[i]),
         tags$td(.ov_num(t$n_checks[i])),
         tags$td(class = paste0("trap-cell trap-", t$status[i]), .iv(t$status[i], t$mean_interval_days[i], t$n_checks[i])),
@@ -171,7 +173,9 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     observeEvent(input$line, {
       d   <- input$line
       per <- review()$per
-      t   <- per[per$reserve == d$reserve & per$line == d$line, , drop = FALSE]
+      # NA-safe match: some traps carry no line (NA), and `per$line == d$line` is NA for those,
+      # which would inject all-NA rows into `t` (→ NA status → a crash downstream in .iv).
+      t   <- per[!is.na(per$reserve) & !is.na(per$line) & per$reserve == d$reserve & per$line == d$line, , drop = FALSE]
       t   <- t[order(-t$mean_interval_days), , drop = FALSE]
       sel_trap(NULL); rec_obs(NULL)
       showModal(modalDialog(

@@ -59,6 +59,14 @@ build_ik_data <- function(config, manifest = load_manifest(config),
   ik_data$meta$trapping$health_by_dataset <- stats::setNames(
     lapply(names(ik_data$datasets), function(id) ik_trap_health_thresholds(ik_data, pcts, dataset = id)),
     names(ik_data$datasets))
+  # Per-RESERVE thresholds (within dataset): reserves differ in size / access / volunteer teams, so
+  # each is judged against its OWN check-cadence spread (ik_trap_health), and the legend follows the
+  # reserve filter (ik_trap_health_cutoffs). A thin reserve (< min_n traps) gets a NULL entry and
+  # falls back to the dataset/global baseline. Reserves are distinct across datasets here.
+  .trap_res <- { dpx <- ik_deployment_period(ik_data)
+    sort(unique(stats::na.omit(dpx$reserve[!is.na(dpx$source_type) & dpx$source_type == "trap"]))) }
+  ik_data$meta$trapping$health_by_reserve <- if (length(.trap_res)) stats::setNames(
+    lapply(.trap_res, function(r) ik_trap_health_thresholds(ik_data, pcts, reserve = r)), .trap_res) else NULL
   # Static all-data quality snapshots — precomputed here so they're cached in the RDS, not recomputed
   # (~1.2-1.4s each) at every session's module init, which was blocking the startup / overview load.
   ik_data$app$duplicate_gaps    <- ik_duplicate_gaps(ik_data)     # camera possible-duplicate gaps

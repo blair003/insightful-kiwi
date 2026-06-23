@@ -21,11 +21,11 @@ ui <- page_navbar(
   fillable = FALSE,
 
   header = tags$head(
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/base.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/base.css")),
     tags$link(rel = "icon", href = "images/insightful-kiwi.logo.svg", type = "image/svg+xml"),
     tags$link(rel = "icon", href = "images/icons/favicon.png", type = "image/png", sizes = "32x32"),
     # full-screen sequence viewer for the observation Photos burst (delegated clicks → works in modals)
-    tags$script(src = "js/ovw-lightbox.js")
+    tags$script(src = .ik_asset("js/ovw-lightbox.js"))
   ),
 
   # Global sidebar — filters/controls for the active view.
@@ -96,6 +96,7 @@ ui <- page_navbar(
     nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"),
               trapping_ui("trapping")),
     bait_ui("bait"),                                       # bait effectiveness (trap)
+    trapping_effectiveness_ui("trapping_eff", ik_data),    # catch rate vs cadence, by season
     records_ui("control_records", label = "Records", value = "trapping-records")
   ),
 
@@ -104,7 +105,10 @@ ui <- page_navbar(
     "Insights", icon = icon("chart-line"),
     outcomes_ui("outcomes"),                              # "Are we winning?"
     "Deeper analysis",                                    # section header within the dropdown
-    neighbourhood_ui("neighbourhood", ik_data),
+    # Neighbourhood is camera-ANCHORED (pick a camera site/line/reserve) — useless without camera
+    # data, so hide it then, the same way the Monitoring menu auto-hides. Coverage still degrades
+    # gracefully on trap-only data, so it stays.
+    if (.has_camera) neighbourhood_ui("neighbourhood", ik_data),
     coverage_ui("coverage")
   ),
 
