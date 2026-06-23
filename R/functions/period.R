@@ -178,6 +178,29 @@ ik_season_levels <- function(period_tbl) {
   u$calendar_season[order(u$season_year * 12L + .IK_SEASON_START_MONTH[u$season])]
 }
 
+#' The available calendar seasons with their date windows and completeness — the substrate for the
+#' "quick period" shortcuts (latest / latest full / last 12 months / all-of-a-season). A season is
+#' COMPLETE when its window has fully elapsed within the data: its end ≤ the latest deployment end in
+#' the ACTIVE datasets (so it tracks the data's leading edge, not the wall clock, and the in-progress
+#' season at the edge reads as incomplete). @param ik_data The container. @return data.frame ordered
+#' oldest→newest: calendar_season · season · season_year · start · end (Dates) · complete (logical);
+#' NULL when there's no seasoned data. @keywords internal
+ik_season_calendar <- function(ik_data) {
+  dp <- ik_deployment_period(ik_data)
+  dp <- dp[!is.na(dp$calendar_season), , drop = FALSE]
+  if (!nrow(dp)) return(NULL)
+  u  <- unique(dp[, c("calendar_season", "season", "season_year")])
+  u  <- u[order(u$season_year * 12L + .IK_SEASON_START_MONTH[u$season]), , drop = FALSE]
+  bnds <- lapply(seq_len(nrow(u)), function(i) ik_season_bounds(u$season[i], u$season_year[i]))
+  u$start <- as.Date(vapply(bnds, function(b) as.numeric(b[1]), numeric(1)), origin = "1970-01-01")
+  u$end   <- as.Date(vapply(bnds, function(b) as.numeric(b[2]), numeric(1)), origin = "1970-01-01")
+  tz   <- attr(dp$deploymentEnd, "tzone"); if (is.null(tz) || !nzchar(tz)) tz <- "Pacific/Auckland"
+  maxd <- suppressWarnings(max(as.Date(dp$deploymentEnd, tz = tz), na.rm = TRUE))
+  u$complete <- is.finite(as.numeric(maxd)) & u$end <= maxd
+  rownames(u) <- NULL
+  u
+}
+
 #' The season immediately before `season` in the available, ordered season list.
 #' @param season A `calendar_season` label.
 #' @param ik_data The ik_data container.
@@ -237,7 +260,24 @@ ik_period_choices <- function(ik_data) {
       stats::setNames(paste0("season:", s$calendar_season), s$calendar_season))
   })
   names(groups) <- sprintf("%d/%02d", cycles, (cycles + 1L) %% 100L)   # span label
-  c(list("All data" = "all"), groups)
+
+  # "Quick periods" shortcuts (dynamic, resolved by ik_expand_period): the latest season, the latest
+  # FULL (elapsed) season, the last 12 months (4 complete seasons), and each season pooled across all
+  # its years (with the count). Offered only when the data supports them.
+  sc <- ik_season_calendar(ik_data)
+  quick <- character(0)
+  if (!is.null(sc) && nrow(sc)) {
+    quick["Latest season"] <- "latest"
+    if (any(sc$complete))      quick["Latest full season"] <- "latest_complete"
+    if (sum(sc$complete) >= 4) quick["Latest 12 months"]   <- "rolling12"
+    for (nm in c("Summer", "Autumn", "Winter", "Spring")) {
+      k <- sum(sc$season == nm)
+      if (k >= 2) quick[sprintf("All %ss (%d)", tolower(nm), k)] <- paste0("seasonall:", nm)
+    }
+  }
+  base <- list("All data" = "all")
+  if (length(quick)) base[["Quick periods"]] <- quick
+  c(base, groups)
 }
 
 #' The default Period selection (an `ik_period_choices()` value) for a fresh control: the
@@ -269,6 +309,22 @@ ik_expand_period <- function(value, ik_data) {
     cyc <- .ik_cycle_year(dp$season, dp$season_year)
     return(unique(dp$calendar_season[!is.na(dp$calendar_season) & cyc == cy]))
   }
+  # Quick-period shortcuts (see ik_season_calendar / ik_period_choices).
+  if (value %in% c("latest", "latest_complete", "rolling12")) {
+    sc <- ik_season_calendar(ik_data); if (is.null(sc) || !nrow(sc)) return(NULL)
+    if (identical(value, "latest")) return(sc$calendar_season[nrow(sc)])
+    cc <- sc[sc$complete, , drop = FALSE]
+    if (identical(value, "latest_complete"))                          # latest fully-elapsed, else latest
+      return(if (nrow(cc)) cc$calendar_season[nrow(cc)] else sc$calendar_season[nrow(sc)])
+    pool <- if (nrow(cc)) cc else sc                                  # rolling12: last 4 complete seasons
+    return(utils::tail(pool$calendar_season, 4L))
+  }
+  if (startsWith(value, "seasonall:")) {                              # one season pooled across years
+    nm <- sub("^seasonall:", "", value)
+    sc <- ik_season_calendar(ik_data); if (is.null(sc)) return(NULL)
+    s  <- sc$calendar_season[sc$season == nm]
+    return(if (length(s)) s else NULL)
+  }
   NULL
 }
 
@@ -278,6 +334,13 @@ ik_expand_period <- function(value, ik_data) {
 #' the period is "all". @keywords internal
 ik_prev_period <- function(period, compare, ik_data) {
   if (is.null(period) || !nzchar(period) || identical(period, "all")) return(NA_character_)
+  # single-season shortcuts compare like the concrete season they resolve to; multi-season
+  # shortcuts (rolling12 / seasonall) have no clean "prior" → no comparison.
+  if (period %in% c("latest", "latest_complete")) {
+    s <- ik_expand_period(period, ik_data)
+    if (length(s) != 1L) return(NA_character_)
+    period <- paste0("season:", s)
+  }
   if (startsWith(period, "season:")) {
     s   <- sub("^season:", "", period)
     out <- switch(compare,
