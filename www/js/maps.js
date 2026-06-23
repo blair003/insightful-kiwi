@@ -1,9 +1,28 @@
-// maps.js — Leaflet can't compute its size while its tab is hidden, so when any nav tab
-// becomes visible we fire a window resize event; Leaflet listens for that and calls
-// invalidateSize(), so the Maps tab draws at the correct size on first view. Harmless on
-// other tabs. Paired with suspendWhenHidden = FALSE on the map output (R/modules/maps.R).
+// maps.js — Leaflet can't compute its size while its tab is hidden, so when any nav tab becomes
+// visible we (1) fire a window resize so Leaflet calls invalidateSize() and draws at the right size,
+// and (2) if a map is still stuck zoomed right out — the symptom when fitBounds ran at zero size
+// (e.g. launched from the RStudio runner): it shows the world map until you poke a control — re-fit
+// it to its own layers. The zoom guard means a map already fitted (or one you've zoomed) is left alone.
 $(document).on('shown.bs.tab', function () {
   setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 10);
+  setTimeout(function () {
+    document.querySelectorAll('.html-widget.leaflet, .leaflet-container').forEach(function (el) {
+      try {
+        var id = el.id || (el.closest('.html-widget') || {}).id;
+        var w  = (window.HTMLWidgets && HTMLWidgets.find && id) ? HTMLWidgets.find('#' + id) : null;
+        var m  = (w && w.getMap) ? w.getMap() : null;
+        if (!m) return;
+        m.invalidateSize();
+        if (m.getZoom() > 4) return;                       // already fitted / user-zoomed — don't disturb
+        var b = L.latLngBounds([]);
+        m.eachLayer(function (l) {
+          if (l.getLatLng) { b.extend(l.getLatLng()); }
+          else if (l.getBounds) { try { b.extend(l.getBounds()); } catch (e) {} }
+        });
+        if (b.isValid()) m.fitBounds(b, { padding: [30, 30] });
+      } catch (e) {}
+    });
+  }, 140);
 });
 
 // Clicking a map marker filters the records table below. Scroll the map to the top of the viewport
