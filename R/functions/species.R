@@ -231,3 +231,37 @@ ik_species_diel <- function(ik_data, taxa, reserve = NULL) {
              avail_hours = as.numeric(avail),
              rate = ifelse(as.numeric(avail) > 0, cnt / as.numeric(avail), NA_real_), stringsAsFactors = FALSE)
 }
+
+#' Overall diel CLASS for a camera species, from its effort-normalised per-period rate SHARES.
+#' Compares the four diel-period rates (each ÷ their total) against IK_DIEL_CLASS_RULES (project-
+#' overridable via ik_data$meta$diel) to label the species Diurnal / Nocturnal / Crepuscular /
+#' Cathemeral / Arrhythmic — or "Insufficient data" under the minimum-observation floor. Confidence
+#' ("none"/"low"/"ok") comes from the net-detection count. @param taxa Named list label→sci.
+#' @param reserve Optional reserve filter. @return list(class, desc, confidence, n, shares [named
+#' integer % in IK_DIEL_PERIODS order], min_obs, low_obs, diel); NULL when no camera detections at
+#' all. @keywords internal
+ik_diel_class <- function(ik_data, taxa, reserve = NULL) {
+  d <- ik_species_diel(ik_data, taxa, reserve)
+  if (is.null(d)) return(NULL)
+  rules <- ik_data$meta$diel %||% IK_DIEL_CLASS_RULES
+  n <- sum(d$detections, na.rm = TRUE)
+  r <- d$rate; r[!is.finite(r)] <- 0; names(r) <- as.character(d$period)
+  tot   <- sum(r)
+  share <- if (tot > 0) r / tot else stats::setNames(rep(0, length(r)), names(r))
+  day <- share[["Diurnal"]]; night <- share[["Nocturnal"]]
+  mat <- share[["Matutinal"]]; ves <- share[["Vespertine"]]; crep <- mat + ves
+  cls <- if (n < rules$min_obs)                                       "Insufficient data"
+    else if (day   >= rules$dominant)                                "Diurnal"
+    else if (night >= rules$dominant)                                "Nocturnal"
+    else if (crep  >= rules$crepuscular && mat > 0 && ves > 0)        "Crepuscular"
+    else if (day   >= rules$cathemeral && night >= rules$cathemeral)  "Cathemeral"
+    else                                                             "Arrhythmic"
+  desc <- switch(cls,
+    Diurnal = "Day-active", Nocturnal = "Night-active", Crepuscular = "Dawn/dusk-active",
+    Cathemeral = "Active day and night", Arrhythmic = "No clear diel rhythm",
+    sprintf("Fewer than %d net detections", rules$min_obs))
+  conf <- if (n < rules$min_obs) "none" else if (n < rules$low_obs) "low" else "ok"
+  list(class = cls, desc = desc, confidence = conf, n = n,
+       shares = round(100 * share[IK_DIEL_PERIODS]),
+       min_obs = rules$min_obs, low_obs = rules$low_obs, diel = d)
+}

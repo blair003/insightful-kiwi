@@ -29,6 +29,65 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
         tags$li(tags$b("Map"), " — per-location RAI (camera) and catches (trap) for the selected period."))))
 }
 
+#' Help body for the time-of-day clock card. @keywords internal
+behaviour_tod_help_body <- function() {
+  tagList(
+    tags$p("A 24-hour clock of when this species trips the cameras — ", tags$b("midnight at the top"),
+           ", running clockwise (06:00 right, noon at the bottom, 18:00 left). Each spoke's length is ",
+           "the number of detections in that hour."),
+    tags$p("Hours are read straight off each detection's local time, so this is the raw daily rhythm — ",
+           "no effort adjustment (cameras run around the clock, so every hour gets the same watch time). ",
+           "For the dawn/day/dusk/night breakdown, which ", tags$em("does"), " correct for unequal period ",
+           "lengths, see the ", tags$b("Diel Activity"), " card."),
+    tags$h6("Net data used"),
+    tags$p("Each detection is one camera ", tags$em("event"), " — runs of the same animal on the same ",
+           "camera within the duplicate window are collapsed to one, so a single animal lingering ",
+           "doesn't inflate an hour.")
+  )
+}
+
+#' Help body for the diel-activity classification card (periods · classes · rules). @keywords internal
+diel_class_help_body <- function() {
+  r  <- IK_DIEL_CLASS_RULES
+  pc <- function(p, txt) tags$tr(tags$td(tags$b(p)), tags$td(txt))
+  cl <- function(c, txt) tags$tr(tags$td(tags$b(c)), tags$td(txt))
+  tabsetPanel(type = "tabs",
+    tabPanel("What it shows", icon = icon("circle-question"),
+      tags$p(tags$br(), "One headline ", tags$b("diel class"), " summarising when this species is active ",
+             "on camera, with the four diel periods' shares beneath it."),
+      tags$p("Shares come from ", tags$b("effort-normalised rates"), " — detections per ",
+             tags$em("available hour"), " in each period, not raw counts — so a long winter night can't ",
+             "masquerade as more activity just because it's longer.")),
+    tabPanel("Diel periods", icon = icon("sun"),
+      tags$table(class = "table table-sm ik-help-table", tags$tbody(
+        pc("Matutinal",  "Civil dawn to sunrise (first light)."),
+        pc("Diurnal",    "Sunrise to sunset (daylight)."),
+        pc("Vespertine", "Sunset to civil dusk (last light)."),
+        pc("Nocturnal",  "Civil dusk to civil dawn (darkness).")))),
+    tabPanel("Overall classes", icon = icon("tags"),
+      tags$table(class = "table table-sm ik-help-table", tags$tbody(
+        cl("Diurnal",     "Day-active."),
+        cl("Nocturnal",   "Night-active."),
+        cl("Crepuscular", "Dawn/dusk-active."),
+        cl("Cathemeral",  "Active intermittently across day and night."),
+        cl("Arrhythmic",  "Enough observations, but no clear diel rhythm.")))),
+    tabPanel("How it's decided", icon = icon("calculator"),
+      tags$ul(tags$br(),
+        tags$li("The card estimates ", tags$b("deployed camera-hours in each diel period"), " from the ",
+                "deployments in scope and each reserve's sunrise, sunset and civil dawn/dusk, then ",
+                "compares detections-per-deployed-hour across the four periods."),
+        tags$li(tags$b(sprintf("Fewer than %d detections", r$min_obs)), " — Insufficient data."),
+        tags$li(sprintf("%d to %d detections", r$min_obs, r$low_obs - 1L),
+                " — a class is shown, but flagged low confidence."),
+        tags$li(tags$b("Diurnal / Nocturnal"), sprintf(" — that period's rate share is at least %d%%.",
+                round(100 * r$dominant))),
+        tags$li(tags$b("Crepuscular"), sprintf(" — dawn plus dusk share is at least %d%%, with both ",
+                round(100 * r$crepuscular)), "dawn and dusk represented."),
+        tags$li(tags$b("Cathemeral"), sprintf(" — both day and night shares are at least %d%%.",
+                round(100 * r$cathemeral))),
+        tags$li(tags$b("Arrhythmic"), " — the sample is sufficient, but none of the above is dominant."))))
+}
+
 #' Species dashboard nav panel. @param id Module id. @param spec One taxon spec (ik_species_taxa).
 #'   @param ik_data The container (overlay choices + norms baked into the UI).
 species_dashboard_ui <- function(id, spec, ik_data = NULL) {
@@ -69,12 +128,27 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             if (spec$trapped) plotOutput(ns("where_trap"), height = "320px")),
           if (spec$camera) tabPanel("Behaviour", icon = icon("clock"),
             tags$p(class = "ik-species-hint",
-                   "When this species is active on camera. Diel activity is effort-normalised (detections per available hour)."),
-            plotOutput(ns("tod"), height = "300px"),
-            plotOutput(ns("diel"), height = "300px")),
+                   "When this species is active on camera — the daily clock, and an overall diel class."),
+            div(class = "ik-behav",
+              div(class = "ik-card",
+                div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
+                    tags$span("Activity Pattern (Time of Day)"))),
+                div(class = "ik-card-body", plotOutput(ns("tod"), height = "420px")),
+                div(class = "ik-card-foot", tags$span("Net data used"),
+                    .ik_info(ns("tod_help"), "Activity by time of day", behaviour_tod_help_body()))),
+              div(class = "ik-card",
+                div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
+                    tags$span("Diel Activity")),
+                    .ik_info(ns("diel_help"), "Diel activity — classification", diel_class_help_body())),
+                div(class = "ik-card-body", uiOutput(ns("diel_card")))))),
           if (spec$trapped) tabPanel("Bait", icon = icon("drumstick-bite"),
-            tags$p(class = "ik-species-hint", "Which baits catch this species best (captures per trap-night, top recipes)."),
-            plotOutput(ns("bait"), height = "420px")),
+            tags$p(class = "ik-species-hint",
+                   "Which baits catch this species best — captures per trap-night. Group by the full recipe (the whole bait set) or by individual ingredient."),
+            div(class = "ik-species-controls",
+                radioButtons(ns("bait_group"), NULL, inline = TRUE,
+                             choices = c("Full recipe" = "recipe", "Ingredient" = "ingredient"),
+                             selected = "recipe")),
+            plotOutput(ns("bait"), height = "440px")),
           if (.cooc_ok) tabPanel("Co-occurrence", icon = icon("hourglass-half"),
             tags$p(class = "ik-species-hint", .cooc_hint),
             plotOutput(ns("cooc"), height = "340px")),
@@ -105,11 +179,20 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     per_cam <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
 
     # overlay taxon (another page's sci) → a 2nd line on the matching panel
-    overlay_taxa <- reactive({
+    .other_spec <- reactive({
       v <- input$overlay %||% "__none__"; if (identical(v, "__none__")) return(NULL)
-      o <- Filter(function(s) s$key == v, ik_species_taxa(ik_data))[[1]]
-      if (is.null(o)) NULL else stats::setNames(list(o$sci), o$label)
+      Filter(function(s) s$key == v, ik_species_taxa(ik_data))[[1]]
     })
+    overlay_taxa <- reactive({
+      o <- .other_spec(); if (is.null(o)) NULL else stats::setNames(list(o$sci), o$label)
+    })
+    # Which plotted taxa (this page + any overlay) actually have camera / trap records — used to drop a
+    # metric panel that would otherwise be a flat zero line for a species never seen on that device
+    # (e.g. an untrapped bird has no real catch rate). An untrapped page then gets the full plot height.
+    camera_labels  <- reactive({ o <- .other_spec()
+      c(if (isTRUE(spec$camera))  spec$label, if (!is.null(o) && isTRUE(o$camera))  o$label) })
+    trapped_labels <- reactive({ o <- .other_spec()
+      c(if (isTRUE(spec$trapped)) spec$label, if (!is.null(o) && isTRUE(o$trapped)) o$label) })
 
     # ---- Trend ----
     trend <- reactive({
@@ -121,6 +204,11 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     output$trend <- renderPlot({
       d <- trend()
       validate(need(!is.null(d) && nrow(d), "No detections or captures to chart for this species."))
+      # drop a panel that would be a flat zero line for a species never seen on that device, so an
+      # untrapped (or camera-less) species shows a single, full-height panel.
+      d <- d[!(d$metric_type == "trap_rate"  & !d$taxon %in% trapped_labels()), , drop = FALSE]
+      d <- d[!(d$metric_type == "camera_rai" & !d$taxon %in% camera_labels()),  , drop = FALSE]
+      validate(need(nrow(d), "No detections or captures to chart for this species."))
       flab <- c(camera_rai = sprintf("Camera activity (RAI / %s ch)", format(nh, big.mark = ",")),
                 trap_rate   = sprintf("Catch rate (/ %s trap-nights)", format(nt, big.mark = ",")))
       d$facet <- factor(flab[d$metric_type], levels = unname(flab[c("camera_rai", "trap_rate")]))
@@ -235,40 +323,67 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     cam_events <- reactive({ req(active(), spec$camera); ik_species_camera_events(ik_data, taxa, .ik_nz(selection()$reserve)) }) |>
       bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
 
+    # Time-of-day: a 24h radial "clock" (00:00 dead top, clockwise) of detections per hour.
     output$tod <- renderPlot({
       ev <- cam_events(); validate(need(!is.null(ev) && nrow(ev), "No camera detections to chart."))
-      h <- as.data.frame(table(factor(ev$hour, levels = 0:23))); names(h) <- c("hour", "n"); h$hour <- as.integer(as.character(h$hour))
+      h <- as.data.frame(table(factor(ev$hour, levels = 0:23))); names(h) <- c("hour", "n")
+      h$hour <- as.integer(as.character(h$hour))
       ggplot2::ggplot(h, ggplot2::aes(.data$hour, .data$n)) +
-        ggplot2::geom_col(fill = "#1f78b4", width = 0.9) +
-        ggplot2::scale_x_continuous(breaks = seq(0, 24, 6), limits = c(-0.5, 23.5)) +
-        ggplot2::labs(x = "Hour of day", y = "Detections", title = "Activity by time of day") +
+        ggplot2::geom_col(fill = "#4a7fb0", width = 1, colour = "#ffffff", linewidth = 0.25, na.rm = TRUE) +
+        ggplot2::coord_polar(start = -pi / 24) +                          # x=0 lands at 12 o'clock
+        ggplot2::scale_x_continuous(breaks = 0:23, labels = sprintf("%d:00", 0:23),
+                                    limits = c(-0.5, 23.5)) +
+        ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.06))) +
+        ggplot2::labs(x = NULL, y = NULL, title = "Detections by hour of day") +
         ik_ggtheme(is_dark()) +
-        ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
+        ggplot2::theme(axis.text.y = ggplot2::element_blank(), axis.ticks = ggplot2::element_blank(),
+          plot.title = ggplot2::element_text(face = "bold", hjust = 0.5, colour = ik_plot_ink(is_dark())))
     }, bg = "transparent")
 
-    output$diel <- renderPlot({
-      d <- ik_species_diel(ik_data, taxa, .ik_nz(selection()$reserve))
-      validate(need(!is.null(d) && any(d$detections > 0), "No camera detections to chart."))
-      ggplot2::ggplot(d, ggplot2::aes(.data$period, .data$rate)) +
-        ggplot2::geom_col(fill = "#6a3d9a", width = 0.72, na.rm = TRUE) +
-        ggplot2::geom_text(ggplot2::aes(label = .data$detections), vjust = -0.4, size = 3,
-                           colour = ik_plot_ink(is_dark()), na.rm = TRUE) +
-        ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.12))) +
-        ggplot2::labs(x = NULL, y = "Detections / available hour", title = "Diel activity (effort-normalised)") +
-        ik_ggtheme(is_dark()) +
-        ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
-    }, bg = "transparent")
+    # Diel activity: an overall CLASS headline + the four periods' effort-normalised shares (a card,
+    # not a plot — matches the rest of the app's summary cards). Classification in ik_diel_class().
+    output$diel_card <- renderUI({
+      req(active(), spec$camera)
+      dc <- ik_diel_class(ik_data, taxa, .ik_nz(selection()$reserve))
+      validate(need(!is.null(dc) && dc$n > 0, "No camera detections to classify."))
+      sh  <- dc$shares                                                    # named integer % in period order
+      seg <- function(p) if (isTRUE(sh[[p]] > 0))
+        tags$span(style = sprintf("width:%d%%;background:%s", sh[[p]], IK_DIEL_COLORS[[p]])) else NULL
+      leg <- function(p) tags$div(class = "ik-diel-leg",
+        tags$span(class = "dot", style = sprintf("background:%s", IK_DIEL_COLORS[[p]])),
+        tags$span(class = "ik-diel-leg-lab", p), tags$b(sprintf("%d%%", sh[[p]])))
+      div(class = paste0("ik-diel", if (identical(dc$confidence, "low")) " is-low" else ""),
+        div(class = "ik-diel-class", dc$class),
+        div(class = "ik-diel-desc", dc$desc),
+        div(class = "ik-diel-n", sprintf("%s net observation%s",
+            format(dc$n, big.mark = ","), if (dc$n == 1) "" else "s")),
+        if (identical(dc$confidence, "low"))
+          div(class = "ik-diel-lowconf",
+              sprintf("Shown with low confidence (under %d observations)", dc$low_obs)),
+        div(class = "ik-diel-bar", lapply(IK_DIEL_PERIODS, seg)),
+        div(class = "ik-diel-legend", lapply(IK_DIEL_PERIODS, leg)),
+        div(class = "ik-diel-foot", sprintf(
+            "Based on %s observations and effort-normalised diel rates.", format(dc$n, big.mark = ","))))
+    })
 
     # ---- Bait (trapped species): which baits catch it best ----
     output$bait <- renderPlot({
       req(active(), spec$trapped)
-      d <- tryCatch(ik_bait_effectiveness(ik_data, species = spec$sci, norm = nt), error = function(e) NULL)
+      grp <- input$bait_group %||% "recipe"
+      d <- tryCatch(ik_bait_effectiveness(ik_data, species = spec$sci, norm = nt, group = grp,
+                                          min_captures = 2), error = function(e) NULL)
       validate(need(!is.null(d) && nrow(d), "Not enough baited captures of this species to compare baits."))
       d <- utils::head(d[order(-d$rate), , drop = FALSE], 15); d$bait <- factor(d$bait, levels = rev(d$bait))
+      lab  <- sprintf("  %.2f  (%s caught · %s trap-days)", d$rate,
+                      format(d$captures, big.mark = ","), format(round(d$trap_days), big.mark = ","))
+      unit <- if (identical(grp, "ingredient")) "ingredients" else "recipes"
       ggplot2::ggplot(d, ggplot2::aes(.data$rate, .data$bait)) +
         ggplot2::geom_col(fill = "#b15928", width = 0.72) +
+        ggplot2::geom_text(ggplot2::aes(label = lab), hjust = 0, size = 3.2, na.rm = TRUE,
+                           colour = ik_plot_ink(is_dark())) +
+        ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0, 0.5))) +
         ggplot2::labs(x = sprintf("Captures / %s trap-nights", format(nt, big.mark = ",")), y = NULL,
-                      title = "Catch rate by bait") +
+                      title = sprintf("Catch rate by bait — top %d %s", nrow(d), unit)) +
         ik_ggtheme(is_dark()) +
         ggplot2::theme(panel.grid.major.y = ggplot2::element_blank(),
                        plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
