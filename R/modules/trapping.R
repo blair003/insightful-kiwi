@@ -74,8 +74,8 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     output$timeline <- renderPlot({
       s <- series_t(); validate(need(!is.null(s) && nrow(s), "Not enough trap history to chart."))
       s$period <- factor(s$period, levels = unique(s$period[order(s$order)]))
-      s$facet  <- factor(s$facet, levels = c("Servicing (% of judged traps)", "Median check interval (days)", "Captures"))
-      pal <- c(Good = "#2e7d32", Watch = "#f9a825", Neglected = "#c62828", Interval = "#5a6b7b", Captures = "#6a3d9a")
+      s$facet  <- factor(s$facet, levels = unique(s$facet))   # builder emits servicing · interval · catch rate
+      pal <- c(Good = "#2e7d32", Watch = "#f9a825", Neglected = "#c62828", Interval = "#5a6b7b", `Catch rate` = "#6a3d9a")
       ggplot2::ggplot(s, ggplot2::aes(.data$period, .data$value, colour = .data$series, group = .data$series)) +
         ggplot2::geom_line(linewidth = 0.8, na.rm = TRUE) + ggplot2::geom_point(size = 1.9, na.rm = TRUE) +
         ggplot2::facet_wrap(ggplot2::vars(.data$facet), ncol = 1, scales = "free_y", strip.position = "top") +

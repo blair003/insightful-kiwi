@@ -272,6 +272,7 @@ ik_trap_review_series <- function(ik_data, by = "season", reserve = NULL) {
   if (!nrow(dp)) return(NULL)
   seasons <- ik_season_levels(dp)
   if (!length(seasons)) return(NULL)
+  norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100        # trap-nights to normalise catch rate to
   if (identical(by, "year")) {                                  # group seasons into austral years
     info <- unique(dp[, c("calendar_season", "season", "season_year")])
     info <- info[!is.na(info$calendar_season), , drop = FALSE]
@@ -297,11 +298,15 @@ ik_trap_review_series <- function(ik_data, by = "season", reserve = NULL) {
     cad <- per$mean_interval_days[jgd & per$n_checks > 0]       # real intervals only — skipped traps' "gap" isn't one
     med <- if (length(cad)) stats::median(cad, na.rm = TRUE) else NA_real_
     base <- data.frame(period = plabs[i], order = porder[i], stringsAsFactors = FALSE)
+    td    <- sum(per$trap_days, na.rm = TRUE)                   # period effort (trap-nights)
+    crate <- if (td > 0) norm * sum(per$captures, na.rm = TRUE) / td else NA_real_
     rbind(
       cbind(base, facet = "Servicing (% of judged traps)", series = c("Good", "Watch", "Neglected"),
             value = 100 * c(st[["good"]], st[["watch"]], st[["neglected"]]) / ng),   # three lines sum to 100
       cbind(base, facet = "Median check interval (days)", series = "Interval", value = med),
-      cbind(base, facet = "Captures", series = "Captures", value = sum(per$captures, na.rm = TRUE)))
+      # catch RATE, not raw count: raw captures co-move with effort and season, which invites a false
+      # "checking more catches more" read; the rate (per `norm` trap-nights) is comparable across periods.
+      cbind(base, facet = sprintf("Catch rate (per %g trap-nights)", norm), series = "Catch rate", value = crate))
   })
   out <- do.call(rbind, rows)
   if (is.null(out) || !nrow(out)) return(NULL)
