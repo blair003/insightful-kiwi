@@ -111,7 +111,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
     output$intro <- renderUI({
       projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
       tagList(
-        div(class = "ik-out-titlebar",
+        .ik_titlebar(
             tags$h3(class = "ik-out-title", "Are we winning?"),
             .ik_info(session$ns("out_help"), "Are we winning? — how to read this",
                      outcomes_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100,
@@ -259,8 +259,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
 
     output$out_records_table <- DT::renderDT({
       o <- records(); validate(need(!is.null(o) && nrow(o), "No records."))
-      has_t    <- format(o$when, "%H:%M:%S") != "00:00:00"
-      when_lab <- ifelse(has_t, format(o$when, "%d %b %Y · %H:%M"), format(o$when, "%d %b %Y"))
+      when_lab <- .ik_when_label(o$when)
       df <- data.frame(When = when_lab, Species = ik_species_label(o$scientificName, ik_data, prefer()),
                        Count = o$count, Location = o$locationName, ObsID = o$observationID,
                        check.names = FALSE, stringsAsFactors = FALSE)

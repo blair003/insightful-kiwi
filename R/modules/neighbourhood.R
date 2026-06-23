@@ -77,7 +77,7 @@ neighbourhood_ui <- function(id, ik_data) {
     "Neighbourhood", value = "neighbourhood", icon = icon("circle-nodes"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/neighbourhood.css")),
     div(class = "ik-nbhd",
-        div(class = "ik-nbhd-titlebar",
+        .ik_titlebar(
             tags$h3(class = "ik-nbhd-title", "Neighbourhood — protected, predators & nearby trapping"),
             .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
                      neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000))),
@@ -127,6 +127,16 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
     observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       updateSelectInput(session, "prot", choices = ik_species_choices(prot_taxa, ik_data, p, splits), selected = keep(isolate(input$prot), .prot_def))
       updateSelectInput(session, "pred", choices = ik_species_choices(pred_taxa, ik_data, p, splits), selected = keep(isolate(input$pred), .pred_def))
+    })
+    observe({                                                  # anchor Line/Reserve choices follow active datasets
+      ll <- ik_neighbourhood_lines(ik_data)                   # already active-scoped via .nbhd_locations
+      lv <- paste(ll$reserve, ll$line, sep = "|")
+      lc <- stats::setNames(lv, sprintf("%s · Line %s", ll$reserve, ll$line))
+      updateSelectInput(session, "anchor_line", choices = lc,
+        selected = if ((isolate(input$anchor_line) %||% "") %in% lv) isolate(input$anchor_line) else lv[1])
+      rc <- sort(unique(ll$reserve))
+      updateSelectInput(session, "anchor_reserve", choices = stats::setNames(rc, rc),
+        selected = if ((isolate(input$anchor_reserve) %||% "") %in% rc) isolate(input$anchor_reserve) else rc[1])
     })
 
     lvl  <- reactive(input$level %||% "line")

@@ -44,6 +44,19 @@
   paste0(path, "?v=", if (is.na(v)) 1L else v)
 }
 
+#' Pretty datetime label for the record/drill MODAL tables — "15 Mar 2026 · 14:30", or date-only
+#' "15 Mar 2026" when the time is midnight (date-only obs, e.g. traps). NA → "—". Pair with
+#' `.ik_dt_when_defs()` + a hidden `as.numeric(when)` key for chronological sorting. (The main Records
+#' table uses ISO via format_records_datetime(); this is the friendlier modal format.) @keywords internal
+.ik_when_label <- function(x)
+  ifelse(is.na(x), "—",
+    ifelse(format(x, "%H:%M:%S") == "00:00:00", format(x, "%d %b %Y"), format(x, "%d %b %Y · %H:%M")))
+
+#' A page/section title row: a heading tag + an inline help (?) button side by side. The one home for
+#' the `div(flex, h3, .ik_info())` titlebar repeated across the feature pages. @param title a heading
+#' tag (e.g. `tags$h3(class=…, "…")`). @param help an `.ik_info(...)` tagList (or NULL). @keywords internal
+.ik_titlebar <- function(title, help = NULL) tags$div(class = "ik-titlebar", title, help)
+
 #' DT `columnDefs` that make a formatted date column (shown as a nice string like "15 Mar 2026 ·
 #' 14:30") sort CHRONOLOGICALLY, plus hide any helper columns. Append a numeric sort key to the data
 #' first (`df$.when_sort <- as.numeric(<POSIXct>)`), then pass the df here. Mirrors the Deployments

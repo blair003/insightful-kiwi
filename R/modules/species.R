@@ -51,7 +51,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/species.css")),
     tags$script(src = .ik_asset("js/maps.js")),
     div(class = "ik-species",
-        div(class = "ik-species-titlebar",
+        .ik_titlebar(
             tags$h3(class = "ik-species-title", spec$label),
             .ik_info(ns("help"), paste(spec$label, "— how to read this"), species_help_body(nh, nt))),
         tags$p(class = "ik-species-sub", tags$em(sci_lab)),
@@ -157,8 +157,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     output$records <- DT::renderDT({
       o <- records(); validate(need(!is.null(o) && nrow(o), "No records of this species in the selection."))
       p <- prefer()
-      has_t <- format(o$when, "%H:%M:%S") != "00:00:00"
-      when_lab <- ifelse(has_t, format(o$when, "%d %b %Y · %H:%M"), format(o$when, "%d %b %Y"))
+      when_lab <- .ik_when_label(o$when)
       df <- data.frame(When = when_lab, Device = o$device,
                        Species = ik_species_label(o$scientificName, ik_data, p), Count = o$count,
                        Reserve = o$reserve, Line = ifelse(is.na(o$line), "—", o$line), Location = o$locationName,

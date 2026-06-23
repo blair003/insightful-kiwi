@@ -109,7 +109,7 @@ trapping_effectiveness_ui <- function(id, ik_data) {
     "Trapping effectiveness", value = "trapping-effectiveness", icon = icon("bullseye"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping_effectiveness.css")),
     div(class = "ik-teff",
-        div(class = "ik-teff-titlebar",
+        .ik_titlebar(
             tags$h3(class = "ik-teff-title", "Trapping effectiveness — does checking more often catch more?"),
             .ik_info(ns("teff_help"), "Trapping effectiveness — how to read this",
                      trapping_effectiveness_help_body(norm))),

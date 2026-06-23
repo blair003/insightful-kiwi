@@ -1,7 +1,6 @@
 /* outcomes.css — the "Are we winning?" outcome view. */
 
 .ik-outcomes { padding-top: 0.5rem; }
-.ik-out-titlebar { display: flex; align-items: center; gap: 0.4rem; }
 .ik-out-title { margin: 0 0 0.2rem; }
 .ik-out-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
 .out-controls { margin-bottom: 0.4rem; display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; }

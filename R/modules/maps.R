@@ -749,7 +749,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       df <- data.frame(
         Role = det$role,
         Species = mapply(.lnk, ik_species_label(det$scientificName, ik_data, prefer), det$observationID),
-        When = format(det$eventStart, "%d %b %Y · %H:%M"),
+        When = .ik_when_label(det$eventStart),
         .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "none", escape = -2,
         class = "stripe hover row-border",

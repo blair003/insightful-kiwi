@@ -62,7 +62,7 @@ cooccurrence_ui <- function(id) {
     "Co-occurrence", value = "cooccurrence", icon = icon("hourglass-half"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/cooccurrence.css")),
     div(class = "ik-cooc",
-        div(class = "ik-cooc-titlebar",
+        .ik_titlebar(
             tags$h3(class = "ik-cooc-title", "Protected ↔ predator timing"),
             .ik_info(ns("cooc_help"), "Co-occurrence — how to read this", cooccurrence_help_body())),
         tags$p(class = "ik-cooc-lead",

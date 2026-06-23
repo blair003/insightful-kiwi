@@ -1,7 +1,6 @@
 /* trapping_effectiveness.css — the Trapping effectiveness analysis (Trapping menu). */
 
 .ik-teff { padding-top: 0.25rem; }
-.ik-teff-titlebar { display: flex; align-items: center; gap: 0.4rem; }
 .ik-teff-title { margin-bottom: 0.25rem; }
 /* roomier, scrollable help modal so the tabbed walkthrough is comfortable to read */
 .ik-info-modal .modal-body { max-height: 70vh; overflow-y: auto; }

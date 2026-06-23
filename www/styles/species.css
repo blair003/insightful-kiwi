@@ -1,7 +1,6 @@
 /* species.css — the per-species dashboard pages (Species menu). */
 
 .ik-species { padding-top: 0.5rem; }
-.ik-species-titlebar { display: flex; align-items: center; gap: 0.4rem; }
 .ik-species-title { margin: 0 0 0.1rem; }
 .ik-species-sub { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; margin-bottom: 0.7rem; }
 .ik-species-controls { display: flex; align-items: end; gap: 1.2rem; flex-wrap: wrap; margin: 0.6rem 0 0.4rem; }

@@ -815,8 +815,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       o <- records()
       validate(need(!is.null(o) && nrow(o), "No records."))
       prefer  <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      has_t   <- format(o$when, "%H:%M:%S") != "00:00:00"
-      when_lab <- ifelse(has_t, format(o$when, "%d %b %Y · %H:%M"), format(o$when, "%d %b %Y"))
+      when_lab <- .ik_when_label(o$when)
       df <- data.frame(When = when_lab,
                        Species = ik_species_label(o$scientificName, ik_data, prefer),
                        Count = o$count, Location = o$locationName, ObsID = o$observationID,

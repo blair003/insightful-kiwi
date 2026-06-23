@@ -29,6 +29,11 @@
   color: var(--bs-secondary-color, #6c757d); text-decoration: none; cursor: pointer; }
 .ik-tab-back:hover { color: var(--ik-accent, #e8924d); }
 
+/* Page/section title row: heading + inline help (?) button side by side (.ik_titlebar). Replaces the
+   per-module .ik-*-titlebar classes, which were all this same flex rule. */
+.ik-titlebar { display: flex; align-items: center; gap: 0.4rem; }
+.ik-titlebar > h3, .ik-titlebar > h5 { margin-bottom: 0.1rem; }
+
 /* Inline help: a small "?" / "i" button (.ik_info) that opens a description modal. */
 .ik-info-btn {
   display: inline-flex; align-items: center; justify-content: center;

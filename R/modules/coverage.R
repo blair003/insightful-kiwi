@@ -130,7 +130,7 @@ coverage_ui <- function(id, ik_data = NULL) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/coverage.css")),
     tags$script(src = .ik_asset("js/maps.js")),                            # reuse the resize-on-tab-show fix
     div(class = "ik-cov",
-        div(class = "ik-cov-titlebar",
+        .ik_titlebar(
             tags$h3(class = "ik-cov-title", "Coverage — protected hotspots vs predator control"),
             .ik_info(ns("cov_help"), "Coverage — how to read this map", coverage_help_body(cam_norm))),
         tags$p(class = "ik-cov-lead",
