@@ -299,7 +299,7 @@ ik_trap_review_series <- function(ik_data, by = "season", reserve = NULL) {
     info$cycle <- .ik_cycle_year(info$season, info$season_year)
     cyc <- sort(unique(info$cycle))
     periods <- lapply(cyc, function(c0) info$calendar_season[info$cycle == c0])
-    plabs <- sprintf("%d/%02d", cyc, (cyc + 1L) %% 100L); porder <- seq_along(cyc)
+    plabs <- .ik_cycle_year_label(cyc); porder <- seq_along(cyc)
   } else {
     periods <- as.list(seasons); plabs <- seasons; porder <- seq_along(seasons)
   }

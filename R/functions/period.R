@@ -208,6 +208,14 @@ ik_same_season_last_year <- function(season, ik_data) {
   ifelse(season == "Summer", season_year, season_year - 1L)
 }
 
+#' Format an austral CYCLE year as "2024/25" — the single home for the By-year label format.
+#' @keywords internal
+.ik_cycle_year_label <- function(cy) sprintf("%d/%02d", cy, (cy + 1L) %% 100L)
+
+#' Austral-cycle LABEL ("2024/25") for season + season_year (the cycle a season belongs to).
+#' @keywords internal
+.ik_cycle_label <- function(season, season_year) .ik_cycle_year_label(.ik_cycle_year(season, season_year))
+
 #' Grouped choices for a single "Period" `selectInput`: "All data", then one optgroup
 #' per **austral year** — the summer-first cycle, span-labelled (e.g. "2024/25"), newest
 #' first — holding "Whole year" + its seasons in Summer -> Spring order. Values are encoded

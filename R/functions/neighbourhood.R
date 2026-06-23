@@ -72,7 +72,7 @@ ik_neighbourhood_lines <- function(ik_data) {
   if (!identical(by, "year")) return(period)
   dp   <- ik_deployment_period(ik_data)
   info <- unique(dp[!is.na(dp$calendar_season), c("calendar_season", "season", "season_year")])
-  info$clab <- { cy <- .ik_cycle_year(info$season, info$season_year); sprintf("%d/%02d", cy, (cy + 1L) %% 100L) }
+  info$clab <- .ik_cycle_label(info$season, info$season_year)
   info$calendar_season[info$clab == period]
 }
 
@@ -136,7 +136,7 @@ ik_neighbourhood_series <- function(ik_data, level, key, radius_m = 500,
     cyc <- sort(unique(comp$cycle[!is.na(comp$cycle)]))
     agg <- do.call(rbind, lapply(cyc, function(c0) {
       s <- comp[!is.na(comp$cycle) & comp$cycle == c0, , drop = FALSE]
-      data.frame(period = sprintf("%d/%02d", c0, (c0 + 1L) %% 100L), order = c0,
+      data.frame(period = .ik_cycle_year_label(c0), order = c0,
                  cam_hrs = sum(s$cam_hrs), prot_ind = sum(s$prot_ind),
                  pred_ind = sum(s$pred_ind), catches = sum(s$catches), stringsAsFactors = FALSE)
     }))

@@ -157,7 +157,7 @@ ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = 
     periods <- lapply(seq_along(levels), function(i) list(label = levels[i], order = i, seasons = levels[i]))
   } else {
     info <- unique(dp[!is.na(dp$calendar_season), c("calendar_season", "season", "season_year")])
-    info$ylab <- { cy <- .ik_cycle_year(info$season, info$season_year); sprintf("%d/%02d", cy, (cy + 1L) %% 100L) }
+    info$ylab <- .ik_cycle_label(info$season, info$season_year)
     lvl_y <- info$ylab[match(levels, info$calendar_season)]
     ys <- unique(lvl_y[!is.na(lvl_y)])
     periods <- lapply(ys, function(y) { ss <- levels[which(lvl_y == y)]; list(label = y, order = min(match(ss, levels)), seasons = ss) })
