@@ -10,54 +10,94 @@
 # Period + Reserve come from the sidebar; the predator/protected role pickers are in-panel. Reuses
 # ik_location_metric() for every layer (camera rate / trap captures), so no new data layer.
 
-#' Body of the whole-map "how to read this" help modal. @keywords internal
-coverage_help_body <- function() {
-  tagList(
-    tags$p("One map carrying ", tags$b("both devices"), " so you can see where the protected species ",
-           "are and whether predator control is reaching them. ", tags$b("Colour says what a marker is; ",
-           "size says how much"), " — so there's one legend and no clashing colour scales."),
-    tags$h6("The layers (toggle top-right)"),
-    tags$ul(
-      tags$li(tags$b(tags$span(style = "color:#2e7d32", "Protected")), " (camera) — green dots, size ∝ detection rate. The hotspots you're protecting."),
-      tags$li(tags$b(tags$span(style = "color:#c62828", "Predators")), " (camera) — red rings, size ∝ detection rate. Where predators roam. Off by default (turn it on to compare)."),
-      tags$li(tags$b(tags$span(style = "color:#6a3d9a", "Catches")), " (traps) — purple dots, size ∝ predators caught. Where removal is actually happening."),
-      tags$li(tags$b(tags$span(style = "color:#8a8a8a", "Traps")), " — small grey dots, every trap deployed: the trapping field."),
-      tags$li(tags$b("Boundary"), " — the dashed monitored footprint (convex hull of the devices) per reserve.")),
-    tags$h6("Reading it"),
-    tags$p("A green hotspot ringed by purple and grey is ", tags$b("covered"), "; a green hotspot with ",
-           "little around it is a ", tags$b("gap"), ". Camera markers are a detection ", tags$b("rate"),
-           " (per camera-hour norm), so big vs small is comparable across cameras regardless of how long each ran."),
-    tags$p("Period and reserve come from the sidebar. Click any marker for its detail. The ",
-           tags$b("Coverage gaps"), " table below ranks the gaps numerically.")
+#' Body of the whole-map "how to read this" help modal — tabbed. `cam_norm` = camera-hours the
+#' detection rate is scaled to (project config). @keywords internal
+coverage_help_body <- function(cam_norm = 500) {
+  P  <- function(...) tags$p(...)
+  ch <- format(cam_norm, big.mark = ",")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "The map", icon = icon("layer-group"),
+      P(tags$br(), "One map carrying ", tags$b("both devices"), " so you can see where the protected ",
+        "species are and whether predator control is reaching them. ", tags$b("Colour says what a marker "),
+        tags$b("is; size says how much"), " — one legend, no clashing colour scales."),
+      tags$h6("The layers (toggle top-right)"),
+      tags$ul(
+        tags$li(tags$b(tags$span(style = "color:#2e7d32", "Protected")), " (camera) — green dots, size ∝ detection rate. The hotspots you're protecting."),
+        tags$li(tags$b(tags$span(style = "color:#c62828", "Predators")), " (camera) — red rings, size ∝ detection rate. Where predators roam. Off by default."),
+        tags$li(tags$b(tags$span(style = "color:#6a3d9a", "Catches")), " (traps) — purple dots, size ∝ predators caught. Where removal is actually happening."),
+        tags$li(tags$b(tags$span(style = "color:#8a8a8a", "Traps")), " — small grey dots, every trap deployed: the trapping field."),
+        tags$li(tags$b("Boundary"), " — the monitored footprint (convex hull of the devices) per reserve; hover it for the reserve name."))),
+    tabPanel(
+      "Reading it", icon = icon("magnifying-glass-chart"),
+      P(tags$br(), "A green hotspot ringed by purple and grey is ", tags$b("covered"), "; a green hotspot ",
+        "with little around it is a ", tags$b("gap"), " — somewhere a protected species is active but ",
+        "trapping isn't reaching."),
+      P("Camera markers are a detection ", tags$b("rate"), " (per ", ch, " camera-hours), so big vs small ",
+        "is comparable across cameras regardless of how long each ran. Catch markers are a ", tags$b("count"),
+        " of predators removed. Period and reserve come from the sidebar; click any marker for its detail."),
+      P("The ", tags$b("Network density"), " table below asks a prior question — is the network even dense ",
+        "enough to work? — and the ", tags$b("Coverage gaps"), " table ranks the gaps numerically.")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Camera rate"), " — per location, detections of the chosen species ÷ its camera-hours ",
+                "× ", ch, " (the per-camera scale from config), net of likely duplicates."),
+        tags$li(tags$b("Catches"), " — predators of the chosen species caught at each trap in the period."),
+        tags$li(tags$b("Boundary"), " — the convex hull of a reserve's devices (its monitored footprint)."),
+        tags$li(tags$b("Marker size"), " — scaled to the value and clamped at the 95th percentile, so one ",
+                "outlier can't flatten the rest.")),
+      P(tags$em("All for the sidebar's period & reserve; everything redraws when you change them.")))
   )
 }
 
-#' Body of the Coverage-gaps "how to read this" help modal. @keywords internal
-coverage_gaps_help_body <- function() {
-  tagList(
-    tags$p("Every monitoring ", tags$b("line"), " (its cameras) is ranked ", tags$b("worst-first"),
-           " by how well predator control reaches it. It turns the map's eyeball judgement into a list."),
-    tags$h6("The gap radius"),
-    tags$p("A line's “neighbourhood” is the traps within the ", tags$b("gap radius"), " of its cameras. ",
-           "A bigger radius counts more distant traps as nearby, so more lines look covered. It drives the ",
-           tags$b("Traps"), ", ", tags$b("Caught"), " and ", tags$b("Neglected"), " columns."),
-    tags$p(tags$em("Why isn't the radius drawn on the map?"), " Because it's applied ", tags$b("per line"),
-           " — every line has its own circle around its own cameras, so a single circle would be misleading. ",
-           "The table is where the radius lives."),
-    tags$h6("The columns"),
-    tags$ul(
-      tags$li(tags$b("Protected / Predator"), " — detections on the line's cameras, as a rate per the camera-hour norm (same units as the map). 0 = none seen on camera."),
-      tags$li(tags$b("Traps"), " — traps running within the gap radius (how much trapping reaches the line)."),
-      tags$li(tags$b("Caught"), " — predators caught in those nearby traps this period."),
-      tags$li(tags$b("Neglected"), " — of the nearby active traps, how many are unserviced this period."),
-      tags$li(tags$b("Traps/km²"), " — trap density across the whole reserve, for context.")),
-    tags$h6("Status"),
-    tags$ul(
-      tags$li(tags$b("No trapping"), " — protected on camera, but no traps running nearby."),
-      tags$li(tags$b("Predators uncaught"), " — predators on camera nearby, but none being caught."),
-      tags$li(tags$b("Trapping neglected"), " — traps are nearby but mostly unserviced."),
-      tags$li(tags$b("Covered"), " — protected hotspot with serviced trapping reaching it."),
-      tags$li(tags$b("No protected here"), " — no protected species on camera on this line."))
+#' Body of the Coverage-gaps "how to read this" help modal — tabbed. `cam_norm` = camera-hours the
+#' detection rates are scaled to (project config). @keywords internal
+coverage_gaps_help_body <- function(cam_norm = 500) {
+  P  <- function(...) tags$p(...)
+  ch <- format(cam_norm, big.mark = ",")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "Every monitoring ", tags$b("line"), " (its cameras) is ranked ", tags$b("worst-first"),
+        " by how well predator control reaches it — turning the map's eyeball judgement into a list you ",
+        "can work down."),
+      P("Each line gets a ", tags$b("status"), " (next tab) and the numbers behind it. Use it to find the ",
+        "protected hotspots where the trapping is thin, absent, or neglected.")),
+    tabPanel(
+      "Columns & status", icon = icon("table-list"),
+      tags$h6("Columns"),
+      tags$ul(
+        tags$li(tags$b("Protected / Predator"), " — detections on the line's cameras, a rate per ", ch,
+                " camera-hours (same units as the map). 0 = none seen on camera."),
+        tags$li(tags$b("Traps"), " — traps running within the gap radius (how much trapping reaches the line)."),
+        tags$li(tags$b("Caught"), " — predators caught in those nearby traps this period."),
+        tags$li(tags$b("Neglected"), " — of the nearby active traps, how many are unserviced this period."),
+        tags$li(tags$b("Traps/km²"), " — trap density across the whole reserve, for context.")),
+      tags$h6("Status"),
+      tags$ul(
+        tags$li(tags$b("No trapping"), " — protected on camera, but no traps running nearby."),
+        tags$li(tags$b("Predators uncaught"), " — predators on camera nearby, but none being caught."),
+        tags$li(tags$b("Trapping neglected"), " — traps are nearby but mostly unserviced."),
+        tags$li(tags$b("Covered"), " — protected hotspot with serviced trapping reaching it."),
+        tags$li(tags$b("No protected here"), " — no protected species on camera on this line."))),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Neighbourhood"), " — a line's “nearby” is the traps within the ", tags$b("gap radius"),
+                " of its cameras. A bigger radius counts more distant traps as nearby, so more lines look ",
+                "covered — it drives the Traps, Caught and Neglected columns."),
+        tags$li(tags$b("Rates"), " — protected/predator are detections ÷ camera-hours × ", ch, " (as on the map)."),
+        tags$li(tags$b("Neglected"), " — from the trap servicing assessment (a nearby active trap unchecked ",
+                "this period); see the Trap review help for the cadence buckets."),
+        tags$li(tags$b("Ranking"), " — worst gap first (protected present, control weakest).")),
+      P(tags$em("Why isn't the radius drawn on the map?"), " It's applied ", tags$b("per line"), " — each line ",
+        "has its own circle around its own cameras, so a single circle would mislead. The table is where the ",
+        "radius lives."))
   )
 }
 
@@ -81,9 +121,10 @@ coverage_gaps_help_body <- function() {
   )))
 }
 
-#' Coverage nav panel. @param id Module id.
-coverage_ui <- function(id) {
+#' Coverage nav panel. @param id Module id. @param ik_data The container (camera-hour norm for help).
+coverage_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
+  cam_norm <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
   nav_panel(
     "Coverage", value = "coverage", icon = icon("shield-halved"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/coverage.css")),
@@ -91,7 +132,7 @@ coverage_ui <- function(id) {
     div(class = "ik-cov",
         div(class = "ik-cov-titlebar",
             tags$h3(class = "ik-cov-title", "Coverage — protected hotspots vs predator control"),
-            .ik_info(ns("cov_help"), "Coverage — how to read this map", coverage_help_body())),
+            .ik_info(ns("cov_help"), "Coverage — how to read this map", coverage_help_body(cam_norm))),
         tags$p(class = "ik-cov-lead",
           "Where are the protected species, and is predator control reaching them? ",
           tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
@@ -114,7 +155,7 @@ coverage_ui <- function(id) {
             div(class = "ik-cov-gaps-head",
                 div(class = "ik-cov-gaps-head-l",
                     tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
-                    .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body())),
+                    .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body(cam_norm))),
                 selectInput(ns("radius"), "Gap radius", width = "120px",  # drives THIS table (not the map)
                             choices = c("250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 500)),
             tags$p(class = "ik-cov-gaps-lead",

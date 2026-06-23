@@ -109,7 +109,7 @@ ui <- page_navbar(
     # data, so hide it then, the same way the Monitoring menu auto-hides. Coverage still degrades
     # gracefully on trap-only data, so it stays.
     if (.has_camera) neighbourhood_ui("neighbourhood", ik_data),
-    coverage_ui("coverage")
+    coverage_ui("coverage", ik_data)
   ),
 
   nav_spacer(),
