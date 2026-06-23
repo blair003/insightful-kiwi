@@ -63,7 +63,11 @@
 }
 
 /* Records / servicing table. */
-.ik-maps-records { margin-top: 0.5rem; }
+/* Reserve a stable height for the records area so drilling to a sparse location (few rows) doesn't
+   shrink the page. Without this, the page can get shorter than the marker-click scroll target, and
+   the browser clamps the scroll back up — the "jumps back up" bounce (most visible on a slow CPU,
+   where the filtered table re-renders after the scroll has already settled). */
+.ik-maps-records { margin-top: 0.5rem; min-height: 30rem; }
 .ik-maps-records-header {
   display: flex;
   justify-content: space-between;

@@ -426,7 +426,11 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     }
     # Compute a metric for the selection + (when a comparison is set) the comparison period,
     # keeping the comparison's per-line table too so the drill modal can show prior values.
-    metric_react <- function(fn, taxa) reactive({
+    # Cached: the result is numeric + deterministic in (selection axes, comparison, active datasets),
+    # so it's keyed on those and shared across sessions in-process — the FIRST visitor to the default
+    # landing view warms it and every later visitor gets it free (until restart / re-import). `key`
+    # distinguishes the metrics (bindCache shares one cache, so each cached reactive needs a unique key).
+    metric_react <- function(fn, taxa, key) reactive({
       m  <- fn(ik_data, selection(), taxa)
       m$summary <- with_network(m$summary)
       cs <- ik_comparison_spec(ik_data, selection())
@@ -436,9 +440,10 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
         m$prev_lines <- p$lines
       } else { m$prev <- NULL; m$prev_lines <- NULL }
       m
-    })
-    rai_r  <- metric_react(ik_rai, mon_targets)
-    rate_r <- metric_react(ik_trap_rate, ctl_targets)
+    }) |> bindCache(key, selection()$period, selection()$compare, selection()$season,
+                    selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
+    rai_r  <- metric_react(ik_rai, mon_targets, "rai")
+    rate_r <- metric_react(ik_trap_rate, ctl_targets, "rate")
 
     fmt_date <- function(x) if (!is.finite(as.numeric(x))) "—" else format(x, "%d %b %Y")
 

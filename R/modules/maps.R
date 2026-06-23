@@ -384,11 +384,18 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     })
 
     # ---- Surface (rate/count field; robust clamp) ----
+    # IDW interpolation is the heaviest map computation. Cache it on the points + value column (the
+    # points already encode the selection + active datasets, so they fully determine the surface);
+    # revisiting a view — or another session on the same selection — then skips the recompute. The
+    # theme is deliberately NOT in the key: it only affects the redraw below, not the interpolation.
+    surface_idw <- reactive({
+      if (src() == "trap" && measure() == "servicing") return(NULL)
+      d <- rate_loc_pts(); if (is.null(d) || !nrow(d)) return(NULL)
+      ik_idw_surface(d, valcol(), "reserve")
+    }) |> bindCache(rate_loc_pts(), valcol())
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Surface")
-      if (src() == "trap" && measure() == "servicing") return()
-      d <- rate_loc_pts(); if (is.null(d) || !nrow(d)) return()
-      s <- ik_idw_surface(d, valcol(), "reserve"); if (is.null(s) || !nrow(s)) return()
+      s <- surface_idw(); if (is.null(s) || !nrow(s)) return()
       cap <- .robust_cap(s$predicted); pf <- surf_pal(cap)
       leaflet::addPolygons(p, data = s, group = "Surface", weight = 0.5, color = ~pf(pmin(predicted, cap)),
         fillColor = ~pf(pmin(predicted, cap)), fillOpacity = if (is_dark()) 0.5 else 0.4,
@@ -409,7 +416,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           stroke = TRUE, color = unname(cols[stc]), weight = unname(c(good = 1, watch = 2, neglected = 3, insufficient_data = 1.5)[stc]),
           label = ifelse(d$n_checks == 0, sprintf("%s — NEGLECTED · no check this period", d$name),
                          sprintf("%s — %s · %.0f d since checked", d$name, lbl, d$mean_interval_days)),
-          popup = serv_popup(d), options = leaflet::pathOptions(pane = "points"))
+          popup = serv_popup(d), popupOptions = leaflet::popupOptions(autoPan = FALSE),
+          options = leaflet::pathOptions(pane = "points"))
       } else if (src() == "camera" && !is_priority() && !is_timing() && grain_rv() == "line") {
         d <- line_metric(); if (is.null(d) || !nrow(d)) return()
         cap <- .robust_cap(d$metric); v <- pmin(d$metric, cap); pf <- leaflet::colorNumeric("viridis", c(0, cap))
@@ -417,7 +425,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           layerId = paste0("L|", d$reserve, "|", d$line),
           radius = .area_radius(v, 8, 26), fillColor = pf(v), fillOpacity = 0.85, stroke = TRUE, color = halo(), weight = 1.5,
           label = sprintf("Line %s (%s) — RAI %.2f", d$line, d$reserve, d$metric),
-          popup = line_popup(d), options = leaflet::pathOptions(pane = "points"))
+          popup = line_popup(d), popupOptions = leaflet::popupOptions(autoPan = FALSE),
+          options = leaflet::pathOptions(pane = "points"))
       } else {
         d <- rate_loc_pts(); vc <- valcol()
         d <- if (is.null(d)) NULL else d[is.finite(d[[vc]]) & d[[vc]] > 0, , drop = FALSE]
@@ -427,6 +436,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           radius = .area_radius(v, 5, 20), fillColor = pf(v), fillOpacity = 0.8, stroke = TRUE, color = halo(), weight = 1.5,
           label = sprintf("%s — %s %s", d$name, vallabel(), formatC(d[[vc]], format = "fg", digits = 3)),
           popup = if (is_priority()) prio_popup(d) else if (is_timing()) timing_popup(d) else rate_popup(d),
+          popupOptions = leaflet::popupOptions(autoPan = FALSE),
           options = leaflet::pathOptions(pane = "points"))
       }
     })
