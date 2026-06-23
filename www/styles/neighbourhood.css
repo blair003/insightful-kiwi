@@ -1,6 +1,7 @@
 /* neighbourhood.css — the Neighbourhood seasonal panel (Outcomes → Deeper analysis). */
 
 .ik-nbhd { padding-top: 0.25rem; }
+.ik-nbhd-titlebar { display: flex; align-items: center; gap: 0.4rem; }
 .ik-nbhd-title { margin-bottom: 0.25rem; }
 .ik-nbhd-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
 

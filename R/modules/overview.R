@@ -5,6 +5,93 @@
 # selection SPEC (period/geography), resolved per device with ik_resolve().
 # First increment — RAI/metrics come later.
 
+#' "How to read this" help body for the Overview MONITORING (camera) section — a tabbed walkthrough
+#' of the RAI headline. `norm_hours` is the camera-hours RAI is normalised to, from project config,
+#' woven in so the modal matches the actual metric. @keywords internal
+overview_monitor_help_body <- function(norm_hours = 2000) {
+  P <- function(...) tags$p(...)
+  nh <- format(norm_hours, big.mark = ",")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "The ", tags$b("Monitoring"), " section summarises what your ", tags$b("cameras"),
+        " recorded in the current selection: top boxes for ", tags$b("effort"), " (camera-hours), ",
+        "deployments, animal detections and distinct species; then a ", tags$b("card per species"),
+        " whose headline number is its ", tags$b("RAI"), " (relative activity index)."),
+      P("Click a card → its per-reserve breakdown → a reserve → the actual detection records. The ",
+        tags$b("Compare to"), " control adds a prior-period (or same-period-last-year) value and a ",
+        tags$b("coloured arrow"), " — green where the change is desirable (predators down, protected up), ",
+        "red where it isn't.")),
+    tabPanel(
+      "Relative activity (RAI)", icon = icon("chart-simple"),
+      P(tags$br(), "A camera that runs twice as long will record about twice as many detections — so a ",
+        tags$b("raw count"), " mostly measures how long the cameras were out, not how much animal activity ",
+        "there was. RAI removes that by dividing by ", tags$b("effort"), " and scaling to a fixed window:"),
+      P(tags$b(sprintf("RAI = detections per %s camera-hours.", nh))),
+      P("So RAI is a ", tags$b("rate"), ", comparable across lines and periods regardless of how long each ",
+        "camera ran. Higher = more activity of that species on camera. It's an ", tags$em("index of activity"),
+        ", not a population count — good for trends and comparisons, not an absolute density."),
+      P("The ", tags$b("card"), " shows the network RAI (mean over reserves) ± its standard error; a tiny SE ",
+        "means the reserves agree, a large one that they differ.")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Per camera-line"), " — detections of the species ÷ that line's actual camera-hours, ",
+                "× ", nh, " (the ", tags$b("norm_hours"), " from project config, ≈ one line's full deployment)."),
+        tags$li(tags$b("Net of duplicates"), " — a detection flagged as a likely repeat of the same animal ",
+                "within the duplicate window is excluded, so one curious animal lingering doesn't inflate RAI."),
+        tags$li(tags$b("Rolled up"), " — line RAIs average to a reserve, and reserves to the network, each as a ",
+                tags$b("mean ± SE"), " (so a busy line doesn't dominate by its size)."),
+        tags$li(tags$b("Effort"), " — for the standard 4-camera-line protocol the window is exact (a pulse of ",
+                "deployments); otherwise it's summed camera-hours within the selection.")),
+      P(tags$em("The norm is a scale only — RAI always divides by each camera's ACTUAL hours, so changing it ",
+                "rescales every number equally and never changes which species or line is higher.")))
+  )
+}
+
+#' "How to read this" help body for the Overview TRAPPING (control) section — the catch-rate
+#' headline. `norm` = trap-nights the rate is normalised to (project config). @keywords internal
+overview_trap_help_body <- function(norm = 100) {
+  P <- function(...) tags$p(...)
+  ntn <- paste0(format(norm, big.mark = ","), " trap-nights")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "The ", tags$b("Trapping"), " section summarises what your ", tags$b("traps"), " caught in ",
+        "the current selection: top boxes for ", tags$b("effort"), " (trap-nights), checks, catches and distinct ",
+        "species; then a ", tags$b("card per species caught"), " — headline is the ", tags$b("catch count"),
+        ", with the ", tags$b("catch rate"), " (per ", ntn, ") beneath."),
+      P("Trapping defaults to ", tags$b("show everything caught"), " — every species with a catch gets a card, ",
+        "including incidental bycatch (hide one by setting ", tags$b("control = \"hide\""), " on its group in ",
+        "project.R). Click a card → per-reserve breakdown → a reserve → the catch records.")),
+    tabPanel(
+      "Catch rate", icon = icon("chart-simple"),
+      P(tags$br(), "The headline is the raw ", tags$b("count"), " — catches are sparse, so the honest first ",
+        "number is simply how many were caught. But more checks over more traps for longer will catch more, so ",
+        "to compare fairly the card also shows a ", tags$b("rate"), ":"),
+      P(tags$b(sprintf("Catch rate = catches per %s.", ntn))),
+      P("This is catch-per-unit-effort: it divides out how much trapping was done, so a small intensively-worked ",
+        "area and a large lightly-worked one can be compared. With a comparison period set, the arrow is left ",
+        tags$b("neutral"), " for trapping (every target is a pest, so there's no “good direction” to colour).")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Catch"), " = an animal observation at a trap check of the carded species (a group like ",
+                "“Mustelids” pools its members; an unconfigured species is counted on its own)."),
+        tags$li(tags$b("Trap-night"), " = one trap, set, for one night — summed over the checks in the selection ",
+                "(a check’s interval is its trap-nights of effort)."),
+        tags$li(tags$b("Rate"), " = catches ÷ trap-nights × ", format(norm, big.mark = ","), "."),
+        tags$li(tags$b("Rolled up"), " — computed per trapline, averaged to a reserve and to the network as a ",
+                tags$b("mean ± SE"), ", the same as the camera RAI.")),
+      P(tags$em("A blank trap check (caught nothing) still counts as effort — that's the point of a rate: it ",
+                "rewards catching per night set, not just total nights worked.")))
+  )
+}
+
 #' Overview nav panel UI.
 #' @param id Module id.
 #' @return A bslib nav_panel for page_navbar().
@@ -311,7 +398,7 @@ overview_ui <- function(id) {
 .ov_device_section <- function(title, res, effort_label, effort_value,
                                deploy_label, record_label, sg, panel_fn, metric = NULL,
                                kind = "", box_drill = NULL, spp_drill = NULL, subs = NULL,
-                               ik_data = NULL) {
+                               ik_data = NULL, help = NULL) {
   obs <- res$observations
   obs <- obs[!is.na(obs$observationType) & obs$observationType == "animal", , drop = FALSE]
   obs <- .ov_net_obs(obs, ik_data)                            # net by default (trap no-op)
@@ -327,7 +414,8 @@ overview_ui <- function(id) {
         vb)
   }
   card(
-    card_header(title, class = paste0("ik-device-head ik-device-", kind)),
+    card_header(tags$span(class = "ik-device-title", title), help,
+                class = paste0("ik-device-head ik-device-", kind)),
     card_body(
       layout_column_wrap(
         width = 1/4,
@@ -529,7 +617,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                          metric = tagList(tags$div(class = "ik-metric-cap", cap), cards, matrix),
                          kind = "camera", box_drill = session$ns("box_drill"),
                          spp_drill = session$ns("spp_drill"), subs = .ov_camera_subs(cam(), ik_data, prefer),
-                         ik_data = ik_data)
+                         ik_data = ik_data,
+                         help = .ik_info(session$ns("mon_help"), "Camera monitoring — how to read this",
+                                         overview_monitor_help_body(ik_data$meta$camera$rai$norm_hours %||% 2000)))
     })
 
     output$trapping <- renderUI({
@@ -557,7 +647,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                          metric = tagList(tags$div(class = "ik-metric-cap", cap), cards, matrix),
                          kind = "trap", box_drill = session$ns("box_drill"),
                          spp_drill = session$ns("spp_drill"), subs = .ov_trap_subs(trp(), ik_data, prefer),
-                         ik_data = ik_data)
+                         ik_data = ik_data,
+                         help = .ik_info(session$ns("trap_help"), "Trapping — how to read this",
+                                         overview_trap_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
     })
 
     # Drill-down: a clicked metric cell opens its breakdown (the auditable basis) — a

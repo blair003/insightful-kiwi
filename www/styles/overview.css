@@ -26,7 +26,9 @@
 
 /* Device section headers (Camera monitoring · Trapping) — bolder, with a subtle per-device accent
    bar + tint so the two sections read apart at a glance. */
-.ik-device-head { font-weight: 700; font-size: 1.05rem; }
+.ik-device-head { font-weight: 700; font-size: 1.05rem;
+  display: flex; align-items: center; gap: 0.5rem; }
+.ik-device-title { flex: 1 1 auto; }   /* push the help (?) button to the right of the section title */
 .ik-device-camera { border-left: 4px solid #3f6fb0; background: rgba(63, 111, 176, 0.06); }
 .ik-device-trap   { border-left: 4px solid #b06a3f; background: rgba(176, 106, 63, 0.06); }
 

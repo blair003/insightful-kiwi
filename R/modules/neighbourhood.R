@@ -6,6 +6,58 @@
 # per-camera-hour rate (exploratory); trap catches are a seasonal count (a kill is only known to its
 # check window). Data + click-drill from ik_neighbourhood_series() / ik_neighbourhood_records().
 
+#' "How to read this" help body for Neighbourhood — a tabbed walkthrough. `cam_norm` is the
+#' per-camera-hour scale (project config) woven into the calculation tab. @keywords internal
+neighbourhood_help_body <- function(cam_norm = 500) {
+  P  <- function(...) tags$p(...)
+  ch <- format(cam_norm, big.mark = ",")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "Pick one ", tags$b("anchor"), " — a single camera ", tags$b("site"), ", a monitoring ",
+        tags$b("line"), ", or a whole ", tags$b("reserve"), " — and (for a site or line) a ", tags$b("radius"),
+        ". The chart then tracks, season by season, three things in that neighbourhood:"),
+      tags$ul(
+        tags$li(tags$b("Protected"), " activity on camera (your chosen protected species)."),
+        tags$li(tags$b("Predator"), " activity on camera (your chosen predators)."),
+        tags$li(tags$b("Predators caught"), " in the traps in/around the anchor.")),
+      P("Click any point to see the records behind it. It's a focused, local companion to the ",
+        tags$b("Are we winning?"), " network view — zoomed to one place.")),
+    tabPanel(
+      "Reading it", icon = icon("chart-line"),
+      P(tags$br(), "Two questions, depending on the anchor:"),
+      tags$ul(
+        tags$li(tags$b("Site / line"), " — the ", tags$em("local story"), ": is a protected species holding on ",
+                "here, and what are the cameras and nearby traps seeing of predators around it?"),
+        tags$li(tags$b("Reserve"), " — the ", tags$em("alignment check"), ": does camera predator activity move ",
+                "with what the traps catch? If cameras show lots of predator activity but traps catch little, ",
+                "the control may be thin or ineffective there; if both fall together, it may be working.")),
+      P("The two camera lines are ", tags$b("rates"), " (comparable across seasons); the trap line is a ",
+        tags$b("count"), " of catches. Read them for ", tags$b("shape and timing"), ", not a one-to-one scale — ",
+        "they're different measures. Treat it as ", tags$b("exploratory"), ": it points you at places to look, ",
+        "not proof of cause.")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Neighbourhood"), " — the cameras and traps within the chosen ", tags$b("radius"),
+                " of the anchor (a reserve uses all of its own cameras/traps, no radius), from the pre-computed ",
+                "spatial adjacency."),
+        tags$li(tags$b("Camera rate"), " — detections pooled over the neighbourhood's cameras ÷ their combined ",
+                "camera-hours, × ", ch, " (the per-camera scale from config); net of likely duplicates."),
+        tags$li(tags$b("Trap catches"), " — predators of the chosen species caught at trap checks in the ",
+                "neighbourhood, as a ", tags$b("per-season count"), "."),
+        tags$li(tags$b("Why trap is a count, not a timing"), " — a kill is only known to the ", tags$b("check "),
+                tags$b("window"), " (we know it happened sometime between two checks, not the day), so a within-",
+                "season count is the honest resolution; it can't be lined up to a camera detection in time."),
+        tags$li(tags$b("Grain"), " — toggle ", tags$b("By season"), " (every summer pooled, etc.) or ",
+                tags$b("By year"), " (each season-year separately).")),
+      P(tags$em("All exploratory and observational — neighbourhoods overlap and traplines aren't randomly ",
+                "placed, so read alignment as suggestive.")))
+  )
+}
+
 #' Neighbourhood nav panel. @param id Module id. @param ik_data The container (anchor choices are
 #'   baked into the UI — single-selects in this dropdown nav panel won't keep a server-set default).
 neighbourhood_ui <- function(id, ik_data) {
@@ -23,15 +75,18 @@ neighbourhood_ui <- function(id, ik_data) {
   rad_ch   <- rad_ch[rad_ch <= max_r]
   nav_panel(
     "Neighbourhood", value = "neighbourhood", icon = icon("circle-nodes"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/neighbourhood.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/neighbourhood.css")),
     div(class = "ik-nbhd",
-        tags$h3(class = "ik-nbhd-title", "Neighbourhood — protected, predators & nearby trapping"),
+        div(class = "ik-nbhd-titlebar",
+            tags$h3(class = "ik-nbhd-title", "Neighbourhood — protected, predators & nearby trapping"),
+            .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
+                     neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$camera_hours %||% 500))),
         tags$p(class = "ik-nbhd-lead",
           "Pick an anchor — a single camera ", tags$b("site"), ", a monitoring ", tags$b("line"),
           ", or a whole ", tags$b("reserve"), ". For the cameras and traps in/around it, see season ",
           "by season how ", tags$b("protected"), " and ", tags$b("predator"), " activity on camera move, ",
           "alongside the ", tags$b("predators caught"), " in nearby traps. A trap catch is only known ",
-          "to its ~monthly check window, so the trap line is a per-season count — not a timing."),
+          "to its check window, so the trap line is a per-season count — not a timing."),
         div(class = "ik-nbhd-controls",
             radioButtons(ns("level"), "Anchor", inline = TRUE,
                          choices = c("Site" = "site", "Line" = "line", "Reserve" = "reserve"), selected = "line"),
