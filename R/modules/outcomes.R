@@ -17,7 +17,7 @@ outcomes_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     "Are we winning?", value = "outcomes", icon = icon("chart-line"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/outcomes.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/outcomes.css")),
     div(class = "ik-outcomes",
         uiOutput(ns("intro")),
         div(class = "out-controls",
@@ -174,8 +174,8 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
           tags$tr(class = if (drillable) "ik-drill-row" else NULL,
             title = if (drillable) "Show this reserve's records" else NULL,
             onclick = if (drillable) sprintf(
-              "Shiny.setInputValue('%s',{reserve:'%s'},{priority:'event'})",
-              session$ns("out_obs"), R$reserve[i]) else NULL,
+              "Shiny.setInputValue('%s',{reserve:%s},{priority:'event'})",
+              session$ns("out_obs"), .ik_jsq(R$reserve[i])) else NULL,
             tags$td(R$reserve[i]), tags$td(.ov_num(cn)),
             tags$td(sprintf(fd, R$metric[i]), if (!is.na(R$se[i])) sprintf(paste0(" ± ", fd), R$se[i])),
             tags$td(.ov_num(R$n_lines[i])))

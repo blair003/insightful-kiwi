@@ -12,7 +12,7 @@ overview_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     "Overview", value = "overview", icon = icon("gauge"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/overview.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/overview.css")),
     div(
       class = "ik-overview",
       uiOutput(ns("header")),
@@ -172,8 +172,8 @@ overview_ui <- function(id) {
     if (b$drill && !is.null(drill_id)) {
       tags$td(class = "ik-drill", b$content, title = "Show the breakdown",
               onclick = sprintf(
-                "Shiny.setInputValue('%s',{taxon:'%s',reserve:'%s',kind:'%s'},{priority:'event'})",
-                drill_id, tx, rs, kind))
+                "Shiny.setInputValue('%s',{taxon:%s,reserve:%s,kind:'%s'},{priority:'event'})",
+                drill_id, .ik_jsq(tx), .ik_jsq(rs), kind))
     } else tags$td(b$content)
   }
 
@@ -213,10 +213,14 @@ overview_ui <- function(id) {
   headline <- match.arg(headline)
   one <- function(tx) {
     s   <- summary[summary$taxon == tx & summary$reserve == "Combined", , drop = FALSE]
+    # No "Combined" row when a SINGLE reserve is in scope (with_network only adds it for >1) — fall
+    # back to that reserve's own row, so the card still shows its value and drills into it.
+    if (!nrow(s)) s <- summary[summary$taxon == tx, , drop = FALSE]
+    rsv <- if (nrow(s)) s$reserve[1] else "Combined"
     cnt <- as.integer(counts[tx] %||% 0L); if (length(cnt) == 0 || is.na(cnt)) cnt <- 0L
-    has <- nrow(s) && !is.na(s$metric); metric_el <- tags$span(class = "ik-card-na", "–"); arrow <- NULL
+    has <- nrow(s) == 1 && !is.na(s$metric); metric_el <- tags$span(class = "ik-card-na", "–"); arrow <- NULL
     if (has) {
-      pr <- if (!is.null(prev)) prev[prev$taxon == tx & prev$reserve == "Combined", , drop = FALSE] else NULL
+      pr <- if (!is.null(prev)) prev[prev$taxon == tx & prev$reserve == rsv, , drop = FALSE] else NULL
       pm <- if (!is.null(pr) && nrow(pr)) pr$metric else NA_real_
       dp <- .ov_dp(c(s$metric, pm), min_digits, digits); fmt <- paste0("%.", dp, "f")
       val <- if (is.na(s$se)) sprintf(fmt, s$metric) else sprintf(paste0(fmt, " ± ", fmt), s$metric, s$se)
@@ -241,7 +245,7 @@ overview_ui <- function(id) {
       class   = paste("ik-metric-card", if (has) "ik-spp-click"),
       title   = if (has) "Show the reserve breakdown",
       onclick = if (has && !is.null(drill_id)) sprintf(
-        "Shiny.setInputValue('%s',{taxon:'%s',reserve:'Combined',kind:'%s'},{priority:'event'})", drill_id, tx, kind),
+        "Shiny.setInputValue('%s',{taxon:%s,reserve:%s,kind:'%s'},{priority:'event'})", drill_id, .ik_jsq(tx), .ik_jsq(rsv), kind),
       tags$div(class = "ik-card-name",
                if (!is.null(sg)) {
                  gi   <- match(tx, sg$label)
@@ -275,6 +279,7 @@ overview_ui <- function(id) {
   if (is.null(obs) || !nrow(obs) || is.null(ik_data)) return(obs)
   rel <- ik_relations(ik_data)
   d <- rel$possible_duplicate[match(obs$observationID, rel$observationID)]
+  if (is.null(d) || !is.logical(d)) return(obs)               # no duplicate flag (e.g. trap-only data) → no dedup
   obs[is.na(d) | !d, , drop = FALSE]                          # keep non-duplicates
 }
 
@@ -612,8 +617,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
               class   = if (drill) "ik-drill-row" else NULL,
               title   = if (drill) "Show this reserve's records" else NULL,
               onclick = if (drill) sprintf(
-                "Shiny.setInputValue('%s',{taxon:'%s',reserve:'%s',kind:'%s'},{priority:'event'})",
-                session$ns("drill_obs"), d$taxon, R$reserve[i], d$kind) else NULL,
+                "Shiny.setInputValue('%s',{taxon:%s,reserve:%s,kind:'%s'},{priority:'event'})",
+                session$ns("drill_obs"), .ik_jsq(d$taxon), .ik_jsq(R$reserve[i]), d$kind) else NULL,
               tags$td(R$reserve[i]),
               tags$td(.ov_num(cn)),
               tags$td(sprintf(fd, R$metric[i]),
@@ -647,8 +652,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
             class   = if (drill) "ik-drill-row" else NULL,
             title   = if (drill) "Show these records" else NULL,
             onclick = if (drill) sprintf(
-              "Shiny.setInputValue('%s',{taxon:'%s',reserve:'%s',line:'%s',kind:'%s'},{priority:'event'})",
-              session$ns("drill_obs"), d$taxon, d$reserve, L$line[i], d$kind) else NULL,
+              "Shiny.setInputValue('%s',{taxon:%s,reserve:%s,line:%s,kind:'%s'},{priority:'event'})",
+              session$ns("drill_obs"), .ik_jsq(d$taxon), .ik_jsq(d$reserve), .ik_jsq(L$line[i]), d$kind) else NULL,
             tags$td(L$line[i]),
             tags$td(.ov_num(L[[cnt]][i])),
             tags$td(.ov_num(round(L[[eff]][i]))),
