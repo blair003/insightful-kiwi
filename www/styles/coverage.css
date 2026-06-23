@@ -1,7 +1,6 @@
 /* coverage.css — the Coverage map (Outcomes → Deeper analysis). */
 
 .ik-cov { padding-top: 0.25rem; }
-.ik-cov-titlebar { display: flex; align-items: center; gap: 0.4rem; }
 .ik-cov-title { margin-bottom: 0.25rem; }
 .ik-cov-lead { color: var(--bs-secondary-color, #6c757d); max-width: 64rem; margin-bottom: 0.7rem; }
 
