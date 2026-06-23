@@ -102,7 +102,7 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
     dplyr::left_join(bait_outcomes, by = "bait_outcome_id")
 
   # Traps with no coordinates (e.g. mobile traps) are KEPT — their checks are valid data. They
-  # carry NA lat/long (Camtrap DP tolerates this) and land in the "Unplaced" reserve downstream,
+  # carry NA lat/long (Camtrap DP tolerates this) and land in the "Unknown" reserve downstream,
   # so they appear in counts / capture-rate / the trapping review but fall out of spatial (map)
   # views. (Previously dropped — that lost real catch data.)
   no_coord <- is.na(d$lat) | is.na(d$long)
@@ -110,7 +110,7 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
   coordless_traps <- sort(unique(d$trap_code[no_coord]))
   if (n_coordless > 0)
     logger::log_info(
-      "wkt_trapping: %d check(s) at %d trap(s) have no coordinates — kept (Unplaced reserve): %s",
+      "wkt_trapping: %d check(s) at %d trap(s) have no coordinates — kept (Unknown reserve): %s",
       n_coordless, length(coordless_traps), paste(coordless_traps, collapse = ", "))
 
   d <- d |>
@@ -178,9 +178,12 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
     classificationMethod = NA_character_, classifiedBy = NA_character_,
     classificationTimestamp = NA_character_, classificationProbability = NA_real_,
     # Carry the check's source fields that have no native Camtrap DP slot as key:value tags
-    # (parsed by the observation viewer): the VOLUNTEER who did the check, the bait, and
-    # whether bait was changed. volunteer_id is an id only — the raw export has no name table.
+    # (parsed by the observation viewer): the trap STATUS (camtrapDP observationType only knows
+    # animal/blank, so "still set" vs "sprung" vs "bait gone" lives here — same `status:` convention
+    # the trap.nz converter uses), the VOLUNTEER who did the check, the bait, and whether bait was
+    # changed. volunteer_id is an id only — the raw export has no name table.
     observationTags = paste(
+      paste0("status:",        ifelse(is_animal, "caught", d$description)),  # non-capture: still set/sprung/bait gone
       paste0("volunteer:",     d$volunteer_id %||% NA),
       paste0("bait_outcome:",  d$bait_outcome %||% NA),
       paste0("bait:",          d$baitstatus %||% NA),
@@ -258,7 +261,7 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
     sprintf("Traps (reference table):     %d", nrow(traps)),
     sprintf("Checks read:                 %d", n_checks_read),
     sprintf("Checks dropped (bad date):   %d", n_date_dropped),
-    sprintf("Checks coordless (kept, Unplaced): %d  (at %d trap(s))", n_coordless, length(coordless_traps)),
+    sprintf("Checks coordless (kept, Unknown): %d  (at %d trap(s))", n_coordless, length(coordless_traps)),
     sprintf("Deployments written:         %d", nrow(deployments)),
     sprintf("Observations written:        %d  (animal: %d, blank: %d)", nrow(observations), sum(is_animal), n_blank),
     "",
@@ -273,7 +276,7 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
     sprintf("Checks with no outcome_id:                       %d", no_ref$checks_without_outcome),
     sprintf("Checks with no bait_outcome_id:                  %d", no_ref$checks_without_bait),
     "",
-    "== Coordless traps (no lat/long; kept, placed in 'Unplaced' reserve) ==",
+    "== Coordless traps (no lat/long; kept, placed in 'Unknown' reserve) ==",
     ids(coordless_traps)
   ), log_path)
 

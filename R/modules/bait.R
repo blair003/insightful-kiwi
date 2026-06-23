@@ -19,20 +19,18 @@ bait_ui <- function(id) {
           "interval (the ", tags$b("prior check's"), " bait). ", tags$b("Click a bar"),
           " to see the captures behind it, then a trap to see its bait history."),
         div(class = "bait-controls",
-            selectInput(ns("period"),  "Period",      choices = NULL, width = "230px"),
             selectInput(ns("species"), "Captures of", choices = NULL, width = "200px"),
             radioButtons(ns("group"), "Group by", inline = TRUE,
                          choices = c("Full recipe" = "recipe", "Ingredient" = "ingredient"),
                          selected = "recipe"),
+            numericInput(ns("min_cap"), "Min captures", value = 2, min = 1, step = 1,
+                         width = "120px")),
+        # "Measure" only re-ranks the bars (rate vs total), so it sits small + plot-local, not in
+        # the data-selection row above.
+        div(class = "bait-plot-controls",
             radioButtons(ns("measure"), "Measure", inline = TRUE,
                          choices = c("Capture rate" = "rate", "Total caught" = "count"),
-                         selected = "rate"),
-            numericInput(ns("min_cap"), "Min captures", value = 2, min = 1, step = 1,
-                         width = "120px"),
-            checkboxGroupInput(ns("health"), "Trap servicing", inline = TRUE,
-                               choices = c("Good" = "good", "Watch" = "watch", "Neglected" = "neglected"),
-                               selected = c("good", "watch", "neglected")),
-            checkboxInput(ns("split"), "Split by servicing", value = FALSE)),
+                         selected = "rate")),
         plotOutput(ns("plot"), height = "560px", click = ns("plot_click")))
   )
 }
@@ -57,14 +55,6 @@ bait_help_body <- function() {
            tags$b("correlation, not proof"), ": if two ingredients almost always travel together, ",
            "their numbers blur and you can't tell which one did the work. Read it as ",
            "“appears in successful baits”, not “causes catches”."),
-    tags$h6("Trap servicing (the confounder)"),
-    tags$p("How often a trap is checked affects its catch rate regardless of bait — a neglected ",
-           "line drags down whatever bait it uses, while a busy line catches well anyway. ",
-           tags$b("Trap servicing"), " filters to traps in the chosen health buckets (good / ",
-           "watch / neglected, from the Trapping review's project-calibrated cutoffs); ",
-           tags$b("Split by servicing"), " breaks each bait's rate out by bucket so you can SEE ",
-           "whether a bait genuinely does better in well-checked traps, or just looked good/bad ",
-           "because of where it was used."),
     tags$h6("What's left off"),
     tags$p("Baits with under 100 trap-nights of use, or fewer than the ", tags$em("Min captures"),
            " floor, are dropped — too little to compare (one lucky catch on a rarely-used bait ",
@@ -79,14 +69,13 @@ bait_help_body <- function() {
 #' Bait effectiveness server.
 #' @param id Module id. @param ik_data The ik_data container.
 #' @param prefer_scientific reactive() name-display preference (for the observation viewer).
-bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
+bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
+                        color_mode = reactive("light"), selection = reactive(list())) {
   moduleServer(id, function(input, output, session) {
+    is_dark <- reactive(identical(color_mode(), "dark"))
     sg  <- ik_species_groups(ik_data)
     ctl <- ik_taxa_groups(sg, "control", "target")           # trapped predators
-
-    pc  <- ik_period_choices(ik_data)                        # default = latest WHOLE YEAR (more
-    def <- if (length(pc) >= 2) unname(pc[[2]][1]) else "all" # data than a season → rarer baits
-    updateSelectInput(session, "period", choices = pc, selected = def)
+    # Period now comes from the sidebar (selection); default set there (latest whole year).
 
     # "Captures of" choices: every control-target group, plus indented sub-species for any group
     # resolved as >1 species (Mustelids → Stoat / Weasel / Ferret) so mustelids can be viewed
@@ -124,7 +113,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       val
     }
 
-    seasons <- reactive(ik_expand_period(input$period, ik_data))
+    seasons <- reactive(.ik_nz(selection()$season))
     species <- reactive({
       v <- input$species %||% "__all__"
       if (identical(v, "__all__")) NULL
@@ -142,17 +131,13 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
     })
 
     group <- reactive(input$group %||% "recipe")
-    health <- reactive({
-      h <- input$health %||% character(0)
-      if (length(h) == 3) NULL else h            # all three = no filter; subset (incl none) = that set
-    })
     # The expensive (~7s) per-interval scan, computed ONCE per (period × species) and shared by the
     # chart AND the captures drill — so clicking a bar reuses it instead of re-scanning every check.
     intervals <- reactive(.bait_intervals(ik_data, seasons(), species()))
     data <- reactive(ik_bait_effectiveness(
       ik_data, seasons(), species = species(), group = group(),
       min_captures = max(1, input$min_cap %||% 3),
-      health = health(), by_health = isTRUE(input$split), intervals = intervals()))
+      health = NULL, by_health = FALSE, intervals = intervals()))
 
     # the data currently plotted, ordered + factored — read by the bar-click handler
     plotted <- reactiveVal(NULL)
@@ -161,27 +146,6 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       d <- data()
       validate(need(!is.null(d) && nrow(d), "No bait captures for this selection."))
       count <- identical(input$measure, "count")
-
-      if (isTRUE(input$split)) {                                # FACET: top recipes split by servicing
-        plotted(NULL)                                           # (bar-click drill is for the simple view)
-        topb <- utils::head(unique(d$bait), 12)                 # already ordered by overall_rate
-        d <- d[d$bait %in% topb, , drop = FALSE]
-        d$bait   <- factor(d$bait, levels = rev(topb))
-        d$health <- factor(d$health, levels = c("good", "watch", "neglected"),
-                           labels = c("Good", "Watch", "Neglected"))
-        return(
-          ggplot(d, aes(if (count) .data$captures else .data$rate, .data$bait, fill = .data$health)) +
-            geom_col(width = 0.7, position = position_dodge(width = 0.78)) +
-            scale_fill_manual(values = c(Good = "#2e7d32", Watch = "#f9a825", Neglected = "#c62828"),
-                              name = NULL, drop = FALSE) +
-            scale_x_continuous(expand = expansion(mult = c(0, 0.08))) +
-            labs(x = if (count) "Total captures" else "Captures per 100 trap-nights", y = NULL,
-                 subtitle = sprintf("Top %d recipes, each split by how well its traps were checked",
-                                    length(topb))) +
-            theme_minimal(base_size = 13) +
-            theme(panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
-                  axis.text.y = element_text(face = "bold"), legend.position = "top"))
-      }
 
       total <- nrow(d)
       d <- d[order(if (count) -d$captures else -d$rate), , drop = FALSE]
@@ -200,16 +164,16 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
 
       ggplot(d, aes(xval, .data$bait, fill = xval)) +
         geom_col(width = 0.72) +
-        geom_text(aes(label = lab), hjust = 0, size = 3.4, colour = "#444") +
+        geom_text(aes(label = lab), hjust = 0, size = 3.4, colour = ik_plot_ink(is_dark())) +
         scale_fill_gradient(low = "#d7ccc8", high = "#5d4037", guide = "none") +
         scale_x_continuous(expand = expansion(mult = c(0, 0.55))) +
         labs(x = if (count) "Total captures" else "Captures per 100 trap-nights", y = NULL,
              subtitle = sprintf("Top %d of %d %s, by %s", nrow(d), total, unit,
                                 if (count) "total caught" else "capture rate")) +
-        theme_minimal(base_size = 13) +
+        ik_ggtheme(is_dark()) +
         theme(panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
               axis.text.y = element_text(face = "bold"))
-    })
+    }, bg = "transparent")
 
     # --- drill: click a bar → ONE modal, 3 tabs (Captures → Trap history → Record Details) ---
     # Standard whole-row interaction (one action per row, no cell links → no showModal race):
@@ -225,11 +189,11 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       lv  <- levels(d$bait); idx <- round(cl$y)
       if (idx < 1 || idx > length(lv)) return()
       sel_trap(NULL); sel_hl(NULL); sel_obs(NULL)
-      caps(ik_bait_captures(ik_data, lv[[idx]], seasons(), species(), group(), health(),
+      caps(ik_bait_captures(ik_data, lv[[idx]], seasons(), species(), group(), NULL,
                             intervals = intervals()))                # reuse → instant modal
       showModal(modalDialog(
         title = .ik_modal_title(paste("Captures on", lv[[idx]]),
-                                paste0(period_label(input$period),
+                                paste0(period_label(selection()$period),
                                        if (!is.null(species_label())) paste0(" · ", species_label()) else "")),
         size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tabsetPanel(
@@ -248,6 +212,8 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       ))
     })
 
+    observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
+
     output$cap_table <- DT::renderDT({
       cap <- caps()
       validate(need(!is.null(cap) && nrow(cap), "No captures found."))
@@ -255,7 +221,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
                        Species = cap$species, check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "single",
                     class = "stripe hover row-border ik-row-click",
-                    options = list(pageLength = 10, scrollX = TRUE, dom = "tip"))
+                    options = list(pageLength = 10, scrollX = TRUE, dom = "ftip"))
     })
 
     observeEvent(input$cap_table_rows_selected, {                # capture row → its trap history
@@ -273,6 +239,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       locs <- ik_data$app$geography$locations
       nm <- locs$name[match(sel_trap(), locs$location_id)]
       tagList(
+        .ik_tab_back(session$ns("tab_back"), "cap_tabs", "Captures", "Back to captures"),
         tags$p(class = "bait-cap-lead", "Trap ", tags$b(nm %||% ""),
                " — every check, newest first. The ", tags$b("highlighted"), " row is the catch you came ",
                "from; ", tags$b("click any row"), " for its record. ", tags$b("Rebaited"),
@@ -309,7 +276,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",
         escape = -which(names(df) == "Rebaited"),                # Rebaited holds an icon + tooltip
         class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 15, scrollX = TRUE, dom = "tip",
+        options = list(pageLength = 15, scrollX = TRUE, dom = "ftip",
                        columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
       # Highlight the catch you came from (tints the whole row's cells). See .ik_dt_highlight_row.
       dt <- .ik_dt_highlight_row(dt, "ObsID", sel_hl())
@@ -331,7 +298,8 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
       ob <- ik_observation(ik_data, sel_obs())
       if (is.null(ob)) return(tags$p("Record not found."))
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      tagList(.ovw_title(ik_data, ob, prefer),                       # same viewer as everywhere else
+      tagList(.ik_tab_back(session$ns("tab_back"), "cap_tabs", "Trap history", "Back to trap history"),
+              .ovw_title(ik_data, ob, prefer),                       # same viewer as everywhere else
               .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("rec_subtabs")))
     })
   })

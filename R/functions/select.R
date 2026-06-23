@@ -7,8 +7,9 @@
 # Pipeline:
 #   1. filter DEPLOYMENTS by geography (reserve / line / location) and source_type;
 #   2. take those deployments' OBSERVATIONS, then filter by PERIOD on each observation's
-#      OWN season (a capture belongs to the season it occurred in) and by SPECIES;
-#   3. report in-season clipped effort for the kept deployments (denominator for rates).
+#      season (camera = its deployment's season; trap = its check-date season — set in
+#      build_period) and by SPECIES;
+#   3. report in-season effort for the kept deployments (denominator for rates).
 
 #' Drop NA/empty entries; return NULL when nothing remains (so it's a no-op filter).
 #' @keywords internal
@@ -49,10 +50,10 @@ ik_select <- function(ik_data, season = NULL, reserve = NULL, line = NULL,
   if (!is.null(source_type)) keep <- keep & dep$source_type %in% source_type
   dep <- dep[keep, , drop = FALSE]                          # geography + device scope
 
-  # 2. observations of that scope, filtered by their OWN season (eventEnd) + species.
-  #    Period is applied to observations independently of the deployment filter below —
-  #    a capture recorded right on a season boundary belongs to its check-date season
-  #    even if its deployment interval only touches that season at a point.
+  # 2. observations of that scope, filtered by their season (from app$period$observations:
+  #    camera detections carry their DEPLOYMENT's season, trap captures their check-date
+  #    season) + species. So a pulse that grazes the next season keeps its late detections
+  #    under the season it ran in, consistent with the deployment count + effort below.
   obs <- ik_observations(ik_data, dataset)
   obs <- obs[obs$deploymentID %in% dep$deploymentID, , drop = FALSE]
   if (!is.null(season)) {
@@ -69,13 +70,20 @@ ik_select <- function(ik_data, season = NULL, reserve = NULL, line = NULL,
   ef <- build_monitoring_season(dep)
   if (!is.null(season)) ef <- ef[ef$calendar_season %in% season, , drop = FALSE]
 
-  # 3b. deployments returned/counted = those ASSIGNED to the selected season(s) by the
-  #     majority-overlap rule (app$period$deployments). So a boundary-straddling pulse is
-  #     counted ONCE — in the season holding most of it — not in every season it grazes.
+  # 3b. deployments returned/counted = those ASSIGNED to the selected season(s), BY SOURCE:
+  #     - camera (pulse): the majority-overlap season, so a boundary-straddling pulse is counted
+  #       ONCE, in the season holding most of it (matches how its detections are seasoned).
+  #     - trap (one check per deployment): the CHECK's season, honouring meta$trapping$season_by
+  #       ("check_date" default — by deploymentEnd; "interval" — the majority-overlap span). This
+  #       keeps the trap count consistent with trap observations (check-date seasoned) and with the
+  #       trap-review / servicing views, instead of the old majority-overlap-for-everything rule.
   if (!is.null(season)) {
-    asg <- ik_deployment_period(ik_data, dataset)
-    dep <- dep[dep$deploymentID %in% asg$deploymentID[asg$calendar_season %in% season],
-               , drop = FALSE]
+    asg  <- ik_deployment_period(ik_data, dataset)
+    asea <- asg$calendar_season
+    is_trap <- !is.na(asg$source_type) & asg$source_type == "trap"
+    if (any(is_trap) && !identical(ik_data$meta$trapping$season_by %||% "check_date", "interval"))
+      asea[is_trap] <- ik_assign_season(asg$deploymentEnd[is_trap], asg$deploymentEnd[is_trap])$calendar_season
+    dep <- dep[dep$deploymentID %in% asg$deploymentID[asea %in% season], , drop = FALSE]
   }
 
   list(observations = obs, deployments = dep, effort_hours = sum(ef$effort_hours))

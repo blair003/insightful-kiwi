@@ -17,6 +17,10 @@
 .ik-maps-controls .form-group,
 .ik-maps-controls .shiny-input-container { margin-bottom: 0; }
 .ik-maps-controls .shiny-input-container { min-width: 12rem; }
+/* Only an OPEN selectize dropdown is elevated above the leaflet (panes ~400, controls ~1000) — NOT
+   the whole toolbar, which would otherwise create a stacking context that blocks the navbar menus. */
+.ik-maps-controls .selectize-control.single .selectize-dropdown,
+.ik-maps-controls .selectize-control.multi  .selectize-dropdown { z-index: 1050; }
 
 /* The map frame — theme-matched backdrop (no hardcoded grey), app font. */
 .ik-maps .leaflet-container {
@@ -68,3 +72,10 @@
   margin-bottom: 0.5rem;
 }
 .ik-maps-records-header small { color: var(--bs-secondary-color, #666); }
+
+/* Hint text inside the priority/timing drill modal. */
+.ik-maps-hint { color: var(--bs-secondary-color, #6c757d); }
+
+/* Measure control wrapper + inline hint. */
+.ik-maps-measure { display: flex; flex-direction: column; }
+.ik-maps-hint { color: var(--bs-secondary-color, #6c757d); font-weight: 400; font-size: 0.85em; }

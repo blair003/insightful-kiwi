@@ -120,21 +120,40 @@ build_period <- function(datasets, geography) {
   })
   deployments <- dplyr::bind_rows(per)
 
-  # Observations seasoned by their OWN `eventEnd` — the recorded instant (camera
-  # detection end; trap CHECK date), matching the Records "When" column. NB a trap
-  # capture is only resolved to its check interval [eventStart, eventEnd]: it could
-  # physically have occurred earlier in that span, even in a prior season. We attribute
-  # by the check date (eventEnd) — see the converter header in wkt_trapping.R. Falls
-  # back to eventStart if eventEnd is absent/NA.
+  # Observation seasons. PULSE sources (camera) are ANCHORED ON THE DEPLOYMENT: every
+  # detection inherits its deployment's (majority-overlap) season, so a ~3-week monitoring
+  # block that grazes the next season keeps ALL its detections together under the season it
+  # ran in — not split by the wall-clock date a few late captures happen to carry. This
+  # matches the documented "period is anchored on the deployment" model and the Camera-review
+  # page, and is robust to a misset camera clock. CONTINUOUS sources (traps) genuinely span
+  # seasons, so each capture is attributed by its CHECK date (eventEnd, falling back to
+  # eventStart) — a trap capture is only resolved to its check interval, see wkt_trapping.R.
   obs_per <- lapply(names(datasets), function(id) {
-    obs  <- camtrapdp::observations(datasets[[id]]$package)
-    obs  <- ik_localize_times(obs, datasets[[id]]$meta, c("eventStart", "eventEnd"))
-    when <- if ("eventEnd" %in% names(obs)) obs$eventEnd else obs$eventStart
-    na   <- is.na(when); when[na] <- obs$eventStart[na]
-    sa   <- ik_assign_season(when, when)
-    data.frame(observationID = obs$observationID, dataset = id,
-               season = sa$season, season_year = sa$season_year,
-               calendar_season = sa$calendar_season, stringsAsFactors = FALSE)
+    ds    <- datasets[[id]]
+    obs   <- camtrapdp::observations(ds$package)
+    obs   <- ik_localize_times(obs, ds$meta, c("eventStart", "eventEnd"))
+    pulse <- identical(ds$meta$source_type, "camera")
+    if (pulse) {
+      ds_dep <- deployments[deployments$dataset == id, , drop = FALSE]   # this dataset's deployment seasons
+      mi  <- match(as.character(obs$deploymentID), ds_dep$deploymentID)
+      snm <- ds_dep$season[mi]; syr <- ds_dep$season_year[mi]; cse <- ds_dep$calendar_season[mi]
+      miss <- is.na(cse)                                                 # orphan deployment → own-date fallback
+      if (any(miss)) {
+        when <- if ("eventEnd" %in% names(obs)) obs$eventEnd else obs$eventStart
+        nawh <- is.na(when); when[nawh] <- obs$eventStart[nawh]
+        sa   <- ik_assign_season(when[miss], when[miss])
+        snm[miss] <- sa$season; syr[miss] <- sa$season_year; cse[miss] <- sa$calendar_season
+      }
+      data.frame(observationID = obs$observationID, dataset = id,
+                 season = snm, season_year = syr, calendar_season = cse, stringsAsFactors = FALSE)
+    } else {
+      when <- if ("eventEnd" %in% names(obs)) obs$eventEnd else obs$eventStart
+      nawh <- is.na(when); when[nawh] <- obs$eventStart[nawh]
+      sa   <- ik_assign_season(when, when)
+      data.frame(observationID = obs$observationID, dataset = id,
+                 season = sa$season, season_year = sa$season_year,
+                 calendar_season = sa$calendar_season, stringsAsFactors = FALSE)
+    }
   })
 
   list(deployments = deployments,
@@ -284,13 +303,16 @@ ik_comparison_spec <- function(ik_data, spec) {
 
 #' Empirical monitoring-season envelopes per (season × reserve × source_type).
 #'
-#' Each deployment's interval is CLIPPED to every season it overlaps, so a single
-#' season's row reflects only the monitoring active *within* that season. This is the
-#' difference between pulse monitoring (cameras — one short window inside one season,
-#' clip is a no-op) and continuous control (traps — a long span contributing its
-#' active portion to each season it touches, not its whole length to one). `start`/`end`
-#' are the empirical bounds, `n_deployments` the count active in-season, `effort_hours`
-#' the clipped (in-season) effort — the correct denominator for seasonal rates.
+#' Two regimes, matching how the device monitors and how its observations are seasoned:
+#'   - PULSE (camera): the WHOLE deployment belongs to its majority-overlap season — no
+#'     boundary clipping. A ~3-week block that grazes the next season still counts wholly
+#'     where it ran, so its effort (the RAI denominator) lines up with its detections,
+#'     which are likewise anchored on the deployment (see `build_period`).
+#'   - CONTINUOUS (trap, …): each deployment is CLIPPED to every season it overlaps, so a
+#'     long run contributes only its in-season portion to each season it touches — the
+#'     correct denominator for a control source that genuinely spans seasons.
+#' `start`/`end` are the empirical bounds, `n_deployments` the count in-season, `effort_hours`
+#' the (whole-pulse / in-season-clipped) effort.
 #' @keywords internal
 build_monitoring_season <- function(dep) {
   empty <- data.frame(calendar_season = character(), season = character(),
@@ -303,25 +325,44 @@ build_monitoring_season <- function(dep) {
 
   tzone <- attr(d$deploymentStart, "tzone")
   if (is.null(tzone) || !nzchar(tzone)) tzone <- "Pacific/Auckland"
-  start_s <- as.numeric(d$deploymentStart)
-  end_s   <- pmax(as.numeric(d$deploymentEnd), start_s)        # guard inverted spans
-  grid <- ik_season_grid(min(d$deploymentStart), max(d$deploymentEnd), tzone)
-  nd <- nrow(d); ns <- nrow(grid)
+  is_pulse <- !is.na(d$source_type) & d$source_type == "camera"
+  parts <- list()
 
-  # clip every deployment (rows) against every season (cols); keep positive overlaps
-  cs <- pmax(matrix(start_s, nd, ns), matrix(as.numeric(grid$start), nd, ns, byrow = TRUE))
-  ce <- pmin(matrix(end_s,   nd, ns), matrix(as.numeric(grid$end),   nd, ns, byrow = TRUE))
-  keep <- which(ce > cs)
-  if (!length(keep)) return(empty)
-  ri <- ((keep - 1L) %%  nd) + 1L                               # deployment index
-  ci <- ((keep - 1L) %/% nd) + 1L                               # season index
+  # Pulse (camera): whole deployment under its assigned (majority) season. Compute the season
+  # here from the deployment span (same rule as build_period) so this works whether the caller
+  # passes the period table (build time) or raw deployments (ik_select, runtime).
+  if (any(is_pulse)) {
+    p  <- d[is_pulse, , drop = FALSE]
+    sa <- ik_assign_season(p$deploymentStart, p$deploymentEnd)
+    parts[[length(parts) + 1L]] <- data.frame(
+      calendar_season = sa$calendar_season, season = sa$season, season_year = sa$season_year,
+      reserve = p$reserve, source_type = p$source_type,
+      cstart = as.numeric(p$deploymentStart),
+      cend   = pmax(as.numeric(p$deploymentEnd), as.numeric(p$deploymentStart)),
+      stringsAsFactors = FALSE)
+  }
 
-  data.frame(
-    calendar_season = grid$calendar_season[ci], season = grid$season[ci],
-    season_year = grid$season_year[ci], reserve = d$reserve[ri],
-    source_type = d$source_type[ri], cstart = cs[keep], cend = ce[keep],
-    stringsAsFactors = FALSE
-  ) |>
+  # Continuous (traps, …): clip every deployment (rows) against every season (cols).
+  if (any(!is_pulse)) {
+    c_ <- d[!is_pulse, , drop = FALSE]
+    start_s <- as.numeric(c_$deploymentStart); end_s <- pmax(as.numeric(c_$deploymentEnd), start_s)
+    grid <- ik_season_grid(min(c_$deploymentStart), max(c_$deploymentEnd), tzone)
+    nd <- nrow(c_); ns <- nrow(grid)
+    cs <- pmax(matrix(start_s, nd, ns), matrix(as.numeric(grid$start), nd, ns, byrow = TRUE))
+    ce <- pmin(matrix(end_s,   nd, ns), matrix(as.numeric(grid$end),   nd, ns, byrow = TRUE))
+    keep <- which(ce > cs)
+    if (length(keep)) {
+      ri <- ((keep - 1L) %%  nd) + 1L; ci <- ((keep - 1L) %/% nd) + 1L
+      parts[[length(parts) + 1L]] <- data.frame(
+        calendar_season = grid$calendar_season[ci], season = grid$season[ci],
+        season_year = grid$season_year[ci], reserve = c_$reserve[ri],
+        source_type = c_$source_type[ri], cstart = cs[keep], cend = ce[keep],
+        stringsAsFactors = FALSE)
+    }
+  }
+
+  if (!length(parts)) return(empty)
+  do.call(rbind, parts) |>
     dplyr::group_by(.data$calendar_season, .data$season, .data$season_year,
                     .data$reserve, .data$source_type) |>
     dplyr::summarise(

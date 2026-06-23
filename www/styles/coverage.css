@@ -1,0 +1,22 @@
+/* coverage.css — the Coverage map (Outcomes → Deeper analysis). */
+
+.ik-cov { padding-top: 0.25rem; }
+.ik-cov-title { margin-bottom: 0.25rem; }
+.ik-cov-lead { color: var(--bs-secondary-color, #6c757d); max-width: 64rem; margin-bottom: 0.7rem; }
+
+.ik-cov-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 0.5rem; }
+.ik-cov-controls .form-group,
+.ik-cov-controls .shiny-input-container { margin-bottom: 0; }
+
+.ik-cov-meta { color: var(--bs-secondary-color, #6c757d); font-size: 0.82rem; margin: 0.1rem 0 0.5rem; max-width: 64rem; }
+
+/* Only an OPEN selectize dropdown is lifted above the leaflet (panes ~400, controls ~1000). */
+.ik-cov-controls .selectize-control.multi .selectize-dropdown { z-index: 1050; }
+.leaflet-container { background: var(--bs-tertiary-bg, #eef0f2); }
+
+/* Coverage-gap table */
+.ik-cov-gaps { margin-top: 1rem; }
+.ik-cov-gaps-title { margin-bottom: 0.2rem; }
+.ik-cov-gaps-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; max-width: 64rem; margin-bottom: 0.5rem; }
+.ik-gap-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.7rem; color: #fff;
+  font-size: 0.78rem; font-weight: 600; white-space: nowrap; }

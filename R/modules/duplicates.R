@@ -16,7 +16,7 @@ duplicates_ui <- function(id) {
                     min = 5, max = 240, value = 30, step = 5, width = "100%"),
         div(class = "ik-dups-grid",
             div(class = "ik-dups-panel",
-                tags$h6("Gap distribution — targets vs the rest"),
+                tags$h6("Gap distribution — monitoring targets vs the rest"),
                 plotOutput(ns("hist"), height = "300px")),
             div(class = "ik-dups-panel",
                 tags$h6("Impact by species at this window"),
@@ -34,11 +34,13 @@ duplicates_ui <- function(id) {
 #' Duplicate-window tuner server.
 #' @param id      Module id.
 #' @param ik_data The ik_data container.
-duplicates_server <- function(id, ik_data) {
+duplicates_server <- function(id, ik_data, color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
+    is_dark <- reactive(identical(color_mode(), "dark"))
     gaps    <- ik_duplicate_gaps(ik_data)            # static (all camera data); compute once
-    sg      <- ik_species_groups(ik_data)
-    targets <- unique(sg$label[!is.na(sg$monitor) & sg$monitor == "target"])
+    sg         <- ik_species_groups(ik_data)
+    target_sci <- unlist(ik_taxa_groups(sg, "monitor", "target"), use.names = FALSE)   # match by sci (robust)
+    target_lab <- { l <- unique(sg$label[!is.na(sg$monitor) & sg$monitor == "target"]); if (length(l)) paste(l, collapse = " · ") else "—" }
     fmt_dt  <- function(x) ifelse(is.na(x), "—", format(x, "%d %b %Y · %H:%M"))
     w <- reactive(input$window %||% 30)
 
@@ -57,21 +59,23 @@ duplicates_server <- function(id, ik_data) {
       tags$p(class = "ik-dups-lead",
         tags$b(sprintf("%s%% of camera detections flagged at %d min", round(100 * fl / n), W)),
         tags$span(class = "ik-dups-sub", sprintf(
-          " — %s of %s. A possible duplicate is the same species at the same camera within the window (excluded from net RAI). Drag the window and watch the TARGET species stay near 0 — raise it until they start to be affected.",
-          format(fl, big.mark = ","), format(n, big.mark = ","))))
+          " — %s of %s. A possible duplicate is the same species at the same camera within the window (excluded from net RAI). Drag the window and watch the monitoring-target groups (%s) stay near 0 — raise it until they start to be affected.",
+          format(fl, big.mark = ","), format(n, big.mark = ","), target_lab)))
     })
 
     output$hist <- renderPlot({
       req(gaps); W <- w()
       d <- gaps[!is.na(gaps$gap) & gaps$gap <= 240, , drop = FALSE]
-      d$grp <- ifelse(d$species %in% targets, "Target species", "Other species")
+      tlab <- sprintf("Monitoring targets (%s)", target_lab)
+      d$grp <- factor(ifelse(d$scientificName %in% target_sci, tlab, "Other species"),
+                      levels = c(tlab, "Other species"))
       ggplot2::ggplot(d, ggplot2::aes(x = gap)) +
         ggplot2::geom_histogram(binwidth = 5, boundary = 0, fill = "#4a7fb5") +
         ggplot2::geom_vline(xintercept = W, linetype = "dashed", colour = "#c0392b", linewidth = 0.7) +
         ggplot2::facet_wrap(~grp, ncol = 1, scales = "free_y") +
         ggplot2::labs(x = "Minutes since previous same-species detection at the camera", y = "Detections") +
-        ggplot2::theme_minimal(base_size = 13)
-    })
+        ik_ggtheme(is_dark())
+    }, bg = "transparent")
 
     output$sens <- DT::renderDT({
       req(gaps); W <- w()

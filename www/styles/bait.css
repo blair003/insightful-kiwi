@@ -4,4 +4,9 @@
 .ik-bait-title { margin: 0 0 0.2rem; }
 .ik-bait-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
 .bait-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.4rem; }
+/* "Measure" is just how the bars are ranked — a minor, plot-local control: small + right-aligned,
+   tucked just above the chart rather than competing with the data-selection controls above. */
+.bait-plot-controls { display: flex; justify-content: flex-end; align-items: baseline; gap: 0.45rem;
+  font-size: 0.8rem; margin: 0.25rem 0 -0.35rem; }
+.bait-plot-controls label { font-weight: 400; margin-bottom: 0; color: var(--bs-secondary-color, #6c757d); }
 .bait-cap-lead { color: var(--bs-secondary-color, #6c757d); margin-bottom: 0.6rem; }

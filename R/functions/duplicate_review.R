@@ -28,6 +28,7 @@ ik_duplicate_gaps <- function(ik_data, prefer = "vernacular") {
   data.frame(
     observationID = obs$observationID,
     eventID  = if ("eventID" %in% names(obs)) obs$eventID else NA_character_,
-    species  = lab, camera = locs$name[gi], reserve = locs$reserve[gi], line = locs$line[gi],
+    species  = lab, scientificName = obs$scientificName,       # sci kept so callers can match groups robustly
+    camera = locs$name[gi], reserve = locs$reserve[gi], line = locs$line[gi],
     when     = obs$eventStart, gap = gap, stringsAsFactors = FALSE)
 }

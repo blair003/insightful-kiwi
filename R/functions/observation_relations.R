@@ -14,32 +14,27 @@
 #' different species is left to analysis — compare `*_species` to the subject's — the
 #' same primitive-not-verdict stance as `minutes_since_prev_same_species`.
 #' @keywords internal
-nearest_role <- function(times, role_mask, role_species, role_group,
-                         prefix, with_group = TRUE) {
+# `_species` carries the nearest counterpart's scientificName; its GROUP is NOT stored — group is a
+# pure function of scientificName (config in species_groups) and is derived on demand at display time
+# (ik_species_label / sg$group[match(...)]), never denormalised into these ~80k rows.
+nearest_role <- function(times, role_mask, role_species, prefix) {
   n  <- length(times)
   before_min <- after_min <- rep(NA_real_, n)
-  before_species <- before_group <- after_species <- after_group <- rep(NA_character_, n)
+  before_species <- after_species <- rep(NA_character_, n)
 
   if (any(role_mask)) {
-    rt <- times[role_mask]; rs <- role_species[role_mask]; rg <- role_group[role_mask]
+    rt <- times[role_mask]; rs <- role_species[role_mask]
     k  <- findInterval(times, rt, left.open = TRUE)   # count of rt strictly < t
     m  <- findInterval(times, rt, left.open = FALSE)  # count of rt <= t
     bi <- pmax(k, 1L); ai <- pmin(m + 1L, length(rt))
     hb <- k >= 1L; ha <- (m + 1L) <= length(rt)
     before_min     <- ifelse(hb, as.numeric(difftime(times, rt[bi], units = "mins")), NA_real_)
     before_species <- ifelse(hb, rs[bi], NA_character_)
-    before_group   <- ifelse(hb, rg[bi], NA_character_)
     after_min      <- ifelse(ha, as.numeric(difftime(rt[ai], times, units = "mins")), NA_real_)
     after_species  <- ifelse(ha, rs[ai], NA_character_)
-    after_group    <- ifelse(ha, rg[ai], NA_character_)
   }
 
-  df <- if (with_group) {
-    data.frame(before_min, before_species, before_group, after_min, after_species, after_group,
-               stringsAsFactors = FALSE)
-  } else {
-    data.frame(before_min, before_species, after_min, after_species, stringsAsFactors = FALSE)
-  }
+  df <- data.frame(before_min, before_species, after_min, after_species, stringsAsFactors = FALSE)
   stats::setNames(df, paste0(prefix, "_", names(df)))
 }
 
@@ -66,7 +61,6 @@ build_observation_relations <- function(datasets, species, duplicate_window = li
     cam_out <- NULL
     if (nrow(mr) > 0) {
       mr$role  <- species$role[match(mr$scientificName, species$scientificName)]
-      mr$group <- species$group[match(mr$scientificName, species$scientificName)]
 
       # Feature 1: minutes since previous same species at same location
       mr <- mr |>
@@ -87,14 +81,9 @@ build_observation_relations <- function(datasets, species, duplicate_window = li
         cbind(
           data.frame(observationID = o$observationID, stringsAsFactors = FALSE),
           # nearest ANY-animal detection here — "how long since activity at this location"
-          nearest_role(o$eventStart, rep(TRUE, nrow(o)), o$scientificName, o$group,
-                       "animal", with_group = FALSE),
-          nearest_role(o$eventStart,
-                       !is.na(o$role) & o$role == "predator", o$scientificName, o$group,
-                       "predator", with_group = TRUE),
-          nearest_role(o$eventStart,
-                       !is.na(o$role) & o$role == "protected", o$scientificName, o$group,
-                       "protected", with_group = FALSE)
+          nearest_role(o$eventStart, rep(TRUE, nrow(o)), o$scientificName, "animal"),
+          nearest_role(o$eventStart, !is.na(o$role) & o$role == "predator", o$scientificName, "predator"),
+          nearest_role(o$eventStart, !is.na(o$role) & o$role == "protected", o$scientificName, "protected")
         )
       }))
       f1 <- mr[, c("observationID", "minutes_since_prev_same_species", "possible_duplicate")]

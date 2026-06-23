@@ -61,10 +61,10 @@ format_records_datetime <- function(x) {
 #'
 #' @param id Module id.
 #' @return A bslib nav_panel for page_navbar().
-records_ui <- function(id) {
+records_ui <- function(id, label = "Records", value = "records") {
   ns <- NS(id)
   nav_panel(
-    "All records", value = "records", icon = icon("table"),
+    label, value = value, icon = icon("table"),
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/observation.css"),
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/records.css"),
     DT::DTOutput(ns("table"))
@@ -87,6 +87,9 @@ records_server <- function(id, ik_data, prefer_scientific, selection) {
       obs    <- ik_resolve(ik_data, selection())$observations   # resolve the spec
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       obs$Species <- ik_species_label(obs$scientificName, ik_data, prefer)
+      # trap "no capture" (observationType "blank") reads as "Empty"; camera blanks unchanged
+      obs$observationType <- ik_obs_type_label(obs$observationType,
+                                               !is.na(obs$source_type) & obs$source_type == "trap")
 
       # surface the duplicate metrics (app$relations; camera/minute-resolution only)
       rel <- ik_relations(ik_data)

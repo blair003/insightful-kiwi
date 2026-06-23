@@ -35,33 +35,46 @@ server <- function(input, output, session) {
   overview_selection <- selection_server("overview_selection", ik_data, prefer_scientific)
   overview_server("overview", ik_data, prefer_scientific, overview_selection)
 
-  # Maps view — its own selection instance (camera-only; species via the in-page group picker).
-  # color_mode (navbar dark/light toggle) drives the themed basemap.
-  maps_selection <- selection_server("maps_selection", ik_data, prefer_scientific)
-  maps_server("maps", ik_data, prefer_scientific, maps_selection,
-              color_mode = reactive(input$color_mode))
+  # Maps — one device-locked instance per menu: a camera "Monitoring map" and a trap "Trapping map"
+  # (the device toggle is gone; each lives under its device menu). Period/geography from the sidebar,
+  # Measure/Species in-panel. color_mode (navbar dark/light) drives the themed basemap.
+  mon_map_selection <- selection_server("mon_map_selection", ik_data, prefer_scientific)
+  maps_server("monitoring_map", ik_data, prefer_scientific, mon_map_selection,
+              color_mode = reactive(input$color_mode), device = "camera")
+  trap_map_selection <- selection_server("trap_map_selection", ik_data, prefer_scientific)
+  maps_server("trapping_map", ik_data, prefer_scientific, trap_map_selection,
+              color_mode = reactive(input$color_mode), device = "trap")
 
-  # Shared data selection (sidebar) — resolves the deployment-first selection. Records gets a
-  # Dataset axis (independent of the global toggle) when there's more than one dataset.
-  selection <- selection_server("selection", ik_data, prefer_scientific,
-    datasets = if (length(ds_ids) > 1) stats::setNames(ds_ids, ds_labels) else NULL)
-
-  # Records view (consumes the selection).
-  records_server("records", ik_data, prefer_scientific, selection)
+  # Records — one per device menu, each with the Device filter DEFAULTED to that device (still
+  # changeable). Each gets a Dataset axis (independent of the global toggle) when >1 dataset.
+  .rec_datasets <- if (length(ds_ids) > 1) stats::setNames(ds_ids, ds_labels) else NULL
+  mon_records_selection     <- selection_server("mon_records_selection",     ik_data, prefer_scientific, datasets = .rec_datasets)
+  control_records_selection <- selection_server("control_records_selection", ik_data, prefer_scientific, datasets = .rec_datasets)
+  records_server("mon_records",     ik_data, prefer_scientific, mon_records_selection)
+  records_server("control_records", ik_data, prefer_scientific, control_records_selection)
 
   # Data → Quality — camera deployment review + possible-duplicate review + trapping check review.
+  # Trap review takes Period + Reserve from the sidebar (its own selection instance).
   monitoring_server("monitoring", ik_data)
-  duplicates_server("duplicates", ik_data)
-  trapping_server("trapping", ik_data)
+  duplicates_server("duplicates", ik_data, color_mode = reactive(input$color_mode))
+  trap_selection <- selection_server("trap_selection", ik_data, prefer_scientific)
+  trapping_server("trapping", ik_data, trap_selection, color_mode = reactive(input$color_mode))
 
-  # Outcomes — "are we winning?" seasonal trend + bait effectiveness.
-  outcomes_server("outcomes", ik_data, prefer_scientific)
-  bait_server("bait", ik_data, prefer_scientific)
+  # Outcomes — "are we winning?" seasonal trend + bait effectiveness (bait Period from the sidebar).
+  cm <- reactive(input$color_mode)                       # navbar dark/light → themed plots
+  outcomes_server("outcomes", ik_data, prefer_scientific, color_mode = cm)
+  cooccurrence_server("cooccurrence", ik_data, prefer_scientific, color_mode = cm)
+  neighbourhood_server("neighbourhood", ik_data, prefer_scientific, color_mode = cm)
+  coverage_selection <- selection_server("coverage_selection", ik_data, prefer_scientific)
+  coverage_server("coverage", ik_data, prefer_scientific, coverage_selection, color_mode = cm)
+  bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific)
+  bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
 
   # Auto-hide the sidebar on views that have no sidebar controls — only Overview and Records
   # populate it; every other view keeps its controls in-page, so an empty rail is just clutter.
   # (The collapse toggle stays, so a curious user can still open it and see the note.)
-  SIDEBAR_NAVS <- c("overview", "maps", "records")
+  SIDEBAR_NAVS <- c("overview", "monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
+                    "trap-review", "bait", "coverage")
   observeEvent(input$nav, {
     bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
   })

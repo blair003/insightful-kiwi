@@ -12,16 +12,35 @@
 #' @param ik_data The ik_data container.
 #' @return A tidy data.frame: season · season_order · metric_type ("trap_rate"/"camera_rai") ·
 #'   taxon · role ("predator"/"protected") · value · se · n_reserves. NULL when no seasons.
-ik_outcome_series <- function(ik_data) {
+#' Superset of outcome taxa for the trend: predator+protected groups (camera/monitor) and predator
+#' groups (trap/control), each itemised into sub-species where the group's `split` flag is set. Keys
+#' are STABLE vernacular labels (group label, or species vernacular for a sub-species) so the picker
+#' filter + the drill agree regardless of the scientific-name preference. @return list(cam, trap,
+#' role) — each a label->scientificNames map (role is label->"predator"/"protected"). @keywords internal
+ik_outcome_taxa <- function(ik_data) {
   sg <- ik_species_groups(ik_data)
-  pick <- function(roles, by) {                 # label -> scientificNames, in priority order
-    s <- sg[!is.na(sg[[by]]) & sg$role %in% roles, , drop = FALSE]
-    s <- s[order(s$priority), , drop = FALSE]
-    split(s$scientificName, factor(s$label, levels = unique(s$label)))
+  splits <- unique(sg$label[which(sg$split)])
+  build <- function(roles, by) {
+    s <- sg[!is.na(sg[[by]]) & sg$role %in% roles, , drop = FALSE]; s <- s[order(s$priority), , drop = FALSE]
+    base <- split(s$scientificName, factor(s$label, levels = unique(s$label)))
+    taxa <- list(); role <- character(0)
+    for (lbl in names(base)) {
+      taxa[[lbl]] <- base[[lbl]]; role[[lbl]] <- s$role[match(lbl, s$label)]
+      if (lbl %in% splits) for (sn in base[[lbl]][grepl(" ", base[[lbl]], fixed = TRUE)]) {
+        k <- ik_species_label(sn, ik_data, "vernacular"); taxa[[k]] <- sn; role[[k]] <- s$role[match(lbl, s$label)]
+      }
+    }
+    list(taxa = taxa, role = role)
   }
-  cam_taxa  <- pick(c("predator", "protected"), "monitor")   # predators + kiwi on camera
-  trap_taxa <- pick("predator", "control")                   # predators in traps
-  role_of   <- stats::setNames(sg$role[match(names(cam_taxa), sg$label)], names(cam_taxa))
+  cam <- build(c("predator", "protected"), "monitor"); trap <- build("predator", "control")
+  list(cam = cam$taxa, trap = trap$taxa, role = cam$role)
+}
+
+ik_outcome_series <- function(ik_data) {
+  otx <- ik_outcome_taxa(ik_data)
+  cam_taxa  <- otx$cam      # predators + protected on camera (groups + split sub-species)
+  trap_taxa <- otx$trap     # predators in traps
+  role_of   <- otx$role
 
   seasons <- ik_season_levels(ik_deployment_period(ik_data))
   if (!length(seasons)) return(NULL)

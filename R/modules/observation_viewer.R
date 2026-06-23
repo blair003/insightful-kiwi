@@ -109,7 +109,11 @@
     .ovw_section("Identity",
       .ovw_row("Species", species),
       .ovw_row("Count", ob$count),
-      .ovw_row("Type", ob$observationType),
+      .ovw_row("Type", ik_obs_type_label(ob$observationType, !is_cam)),
+      .ovw_row("Status", if (!is_cam) {                       # trap check status (still set/sprung/bait gone)
+        st <- .ovw_tag(ob$observationTags, "status")
+        if (!is.na(st) && tolower(st) != "caught") tools::toTitleCase(st) else NA
+      } else NA),
       .ovw_row("Camera setup", if (isTRUE(ob$cameraSetupType == "setup")) "Yes" else NA),
       .ovw_row("Life stage", ob$lifeStage),
       .ovw_row("Sex", ob$sex),

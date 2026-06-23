@@ -1,0 +1,14 @@
+/* neighbourhood.css — the Neighbourhood seasonal panel (Outcomes → Deeper analysis). */
+
+.ik-nbhd { padding-top: 0.25rem; }
+.ik-nbhd-title { margin-bottom: 0.25rem; }
+.ik-nbhd-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
+
+/* One-line control row, wrapping on narrow screens (mirrors the co-occurrence controls). */
+.ik-nbhd-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 0.6rem; }
+.ik-nbhd-controls .form-group,
+.ik-nbhd-controls .shiny-input-container { margin-bottom: 0; }
+.ik-nbhd-controls .shiny-options-group { white-space: nowrap; }
+
+.ik-nbhd-meta { color: var(--bs-secondary-color, #6c757d); font-size: 0.82rem; margin: 0.1rem 0 0.5rem; max-width: 60rem; }
+.ik-nbhd-hint { color: var(--bs-secondary-color, #6c757d); font-style: italic; }

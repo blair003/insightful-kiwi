@@ -1,5 +1,15 @@
 # ui.R
 
+# Per-view Period defaults for the standalone reviews (now sidebar-driven, like every other view):
+# Trap review → the latest near-full TRAP season; Bait → the latest whole YEAR (more data, rarer baits).
+.trap_period_def <- { s <- .default_trap_season(ik_data); if (!is.null(s)) paste0("season:", s) else "all" }
+.bait_period_def <- { pc <- ik_period_choices(ik_data); if (length(pc) >= 2) unname(pc[[2]][1]) else "all" }
+
+# Device-organised menus are shown only when the org actually has that kind of data, so a
+# trapping-only (or monitoring-only) group sees just its menu (bslib drops the NULL nav items).
+.has_camera <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "camera"), logical(1)))
+.has_trap   <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "trap"),   logical(1)))
+
 ui <- page_navbar(
   id = "nav",
   title = tags$img(
@@ -27,44 +37,71 @@ ui <- page_navbar(
                      selection_ui("overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
     conditionalPanel("input.nav === 'outcomes'", tags$small("All seasons · network mean across reserves.")),
-    conditionalPanel("input.nav === 'bait'", tags$small("Controls are above the chart.")),
-    conditionalPanel("input.nav === 'camera-review' || input.nav === 'trap-review' || input.nav === 'duplicates'",
+    conditionalPanel("input.nav === 'bait'",
+                     selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
+                                  period_default = .bait_period_def)),
+    conditionalPanel("input.nav === 'trap-review'",
+                     selection_ui("trap_selection", show = c("period", "reserve"), ik_data = ik_data,
+                                  period_default = .trap_period_def)),
+    conditionalPanel("input.nav === 'coverage'",
+                     selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
+                                  period_default = "all")),
+    conditionalPanel("input.nav === 'camera-review' || input.nav === 'duplicates'",
                      tags$small("Controls are within the view.")),
-    conditionalPanel("input.nav === 'maps'",
-                     selection_ui("maps_selection",
+    conditionalPanel("input.nav === 'monitoring-map'",
+                     selection_ui("mon_map_selection",
                                   show = c("period", "reserve", "line", "location"), ik_data = ik_data)),
-    conditionalPanel("input.nav === 'species'",  tags$small("Species controls will appear here.")),
-    conditionalPanel("input.nav === 'records'",
-                     selection_ui("selection",
+    conditionalPanel("input.nav === 'trapping-map'",
+                     selection_ui("trap_map_selection",
+                                  show = c("period", "reserve", "line", "location"), ik_data = ik_data)),
+    conditionalPanel("input.nav === 'monitoring-records'",
+                     selection_ui("mon_records_selection",
                                   show = c("dataset", "period", "reserve", "line", "location",
-                                           "device", "species", "net"), ik_data = ik_data))
+                                           "device", "species", "net"), ik_data = ik_data, device_default = "camera")),
+    conditionalPanel("input.nav === 'trapping-records'",
+                     selection_ui("control_records_selection",
+                                  show = c("dataset", "period", "reserve", "line", "location",
+                                           "device", "species", "net"), ik_data = ik_data, device_default = "trap")),
+    tags$div(class = "ik-sidebar-foot",
+             tags$em("Insightful Kiwi"), tags$br(),
+             tags$a(href = "mailto:blair@aketechnology.co.nz?subject=Insightful%20Kiwi%20Query",
+                    "Blair George"))
   ),
 
   # Centre the menu: equal flexible space on both sides of the nav.
   nav_spacer(),
 
   overview_ui("overview"),
-  # "Outcomes" is a dropdown: the headline trend + the operational bait analysis.
-  nav_menu(
-    "Outcomes", icon = icon("chart-line"),
-    outcomes_ui("outcomes"),
-    bait_ui("bait")
-  ),
-  maps_ui("maps"),
-  nav_panel("Species", value = "species", icon = icon("paw"),
-    h2("Species")
-  ),
-  # "Data" groups the raw-data + data-quality views as direct pages (room to grow: exports, …).
-  nav_menu(
-    "Data", icon = icon("database"),
-    records_ui("records"),
-    "Quality",                                            # section header within the dropdown
-    nav_panel("Camera review",    value = "camera-review", icon = icon("camera"),
+
+  # Menus are organised by DEVICE — Monitoring (camera/observation) and "Trapping" (predator CONTROL:
+  # trapping today, poison/etc. later — friendly label now, conceptually Control). Each shown only when
+  # the org has that data; Records sits in each, device-filtered (default to the device, still changeable).
+  if (.has_camera) nav_menu(
+    "Monitoring", icon = icon("binoculars"),
+    maps_ui("monitoring_map", device = "camera", label = "Map", value = "monitoring-map", ik_data = ik_data),
+    nav_panel("Camera review", value = "camera-review", icon = icon("camera"),
               monitoring_ui("monitoring")),
-    nav_panel("Trap review",      value = "trap-review",   icon = icon("heart-pulse"),
+    cooccurrence_ui("cooccurrence"),                       # predator ↔ protected timing (camera)
+    nav_panel("Duplicate window", value = "duplicates", icon = icon("clone"),
+              duplicates_ui("duplicates")),
+    records_ui("mon_records", label = "Records", value = "monitoring-records")
+  ),
+  if (.has_trap) nav_menu(
+    "Trapping", icon = icon("location-crosshairs"),
+    maps_ui("trapping_map", device = "trap", label = "Map", value = "trapping-map", ik_data = ik_data),
+    nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"),
               trapping_ui("trapping")),
-    nav_panel("Duplicate window", value = "duplicates",    icon = icon("clone"),
-              duplicates_ui("duplicates"))
+    bait_ui("bait"),                                       # bait effectiveness (trap)
+    records_ui("control_records", label = "Records", value = "trapping-records")
+  ),
+
+  # Insights — cross-device synthesis, or features that work on whichever data you have.
+  nav_menu(
+    "Insights", icon = icon("chart-line"),
+    outcomes_ui("outcomes"),                              # "Are we winning?"
+    "Deeper analysis",                                    # section header within the dropdown
+    neighbourhood_ui("neighbourhood", ik_data),
+    coverage_ui("coverage")
   ),
 
   nav_spacer(),

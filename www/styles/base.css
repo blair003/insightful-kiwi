@@ -21,6 +21,11 @@
    Duplicate window) each lead with a bold page title. */
 .ik-review-head { font-weight: 700; margin: 0 0 0.6rem; }
 
+/* "← Back" link on deeper drill-modal tabs (see .ik_tab_back). Subtle — the tab headers remain. */
+.ik-tab-back { display: inline-block; font-size: 0.82rem; margin-bottom: 0.55rem;
+  color: var(--bs-secondary-color, #6c757d); text-decoration: none; cursor: pointer; }
+.ik-tab-back:hover { color: var(--ik-accent, #e8924d); }
+
 /* Inline help: a small "?" / "i" button (.ik_info) that opens a description modal. */
 .ik-info-btn {
   border: none; background: transparent; padding: 0 0.15rem; cursor: pointer; line-height: 1;
@@ -49,3 +54,31 @@ td .ik-link, .ik-link {
   font-weight: 600; line-height: 1.4;
 }
 .ik-badge-changed { background: #fff3cd; color: #8a6d3b; }
+
+/* ── App-wide busy spinner for slow PLOTS ─────────────────────────────────────────────────
+   Shiny marks an output `.recalculating` while it computes — including the very first render,
+   from page load until the plot is drawn — but its only built-in cue is a faint fade that's
+   easy to miss on a slow plot (e.g. "Are we winning?"). Overlay a clear centred spinner so a
+   new user sees the app is working. Scoped to plot outputs (leaflet/widgets manage their own).
+   We pin the wrapper opaque and fade only the <img>, so the spinner itself stays crisp. */
+.shiny-plot-output { position: relative; }
+.shiny-plot-output.recalculating { opacity: 1 !important; }
+.shiny-plot-output.recalculating > img { opacity: 0.35; transition: opacity 0.2s; }
+.shiny-plot-output.recalculating::after {
+  content: ""; position: absolute; top: 50%; left: 50%; width: 2.4rem; height: 2.4rem;
+  margin: -1.2rem 0 0 -1.2rem; border-radius: 50%; z-index: 5;
+  border: 3px solid var(--bs-border-color, #ced4da); border-top-color: var(--ik-accent, #cf6819);
+  animation: ik-spin 0.7s linear infinite;
+}
+@keyframes ik-spin { to { transform: rotate(360deg); } }
+
+/* ── Sidebar credit footer ───────────────────────────────────────────────────────────────
+   Small italic byline pinned to the bottom of the data-selection rail. bslib's .sidebar-content
+   is a flex column filling the rail height, so margin-top:auto pushes the credit to the bottom. */
+.bslib-sidebar-layout > .sidebar > .sidebar-content { display: flex; flex-direction: column; }
+.ik-sidebar-foot {
+  margin-top: auto; padding-top: 1.25rem; font-size: 0.72rem; font-style: italic;
+  line-height: 1.45; color: var(--bs-secondary-color, #6c757d);
+}
+.ik-sidebar-foot a { color: inherit; text-decoration: underline; }
+.ik-sidebar-foot a:hover { color: var(--ik-accent, #cf6819); }

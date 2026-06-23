@@ -24,6 +24,12 @@
   opacity: 0.5;
 }
 
+/* Device section headers (Camera monitoring · Trapping) — bolder, with a subtle per-device accent
+   bar + tint so the two sections read apart at a glance. */
+.ik-device-head { font-weight: 700; font-size: 1.05rem; }
+.ik-device-camera { border-left: 4px solid #3f6fb0; background: rgba(63, 111, 176, 0.06); }
+.ik-device-trap   { border-left: 4px solid #b06a3f; background: rgba(176, 106, 63, 0.06); }
+
 /* "Other species" — incidental / bycatch species beneath the cards. A collapsed-by-default
    <details>, deliberately LESS prominent than the cards (small, light). Expand → drill-down items. */
 .ik-spp-class { margin-bottom: 0.5rem; }
@@ -147,9 +153,11 @@
 /* Per-species metric cards (Overview headline). Camera leads with RAI ± SE, trapping with the
    catch count; the other figure is secondary. More prominent than the compact species list,
    less than the four value boxes. Click → the per-reserve breakdown. */
-.ik-metric-cards { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.25rem 0 0.85rem; }
+/* Grid (not flex) so cards keep a uniform width and a lone card on the last row stays one column
+   wide instead of stretching to 100%. auto-fill (not auto-fit) keeps empty tracks, so a short row
+   is left-aligned at the normal card width rather than blowing the last card full-width. */
+.ik-metric-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.6rem; margin: 0.25rem 0 0.85rem; }
 .ik-metric-card {
-  flex: 1 1 9rem; min-width: 8.5rem;
   border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 0.5rem;
   padding: 0.5rem 0.7rem; background: var(--bs-body-bg, #fff);
 }
@@ -167,14 +175,10 @@
 .ik-card-unit  { font-size: 0.8rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
 .ik-card-na    { color: var(--bs-secondary-color, #adb5bd); }
 
-/* Secondary "of interest" tier: a sub-heading + denser cards, so the protocol target species lead
-   and the rest sit beneath without crowding (the two-stage grouping). */
-.ik-card-tier {
-  text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem;
-  color: var(--bs-secondary-color, #6c757d); margin: 0.7rem 0 0.3rem;
-}
-.ik-metric-cards.ik-compact { gap: 0.45rem; }
-.ik-metric-cards.ik-compact .ik-metric-card { flex: 1 1 7rem; min-width: 6.5rem; padding: 0.4rem 0.55rem; }
+/* Secondary "of interest" tier: denser cards beneath the protocol targets, set off only by the
+   gap between the two card blocks (no sub-heading — the smaller size carries the distinction). */
+.ik-metric-cards.ik-compact { grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 0.45rem; }
+.ik-metric-cards.ik-compact .ik-metric-card { padding: 0.4rem 0.55rem; }
 .ik-metric-cards.ik-compact .ik-card-big { font-size: 1.05rem; }
 .ik-metric-cards.ik-compact .ik-card-name  { font-size: 0.84rem; }
 .ik-metric-cards.ik-compact .ik-card-small { font-size: 0.74rem; }

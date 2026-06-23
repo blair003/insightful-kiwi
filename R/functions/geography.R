@@ -15,13 +15,14 @@
 # globally unique already: cameras use Agouti hashes; converters namespace their
 # locationIDs at conversion (e.g. wkt_trapping_SS24). No separate source id is kept.
 
-# Placeholder reserve for locations that can't be placed (e.g. coordless / mobile traps): keeps
-# them in the reserve→line→location hierarchy so they show in non-spatial views.
-GEO_UNPLACED_RESERVE <- "Unplaced"
+# Placeholder reserve for locations with no coordinates — we can't say WHERE they are (they may be
+# placed, or used across a reserve, but without a fix it's unknown). Keeps them in the
+# reserve→line→location hierarchy so they show in non-spatial views.
+GEO_UNPLACED_RESERVE <- "Unknown"
 
 # Placeholder reserve for LOCATED traps that fall too far (> reserve_match$max_km) from any
 # monitored location to belong to a real reserve — so distant control work isn't force-credited
-# to the nearest reserve (and its capture surface). Has coords (unlike "Unplaced"), so it maps.
+# to the nearest reserve (and its capture surface). Has coords (unlike "Unknown"), so it maps.
 GEO_OUTSIDE_RESERVE <- "Outside monitored areas"
 
 # ---- derivers: deriver(package, config) -> data.frame(line, reserve) per location ----

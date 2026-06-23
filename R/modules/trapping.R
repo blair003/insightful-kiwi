@@ -10,58 +10,112 @@ trapping_ui <- function(id) {
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/trapping.css"),
     div(class = "ik-trapping",
         tags$h5("Trap check-frequency review", class = "ik-review-head"),
-        div(class = "trap-controls", selectInput(ns("period"), "Period", choices = NULL, width = "260px")),
-        uiOutput(ns("intro")),
-        div(class = "ik-trapping-scroll", uiOutput(ns("table"))))
+        # Two tabs keep the cross-period TREND apart from the current-period management DETAIL — the
+        # trend ignores Period, the table is Period-driven, so they don't belong on one page together.
+        tabsetPanel(
+          id = ns("trap_view"),
+          tabPanel(
+            "Over time", icon = icon("chart-line"),
+            div(class = "trap-timeline",
+                div(class = "trap-timeline-head",
+                    tags$span(class = "trap-timeline-title", "Servicing over time"),
+                    radioButtons(ns("grain"), NULL, inline = TRUE,
+                                 choices = c("By season" = "season", "By year" = "year"), selected = "season")),
+                uiOutput(ns("timeline_note")),
+                plotOutput(ns("timeline"), height = "360px"))),
+          tabPanel(
+            "By trapline", icon = icon("table-list"),
+            div(class = "trap-controls",
+                checkboxGroupInput(ns("show_extra"), "Also show (otherwise active traps only)", inline = TRUE,
+                  choices = c("Dormant (6 mo+)" = "dormant", "Historic (12 mo+)" = "historic"),
+                  selected = "dormant")),
+            uiOutput(ns("intro")),
+            div(class = "ik-trapping-scroll", uiOutput(ns("table"))))))
   )
 }
 
 #' Trapping review server. @param id Module id. @param ik_data The ik_data container.
-trapping_server <- function(id, ik_data) {
+#' @param selection Reactive selection SPEC (Period + Reserve from the sidebar).
+#' @param color_mode Reactive theme ("light"/"dark") for the timeline plot.
+trapping_server <- function(id, ik_data, selection, color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    tr_dp <- ik_deployment_period(ik_data)
-    tr_dp <- tr_dp[tr_dp$source_type == "trap", , drop = FALSE]
-    tr_seasons <- ik_season_levels(tr_dp)
-    # Default to the latest NEAR-FULL trap season, not the latest — a current season with only
-    # a couple of weeks of data makes every line look neglected. "Full" = the season's data
-    # envelope spans most of a season (≥ 75 of ~90 days), from app$period$monitoring_season.
-    ms   <- ik_data$app$period$monitoring_season
-    ms   <- ms[ms$source_type == "trap", , drop = FALSE]
-    span <- tapply(seq_len(nrow(ms)), ms$calendar_season, function(ix)
-      as.numeric(difftime(max(ms$end[ix]), min(ms$start[ix]), units = "days")))
-    full <- intersect(tr_seasons, names(span)[span >= 75])
-    default_season <- if (length(full)) full[length(full)]
-                      else if (length(tr_seasons)) tr_seasons[length(tr_seasons)] else NULL
-    updateSelectInput(session, "period", choices = ik_period_choices(ik_data),
-                      selected = if (!is.null(default_season)) paste0("season:", default_season) else "all")
+    is_dark <- reactive(identical(color_mode(), "dark"))
 
+    # Status cell text: cadence "X d" for good/watch/neglected; sparse → check count; else the tier name.
+    .iv <- function(status, mean, n) {
+      if (status %in% c("dormant", "historic")) tools::toTitleCase(status)
+      else if (status == "insufficient_data")   sprintf("%d check%s", n, if (identical(n, 1L) || identical(n, 1)) "" else "s")
+      else if (is.finite(mean))                 sprintf("%.0f d", mean) else "—"
+    }
     review <- reactive({
-      per <- ik_trap_review(ik_data, ik_expand_period(input$period, ik_data))
-      list(per = per, lines = ik_trap_review_lines(per, ik_data))
+      per_all <- ik_trap_review(ik_data, .ik_nz(selection()$season))
+      rsv <- .ik_nz(selection()$reserve)                    # Reserve filter from the sidebar
+      if (!is.null(per_all) && !is.null(rsv)) per_all <- per_all[per_all$reserve %in% rsv, , drop = FALSE]
+      if (!is.null(per_all) && !nrow(per_all)) per_all <- NULL
+      per <- per_all
+      if (!is.null(per)) {                                   # filter: active only unless dormant/historic asked for
+        hide <- setdiff(c("dormant", "historic"), input$show_extra %||% character(0))
+        per <- per[!per$status %in% hide, , drop = FALSE]; if (!nrow(per)) per <- NULL
+      }
+      list(all = per_all, per = per, lines = ik_trap_review_lines(per, ik_data))
+    })
+
+    # Servicing-over-time chart — every season/year (cross-period), scoped to the sidebar Reserve.
+    # Depends only on grain + reserve (+ active datasets), NOT the whole selection, so changing Period
+    # doesn't recompute the cross-period series; cached so re-toggling grain/reserve is instant.
+    rsv_t <- reactive(.ik_nz(selection()$reserve))
+    series_t <- reactive(ik_trap_review_series(ik_data, input$grain %||% "season", rsv_t())) |>
+      bindCache(input$grain %||% "season", rsv_t(), ik_active_datasets())
+    output$timeline <- renderPlot({
+      s <- series_t(); validate(need(!is.null(s) && nrow(s), "Not enough trap history to chart."))
+      s$period <- factor(s$period, levels = unique(s$period[order(s$order)]))
+      s$facet  <- factor(s$facet, levels = c("Servicing (% of judged traps)", "Median check interval (days)", "Captures"))
+      pal <- c(Good = "#2e7d32", Watch = "#f9a825", Neglected = "#c62828", Interval = "#5a6b7b", Captures = "#6a3d9a")
+      ggplot2::ggplot(s, ggplot2::aes(.data$period, .data$value, colour = .data$series, group = .data$series)) +
+        ggplot2::geom_line(linewidth = 0.8, na.rm = TRUE) + ggplot2::geom_point(size = 1.9, na.rm = TRUE) +
+        ggplot2::facet_wrap(ggplot2::vars(.data$facet), ncol = 1, scales = "free_y", strip.position = "top") +
+        ggplot2::scale_colour_manual(values = pal, breaks = c("Good", "Watch", "Neglected")) +
+        ggplot2::labs(x = NULL, y = NULL, colour = NULL) +
+        ik_ggtheme(is_dark()) +
+        ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1), legend.position = "bottom",
+          strip.text = ggplot2::element_text(face = "bold", hjust = 0, size = ggplot2::rel(1.05), colour = ik_plot_ink(is_dark())),
+          strip.background = ggplot2::element_blank(), panel.grid.minor = ggplot2::element_blank(),
+          panel.spacing = ggplot2::unit(1.1, "lines"))
+    }, bg = "transparent")
+
+    output$timeline_note <- renderUI({                          # flag the omitted in-progress period
+      s <- series_t(); inc <- if (is.null(s)) NULL else attr(s, "incomplete_period")
+      if (is.null(inc)) return(NULL)
+      tags$p(class = "trap-timeline-note",
+             sprintf("Completed periods only — the current period (%s) is still in progress and is omitted.", inc))
     })
 
     output$intro <- renderUI({
-      per <- review()$per
+      per <- review()$all                       # counts over ALL traps (so hidden tiers still show a count)
       if (is.null(per)) return(tags$p("No trap checks in this period."))
-      st <- table(factor(per$status, c("good", "watch", "neglected")))
-      h  <- ik_data$meta$trapping$health        # effective cutoffs = percentiles clamped by guardrails
+      st <- table(factor(per$status, c("good", "watch", "neglected", "insufficient_data", "dormant", "historic")))
+      h  <- ik_trap_health_cutoffs(ik_data)     # per-dataset cutoffs, averaged over the active datasets
       gm <- round(max(h$good_max  %||% TRAP_GOOD_INTERVAL_DAYS, h$floor   %||% 0))
       wm <- round(min(h$watch_max %||% TRAP_WATCH_INTERVAL_DAYS, h$ceiling %||% Inf))
       leg <- function(cls, lab, n) tags$span(class = "trap-legend-item",
         tags$span(class = paste0("trap-swatch trap-", cls)), sprintf("%s (%d)", lab, n))
+      legs <- list(
+        leg("good", sprintf("Checked ≤%dd", gm), st[["good"]]),
+        leg("watch", sprintf("%d–%dd", gm, wm), st[["watch"]]),
+        leg("neglected", sprintf("Neglected >%dd", wm), st[["neglected"]]))
+      if (st[["insufficient_data"]] > 0) legs <- c(legs, list(leg("insufficient_data", "Insufficient data", st[["insufficient_data"]])))
+      if (st[["dormant"]]  > 0)          legs <- c(legs, list(leg("dormant",  "Dormant 6 mo+",  st[["dormant"]])))
+      if (st[["historic"]] > 0)          legs <- c(legs, list(leg("historic", "Historic 12 mo+", st[["historic"]])))
       tagList(
         tags$p(class = "trap-lead", sprintf(
-          "Check frequency by trapline — %s traps, %s checks, %s captures this period. ",
+          "Servicing by trapline, judged as of the period end — %s traps, %s checks, %s captures this period. ",
           .ov_num(nrow(per)), .ov_num(sum(per$n_checks)), .ov_num(sum(per$captures))),
-          "Mean interval counts the gap since each trap's last check, so traps that stopped being ",
-          "checked show as neglected; click a line for its traps."),
-        tags$div(class = "trap-legend",
-          leg("good", sprintf("Checked ≤%dd", gm), st[["good"]] %||% 0),
-          leg("watch", sprintf("%d–%dd", gm, wm), st[["watch"]] %||% 0),
-          leg("neglected", sprintf("Neglected >%dd", wm), st[["neglected"]] %||% 0)),
+          "A trap unchecked all period reads neglected; too few checks to judge a cadence → insufficient data; ",
+          "long-unchecked traps fall to dormant/historic. Click a line for its traps."),
+        tags$div(class = "trap-legend", legs),
         tags$p(class = "trap-thresholds", sprintf(
-          "Buckets are this project's own check-rate spread (good ≤ the median, %d d), capped by absolute guardrails so any gap over %d d is always neglected. They recalibrate only when data is re-imported.",
+          "Good ≤ the project's median check interval (%d d), capped so any gap over %d d is neglected; dormant ≥ 6 months and historic ≥ 12 months since last check (relative to the period end). Toggle dormant/historic above; the cadence buckets recalibrate only on re-import.",
           gm, wm))
       )
     })
@@ -80,7 +134,7 @@ trapping_server <- function(id, ik_data) {
             tags$td(class = "trap-loc", lr$line[i]),
             tags$td(.ov_num(lr$n_traps[i])),
             tags$td(.ov_num(lr$checks[i])),
-            tags$td(class = paste0("trap-cell trap-", lr$status[i]), sprintf("%.0f d", lr$mean_interval_days[i])),
+            tags$td(class = paste0("trap-cell trap-", lr$status[i]), .iv(lr$status[i], lr$mean_interval_days[i], lr$checks[i])),
             tags$td(.ov_num(round(lr$trap_days[i]))),
             tags$td(.ov_num(lr$captures[i])))
         })
@@ -102,7 +156,7 @@ trapping_server <- function(id, ik_data) {
                           ns("trap"), t$location[i], t$name[i]),
         tags$td(t$name[i]),
         tags$td(.ov_num(t$n_checks[i])),
-        tags$td(class = paste0("trap-cell trap-", t$status[i]), sprintf("%.0f d", t$mean_interval_days[i])),
+        tags$td(class = paste0("trap-cell trap-", t$status[i]), .iv(t$status[i], t$mean_interval_days[i], t$n_checks[i])),
         tags$td(if (is.finite(as.numeric(t$last_check[i]))) format(t$last_check[i], "%d %b %Y") else "—"),
         tags$td(.ov_num(t$captures[i]))))))
 
@@ -128,12 +182,15 @@ trapping_server <- function(id, ik_data) {
       updateTabsetPanel(session, "line_tabs", selected = "Trap detail")
     })
 
+    observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
+
     output$trap_detail <- renderUI({
       tr <- sel_trap()
       if (is.null(tr)) return(tags$p(class = "trap-lead", "Select a trap from the Traps tab."))
-      ch   <- ik_trap_checks(ik_data, tr$location, ik_expand_period(input$period, ik_data))
+      ch   <- ik_trap_checks(ik_data, tr$location, .ik_nz(selection()$season))
       dash <- function(x) if (length(x) == 0 || is.na(x) || !nzchar(x)) "—" else x
       tagList(
+        .ik_tab_back(ns("tab_back"), "line_tabs", "Traps", "Back to traps"),
         tags$p(class = "trap-lead", sprintf("Trap %s — %d checks this period (newest first).",
                                             tr$name, if (is.null(ch)) 0 else nrow(ch))),
         if (is.null(ch)) tags$p("No checks this period.") else tags$table(class = "trap-detail",

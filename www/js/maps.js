@@ -5,3 +5,11 @@
 $(document).on('shown.bs.tab', function () {
   setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 10);
 });
+
+// Clicking a map marker filters the records table below. Scroll the map to the top of the viewport
+// so the controls above it roll off-screen and the table comes into view, without losing the map
+// (it's ~70vh, so the top of the table shows beneath it). Triggered from the marker-click observer.
+Shiny.addCustomMessageHandler('ik-maps-scroll', function (id) {
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});

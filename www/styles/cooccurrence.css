@@ -1,0 +1,12 @@
+/* cooccurrence.css — the Co-occurrence (protected ↔ predator timing) view. */
+
+.ik-cooc { padding-top: 0.5rem; }
+.ik-cooc-title { margin: 0 0 0.2rem; }
+.ik-cooc-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
+.ik-cooc-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.4rem; }
+.ik-cooc-check { padding-bottom: 0.4rem; }
+.ik-cooc-hint-inline { color: var(--bs-secondary-color, #6c757d); font-weight: 400; font-size: 0.85em; }
+.ik-cooc-sub {
+  text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem;
+  color: var(--bs-secondary-color, #6c757d); margin: 1rem 0 0.3rem;
+}

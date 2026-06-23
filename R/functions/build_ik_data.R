@@ -24,7 +24,9 @@ build_ik_data <- function(config, manifest = load_manifest(config),
       period         = build_period(datasets, geography),    # deployment seasons + envelope
       temporal       = build_temporal(datasets, geography),  # per-reserve sun windows (diel)
       relations      = build_observation_relations(          # temporal metrics
-        datasets, species_groups, project$duplicate_window %||% list())
+        datasets, species_groups, project$duplicate_window %||% list()),
+      proximity      = build_proximity(                      # spatial neighbour adjacency (camera → near)
+        geography$locations, datasets, max_radius_m = (project$proximity %||% list())$max_radius_m %||% 2000)
     ),
     meta = list(
       built_at     = Sys.time(),
@@ -34,6 +36,7 @@ build_ik_data <- function(config, manifest = load_manifest(config),
       trapping   = project$trapping %||% list(rate = list(norm_trap_days = 100), season_by = "check_date"),
       overview   = project$overview %||% list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
                                               default_compare = "none"),
+      proximity  = project$proximity %||% list(max_radius_m = 2000),   # neighbourhood radius (app$proximity)
       media      = project$media    %||% list(keep_originals = TRUE)
     )
   )
@@ -44,7 +47,15 @@ build_ik_data <- function(config, manifest = load_manifest(config),
   # guardrails (floor/ceiling) and percentiles survive alongside the resolved day cutoffs.
   # Needs the assembled container (ik_deployment_period), hence post-build.
   cfg_health <- ik_data$meta$trapping$health %||% list()
-  thr <- ik_trap_health_thresholds(ik_data, cfg_health$percentiles %||% c(good = 0.5, watch = 0.9))
+  pcts <- cfg_health$percentiles %||% c(good = 0.5, watch = 0.9)
+  thr <- ik_trap_health_thresholds(ik_data, pcts)
   ik_data$meta$trapping$health <- utils::modifyList(cfg_health, thr %||% list())
+  # Per-dataset thresholds: each dataset judged by its OWN check-rate spread, so datasets with
+  # different regimes don't blend into one global cutoff. Each trap is coloured by its dataset's
+  # baseline (ik_trap_health); the trap-review legend averages these over the selected datasets
+  # (ik_trap_health_cutoffs). Camera datasets have no trap deployments → NULL entry.
+  ik_data$meta$trapping$health_by_dataset <- stats::setNames(
+    lapply(names(ik_data$datasets), function(id) ik_trap_health_thresholds(ik_data, pcts, dataset = id)),
+    names(ik_data$datasets))
   ik_data
 }

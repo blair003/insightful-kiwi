@@ -10,7 +10,7 @@ OUTCOME_PALETTE <- c(Mustelids = "#c62828", Rats = "#ef6c00", Cats = "#8e24aa",
 
 OUTCOME_PANELS <- c("Catches · per 100 trap-nights",
                     "Predators · camera RAI (lower is better)",
-                    "Kiwi · camera RAI (higher is better)")
+                    "Protected · camera RAI (higher is better)")
 
 #' Outcomes nav panel UI. @param id Module id.
 outcomes_ui <- function(id) {
@@ -21,24 +21,41 @@ outcomes_ui <- function(id) {
     div(class = "ik-outcomes",
         uiOutput(ns("intro")),
         div(class = "out-controls",
-            checkboxGroupInput(ns("taxa"), "Show species", choices = NULL, inline = TRUE)),
+            selectInput(ns("predators"), "Predators", choices = NULL, multiple = TRUE, width = "320px"),
+            selectInput(ns("protected"), "Protected", choices = NULL, multiple = TRUE, width = "240px")),
         plotOutput(ns("plot"), height = "660px", click = ns("plot_click")))
   )
 }
 
 #' Outcomes server. @param id Module id. @param ik_data The ik_data container.
 #' @param prefer_scientific A reactive TRUE to show scientific names (drill records/viewer).
-outcomes_server <- function(id, ik_data, prefer_scientific) {
+outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
+    is_dark <- reactive(identical(color_mode(), "dark"))
     series <- reactive(ik_outcome_series(ik_data))    # ~7s, computed once per session
 
-    # Species toggle — default to the core stoat-vs-kiwi story so the chart reads cleanly
-    # (rats otherwise dominate the predator scale); the rest are opt-in.
-    sg    <- ik_species_groups(ik_data)
-    avail <- { s <- sg[sg$role %in% c("predator", "protected") & !is.na(sg$monitor), , drop = FALSE]
-               unique(s$label[order(s$priority)]) }
-    updateCheckboxGroupInput(session, "taxa", choices = avail,
-                             selected = intersect(c("Mustelids", "Kiwi"), avail))
+    # Predator / Protected pickers — same unified grouped control as the Map (group whole or split
+    # into sub-species per the project `split` flag). Default to the core Mustelids-vs-Kiwi story so
+    # the chart reads cleanly (rats otherwise dominate the predator scale); the rest are opt-in.
+    sg     <- ik_species_groups(ik_data)
+    otx    <- ik_outcome_taxa(ik_data)                          # superset label->sci (for the drill)
+    splits <- unique(sg$label[which(sg$split)])
+    .role_groups <- function(role) { s <- sg[sg$role == role & !is.na(sg$monitor), , drop = FALSE]
+      s <- s[order(s$priority), , drop = FALSE]; split(s$scientificName, factor(s$label, levels = unique(s$label))) }
+    pred_groups <- .role_groups("predator"); prot_groups <- .role_groups("protected")
+    .pred_def <- paste0("grp:", if ("Mustelids" %in% names(pred_groups)) "Mustelids" else names(pred_groups)[1])
+    .prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_groups)) "Kiwi" else names(prot_groups)[1])
+    observe({ p <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
+      keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
+      updateSelectInput(session, "predators", choices = ik_species_choices(pred_groups, ik_data, p, splits), selected = keep(isolate(input$predators), .pred_def))
+      updateSelectInput(session, "protected", choices = ik_species_choices(prot_groups, ik_data, p, splits), selected = keep(isolate(input$protected), .prot_def))
+    })
+    # selected picker values -> stable series taxon keys (grp:->label; sci:->vernacular species name)
+    .sel_keys <- function(values) vapply(values, function(v)
+      if (startsWith(v, "grp:")) sub("^grp:", "", v)
+      else if (startsWith(v, "sci:")) ik_species_label(sub("^sci:", "", v), ik_data, "vernacular") else v,
+      character(1), USE.NAMES = FALSE)
+    sel_taxa <- reactive(c(.sel_keys(input$predators %||% .pred_def), .sel_keys(input$protected %||% .prot_def)))
 
     output$intro <- renderUI({
       projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
@@ -59,14 +76,17 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
     output$plot <- renderPlot({
       s <- series()
       validate(need(!is.null(s) && nrow(s), "Not enough data to chart outcomes."))
-      s <- s[s$taxon %in% input$taxa, , drop = FALSE]
-      validate(need(nrow(s) > 0, "Select at least one species to chart."))
+      s <- s[s$taxon %in% sel_taxa(), , drop = FALSE]
+      validate(need(nrow(s) > 0, "Select at least one predator or protected species to chart."))
       s$panel <- factor(ifelse(s$metric_type == "trap_rate", OUTCOME_PANELS[1],
                         ifelse(s$role == "protected", OUTCOME_PANELS[3], OUTCOME_PANELS[2])),
                         levels = OUTCOME_PANELS)
       s$season <- factor(s$season, levels = unique(s$season[order(s$season_order)]))
       plotted(s)
-      pal <- OUTCOME_PALETTE[names(OUTCOME_PALETTE) %in% unique(s$taxon)]
+      keys <- unique(s$taxon)                                   # known groups keep their semantic colour; sub-species get a generated one
+      pal  <- OUTCOME_PALETTE[intersect(names(OUTCOME_PALETTE), keys)]
+      miss <- setdiff(keys, names(pal))
+      if (length(miss)) pal <- c(pal, stats::setNames(scales::hue_pal()(length(miss)), miss))
 
       ggplot(s, aes(.data$season, .data$value, colour = .data$taxon,
                     fill = .data$taxon, group = .data$taxon)) +
@@ -78,15 +98,16 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
         scale_colour_manual(values = pal, breaks = names(pal)) +
         scale_fill_manual(values = pal, breaks = names(pal)) +
         labs(x = NULL, y = NULL, colour = NULL, fill = NULL) +
-        theme_minimal(base_size = 13) +
+        ik_ggtheme(is_dark()) +
         theme(
           axis.text.x = element_text(angle = 45, hjust = 1),
           legend.position = "bottom",
-          strip.text = element_text(face = "bold", hjust = 0, size = ggplot2::rel(1.05)),
+          strip.text = element_text(face = "bold", hjust = 0, size = ggplot2::rel(1.05),
+                                    colour = ik_plot_ink(is_dark())),
           strip.background = element_blank(),
           panel.grid.minor = element_blank(),
           panel.spacing = unit(1.1, "lines"))
-    })
+    }, bg = "transparent")
 
     # Click a point → the SAME tabbed drill as the Overview: Summary (per-reserve basis) → Records
     # (a reserve's auditable records, via ik_metric_obs) → Record Details (the inline viewer). The
@@ -109,11 +130,10 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
       cand <- cand[which.min(abs(cand$value - cl$y)), , drop = FALSE]   # nearest line by value
 
       is_cam <- identical(cand$metric_type, "camera_rai")
-      sci    <- sg$scientificName[sg$label == cand$taxon & !is.na(sg$scientificName)]
+      sci    <- if (is_cam) otx$cam[[cand$taxon]] else otx$trap[[cand$taxon]]   # superset map (covers sub-species)
       taxa   <- stats::setNames(list(sci), cand$taxon)
       sp     <- list(season = ik_expand_period(paste0("season:", cand$season), ik_data))
-      res <- withProgress(message = "Loading breakdown…", value = 0.6,
-        if (is_cam) ik_rai(ik_data, sp, taxa) else ik_trap_rate(ik_data, sp, taxa))
+      res <- if (is_cam) ik_rai(ik_data, sp, taxa) else ik_trap_rate(ik_data, sp, taxa)
       R    <- res$summary[res$summary$taxon == cand$taxon & !is.na(res$summary$metric), , drop = FALSE]
       R    <- R[order(R$reserve), , drop = FALSE]
       cnt  <- if (is_cam) "individuals" else "captures"
@@ -134,6 +154,8 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
           tabPanel("Summary",        icon = icon("table-list"),  uiOutput(session$ns("out_breakdown"))),
           tabPanel("Records",        icon = icon("list"),        uiOutput(session$ns("out_records_ui"))),
           tabPanel("Record Details", icon = icon("circle-info"), uiOutput(session$ns("out_record"))))))
+      hideTab(session = session, inputId = "out_tabs", target = "Records")          # revealed on drill
+      hideTab(session = session, inputId = "out_tabs", target = "Record Details")
     })
 
     # Summary tab: the per-reserve basis (Reserve · count · RAI/rate · Lines). A reserve with
@@ -166,13 +188,16 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
       rec_obs(NULL)
       rec_ctx(sprintf("The %s behind %s · %s · %s. ", if (d$is_cam) "detections" else "captures",
                       d$cand$taxon, input$out_obs$reserve, d$cand$season))
-      updateTabsetPanel(session, "out_tabs", selected = "Records")
+      showTab(session = session, inputId = "out_tabs", target = "Records", select = TRUE)
     })
+
+    observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
 
     output$out_records_ui <- renderUI({
       if (is.null(records()))
         return(tags$p(class = "ik-drill-summary", "Open a reserve in the Summary tab to list its records."))
       tagList(
+        .ik_tab_back(session$ns("tab_back"), "out_tabs", "Summary", "Back to summary"),
         tags$p(class = "ik-drill-summary", rec_ctx(), tags$b("Click a row"), " for the full record."),
         DT::dataTableOutput(session$ns("out_records_table")))
     })
@@ -186,7 +211,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
                        check.names = FALSE, stringsAsFactors = FALSE)
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",
         class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "tip", destroy = TRUE,
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
           columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))   # hide ObsID
       .ik_dt_highlight_row(dt, "ObsID", rec_obs())
     })
@@ -194,7 +219,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
     observeEvent(input$out_records_table_rows_selected, {
       i <- input$out_records_table_rows_selected; o <- records()
       if (length(i) && !is.null(o) && i <= nrow(o)) {
-        rec_obs(o$observationID[i]); updateTabsetPanel(session, "out_tabs", selected = "Record Details")
+        rec_obs(o$observationID[i]); showTab(session = session, inputId = "out_tabs", target = "Record Details", select = TRUE)
       }
       DT::selectRows(DT::dataTableProxy("out_records_table"), NULL)
     })
@@ -203,7 +228,8 @@ outcomes_server <- function(id, ik_data, prefer_scientific) {
       if (is.null(rec_obs()))
         return(tags$p(class = "ik-drill-summary", "Click a record in the Records tab to see it here."))
       ob <- ik_observation(ik_data, rec_obs()); if (is.null(ob)) return(tags$p("Record not found."))
-      tagList(.ovw_title(ik_data, ob, prefer()),
+      tagList(.ik_tab_back(session$ns("tab_back"), "out_tabs", "Records", "Back to records"),
+              .ovw_title(ik_data, ob, prefer()),
               .ovw_tabs(ik_data, ob, prefer(), tabset_id = session$ns("out_rec_subtabs")))
     })
   })

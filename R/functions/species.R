@@ -18,6 +18,7 @@ load_project_config <- function(config) {
                                    season_by = "check_date"),
                    overview = list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
                                    default_compare = "none"),
+                   proximity = list(max_radius_m = 2000),
                    media    = list(keep_originals = TRUE))
   if (!file.exists(path)) return(defaults)
   e <- new.env()
@@ -31,6 +32,8 @@ load_project_config <- function(config) {
     # merge onto defaults so a project that sets only SOME overview keys still gets the rest
     overview         = utils::modifyList(defaults$overview,
                                          get0("overview", envir = e, ifnotfound = list())),
+    proximity        = utils::modifyList(defaults$proximity,
+                                         get0("proximity", envir = e, ifnotfound = list())),
     media            = utils::modifyList(defaults$media,
                                          get0("media", envir = e, ifnotfound = list()))
   )
@@ -53,7 +56,7 @@ resolve_species_groups <- function(taxonomy, project) {
   empty  <- data.frame(scientificName = character(), group = character(),
                        label = character(), role = character(), monitor = character(),
                        control = character(), sentiment = character(), priority = integer(),
-                       stringsAsFactors = FALSE)
+                       split = logical(), stringsAsFactors = FALSE)
   if (is.null(groups) || length(groups) == 0 || nrow(taxonomy) == 0) return(empty)
 
   genus_of <- function(sn) sub(" .*$", "", sn)
@@ -74,6 +77,7 @@ resolve_species_groups <- function(taxonomy, project) {
       control  = g$control %||% NA_character_,
       sentiment = g$sentiment %||% switch(g$role %||% "other", predator = "bad", protected = "good", "neutral"),
       priority = gi,
+      split    = isTRUE(g$split),   # show sub-species individually in the Species picker (else group only)
       stringsAsFactors = FALSE
     )
   }

@@ -209,7 +209,7 @@ overview_ui <- function(id) {
 .ov_metric_cards <- function(summary, prev, counts, taxa_order, kind, desirable, drill_id,
                              headline = c("rai", "count"), rate_unit = "",
                              digits = 1, min_digits = digits, colour = TRUE, compact = FALSE,
-                             sg = NULL) {
+                             sg = NULL, sort_by = "value") {
   headline <- match.arg(headline)
   one <- function(tx) {
     s   <- summary[summary$taxon == tx & summary$reserve == "Combined", , drop = FALSE]
@@ -254,6 +254,17 @@ overview_ui <- function(id) {
       tags$div(class = "ik-card-big", big),
       tags$div(class = "ik-card-small", small))
   }
+  # Order by the headline value (RAI for camera, catch count for trap), biggest first, so the row
+  # reads by volume and wraps tidily; no-data species sort last (cheap — just an order() at render).
+  # Project-configurable (overview$sort_cards_by): "value" sorts; anything else keeps config order.
+  if (identical(sort_by, "value")) {
+    hv <- vapply(taxa_order, function(tx) {
+      if (headline == "count") { c0 <- as.integer(counts[tx] %||% 0L); return(if (is.na(c0)) 0 else as.numeric(c0)) }
+      s <- summary[summary$taxon == tx & summary$reserve == "Combined", , drop = FALSE]
+      if (nrow(s) && !is.na(s$metric)) s$metric else -Inf
+    }, numeric(1))
+    taxa_order <- taxa_order[order(-hv, seq_along(taxa_order))] # -Inf (no data) last; stable on ties
+  }
   tags$div(class = paste("ik-metric-cards", if (isTRUE(compact)) "ik-compact"), lapply(taxa_order, one))
 }
 
@@ -290,12 +301,13 @@ overview_ui <- function(id) {
         vb)
   }
   card(
-    card_header(title),
+    card_header(title, class = paste0("ik-device-head ik-device-", kind)),
     card_body(
       layout_column_wrap(
         width = 1/4,
         box("effort",      effort_label, effort_value,                   showcase = icon("clock")),
-        box("deployments", deploy_label, .ov_num(nrow(res$deployments)), showcase = icon("camera")),
+        box("deployments", deploy_label, .ov_num(nrow(res$deployments)),
+            showcase = icon(if (identical(kind, "trap")) "clipboard-check" else "camera")),
         box("records",     record_label, .ov_num(nrow(obs)),             showcase = icon("paw")),
         box("species",     "Species",    .ov_num(spp),                   showcase = icon("dna"))
       ),
@@ -303,6 +315,14 @@ overview_ui <- function(id) {
       panel_fn(obs, sg, kind, spp_drill)
     )
   )
+}
+
+#' Empty-state for a device section (no data loaded / nothing in the selection) — keeps the styled
+#' header so the page still reads as two sections. @keywords internal
+.ov_empty_section <- function(title, kind, msg) {
+  card(
+    card_header(title, class = paste0("ik-device-head ik-device-", kind)),
+    card_body(tags$p(class = "ik-spp-other", msg)))
 }
 
 #' Camera possible-duplicate tally for a resolved selection: raw animal records, net (non-duplicate)
@@ -383,6 +403,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     sg       <- ik_species_groups(ik_data)
     locs     <- ik_data$app$geography$locations
     projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
+    has_dev  <- function(st) any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, st), logical(1)))
+    has_camera <- has_dev("camera"); has_trap <- has_dev("trap")
     mon_t <- ik_taxa_groups(sg, "monitor", "target")        # lead cards (protocol targets)
     mon_i <- ik_taxa_groups(sg, "monitor", "interesting")   # secondary "of interest" tier
     mon_targets <- c(mon_t, mon_i)                          # camera metric/drill set = target + interesting
@@ -448,6 +470,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     })
 
     output$camera <- renderUI({
+      if (is.null(cam()$deployments) || !nrow(cam()$deployments))
+        return(.ov_empty_section("Camera monitoring", "camera",
+          if (has_camera) "No camera monitoring data for the current selection." else "No camera monitoring data loaded."))
       rc  <- ik_data$meta$camera$rai
       m   <- rai_r()
       prefer  <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
@@ -458,10 +483,11 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                      if (!is.null(m$prev)) .ov_compare_note(selection()$compare) else "")
       cnts   <- .ov_counts(m$lines)
       mk     <- function(taxa, compact) .ov_metric_cards(m$summary, m$prev, cnts, names(taxa),
-                  "camera", mon_dir, session$ns("drill"), headline = "rai", compact = compact, sg = sg)
+                  "camera", mon_dir, session$ns("drill"), headline = "rai", compact = compact, sg = sg,
+                  sort_by = ik_data$meta$overview$sort_cards_by %||% "value")
       cards  <- tagList(
         if (length(mon_t)) mk(mon_t, FALSE),                              # protocol targets lead
-        if (length(mon_i)) tagList(tags$div(class = "ik-card-tier", "Of interest"), mk(mon_i, TRUE)))
+        if (length(mon_i)) mk(mon_i, TRUE))                               # of-interest species follow: smaller, set off by the gap
       matrix <- if (isTRUE(ik_data$meta$overview$show_rai_matrix_by_reserve))
         .ov_metric_table(m$summary, names(mon_targets), "By reserve", prev = m$prev,
                          desirable = mon_dir, drill_id = session$ns("drill"), kind = "camera")
@@ -476,6 +502,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     })
 
     output$trapping <- renderUI({
+      if (is.null(trp()$deployments) || !nrow(trp()$deployments))
+        return(.ov_empty_section("Trapping (control)", "trap",
+          if (has_trap) "No trapping data for the current selection." else "No trapping data loaded."))
       prefer  <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       itemise <- isTRUE(ik_data$meta$overview$list_other_species)
       m       <- rate_r()
@@ -483,7 +512,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                         if (!is.null(m$prev)) .ov_compare_note(selection()$compare) else "")
       cards  <- .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines), names(ctl_targets),
                                  "trap", ctl_dir, session$ns("drill"), headline = "count",
-                                 rate_unit = " /100 TN", colour = FALSE, digits = 3, min_digits = 2, sg = sg)
+                                 rate_unit = " /100 TN", colour = FALSE, digits = 3, min_digits = 2, sg = sg,
+                                 sort_by = ik_data$meta$overview$sort_cards_by %||% "value")
       matrix <- if (isTRUE(ik_data$meta$overview$show_rai_matrix_by_reserve))
         .ov_metric_table(m$summary, names(ctl_targets), "By reserve", prev = m$prev,
                          desirable = ctl_dir, drill_id = session$ns("drill"), kind = "trap",
@@ -525,14 +555,17 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       drill_spec(input$drill)
       records(NULL); rec_ctx(NULL); rec_obs(NULL)         # fresh drill
       d <- input$drill
+      rlab <- if (identical(d$reserve, "Combined")) "all reserves" else d$reserve   # plainer than "Combined"
       showModal(modalDialog(
-        title = .ik_modal_title(sprintf("%s · %s", d$taxon, d$reserve),
+        title = .ik_modal_title(sprintf("%s · %s", d$taxon, rlab),
           "the auditable basis — open a count for its records, then a record for the full detail"),
         size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tabsetPanel(id = session$ns("drill_tabs"),
-          tabPanel("Breakdown",      icon = icon("table-list"),  uiOutput(session$ns("drill_breakdown"))),
+          tabPanel("Summary",        icon = icon("table-list"),  uiOutput(session$ns("drill_breakdown"))),
           tabPanel("Records",        icon = icon("list"),        uiOutput(session$ns("drill_records_ui"))),
           tabPanel("Record Details", icon = icon("circle-info"), uiOutput(session$ns("drill_record"))))))
+      hideTab(session = session, inputId = "drill_tabs", target = "Records")        # revealed on drill
+      hideTab(session = session, inputId = "drill_tabs", target = "Record Details")
     })
 
     # Breakdown tab: the per-line (reserve cell) or per-reserve (Combined cell) basis the metric
@@ -625,6 +658,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     })
 
     # A clicked Breakdown count → list its records in the Records tab (no new modal).
+    # One handler for all "← Back" links in this module's drill modals.
+    observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
+
     observeEvent(input$drill_obs, {
       d    <- input$drill_obs
       is_cam <- identical(d$kind, "camera")
@@ -636,14 +672,15 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       noun  <- if (is_cam) "detections" else "captures"
       where <- if (!is.null(d$line)) sprintf("%s · Line %s", d$reserve, d$line) else d$reserve
       rec_ctx(sprintf("The %s behind %s · %s. ", noun, d$taxon, where))
-      updateTabsetPanel(session, "drill_tabs", selected = "Records")
+      showTab(session = session, inputId = "drill_tabs", target = "Records", select = TRUE)
     })
 
     output$drill_records_ui <- renderUI({
       if (is.null(records()))
         return(tags$p(class = "ik-drill-summary",
-          "Open a non-zero count in the Breakdown tab to list the records behind it here."))
+          "Open a non-zero count in the Summary tab to list the records behind it here."))
       tagList(
+        .ik_tab_back(session$ns("tab_back"), "drill_tabs", "Summary", "Back to summary"),
         tags$p(class = "ik-drill-summary", rec_ctx(),
                tags$b("Click a row"), " for that record's full detail — then come back for another."),
         DT::dataTableOutput(session$ns("drill_records")))
@@ -661,7 +698,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                        check.names = FALSE, stringsAsFactors = FALSE)
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",   # whole row → the record
                     class = "stripe hover row-border ik-row-click",
-                    options = list(pageLength = 12, scrollX = TRUE, dom = "tip", destroy = TRUE,
+                    options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
                       columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
       .ik_dt_highlight_row(dt, "ObsID", rec_obs())                  # the record you're viewing
     })
@@ -669,7 +706,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     observeEvent(input$drill_records_rows_selected, {
       i <- input$drill_records_rows_selected; o <- records()
       if (length(i) && !is.null(o) && i <= nrow(o)) {
-        rec_obs(o$observationID[i]); updateTabsetPanel(session, "drill_tabs", selected = "Record Details")
+        rec_obs(o$observationID[i]); showTab(session = session, inputId = "drill_tabs", target = "Record Details", select = TRUE)
       }
       DT::selectRows(DT::dataTableProxy("drill_records"), NULL)      # clear → same row re-clickable
     })
@@ -682,7 +719,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       ob <- ik_observation(ik_data, rec_obs())
       if (is.null(ob)) return(tags$p("Record not found."))
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      tagList(.ovw_title(ik_data, ob, prefer),
+      tagList(.ik_tab_back(session$ns("tab_back"), "drill_tabs", "Records", "Back to records"),
+              .ovw_title(ik_data, ob, prefer),
               .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("rec_subtabs")))
     })
 
@@ -733,9 +771,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       oi  <- match(here$deploymentID, ao$deploymentID)             # exactly one observation per check
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       lab <- ik_species_label(ao$scientificName[oi], ik_data, prefer)
-      outcome <- ifelse(!is.na(lab) & nzchar(lab), lab,
-                  ifelse(!is.na(ao$scientificName[oi]), ao$scientificName[oi],
-                         tools::toTitleCase(as.character(ao$observationType[oi]))))
+      status <- vapply(ao$observationTags[oi], .ovw_tag, character(1), key = "status")
+      outcome <- .ik_trap_outcome(lab, ao$scientificName[oi], status, ao$observationType[oi])
       bait <- vapply(ao$observationTags[oi], .ovw_tag, character(1), key = "bait")
       vol  <- vapply(ao$observationTags[oi], .ovw_tag, character(1), key = "volunteer")
       bait[is.na(bait) | !nzchar(bait)] <- "—"; vol[is.na(vol) | !nzchar(vol)] <- "—"
@@ -766,6 +803,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                    DT::dataTableOutput(session$ns("box_records_table"))),
           tabPanel("Record Details", icon = icon("circle-info"),
                    uiOutput(session$ns("box_record"))))))
+      hideTab(session = session, inputId = "box_tabs", target = "Record Details")   # revealed on row click
     }
 
     observeEvent(input$box_drill, {
@@ -828,6 +866,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
             tabPanel("Traps",  icon = icon("location-dot"), DT::dataTableOutput(session$ns("box_traps_table"))),
             tabPanel("Checks", icon = icon("list"),         uiOutput(session$ns("box_checks_ui"))),
             tabPanel("Record", icon = icon("circle-info"),  uiOutput(session$ns("box_record"))))))
+        hideTab(session = session, inputId = "trap_tabs", target = "Checks")        # revealed on drill
+        hideTab(session = session, inputId = "trap_tabs", target = "Record")
       }
     })
 
@@ -836,7 +876,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       validate(need(!is.null(df) && nrow(df), "No records."))
       dt <- DT::datatable(df, rownames = FALSE, selection = "single",  # whole row → Record Details
         class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "tip", destroy = TRUE,
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
           columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
       .ik_dt_highlight_row(dt, "ObsID", box_rec_obs())             # the record you're viewing
     })
@@ -844,7 +884,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     observeEvent(input$box_records_table_rows_selected, {
       i <- input$box_records_table_rows_selected; df <- box_records()
       if (length(i) && !is.null(df) && i <= nrow(df)) {
-        box_rec_obs(df$ObsID[i]); updateTabsetPanel(session, "box_tabs", selected = "Record Details")
+        box_rec_obs(df$ObsID[i]); showTab(session = session, inputId = "box_tabs", target = "Record Details", select = TRUE)
       }
       DT::selectRows(DT::dataTableProxy("box_records_table"), NULL)
     })
@@ -855,7 +895,12 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       ob <- ik_observation(ik_data, box_rec_obs())
       if (is.null(ob)) return(tags$p("Record not found."))
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      tagList(.ovw_title(ik_data, ob, prefer),
+      # box_record is shared by the camera Records modal (box_tabs) and the trap Checks modal
+      # (trap_tabs) — point the back link at whichever list this record was opened from.
+      back <- if (!is.null(box_traps())) .ik_tab_back(session$ns("tab_back"), "trap_tabs", "Checks", "Back to checks")
+              else                       .ik_tab_back(session$ns("tab_back"), "box_tabs", "Records", "Back to records")
+      tagList(back,
+              .ovw_title(ik_data, ob, prefer),
               .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("box_rec_subtabs")))
     })
 
@@ -865,7 +910,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       ix <- function(col) match(col, names(df)) - 1L                  # 0-based column index for DT
       DT::datatable(df, rownames = FALSE, selection = "single",       # row → its record(s)
         class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "tip", destroy = TRUE,
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
           order = list(list(ix(".start_sort"), "asc")),               # default: oldest → newest
           columnDefs = list(
             list(targets = ix("Start"), orderData = ix(".start_sort")),  # sort Start by its key
@@ -894,7 +939,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       ix <- function(col) match(col, names(df)) - 1L
       DT::datatable(df, rownames = FALSE, selection = "single",
         class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "tip", destroy = TRUE,
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
           order = list(list(ix("Catches"), "desc")),               # most productive traps first
           columnDefs = list(
             list(targets = ix("Last"), orderData = ix(".last_sort")),
@@ -907,7 +952,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       box_checks_ctx(sprintf("The %s check%s of %s · %s. ", .ov_num(df$Checks[i]),
         if (df$Checks[i] == 1) "" else "s", df$Location[i],
         if (!is.na(df$Line[i])) paste("Line", df$Line[i]) else df$Reserve[i]))
-      updateTabsetPanel(session, "trap_tabs", selected = "Checks")
+      showTab(session = session, inputId = "trap_tabs", target = "Checks", select = TRUE)
       DT::selectRows(DT::dataTableProxy("box_traps_table"), NULL)
     })
 
@@ -916,6 +961,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       if (is.null(box_checks()))
         return(tags$p(class = "ik-drill-summary", "Open a trap in the Traps tab to list its checks here."))
       tagList(
+        .ik_tab_back(session$ns("tab_back"), "trap_tabs", "Traps", "Back to traps"),
         tags$p(class = "ik-drill-summary", box_checks_ctx(),
                tags$b("Click a check"), " for its full record (catch or empty)."),
         DT::dataTableOutput(session$ns("box_checks_table")))
@@ -926,7 +972,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       ix <- function(col) match(col, names(df)) - 1L
       DT::datatable(df, rownames = FALSE, selection = "single",
         class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "tip", destroy = TRUE,
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
           order = list(list(ix("End"), "desc")),                   # most recent check first
           columnDefs = list(
             list(targets = ix("End"), orderData = ix(".end_sort")),
@@ -935,7 +981,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     observeEvent(input$box_checks_table_rows_selected, {
       i <- input$box_checks_table_rows_selected; df <- box_checks()
       if (length(i) && !is.null(df) && i <= nrow(df)) {
-        box_rec_obs(df$.obsid[i]); updateTabsetPanel(session, "trap_tabs", selected = "Record")
+        box_rec_obs(df$.obsid[i]); showTab(session = session, inputId = "trap_tabs", target = "Record", select = TRUE)
       }
       DT::selectRows(DT::dataTableProxy("box_checks_table"), NULL)
     })

@@ -30,13 +30,16 @@ organisation <- "Whakatane Kiwi Trust"
 #   genus           first word of the scientificName (robust to missing family, e.g.
 #                   the ferret Mustela putorius furo has family = NA)
 # Species matching no group are unclassified ("other").
+#   split           TRUE → the Species picker lists the group's members individually (Mustelids →
+#                   Stoat / Weasel / Ferret) AS WELL AS the group; FALSE/absent → group only.
 species_groups <- list(
   mustelid = list(label = "Mustelids", role = "predator", monitor = "target", control = "target",
-                  genus = "Mustela", family = "Mustelidae"),
+                  genus = "Mustela", family = "Mustelidae", split = TRUE),
   rat      = list(label = "Rats",      role = "predator", monitor = "target", control = "target", genus = "Rattus"),
   cat      = list(label = "Cats",      role = "predator", monitor = "target", control = "target", genus = "Felis"),
   hedgehog = list(label = "Hedgehogs", role = "other",    monitor = "interesting", control = "target", sentiment = "bad", scientificName = "Erinaceus europaeus"),
   possum   = list(label = "Possums",   role = "other",    monitor = "interesting", control = "target", sentiment = "bad", scientificName = "Trichosurus vulpecula"),
+  rabbit   = list(label = "Rabbits",   role = "other",    monitor = "interesting", control = "target", sentiment = "bad", scientificName = "Oryctolagus cuniculus"),
   dog      = list(label = "Dogs",      role = "predator", monitor = "interesting", family = "Canidae"),
   kiwi     = list(label = "Kiwi",      role = "protected", monitor = "interesting", genus = "Apteryx"),
   pig      = list(label = "Pigs",      role = "other", monitor = "interesting", sentiment = "bad", scientificName = "Sus scrofa"),
@@ -49,8 +52,8 @@ species_groups <- list(
 # applies to all species; `by_species` overrides per scientificName. (Only applies
 # to minute-resolution data; date-only sources are excluded.)
 duplicate_window <- list(
-  default    = 30,
-  by_species = list()   # e.g. "Rattus" = 60
+  default    = 5,
+  by_species = list("Gallirallus australis" = 30)   # e.g. "Rattus" = 60
 )
 
 # Metric methodology — project-wide so reported metrics are reproducible and roll up
@@ -100,7 +103,19 @@ trapping <- list(
   #   "check_date" — the season the check date falls in (intuitive; matches the capture-rate
   #                  metric, which already groups captures by their check date); or
   #   "interval"   — the season the check interval mostly sits in.
-  season_by = "check_date"
+  season_by = "check_date",
+  # SERVICING ASSESSMENT — all period-relative (judged as of the period's end, no peek at later
+  # checks). A trap's gap = days since its last check up to the period end:
+  #   gap < dormant_after_days        → still active → neglected (red alert) if unchecked this period
+  #   dormant_after_days ≤ gap < hist → DORMANT (faint; likely paused)
+  #   gap ≥ historic_after_days       → HISTORIC (faint; likely decommissioned for this period)
+  # A trap reviewed in a period when it was active reads as active; the SAME trap in later periods
+  # ages to dormant then historic as the gap grows. Defaults: 6 months / 12 months.
+  dormant_after_days  = 182,
+  historic_after_days = 365,
+  # Sparse data: a trap needs at least this many checks IN the period to get a good/watch/neglected
+  # cadence; with fewer it's flagged "insufficient data" instead of a misleading label.
+  min_checks_for_cadence = 2
 )
 
 # Overview display — how the per-species cards and the "other species" section behave.
@@ -119,7 +134,19 @@ overview <- list(
   list_other_species = TRUE,
 
   # Default for the Overview "Compare to" control: "none" | "prior" | "last_year".
-  default_compare = "prior"
+  default_compare = "prior",
+
+  # Order of the per-species cards within each tier. "value" sorts biggest-first by the headline
+  # number (camera RAI / trap catch count) so the row reads by importance and wraps tidily;
+  # "config" keeps the order species are listed in `species_groups` above.
+  sort_cards_by = "value"
+)
+
+# Spatial neighbour adjacency (app$proximity) — for each camera (monitoring) location, every camera
+# or trap within this radius is precomputed at import. Set the LARGEST radius any view might query;
+# views narrow within it at runtime. Built once (metre-accurate NZTM); bigger = more rows but cheap.
+proximity <- list(
+  max_radius_m = 2000
 )
 
 # Image media cache (instance/www/media-cache). Each viewed camera burst caches a resized DISPLAY

@@ -22,14 +22,18 @@ nat_sort <- function(x) {
 #'   through an empty → "all data" state on first load (which would double-resolve the view).
 #'   The other axes' choices are still populated server-side. If `NULL`, Period renders empty.
 #' @return A tagList of controls.
-selection_ui <- function(id, show = NULL, ik_data = NULL) {
+selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL, device_default = NULL) {
   ns <- NS(id)
+  dev_choices <- if (!is.null(ik_data))                         # device = source_type; baked here so the
+    stats::setNames(sort(unique(vapply(ik_data$datasets,        # default survives while the sidebar panel
+      function(d) d$meta$source_type %||% NA_character_, character(1)))), NULL) else NULL  # is hidden
+  if (length(dev_choices)) dev_choices <- stats::setNames(dev_choices, tools::toTitleCase(dev_choices))
   ctrls <- list(
     dataset  = selectizeInput(ns("dataset"), "Dataset", choices = NULL, multiple = TRUE,
                               options = list(placeholder = "All available")),
     period   = selectInput(ns("period"), "Period",
                            choices  = if (!is.null(ik_data)) ik_period_choices(ik_data),
-                           selected = if (!is.null(ik_data)) ik_default_period(ik_data)),
+                           selected = if (!is.null(ik_data)) period_default %||% ik_default_period(ik_data)),
     compare  = selectInput(ns("compare"), "Compare to",
                            choices = c("No comparison" = "none", "Prior period" = "prior",
                                        "Same period last year" = "last_year"),
@@ -40,8 +44,8 @@ selection_ui <- function(id, show = NULL, ik_data = NULL) {
                               options = list(placeholder = "All lines")),
     location = selectizeInput(ns("location"), "Location", choices = NULL, multiple = TRUE,
                               options = list(placeholder = "All locations")),
-    device   = selectizeInput(ns("device"),   "Device",   choices = NULL, multiple = TRUE,
-                              options = list(placeholder = "All devices")),
+    device   = selectizeInput(ns("device"),   "Device",   choices = dev_choices, selected = device_default,
+                              multiple = TRUE, options = list(placeholder = "All devices")),
     species  = selectizeInput(ns("species"),  "Species",  choices = NULL, multiple = TRUE,
                               options = list(placeholder = "All species")),
     # Duplicate handling is a data-subset choice (it removes rows), so it lives here in the
@@ -66,20 +70,18 @@ selection_ui <- function(id, show = NULL, ik_data = NULL) {
 #'   active set, and an empty pick = "All available" (the active datasets, like every other view).
 #'   NULL omits the axis.
 #' @return A reactive returning `ik_select()` output (observations, deployments, effort).
-selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL) {
+selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, species_default = NULL) {
   moduleServer(id, function(input, output, session) {
     locs        <- ik_data$app$geography$locations
-    dp          <- ik_deployment_period(ik_data)
     reserves    <- sort(unique(locs$reserve[!is.na(locs$reserve)]))
-    devices     <- sort(unique(dp$source_type[!is.na(dp$source_type)]))   # device = source_type
-    species_sci <- sort(unique(stats::na.omit(
-      ik_observations(ik_data, with_location = FALSE)$scientificName)))
+    group_map   <- ik_group_taxa(ik_data)   # label -> sci, for resolving the unified Species picker
 
     # Period choices + default season are rendered in the UI (selection_ui), so the control
     # loads already pointing at the default and never round-trips through an empty → "all data"
     # state (which would resolve the view twice on first load). See ik_default_period().
     updateSelectizeInput(session, "reserve", choices = reserves, server = FALSE)
-    updateSelectizeInput(session, "device",  choices = devices,  server = FALSE)
+    # device choices + default are baked in the UI (selection_ui) so they survive while the sidebar
+    # conditionalPanel is hidden — no server-side device update here.
     # Dataset axis (Records): list only the datasets ACTIVE in the global Settings toggle, so the
     # filter respects show/hide like every other view; re-fires when the toggle changes (keeping
     # any pick that's still available). Empty pick = all available (handled in the spec below).
@@ -118,14 +120,13 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL) {
                            server = TRUE)
     })
 
-    # Species labels follow the Settings name preference; values stay scientific names.
-    # `isolate(input$species)` for the same reason — depend only on the name preference.
+    # Unified Species picker: configured groups (split per project flag) + every ungrouped species;
+    # values grp:/sci:. Labels follow the Settings name preference (relabel on change; keep the pick).
     observe({
       prefer  <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      labels  <- ik_species_label(species_sci, ik_data, prefer)
-      choices <- stats::setNames(species_sci, labels)
-      updateSelectizeInput(session, "species", choices = choices[order(names(choices))],
-                           selected = isolate(input$species), server = FALSE)
+      cur     <- isolate(input$species)
+      updateSelectizeInput(session, "species", choices = ik_species_choices_full(ik_data, prefer),
+                           selected = if (length(cur)) cur else species_default, server = FALSE)
     })
 
     # Return a reusable SPEC (axis values), not resolved data — a view resolves it with
@@ -137,7 +138,10 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL) {
       line        = input$line,
       location    = input$location,
       source_type = input$device,
-      species     = input$species,
+      # Species: resolve the grp:/sci: picks to scientificNames for filtering (ik_select), and also
+      # pass the raw choice so a view that GROUPS by species (the map surface) can rebuild its taxa.
+      species        = ik_resolve_species_choice(input$species, group_map),
+      species_choice = input$species,
       # Dataset axis (Records): a non-empty pick narrows to those datasets; an empty pick =
       # "All available" → NULL, which lets the ambient global toggle (ik_active_datasets) apply,
       # exactly like every other view. Axis absent (other views): also NULL.

@@ -33,3 +33,19 @@ ik_species_label <- function(scientific, ik_data, prefer = c("vernacular", "scie
   preferred[missing] <- fallback[missing]
   preferred
 }
+
+#' Display label for an `observationType`, trap-aware.
+#'
+#' A trap "no capture" check has observationType "blank"; for TRAP records show that as
+#' "Empty" (a serviced-but-empty trap reads better than "Blank"). Camera "blank" (an empty
+#' frame) is left untouched. Everything else is title-cased. Vectorised; `is_trap` is recycled.
+#' @param observation_type Character vector of observationType.
+#' @param is_trap Logical (length 1 or matching) — TRUE where the row is a trap record.
+#' @return Character vector of display labels.
+ik_obs_type_label <- function(observation_type, is_trap) {
+  ot  <- as.character(observation_type)
+  out <- tools::toTitleCase(ot)
+  empty <- !is.na(ot) & ot == "blank" & is_trap
+  out[empty] <- "Empty"
+  out
+}

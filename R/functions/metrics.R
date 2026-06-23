@@ -24,6 +24,81 @@ ik_taxa_groups <- function(sg, by = "monitor", class = "target") {
   split(s$scientificName, factor(s$label, levels = unique(s$label)))
 }
 
+# ── Grouped species choices for selectInputs (group whole OR split into sub-species) ──────────────
+# Anywhere a dropdown offers a taxa group, a multi-species group (Mustelids → Stoat/Weasel/Ferret;
+# Rats → ship/Norway/kiore) should be pickable whole OR split. Values are encoded so one control
+# spans both grains: "grp:<label>" (the whole group) and "sci:<scientificName>" (one species). This
+# is the shared engine behind the bait "Captures of", the map predator/protected pickers, etc.
+
+#' Grouped `selectInput` choices from a `taxa` map (label -> scientificNames, e.g. ik_taxa_groups()):
+#' each group as "grp:<label>", plus an indented "sci:<name>" per species for any group resolving to
+#' ≥ 2 species. @param all_label optional leading "everything" option label (NULL to omit).
+#' @keywords internal
+ik_species_choices <- function(taxa, ik_data, prefer = "vernacular", split = character(0),
+                               all_label = NULL, all_value = "__all__") {
+  ch <- if (!is.null(all_label)) stats::setNames(list(all_value), all_label) else list()
+  for (lbl in names(taxa)) {
+    ch[[lbl]] <- paste0("grp:", lbl)
+    spp <- taxa[[lbl]][grepl(" ", taxa[[lbl]], fixed = TRUE)]        # resolved species (binomials)
+    if (lbl %in% split)
+      for (sn in spp) ch[[paste0("  ", ik_species_label(sn, ik_data, prefer))]] <- paste0("sci:", sn)
+  }
+  ch
+}
+
+#' Resolve `ik_species_choices()` value(s) ("grp:"/"sci:") to scientificNames, given the same `taxa`.
+#' @keywords internal
+ik_resolve_species_choice <- function(values, taxa) {
+  if (!length(values)) return(character(0))                  # NULL/empty pick → no filter
+  values <- as.character(values)
+  g <- startsWith(values, "grp:"); s <- startsWith(values, "sci:")
+  unique(c(unlist(taxa[sub("^grp:", "", values[g])], use.names = FALSE), sub("^sci:", "", values[s])))
+}
+
+#' One value -> a one-element named list `label -> scientificNames` (for ik_location_metric/ik_rai,
+#' which take `list(Label = sci)`). A group keeps its label; a species uses its display name.
+#' @keywords internal
+ik_choice_taxa <- function(value, taxa, ik_data, prefer = "vernacular") {
+  if (length(value) != 1 || is.na(value)) return(NULL)
+  value <- as.character(value)
+  if (startsWith(value, "grp:")) { lbl <- sub("^grp:", "", value); stats::setNames(list(unlist(taxa[[lbl]], use.names = FALSE)), lbl) }
+  else if (startsWith(value, "sci:")) { sn <- sub("^sci:", "", value); stats::setNames(list(sn), ik_species_label(sn, ik_data, prefer)) }
+  else NULL
+}
+
+#' Friendly display labels for selected `ik_species_choices()` values (group label or species name).
+#' @keywords internal
+ik_choice_labels <- function(values, ik_data, prefer = "vernacular") {
+  if (!length(values)) return(character(0))
+  values <- as.character(values)
+  vapply(values, function(v) if (startsWith(v, "grp:")) sub("^grp:", "", v)
+         else if (startsWith(v, "sci:")) ik_species_label(sub("^sci:", "", v), ik_data, prefer)
+         else v, character(1), USE.NAMES = FALSE)
+}
+
+#' Group taxa map (label -> scientificNames) for ALL configured groups, priority order — the
+#' canonical map for resolving grp: choices. @keywords internal
+ik_group_taxa <- function(ik_data) {
+  sg <- ik_species_groups(ik_data); ord <- order(sg$priority)
+  split(sg$scientificName[ord], factor(sg$label[ord], levels = unique(sg$label[ord])))
+}
+
+#' The unified "Species" picker: every configured group (split into sub-species when its project
+#' `split` flag is set), in priority order, THEN every species in the data belonging to no group,
+#' listed individually. Values grp:/sci: (resolve via ik_resolve_species_choice + ik_group_taxa).
+#' @keywords internal
+ik_species_choices_full <- function(ik_data, prefer = "vernacular", all_label = NULL, all_value = "__all__") {
+  sg     <- ik_species_groups(ik_data)
+  grp    <- ik_group_taxa(ik_data)
+  splits <- unique(sg$label[which(sg$split)])
+  ch     <- ik_species_choices(grp, ik_data, prefer, split = splits, all_label = all_label, all_value = all_value)
+  all_sci <- sort(unique(stats::na.omit(ik_observations(ik_data, with_location = FALSE)$scientificName)))
+  ung <- setdiff(all_sci, unique(unlist(grp, use.names = FALSE)))
+  if (length(ung)) { labs <- ik_species_label(ung, ik_data, prefer)
+    for (i in order(labs)) ch[[labs[i]]] <- paste0("sci:", ung[i]) }
+  ch
+}
+
 #' Animal observations of the resolved selection, tagged with location_id/reserve/line and
 #' (camera only, when `net`) with possible-duplicates dropped. @keywords internal
 .metrics_obs <- function(ik_data, r, locs, net = FALSE) {

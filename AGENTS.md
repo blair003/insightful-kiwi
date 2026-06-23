@@ -94,6 +94,25 @@ is already declared in `setup-r.R`, so the map module needs no new package ask.
   `ik_observations()`, `ik_deployments()`; resolvers `ik_select()` / `ik_resolve()`) —
   these wrappers are the *only* place dataset-selection + join logic lives. Filter
   first, then enrich the subset.
+- **Control placement — sidebar vs in-panel, by ROLE (not by axis).** Cross-cutting
+  *selection* (period, geography, dataset, comparison, net) lives in the global left
+  **sidebar**: `selection_ui()` inside a `conditionalPanel("input.nav === '<value>'", …)`
+  in `ui.R`, each view requesting its subset via `selection_ui(show = …)` and opting the
+  sidebar open by listing its nav value in `SIDEBAR_NAVS` (`server.R`); views not listed
+  manage controls locally and the sidebar auto-collapses. View-specific *mode / axis /
+  display* controls (e.g. Maps device·measure·group, the Outcomes/Bait plot toggles, the
+  Duplicate-window slider, review filters) render **in-panel**, above the view's content.
+  Rule of thumb: **what you're looking _at_ (data in scope) → sidebar; how _this_ view
+  shows it (mode, ranking, local filters) → in-panel.** **`period` ALWAYS lives in the
+  sidebar** (overriding rule) — every period-scoped view, including the standalone Data →
+  Quality reviews and Bait effectiveness, takes Period (and other scope axes it needs, e.g.
+  Reserve) from its own `selection_ui`/`selection_server` instance, with a per-view default
+  via `selection_ui(period_default=)`. The unified **`species`** picker (groups split-per-config
+  + ungrouped; see [[species-picker]]) is **dual by role**, like `device`: a sidebar scope-filter
+  in **Records**, but an **in-panel** control in **Maps** (there it's a GROUPING/mode choice — which
+  taxon the surface is drawn for — sitting with Device/Measure, and the priority/timing sub-views
+  swap it for their own predator/protected pickers). That per-view duality is **intentional, not an
+  inconsistency to "fix".**
 
 ## Data & paths
 - Data is loaded **once** into `ik_data` (cached as `.RDS`). App code consumes

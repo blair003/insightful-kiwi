@@ -13,6 +13,17 @@
   )
 }
 
+#' A small "← Back" link for a deeper modal tab — returns the tabset to an earlier tab. The drill
+#' modals auto-advance (click a row → next tab), so this makes the way back obvious. `input_id` is a
+#' namespaced input the module observes once: `observeEvent(input$tab_back, updateTabsetPanel(session,
+#' input$tab_back$tabset, selected = input$tab_back$to))`. @keywords internal
+.ik_tab_back <- function(input_id, tabset, to, label = "Back") {
+  tags$a(href = "#", class = "ik-tab-back",
+    onclick = sprintf("event.preventDefault();Shiny.setInputValue('%s',{tabset:'%s',to:'%s'},{priority:'event'});",
+                      input_id, tabset, to),
+    HTML("&larr;"), paste0(" ", label))
+}
+
 #' An inline help affordance: a small "?" (or "i") button that opens a Bootstrap modal with a
 #' description. Pure client-side (Bootstrap's own modal JS) — no server observer needed, so it
 #' drops into any UI. Use a "?" for whole-feature/page explainers, an "i" for a single field.
@@ -61,3 +72,35 @@
   DT::formatStyle(dt, columns = vis, valueColumns = id_col,
                   backgroundColor = DT::styleEqual(id, colour))
 }
+
+#' Shared ggplot theme that FOLLOWS the app's dark/light mode, so plots sit on the card cleanly the
+#' way the leaflet basemap does. The plot/panel backgrounds are transparent (the bslib card shows
+#' through, light or dark); only the ink — text, axes, gridlines — flips with the mode. Pair every
+#' `renderPlot()` that uses this with `bg = "transparent"` (renderPlot defaults to white, which would
+#' punch a white box through a dark card). Put module-specific `theme()` tweaks AFTER this so they win.
+#'
+#' @param dark      Logical — is the app in dark mode? (e.g. `identical(color_mode(), "dark")`).
+#' @param base_size Base font size, passed to `theme_minimal()`.
+#' @return A ggplot2 theme object to add to a plot.
+ik_ggtheme <- function(dark = FALSE, base_size = 13) {
+  fg   <- if (dark) "#e9ecef" else "#212529"
+  grid <- if (dark) "#3a3f44" else "#dee2e6"
+  ggplot2::theme_minimal(base_size = base_size) +
+    ggplot2::theme(
+      plot.background  = ggplot2::element_rect(fill = "transparent", colour = NA),
+      panel.background = ggplot2::element_rect(fill = "transparent", colour = NA),
+      legend.background = ggplot2::element_rect(fill = "transparent", colour = NA),
+      legend.key       = ggplot2::element_rect(fill = "transparent", colour = NA),
+      panel.grid.major = ggplot2::element_line(colour = grid),
+      panel.grid.minor = ggplot2::element_line(colour = grid),
+      text          = ggplot2::element_text(colour = fg),
+      axis.text     = ggplot2::element_text(colour = fg),
+      plot.title    = ggplot2::element_text(colour = fg),
+      plot.subtitle = ggplot2::element_text(colour = fg),
+      plot.caption  = ggplot2::element_text(colour = fg),
+      strip.text    = ggplot2::element_text(colour = fg))
+}
+
+#' The muted "ink" colour for in-plot annotations (data labels, reference lines) at the current mode
+#' — so a `geom_text`/`geom_vline` stays legible on a dark card. @param dark Logical. @keywords internal
+ik_plot_ink <- function(dark = FALSE) if (dark) "#ced4da" else "#444444"

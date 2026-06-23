@@ -91,7 +91,7 @@ datasets <- list(
     force_timezone = "Pacific/Auckland",        # match core if its timestamps are the same
     geography   = list(derive = "coded_locationname",
                        reserves = c(OF = "Ohiwa Forest")),   # ← use Ohiwa's real code
-    enabled     = FALSE
+    enabled     = TRUE
   ),
 
 
