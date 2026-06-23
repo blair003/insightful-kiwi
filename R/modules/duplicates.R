@@ -82,7 +82,7 @@ duplicates_server <- function(id, ik_data, color_mode = reactive("light")) {
       ag <- do.call(rbind, lapply(split(gaps, gaps$species), function(s) {
         rec <- nrow(s); fl <- sum(s$gap <= W, na.rm = TRUE)
         data.frame(Species = s$species[1], Records = rec, Flagged = fl, Net = rec - fl,
-                   Rate = round(100 * fl / rec, 1), Target = s$species[1] %in% targets,
+                   Rate = round(100 * fl / rec, 1), Target = s$scientificName[1] %in% target_sci,
                    stringsAsFactors = FALSE)
       }))
       ag <- ag[order(-ag$Records), , drop = FALSE]

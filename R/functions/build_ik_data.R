@@ -26,7 +26,9 @@ build_ik_data <- function(config, manifest = load_manifest(config),
       relations      = build_observation_relations(          # temporal metrics
         datasets, species_groups, project$duplicate_window %||% list()),
       proximity      = build_proximity(                      # spatial neighbour adjacency (camera → near)
-        geography$locations, datasets, max_radius_m = (project$proximity %||% list())$max_radius_m %||% 2000)
+        geography$locations, datasets, max_radius_m = (project$proximity %||% list())$max_radius_m %||% 2000),
+      coverage       = build_coverage(                       # per-reserve density (area, traps/km², spacing)
+        geography$locations, datasets)
     ),
     meta = list(
       built_at     = Sys.time(),

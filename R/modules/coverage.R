@@ -24,7 +24,7 @@ coverage_ui <- function(id) {
           tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
           tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera; ",
           tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps; ",
-          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = traps (effort). A green hotspot ",
+          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = traps. A green hotspot ",
           "ringed by purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
         div(class = "ik-cov-controls",
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "230px"),
@@ -33,6 +33,12 @@ coverage_ui <- function(id) {
                         choices = c("250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 500)),
         uiOutput(ns("caption")),
         leaflet::leafletOutput(ns("map"), height = "62vh"),
+        div(class = "ik-cov-density",
+            tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
+            tags$p(class = "ik-cov-gaps-lead",
+              "Is the network even dense enough to work? Footprint area, traps & cameras per km², and ",
+              "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
+            DT::DTOutput(ns("density"))),
         div(class = "ik-cov-gaps",
             tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
             tags$p(class = "ik-cov-gaps-lead",
@@ -75,6 +81,12 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     cam_prot <- reactive({ if (!length(prot_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = prot_sci()), "camera", norm = per_cam)) })
     cam_pred <- reactive({ if (!length(pred_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = pred_sci()), "camera", norm = per_cam)) })
     trap_pred <- reactive({ if (!length(pred_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = pred_sci()), "trap")) })
+    # checks per trap in the period (check-date) — the servicing-effort number, distinct from trap-days
+    trap_checks <- reactive({
+      dp <- ik_deployment_period(ik_data); dp <- dp[!is.na(dp$source_type) & dp$source_type == "trap", , drop = FALSE]
+      seas <- .ik_nz(selection()$season); if (!is.null(seas)) dp <- .trap_in_period(ik_data, dp, seas)
+      table(dp$locationID)
+    })
 
     .radius <- function(v, lo, hi) { v <- pmax(as.numeric(v), 0)
       if (!length(v) || !is.finite(diff(range(v))) || diff(range(v)) == 0) return(rep((lo + hi) / 2, length(v)))
@@ -104,13 +116,15 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       leaflet::addProviderTiles(p, if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
     }, ignoreInit = TRUE)
 
-    observe({                                                   # Traps (effort) — every deployed trap
+    observe({                                                   # Traps — every deployed trap (the network)
       p <- proxy(); leaflet::clearGroup(p, "Traps")
       d <- trap_pred(); if (is.null(d) || !nrow(d)) return()
+      chk <- trap_checks(); nck <- as.integer(chk[as.character(d$location_id)]); nck[is.na(nck)] <- 0L
+      lab <- sprintf("%s — %d check%s · %s trap-days · %d caught", d$name, nck, ifelse(nck == 1L, "", "s"),
+                     format(round(d$trap_days), big.mark = ","), as.integer(d$captures))
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Traps", layerId = paste0("T|", d$location_id),
         radius = 3, fill = TRUE, fillColor = "#8a8a8a", fillOpacity = 0.5, stroke = FALSE,
-        label = ~sprintf("%s — trap (%s trap-days, %d caught)", name, format(round(trap_days), big.mark = ","), as.integer(captures)),
-        options = leaflet::pathOptions(pane = "traps"))
+        label = lab, options = leaflet::pathOptions(pane = "traps"))
     })
     observe({                                                   # Catches — traps that caught the predator
       p <- proxy(); leaflet::clearGroup(p, "Catches")
@@ -152,7 +166,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       p <- proxy(); leaflet::clearControls(p)
       leaflet::addLegend(p, "bottomright", colors = c("#2e7d32", "#c62828", "#6a3d9a", "#8a8a8a"),
         labels = c(sprintf("%s (camera)", prot_lab()), sprintf("%s (camera)", pred_lab()),
-                   sprintf("%s caught (traps)", pred_lab()), "Traps (effort)"),
+                   sprintf("%s caught (traps)", pred_lab()), "Traps (network)"),
         title = "Coverage &middot; size = magnitude", opacity = 0.9)
     })
 
@@ -181,13 +195,32 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       col <- c(no_trapping = "#c62828", predators_uncaught = "#e8590c",
                neglected = "#f59f00", covered = "#2e7d32", no_protected = "#868e96")
       badge <- sprintf("<span class='ik-gap-badge' style='background:%s'>%s</span>", col[g$status], lab[g$status])
+      cov  <- ik_coverage(ik_data)                              # reserve network density, for context
+      dens <- if (is.null(cov)) rep(NA_real_, nrow(g)) else cov$traps_per_km2[match(g$reserve, cov$reserve)]
       df <- data.frame(Line = g$line, Reserve = g$reserve,
         `Protected` = ifelse(is.na(g$prot_rate), "—", sprintf("%.2f", g$prot_rate)),
         `Predator`  = ifelse(is.na(g$pred_rate), "—", sprintf("%.2f", g$pred_rate)),
         `Traps` = g$n_traps, `Caught` = g$catches, `Neglected` = g$n_neglected,
+        `Traps/km²` = ifelse(is.na(dens), "—", sprintf("%.0f", dens)),
         Status = badge, check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, escape = -ncol(df), selection = "none",
         class = "stripe hover row-border", options = list(pageLength = 15, dom = "t", ordering = FALSE))
+    })
+
+    # ---- per-reserve network density (structural coverage — is it dense enough?) ----
+    output$density <- DT::renderDT({
+      cov <- ik_coverage(ik_data); validate(need(!is.null(cov) && nrow(cov), "No coverage stats."))
+      rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) cov <- cov[cov$reserve %in% rsv, , drop = FALSE]
+      validate(need(nrow(cov), "No reserves in this selection."))
+      df <- data.frame(Reserve = cov$reserve,
+        `Area (ha)`   = ifelse(is.na(cov$area_km2), "—", format(round(cov$area_km2 * 100), big.mark = ",")),
+        Cameras = cov$n_cameras, Traps = cov$n_traps,
+        `Cameras/km²` = ifelse(is.na(cov$cameras_per_km2), "—", sprintf("%.1f", cov$cameras_per_km2)),
+        `Traps/km²`   = ifelse(is.na(cov$traps_per_km2),   "—", sprintf("%.1f", cov$traps_per_km2)),
+        `Trap spacing (m)` = ifelse(is.na(cov$mean_trap_spacing_m), "—", format(round(cov$mean_trap_spacing_m), big.mark = ",")),
+        check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border",
+        options = list(dom = "t", ordering = FALSE))
     })
   })
 }

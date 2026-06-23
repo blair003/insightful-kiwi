@@ -8,7 +8,7 @@
 # tracks the manifest + package DATA files + the CONVERSION code (R/functions/import) — but
 # NOT the rest of the build code, so bump this (or run with IK_REBUILD=1) when you edit a
 # builder outside import/ and want the cache rebuilt.
-IK_CACHE_VERSION <- 27L   # v27: surface meta$proximity (neighbourhood radius config)
+IK_CACHE_VERSION <- 29L   # v29: app$coverage area from per-reserve hull of points (excl. pseudo-reserves)
 
 #' Fingerprint the import inputs (manifest + package files + conversion code).
 #'
