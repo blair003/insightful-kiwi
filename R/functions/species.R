@@ -181,3 +181,39 @@ ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = 
   out$period <- factor(out$period, levels = unique(out$period[order(out$order)]))
   out
 }
+
+#' CAMERA detections of `taxa` with their event time + diel period — for the species Behaviour tab
+#' (time-of-day + diel). @param taxa Named list label→sci. @param reserve Optional reserve filter.
+#' @return df: when (POSIXct) · hour (0-23) · diel (factor IK_DIEL_PERIODS); NULL when none. @keywords internal
+ik_species_camera_events <- function(ik_data, taxa, reserve = NULL) {
+  o <- tryCatch(ik_metric_obs(ik_data, list(reserve = reserve), taxa, names(taxa)[1], source_type = "camera"),
+                error = function(e) NULL)
+  if (is.null(o) || !nrow(o)) return(NULL)
+  data.frame(when = o$when, hour = as.integer(format(o$when, "%H")),
+             diel = ik_diel_period(ik_data, o$when, o$reserve), stringsAsFactors = FALSE)
+}
+
+#' Effort-normalised diel activity for a camera species: detections per AVAILABLE camera-hour in each
+#' diel period (Matutinal/Diurnal/Vespertine/Nocturnal). Available hours = total camera-hours in scope
+#' × the mean fraction of the day each period spans (from the per-reserve sun table), so a long night
+#' isn't mistaken for more activity. @param taxa Named list label→sci. @param reserve Optional filter.
+#' @return df: period (ordered) · detections · avail_hours · rate; NULL when none. @keywords internal
+ik_species_diel <- function(ik_data, taxa, reserve = NULL) {
+  ev <- ik_species_camera_events(ik_data, taxa, reserve)
+  if (is.null(ev)) return(NULL)
+  cnt <- as.integer(table(factor(ev$diel, levels = IK_DIEL_PERIODS)))
+  r   <- tryCatch(ik_resolve(ik_data, list(reserve = reserve), source_type = "camera"), error = function(e) NULL)
+  eff <- if (is.null(r) || !nrow(r$deployments)) 0 else
+    sum(as.numeric(difftime(r$deployments$deploymentEnd, r$deployments$deploymentStart, units = "hours")), na.rm = TRUE)
+  sun <- ik_temporal(ik_data)$sun
+  if (!is.null(reserve)) sun <- sun[sun$reserve %in% reserve, , drop = FALSE]
+  hf  <- function(a, b) as.numeric(difftime(b, a, units = "hours"))
+  fr  <- c(Matutinal  = mean(hf(sun$civil_dawn, sun$sunrise), na.rm = TRUE),
+           Diurnal    = mean(hf(sun$sunrise, sun$sunset),     na.rm = TRUE),
+           Vespertine = mean(hf(sun$sunset, sun$civil_dusk),  na.rm = TRUE))
+  fr["Nocturnal"] <- max(0, 24 - sum(fr, na.rm = TRUE))
+  avail <- eff * (fr[IK_DIEL_PERIODS] / 24)
+  data.frame(period = factor(IK_DIEL_PERIODS, levels = IK_DIEL_PERIODS), detections = cnt,
+             avail_hours = as.numeric(avail),
+             rate = ifelse(as.numeric(avail) > 0, cnt / as.numeric(avail), NA_real_), stringsAsFactors = FALSE)
+}

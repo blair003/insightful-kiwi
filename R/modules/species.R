@@ -56,6 +56,15 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                              choices = c("By season" = "season", "By year" = "year"), selected = "season"),
                 selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__", width = "220px")),
             plotOutput(ns("trend"), height = "460px")),
+          tabPanel("Where", icon = icon("ranking-star"),
+            tags$p(class = "ik-species-hint", "This species' hotspots — top camera lines by activity and reserves by catches."),
+            if (spec$camera) plotOutput(ns("where_cam"), height = "320px"),
+            if (spec$trapped) plotOutput(ns("where_trap"), height = "320px")),
+          if (spec$camera) tabPanel("Behaviour", icon = icon("clock"),
+            tags$p(class = "ik-species-hint",
+                   "When this species is active on camera. Diel activity is effort-normalised (detections per available hour)."),
+            plotOutput(ns("tod"), height = "300px"),
+            plotOutput(ns("diel"), height = "300px")),
           tabPanel("Records", icon = icon("list"),
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection."),
             DT::DTOutput(ns("records"))),
@@ -181,5 +190,63 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                                 options = list(padding = c(30, 30)))
       m
     })
+
+    # ---- Where (hotspots): top camera lines by RAI · reserves by catch rate ----
+    .hbar <- function(d, xcol, lab, xtitle, fill) {            # horizontal ranked bar, top 15
+      d <- d[is.finite(d[[xcol]]) & d[[xcol]] > 0, , drop = FALSE]
+      validate(need(nrow(d), paste0("No ", lab, " for this species in the selection.")))
+      d <- utils::head(d[order(-d[[xcol]]), , drop = FALSE], 15)
+      d$.lab <- factor(d$.lab, levels = rev(d$.lab))
+      ggplot2::ggplot(d, ggplot2::aes(.data[[xcol]], .data$.lab)) +
+        ggplot2::geom_col(fill = fill, width = 0.72) +
+        ggplot2::labs(x = xtitle, y = NULL, title = lab) +
+        ik_ggtheme(is_dark()) +
+        ggplot2::theme(panel.grid.major.y = ggplot2::element_blank(),
+                       plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
+    }
+    where <- reactive({ req(active())
+      list(cam  = if (spec$camera)  tryCatch(ik_rai(ik_data, selection(), taxa, level = "reserve")$lines, error = function(e) NULL) else NULL,
+           trap = if (spec$trapped) tryCatch(ik_trap_rate(ik_data, selection(), taxa, level = "reserve")$summary, error = function(e) NULL) else NULL)
+    }) |> bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
+
+    output$where_cam <- renderPlot({
+      d <- where()$cam; validate(need(!is.null(d) && nrow(d), "No camera activity for this species in the selection."))
+      d$.lab <- ifelse(is.na(d$line), "(unlined)", sprintf("%s · %s", d$reserve, d$line))
+      .hbar(d, "metric", "Camera activity by line (RAI)", sprintf("RAI / %s ch", format(per_cam, big.mark = ",")), "#1f78b4")
+    }, bg = "transparent")
+
+    output$where_trap <- renderPlot({
+      d <- where()$trap; validate(need(!is.null(d) && nrow(d), "No catches for this species in the selection."))
+      d <- d[d$reserve != "Combined", , drop = FALSE]; d$.lab <- d$reserve
+      .hbar(d, "metric", "Catch rate by reserve", sprintf("catches / %s TN", format(nt, big.mark = ",")), "#6a3d9a")
+    }, bg = "transparent")
+
+    # ---- Behaviour (camera): time-of-day histogram + effort-normalised diel ----
+    cam_events <- reactive({ req(active(), spec$camera); ik_species_camera_events(ik_data, taxa, .ik_nz(selection()$reserve)) }) |>
+      bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
+
+    output$tod <- renderPlot({
+      ev <- cam_events(); validate(need(!is.null(ev) && nrow(ev), "No camera detections to chart."))
+      h <- as.data.frame(table(factor(ev$hour, levels = 0:23))); names(h) <- c("hour", "n"); h$hour <- as.integer(as.character(h$hour))
+      ggplot2::ggplot(h, ggplot2::aes(.data$hour, .data$n)) +
+        ggplot2::geom_col(fill = "#1f78b4", width = 0.9) +
+        ggplot2::scale_x_continuous(breaks = seq(0, 24, 6), limits = c(-0.5, 23.5)) +
+        ggplot2::labs(x = "Hour of day", y = "Detections", title = "Activity by time of day") +
+        ik_ggtheme(is_dark()) +
+        ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
+    }, bg = "transparent")
+
+    output$diel <- renderPlot({
+      d <- ik_species_diel(ik_data, taxa, .ik_nz(selection()$reserve))
+      validate(need(!is.null(d) && any(d$detections > 0), "No camera detections to chart."))
+      ggplot2::ggplot(d, ggplot2::aes(.data$period, .data$rate)) +
+        ggplot2::geom_col(fill = "#6a3d9a", width = 0.72, na.rm = TRUE) +
+        ggplot2::geom_text(ggplot2::aes(label = .data$detections), vjust = -0.4, size = 3,
+                           colour = ik_plot_ink(is_dark()), na.rm = TRUE) +
+        ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.12))) +
+        ggplot2::labs(x = NULL, y = "Detections / available hour", title = "Diel activity (effort-normalised)") +
+        ik_ggtheme(is_dark()) +
+        ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
+    }, bg = "transparent")
   })
 }
