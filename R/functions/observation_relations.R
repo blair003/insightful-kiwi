@@ -54,7 +54,14 @@ build_observation_relations <- function(datasets, species, duplicate_window = li
     di  <- match(obs$deploymentID, dep$deploymentID)
     obs$locationID      <- dep$locationID[di]
     obs$timestampIssues <- dep$timestampIssues[di]
-    date_only <- !is.na(obs$timestampIssues) & obs$timestampIssues
+    # Date-only (excluded from the minute-resolution metrics below) when the dataset DECLARES a
+    # coarser-than-minute temporal_resolution — the manifest setting that also drives time-flooring,
+    # so it's authoritative — OR the source flags this deployment's clock (timestampIssues). The
+    # declaration wins even if a converter forgot to set timestampIssues, so we never compute bogus
+    # minute gaps on day-floored (00:00:00) stamps.
+    res <- ds$meta$temporal_resolution %||% NA_character_
+    res_date_only <- !is.na(res) && !res %in% c("second", "minute")
+    date_only <- res_date_only | (!is.na(obs$timestampIssues) & obs$timestampIssues)
 
     # --- Minute-resolution metrics (cameras): species-bearing, non-date-only -----
     mr <- obs[!is.na(obs$scientificName) & !date_only, , drop = FALSE]

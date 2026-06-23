@@ -20,6 +20,7 @@ ik_duplicate_gaps <- function(ik_data, prefer = "vernacular") {
   rel <- ik_relations(ik_data); m <- match(obs$observationID, rel$observationID)
   gap  <- rel$minutes_since_prev_same_species[m]
   flag <- rel$possible_duplicate[m]
+  if (is.null(flag) || !length(flag)) return(NULL)           # no duplicate flag at all (e.g. trap-only data)
   keep <- !is.na(flag)                                       # minute-resolution (camera) obs only
   obs  <- obs[keep, , drop = FALSE]; gap <- gap[keep]
   if (!nrow(obs)) return(NULL)

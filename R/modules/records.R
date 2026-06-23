@@ -65,8 +65,8 @@ records_ui <- function(id, label = "Records", value = "records") {
   ns <- NS(id)
   nav_panel(
     label, value = value, icon = icon("table"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/observation.css"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/records.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/observation.css")),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/records.css")),
     DT::DTOutput(ns("table"))
   )
 }
@@ -91,11 +91,13 @@ records_server <- function(id, ik_data, prefer_scientific, selection) {
       obs$observationType <- ik_obs_type_label(obs$observationType,
                                                !is.na(obs$source_type) & obs$source_type == "trap")
 
-      # surface the duplicate metrics (app$relations; camera/minute-resolution only)
+      # surface the duplicate metrics (app$relations; camera/minute-resolution only). For trap-only
+      # data these relation columns are absent/non-numeric, so guard before rounding/flagging.
       rel <- ik_relations(ik_data)
       mi  <- match(obs$observationID, rel$observationID)
-      obs$possible_duplicate              <- rel$possible_duplicate[mi]
-      obs$minutes_since_prev_same_species <- round(rel$minutes_since_prev_same_species[mi], 1)
+      dup <- rel$possible_duplicate[mi]; gap <- rel$minutes_since_prev_same_species[mi]
+      obs$possible_duplicate              <- if (is.logical(dup)) dup else NA
+      obs$minutes_since_prev_same_species <- if (is.numeric(gap)) round(gap, 1) else NA_real_
 
       # net view (sidebar toggle): drop flagged duplicates so the records match the RAI
       # net individuals. Camera-only — traps have no duplicate flag, so they're unaffected.
