@@ -315,16 +315,21 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       dk <- is_dark()
       sh <- ik_sun_hours(ik_data, .ik_nz(selection()$reserve), .ik_nz(selection()$season))
       g  <- ggplot2::ggplot()
-      if (!is.null(sh)) {                                               # night (dark) + twilight (amber) bands
+      multi <- FALSE
+      if (!is.null(sh) && all(is.finite(c(sh$civil_dawn, sh$civil_dusk)))) {
+        dawn <- sh$civil_dawn; dusk <- sh$civil_dusk              # each c(min, max) hour over the period
+        multi <- (dawn[2] - dawn[1]) > 0.5 || (dusk[2] - dusk[1]) > 0.5   # span of seasons → fuzzy edges
+        night <- if (dk) "#000000" else "#44505e"
+        a_solid <- if (dk) 0.32 else 0.16; a_fade <- if (dk) 0.15 else 0.07
+        # solid = night on EVERY selected day; faded = night on SOME days (the dawn/dusk window shifts)
         bands <- data.frame(
-          xmin = c(-0.5, sh[["civil_dawn"]], sh[["sunset"]], sh[["civil_dusk"]]),
-          xmax = c(sh[["civil_dawn"]], sh[["sunrise"]], sh[["civil_dusk"]], 23.5),
-          fill = c(if (dk) "#000000" else "#44505e", "#e0a44d", "#e0a44d", if (dk) "#000000" else "#44505e"),
-          alpha = c(if (dk) 0.30 else 0.13, if (dk) 0.16 else 0.12,
-                    if (dk) 0.16 else 0.12, if (dk) 0.30 else 0.13), stringsAsFactors = FALSE)
+          xmin  = c(-0.5,     dawn[1], dusk[2], dusk[1]),
+          xmax  = c(dawn[1],  dawn[2], 23.5,    dusk[2]),
+          alpha = c(a_solid,  a_fade,  a_solid, a_fade), stringsAsFactors = FALSE)
+        bands <- bands[bands$xmax > bands$xmin, , drop = FALSE]
         g <- g + ggplot2::geom_rect(data = bands,
                ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax, ymin = -Inf, ymax = Inf),
-               fill = bands$fill, alpha = bands$alpha)
+               fill = night, alpha = bands$alpha)
       }
       g + ggplot2::geom_col(data = h, ggplot2::aes(.data$hour, .data$n), fill = "#4a7fb0",
                             width = 0.9, na.rm = TRUE) +
@@ -332,7 +337,9 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                                     limits = c(-0.5, 23.5), expand = c(0, 0)) +
         ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.08))) +
         ggplot2::labs(x = NULL, y = "Detections", title = "Detections by hour of day",
-                      subtitle = if (!is.null(sh)) "Shaded: night (grey) and twilight (amber), from the period's sun times" else NULL) +
+                      subtitle = if (is.null(sh)) NULL else if (multi)
+                        "Shaded = night; faded edges = dawn/dusk shift across the period"
+                        else "Shaded = night, from the period's sun times") +
         ik_ggtheme(is_dark()) +
         ggplot2::theme(panel.grid.major.x = ggplot2::element_blank(),
           plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())),

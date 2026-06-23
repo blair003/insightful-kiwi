@@ -119,12 +119,14 @@ ik_diel_period <- function(ik_data, time, reserve) {
   factor(out, levels = IK_DIEL_PERIODS)
 }
 
-#' Mean sun-window boundaries as decimal HOURS-of-day, for shading a 24h activity histogram.
-#' Averages civil dawn / sunrise / sunset / civil dusk over the sun table, optionally scoped to a
-#' reserve and/or a set of calendar seasons — so a winter-only view gets winter's longer night.
+#' Sun-window boundaries as decimal HOURS-of-day RANGES, for shading a 24h activity histogram.
+#' For civil dawn / sunrise / sunset / civil dusk over the sun table (optionally scoped to a reserve
+#' and/or calendar seasons), returns the min and max hour each boundary takes across the selected
+#' days. A single season → a tight range (crisp band); a full year → a wide range (the dawn/dusk
+#' window genuinely shifts), so the shading can show "always night" vs "night on some days".
 #' @param ik_data The container. @param reserve Optional reserve filter. @param seasons Optional
-#' `calendar_season` vector. @return named numeric c(civil_dawn, sunrise, sunset, civil_dusk) in
-#' [0,24); NULL when the (filtered) table is empty. @keywords internal
+#' `calendar_season` vector. @return list(civil_dawn, sunrise, sunset, civil_dusk), each a numeric
+#' c(min, max) in [0,24); NULL when the (filtered) table is empty. @keywords internal
 ik_sun_hours <- function(ik_data, reserve = NULL, seasons = NULL) {
   sun <- ik_temporal(ik_data)$sun
   if (is.null(sun) || !nrow(sun)) return(NULL)
@@ -134,9 +136,10 @@ ik_sun_hours <- function(ik_data, reserve = NULL, seasons = NULL) {
     sun  <- sun[!is.na(ssea) & ssea %in% seasons, , drop = FALSE]
   }
   if (!nrow(sun)) return(NULL)
-  hr <- function(t) { lt <- as.POSIXlt(t); lt$hour + lt$min / 60 + lt$sec / 3600 }
-  c(civil_dawn = mean(hr(sun$civil_dawn), na.rm = TRUE), sunrise = mean(hr(sun$sunrise), na.rm = TRUE),
-    sunset = mean(hr(sun$sunset), na.rm = TRUE), civil_dusk = mean(hr(sun$civil_dusk), na.rm = TRUE))
+  hr  <- function(t) { lt <- as.POSIXlt(t); lt$hour + lt$min / 60 + lt$sec / 3600 }
+  rng <- function(col) { v <- hr(sun[[col]]); v <- v[is.finite(v)]; if (!length(v)) c(NA, NA) else c(min(v), max(v)) }
+  list(civil_dawn = rng("civil_dawn"), sunrise = rng("sunrise"),
+       sunset = rng("sunset"), civil_dusk = rng("civil_dusk"))
 }
 
 #' Day/Night label of each event timestamp (sun-up definition: sunrise ≤ t < sunset).
