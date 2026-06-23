@@ -67,7 +67,7 @@ datasets <- list(
     force_timezone = "Pacific/Auckland",  # exported as +00:00 but the clock is NZ local
 
     consolidate_taxa = list(
-      list(genus = "Rattus"),             # roll all rats up to the genus Rattus
+    #  list(genus = "Rattus"),             # roll all rats up to the genus Rattus
       # "Reverse" consolidations — map a coarse taxon onto a specific one:
       list(from = "Felis", to = "Felis catus"),   # genus Felis sp. -> Domestic cat
       list(from = "Fannia",                       # Fannia sp. -> generic Insect
@@ -129,7 +129,7 @@ datasets <- list(
     name        = "Southern Lakes Trapping",
     timezone    = "Pacific/Auckland",
     temporal_resolution = "day",        # trap.NZ check records — trustworthy to the day
-    enabled     = FALSE,
+    enabled     = TRUE,
     raw = list(dir = "southern-lakes-sanctuary/sls-trapping", converter = "trapnz"),
     geography = list(derive = "trapnz")            # reserve = trap.NZ project · line = trap.NZ line
   ),
