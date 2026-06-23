@@ -39,6 +39,13 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
   others <- Filter(function(s) s$key != spec$key, ik_species_taxa(ik_data))
   ov_ch  <- c("None" = "__none__", stats::setNames(vapply(others, `[[`, "", "key"), vapply(others, `[[`, "", "label")))
   sci_lab <- paste(sort(unique(spec$sci)), collapse = " · ")
+  # Co-occurrence applies to a predator/protected species with camera data + an opposing role present.
+  opp_role  <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
+  opp_sci   <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
+  .cooc_ok  <- isTRUE(spec$camera) && !is.na(opp_role) && length(opp_sci) > 0
+  .cooc_hint <- if (.cooc_ok) sprintf(
+    "Time on camera between this %s and the nearest %s at the same camera — shorter gaps mean they share ground close in time.",
+    spec$role, opp_role) else ""
   nav_panel(
     spec$label, value = spec$key, icon = icon(if (isTRUE(spec$member)) "paw" else "dna"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/species.css")),
@@ -65,6 +72,12 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                    "When this species is active on camera. Diel activity is effort-normalised (detections per available hour)."),
             plotOutput(ns("tod"), height = "300px"),
             plotOutput(ns("diel"), height = "300px")),
+          if (spec$trapped) tabPanel("Bait", icon = icon("drumstick-bite"),
+            tags$p(class = "ik-species-hint", "Which baits catch this species best (captures per trap-night, top recipes)."),
+            plotOutput(ns("bait"), height = "420px")),
+          if (.cooc_ok) tabPanel("Co-occurrence", icon = icon("hourglass-half"),
+            tags$p(class = "ik-species-hint", .cooc_hint),
+            plotOutput(ns("cooc"), height = "340px")),
           tabPanel("Records", icon = icon("list"),
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection."),
             DT::DTOutput(ns("records"))),
@@ -245,6 +258,39 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                            colour = ik_plot_ink(is_dark()), na.rm = TRUE) +
         ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.12))) +
         ggplot2::labs(x = NULL, y = "Detections / available hour", title = "Diel activity (effort-normalised)") +
+        ik_ggtheme(is_dark()) +
+        ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
+    }, bg = "transparent")
+
+    # ---- Bait (trapped species): which baits catch it best ----
+    output$bait <- renderPlot({
+      req(active(), spec$trapped)
+      d <- tryCatch(ik_bait_effectiveness(ik_data, species = spec$sci, norm = nt), error = function(e) NULL)
+      validate(need(!is.null(d) && nrow(d), "Not enough baited captures of this species to compare baits."))
+      d <- utils::head(d[order(-d$rate), , drop = FALSE], 15); d$bait <- factor(d$bait, levels = rev(d$bait))
+      ggplot2::ggplot(d, ggplot2::aes(.data$rate, .data$bait)) +
+        ggplot2::geom_col(fill = "#b15928", width = 0.72) +
+        ggplot2::labs(x = sprintf("Captures / %s trap-nights", format(nt, big.mark = ",")), y = NULL,
+                      title = "Catch rate by bait") +
+        ik_ggtheme(is_dark()) +
+        ggplot2::theme(panel.grid.major.y = ggplot2::element_blank(),
+                       plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
+    }, bg = "transparent")
+
+    # ---- Co-occurrence (predator/protected): time to the nearest opposing-role detection ----
+    opp_role <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
+    opp_sci  <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
+    output$cooc <- renderPlot({
+      req(active(), spec$camera, !is.na(opp_role), length(opp_sci) > 0)
+      pp <- if (identical(spec$role, "predator")) list(pred = spec$sci, prot = opp_sci) else list(pred = opp_sci, prot = spec$sci)
+      g  <- tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot), error = function(e) NULL)
+      validate(need(!is.null(g) && nrow(g), "No camera co-detections of this species with the opposing role yet."))
+      bucket <- cut(g$gap_h, breaks = GAP_BREAKS, labels = GAP_LABELS, right = FALSE, include.lowest = TRUE)
+      h <- as.data.frame(table(factor(bucket, levels = GAP_LABELS))); names(h) <- c("gap", "n")
+      ggplot2::ggplot(h, ggplot2::aes(.data$gap, .data$n)) +
+        ggplot2::geom_col(fill = "#3f6fb0", width = 0.85) +
+        ggplot2::labs(x = sprintf("Time to nearest %s detection (same camera)", opp_role), y = "Co-detections",
+                      title = "How close in time, on the same camera") +
         ik_ggtheme(is_dark()) +
         ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
     }, bg = "transparent")
