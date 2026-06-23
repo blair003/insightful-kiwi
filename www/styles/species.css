@@ -38,6 +38,10 @@
 .ik-diel-bar { display: flex; height: 28px; margin: 1rem 0; border-radius: 5px; overflow: hidden;
                background: var(--bs-border-color, #dee2e6); }
 .ik-diel-bar span { display: block; height: 100%; }
+.ik-diel-seg { cursor: pointer; transition: filter 0.12s; }
+.ik-diel-seg:hover { filter: brightness(1.12); }
+.ik-diel-clickable { cursor: pointer; }
+.ik-diel-clickable:hover .ik-diel-leg-lab { text-decoration: underline; }
 .ik-diel-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 1.6rem;
                   max-width: 380px; margin: 0 auto; text-align: left; }
 .ik-diel-leg { display: flex; align-items: center; gap: 0.45rem; }

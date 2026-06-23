@@ -367,10 +367,14 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       req(active(), spec$camera)
       dc <- diel()
       validate(need(!is.null(dc) && dc$n > 0, "No camera detections to classify."))
-      sh  <- dc$shares                                                    # named integer % in period order
+      sh   <- dc$shares                                                   # named integer % in period order
+      pick <- function(p) sprintf("Shiny.setInputValue('%s', %s, {priority: 'event'});",
+                                  session$ns("diel_pick"), .ik_jsq(p))     # click → open that period's records
       seg <- function(p) if (isTRUE(sh[[p]] > 0))
-        tags$span(style = sprintf("width:%d%%;background:%s", sh[[p]], IK_DIEL_COLORS[[p]])) else NULL
-      leg <- function(p) tags$div(class = "ik-diel-leg",
+        tags$span(class = "ik-diel-seg", onclick = pick(p), title = sprintf("%s — click for records", p),
+                  style = sprintf("width:%d%%;background:%s", sh[[p]], IK_DIEL_COLORS[[p]])) else NULL
+      leg <- function(p) tags$div(class = "ik-diel-leg ik-diel-clickable", onclick = pick(p),
+        title = sprintf("%s — click for records", p),
         tags$span(class = "dot", style = sprintf("background:%s", IK_DIEL_COLORS[[p]])),
         tags$span(class = "ik-diel-leg-lab", p), tags$b(sprintf("%d%%", sh[[p]])))
       div(class = paste0("ik-diel", if (identical(dc$confidence, "low")) " is-low" else ""),
@@ -386,6 +390,74 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
         div(class = "ik-diel-foot", sprintf(
             "Based on %s observations and effort-normalised diel rates.", format(dc$n, big.mark = ","))))
     })
+
+    # ---- Diel drill: click a period (bar segment or legend) → its records with the sun boundaries
+    #      used to classify each one, so a class can be checked by eye → click a row for the record ----
+    diel_pick <- reactiveVal(NULL)            # the clicked diel period
+    diel_obs  <- reactiveVal(NULL)            # observationID shown in Record Details
+    DIEL_DEF  <- c(Matutinal = "civil dawn → sunrise", Diurnal = "sunrise → sunset",
+                   Vespertine = "sunset → civil dusk", Nocturnal = "civil dusk → civil dawn")
+    diel_recs_df <- reactive({
+      p <- diel_pick(); req(!is.null(p))
+      d <- ik_species_diel_records(ik_data, taxa, selection())
+      if (is.null(d)) return(NULL)
+      d <- d[!is.na(d$diel) & d$diel == p, , drop = FALSE]
+      if (!nrow(d)) return(NULL)
+      d[order(d$when, decreasing = TRUE), , drop = FALSE]
+    })
+
+    observeEvent(input$diel_pick, {
+      p <- input$diel_pick; if (is.null(p) || !nzchar(p)) return()
+      diel_pick(p); diel_obs(NULL)
+      showModal(modalDialog(
+        title = .ik_modal_title(sprintf("%s — %s records", spec$label, p),
+                  sprintf("Diel period: %s", if (p %in% names(DIEL_DEF)) DIEL_DEF[[p]] else p)),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
+        tabsetPanel(id = session$ns("diel_tabs"),
+          tabPanel("Records summary", icon = icon("table-list"),
+            tags$p(class = "ik-species-hint",
+              "Every detection classified ", tags$b(tolower(p)), ". Sun times are for each detection's ",
+              "own date & reserve — check its time against them to verify the class. ",
+              tags$b("Click a row"), " for the full record."),
+            DT::DTOutput(session$ns("diel_recs"))),
+          tabPanel("Record Details", icon = icon("magnifying-glass"),
+            uiOutput(session$ns("diel_obs_ui"))))
+      ))
+    })
+
+    output$diel_recs <- DT::renderDT({
+      d <- diel_recs_df()
+      validate(need(!is.null(d) && nrow(d), "No records in this diel period for the selection."))
+      hm <- function(t) ifelse(is.na(t), "—", format(t, "%H:%M"))
+      df <- data.frame(
+        When = .ik_when_label(d$when), Class = d$diel,
+        `Civil dawn` = hm(d$civil_dawn), Sunrise = hm(d$sunrise),
+        Sunset = hm(d$sunset), `Civil dusk` = hm(d$civil_dusk),
+        Reserve = d$reserve, Location = d$location,
+        .when_sort = as.numeric(d$when), check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 15, scrollX = TRUE, dom = "ftip", order = list(list(0, "desc")),
+                       columnDefs = .ik_dt_when_defs(df, "When")))
+    })
+
+    observeEvent(input$diel_recs_rows_selected, {
+      i <- input$diel_recs_rows_selected; d <- diel_recs_df()
+      if (length(i) && !is.null(d) && i <= nrow(d)) {
+        diel_obs(d$observationID[i]); updateTabsetPanel(session, "diel_tabs", selected = "Record Details")
+      }
+      DT::selectRows(DT::dataTableProxy("diel_recs"), NULL)     # clear → same row re-clickable
+    })
+
+    output$diel_obs_ui <- renderUI({
+      if (is.null(diel_obs()))
+        return(tags$p(class = "ik-species-hint", "Click a record in the Records summary tab to see it here."))
+      ob <- ik_observation(ik_data, diel_obs()); if (is.null(ob)) return(tags$p("Record not found."))
+      prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
+      tagList(.ik_tab_back(session$ns("diel_back"), "diel_tabs", "Records summary", "Back to records"),
+              .ovw_title(ik_data, ob, prefer),
+              .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("diel_rec_subtabs")))
+    })
+    observeEvent(input$diel_back, updateTabsetPanel(session, input$diel_back$tabset, selected = input$diel_back$to))
 
     # ---- Bait (trapped species): which baits catch it best ----
     # honours the sidebar period + reserve (bait recipes are network-wide, but a reserve scopes them)

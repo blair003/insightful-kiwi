@@ -268,3 +268,20 @@ ik_diel_class <- function(ik_data, taxa, selection = list()) {
        shares = round(100 * share[IK_DIEL_PERIODS]),
        min_obs = rules$min_obs, low_obs = rules$low_obs, diel = d)
 }
+
+#' The per-observation table behind the Diel Activity card — every camera detection of `taxa` in the
+#' selection, with its diel class AND the four sun boundaries that classified it (each detection's
+#' OWN date + reserve), so a classification can be checked by eye. Powers the card's drill-down.
+#' @param taxa Named list label→sci. @param selection A selection SPEC. @return df: observationID ·
+#' when · reserve · location · diel · civil_dawn · sunrise · sunset · civil_dusk (the four are POSIXct,
+#' NA where the day/reserve isn't in the sun table); NULL when none. @keywords internal
+ik_species_diel_records <- function(ik_data, taxa, selection = list()) {
+  o <- tryCatch(ik_metric_obs(ik_data, selection %||% list(), taxa, names(taxa)[1], source_type = "camera"),
+                error = function(e) NULL)
+  if (is.null(o) || !nrow(o)) return(NULL)
+  b <- .diel_bounds(ik_data, o$when, o$reserve)
+  data.frame(observationID = o$observationID, when = o$when, reserve = o$reserve, location = o$locationName,
+             diel = as.character(ik_diel_period(ik_data, o$when, o$reserve)),
+             civil_dawn = b$dawn, sunrise = b$sunrise, sunset = b$sunset, civil_dusk = b$dusk,
+             stringsAsFactors = FALSE)
+}
