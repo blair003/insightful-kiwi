@@ -9,6 +9,7 @@
 # trapping-only (or monitoring-only) group sees just its menu (bslib drops the NULL nav items).
 .has_camera <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "camera"), logical(1)))
 .has_trap   <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "trap"),   logical(1)))
+.species_specs <- ik_species_taxa(ik_data)   # per-species dashboard pages (Species menu); see modules/species.R
 
 ui <- page_navbar(
   id = "nav",
@@ -66,6 +67,10 @@ ui <- page_navbar(
                      selection_ui("control_records_selection",
                                   show = c("dataset", "period", "reserve", "line", "location",
                                            "device", "species", "net"), ik_data = ik_data, device_default = "trap")),
+    # Species dashboards (one shared selection — every species page's value starts grp-/sp-). The Trend
+    # tab spans all time by design; Records/Map honour the period.
+    conditionalPanel("input.nav && (input.nav.indexOf('grp-') === 0 || input.nav.indexOf('sp-') === 0)",
+                     selection_ui("species_selection", show = c("period", "reserve"), ik_data = ik_data)),
     tags$div(class = "ik-sidebar-foot",
              tags$em("Insightful Kiwi"), tags$br(),
              tags$a(href = "mailto:blair@aketechnology.co.nz?subject=Insightful%20Kiwi%20Query",
@@ -99,6 +104,11 @@ ui <- page_navbar(
     trapping_effectiveness_ui("trapping_eff", ik_data),    # catch rate vs cadence, by season
     records_ui("control_records", label = "Records", value = "trapping-records")
   ),
+
+  # Species — one dashboard page per species GROUP (+ split sub-species), generated from the data.
+  do.call(nav_menu, c(
+    list("Species", icon = icon("paw")),
+    lapply(.species_specs, function(s) species_dashboard_ui(gsub("-", "_", s$key), s, ik_data)))),
 
   # Insights — cross-device synthesis, or features that work on whichever data you have.
   nav_menu(

@@ -39,6 +39,7 @@ source("R/modules/selection.R")
 source("R/modules/overview.R")
 source("R/modules/duplicates.R")
 source("R/modules/maps.R")
+source("R/modules/species.R")
 
 ################################################################
 # Data import — build the ik_data container once at startup

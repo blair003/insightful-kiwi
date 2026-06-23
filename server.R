@@ -90,11 +90,24 @@ server <- function(input, output, session) {
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
   trapping_effectiveness_server("trapping_eff", ik_data, prefer_scientific, color_mode = cm)
 
+  # Species dashboards — one server per page (group or split sub-species), sharing one period+reserve
+  # selection. Each gates on its own nav value so only the open page computes. (Module id underscores
+  # the nav value, which keeps hyphens for input$nav matching.)
+  species_specs <- ik_species_taxa(ik_data)
+  is_species_nav <- function(nv) !is.null(nv) && (startsWith(nv, "grp-") || startsWith(nv, "sp-"))
+  species_selection <- selection_server("species_selection", ik_data, prefer_scientific,
+    show = c("period", "reserve"), active = reactive(is_species_nav(input$nav)))
+  lapply(species_specs, function(spec) {
+    species_dashboard_server(gsub("-", "_", spec$key), spec, ik_data, species_selection,
+      prefer_scientific, color_mode = cm, active = reactive(identical(input$nav, spec$key)))
+  })
+
   # Auto-hide the sidebar on views that have no sidebar controls — only Overview and Records
   # populate it; every other view keeps its controls in-page, so an empty rail is just clutter.
   # (The collapse toggle stays, so a curious user can still open it and see the note.)
   SIDEBAR_NAVS <- c("overview", "monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
-                    "trap-review", "bait", "coverage")
+                    "trap-review", "bait", "coverage",
+                    vapply(species_specs, `[[`, character(1), "key"))   # species pages have period+reserve
   observeEvent(input$nav, {
     bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
   })
