@@ -30,7 +30,7 @@
 #' Per-interval table for the period: each trap check with its PRIOR bait, effort, capture
 #' flag, and the check's observation id/species/trap name. The shared substrate for both the
 #' rate and the captures drill. @keywords internal
-.bait_intervals <- function(ik_data, seasons = NULL, species = NULL) {
+.bait_intervals <- function(ik_data, seasons = NULL, species = NULL, reserve = NULL) {
   dp <- ik_deployment_period(ik_data)
   tr <- dp[!is.na(dp$source_type) & dp$source_type == "trap", , drop = FALSE]
   if (!nrow(tr)) return(NULL)
@@ -58,6 +58,11 @@
   if (!nrow(tr)) return(NULL)
   locs <- ik_data$app$geography$locations
   tr$name <- locs$name[match(tr$locationID, locs$location_id)]
+  if (!is.null(reserve) && length(reserve)) {            # scope to a reserve (a trap belongs to one,
+    tr_res <- locs$reserve[match(tr$locationID, locs$location_id)]   # so whole histories are kept/dropped)
+    tr <- tr[!is.na(tr_res) & tr_res %in% reserve, , drop = FALSE]
+    if (!nrow(tr)) return(NULL)
+  }
   # each interval's trap servicing-health FOR THIS PERIOD: classify the trap's mean check
   # interval over the period (the same metric as the Trapping review) against the canonical cutoffs.
   trap_mi <- .trap_mean_intervals(tr)
@@ -93,12 +98,12 @@
 ik_bait_effectiveness <- function(ik_data, seasons = NULL, species = NULL,
                                   norm = 100, min_trap_days = norm, min_captures = 3,
                                   group = c("recipe", "ingredient"),
-                                  health = NULL, by_health = FALSE, intervals = NULL) {
+                                  health = NULL, by_health = FALSE, intervals = NULL, reserve = NULL) {
   group <- match.arg(group)
   # `.bait_intervals` scans ALL trap checks (~7s) — the chart and the captures drill share the
-  # same (seasons × species) table, so the caller can pass it in once (a session reactive) to
-  # avoid recomputing it on every bar click. NULL → compute here.
-  tr <- intervals %||% .bait_intervals(ik_data, seasons, species)
+  # same (seasons × species × reserve) table, so the caller can pass it in once (a session reactive)
+  # to avoid recomputing it on every bar click. NULL → compute here.
+  tr <- intervals %||% .bait_intervals(ik_data, seasons, species, reserve)
   if (is.null(tr)) return(NULL)
   if (!is.null(health)) tr <- tr[tr$health %in% health, , drop = FALSE]
   if (!nrow(tr)) return(NULL)
@@ -140,9 +145,10 @@ ik_bait_effectiveness <- function(ik_data, seasons = NULL, species = NULL,
 #' filters to the same servicing buckets as the chart.
 #' @return data.frame: observationID · check_date · trap · locationID · species, newest first.
 ik_bait_captures <- function(ik_data, bait, seasons = NULL, species = NULL,
-                             group = c("recipe", "ingredient"), health = NULL, intervals = NULL) {
+                             group = c("recipe", "ingredient"), health = NULL, intervals = NULL,
+                             reserve = NULL) {
   group <- match.arg(group)
-  tr <- intervals %||% .bait_intervals(ik_data, seasons, species)   # reuse the chart's table (see above)
+  tr <- intervals %||% .bait_intervals(ik_data, seasons, species, reserve)   # reuse the chart's table
   if (is.null(tr)) return(NULL)
   if (!is.null(health)) tr <- tr[tr$health %in% health, , drop = FALSE]
   if (!nrow(tr)) return(NULL)

@@ -197,10 +197,11 @@ ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = 
 }
 
 #' CAMERA detections of `taxa` with their event time + diel period — for the species Behaviour tab
-#' (time-of-day + diel). @param taxa Named list label→sci. @param reserve Optional reserve filter.
+#' (time-of-day + diel). @param taxa Named list label→sci. @param selection A selection SPEC
+#' (period/season + reserve etc.); honoured in full so the Behaviour tab tracks the sidebar.
 #' @return df: when (POSIXct) · hour (0-23) · diel (factor IK_DIEL_PERIODS); NULL when none. @keywords internal
-ik_species_camera_events <- function(ik_data, taxa, reserve = NULL) {
-  o <- tryCatch(ik_metric_obs(ik_data, list(reserve = reserve), taxa, names(taxa)[1], source_type = "camera"),
+ik_species_camera_events <- function(ik_data, taxa, selection = list()) {
+  o <- tryCatch(ik_metric_obs(ik_data, selection %||% list(), taxa, names(taxa)[1], source_type = "camera"),
                 error = function(e) NULL)
   if (is.null(o) || !nrow(o)) return(NULL)
   data.frame(when = o$when, hour = as.integer(format(o$when, "%H")),
@@ -210,17 +211,19 @@ ik_species_camera_events <- function(ik_data, taxa, reserve = NULL) {
 #' Effort-normalised diel activity for a camera species: detections per AVAILABLE camera-hour in each
 #' diel period (Matutinal/Diurnal/Vespertine/Nocturnal). Available hours = total camera-hours in scope
 #' × the mean fraction of the day each period spans (from the per-reserve sun table), so a long night
-#' isn't mistaken for more activity. @param taxa Named list label→sci. @param reserve Optional filter.
+#' isn't mistaken for more activity. @param taxa Named list label→sci. @param selection A selection
+#' SPEC (period/season + reserve); the detections AND the deployed-effort denominator both honour it.
 #' @return df: period (ordered) · detections · avail_hours · rate; NULL when none. @keywords internal
-ik_species_diel <- function(ik_data, taxa, reserve = NULL) {
-  ev <- ik_species_camera_events(ik_data, taxa, reserve)
+ik_species_diel <- function(ik_data, taxa, selection = list()) {
+  ev <- ik_species_camera_events(ik_data, taxa, selection)
   if (is.null(ev)) return(NULL)
   cnt <- as.integer(table(factor(ev$diel, levels = IK_DIEL_PERIODS)))
-  r   <- tryCatch(ik_resolve(ik_data, list(reserve = reserve), source_type = "camera"), error = function(e) NULL)
+  r   <- tryCatch(ik_resolve(ik_data, selection %||% list(), source_type = "camera"), error = function(e) NULL)
   eff <- if (is.null(r) || !nrow(r$deployments)) 0 else
     sum(as.numeric(difftime(r$deployments$deploymentEnd, r$deployments$deploymentStart, units = "hours")), na.rm = TRUE)
+  reserve <- (selection %||% list())$reserve
   sun <- ik_temporal(ik_data)$sun
-  if (!is.null(reserve)) sun <- sun[sun$reserve %in% reserve, , drop = FALSE]
+  if (!is.null(reserve) && length(reserve)) sun <- sun[sun$reserve %in% reserve, , drop = FALSE]
   hf  <- function(a, b) as.numeric(difftime(b, a, units = "hours"))
   fr  <- c(Matutinal  = mean(hf(sun$civil_dawn, sun$sunrise), na.rm = TRUE),
            Diurnal    = mean(hf(sun$sunrise, sun$sunset),     na.rm = TRUE),
@@ -237,11 +240,11 @@ ik_species_diel <- function(ik_data, taxa, reserve = NULL) {
 #' overridable via ik_data$meta$diel) to label the species Diurnal / Nocturnal / Crepuscular /
 #' Cathemeral / Arrhythmic — or "Insufficient data" under the minimum-observation floor. Confidence
 #' ("none"/"low"/"ok") comes from the net-detection count. @param taxa Named list label→sci.
-#' @param reserve Optional reserve filter. @return list(class, desc, confidence, n, shares [named
-#' integer % in IK_DIEL_PERIODS order], min_obs, low_obs, diel); NULL when no camera detections at
-#' all. @keywords internal
-ik_diel_class <- function(ik_data, taxa, reserve = NULL) {
-  d <- ik_species_diel(ik_data, taxa, reserve)
+#' @param selection A selection SPEC (period/season + reserve), honoured in full. @return list(class,
+#' desc, confidence, n, shares [named integer % in IK_DIEL_PERIODS order], min_obs, low_obs, diel);
+#' NULL when no camera detections at all. @keywords internal
+ik_diel_class <- function(ik_data, taxa, selection = list()) {
+  d <- ik_species_diel(ik_data, taxa, selection)
   if (is.null(d)) return(NULL)
   rules <- ik_data$meta$diel %||% IK_DIEL_CLASS_RULES
   n <- sum(d$detections, na.rm = TRUE)

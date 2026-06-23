@@ -29,23 +29,6 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
         tags$li(tags$b("Map"), " — per-location RAI (camera) and catches (trap) for the selected period."))))
 }
 
-#' Help body for the time-of-day clock card. @keywords internal
-behaviour_tod_help_body <- function() {
-  tagList(
-    tags$p("A 24-hour clock of when this species trips the cameras — ", tags$b("midnight at the top"),
-           ", running clockwise (06:00 right, noon at the bottom, 18:00 left). Each spoke's length is ",
-           "the number of detections in that hour."),
-    tags$p("Hours are read straight off each detection's local time, so this is the raw daily rhythm — ",
-           "no effort adjustment (cameras run around the clock, so every hour gets the same watch time). ",
-           "For the dawn/day/dusk/night breakdown, which ", tags$em("does"), " correct for unequal period ",
-           "lengths, see the ", tags$b("Diel Activity"), " card."),
-    tags$h6("Net data used"),
-    tags$p("Each detection is one camera ", tags$em("event"), " — runs of the same animal on the same ",
-           "camera within the duplicate window are collapsed to one, so a single animal lingering ",
-           "doesn't inflate an hour.")
-  )
-}
-
 #' Help body for the diel-activity classification card (periods · classes · rules). @keywords internal
 diel_class_help_body <- function() {
   r  <- IK_DIEL_CLASS_RULES
@@ -133,9 +116,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
               div(class = "ik-card",
                 div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
                     tags$span("Activity Pattern (Time of Day)"))),
-                div(class = "ik-card-body", plotOutput(ns("tod"), height = "420px")),
-                div(class = "ik-card-foot", tags$span("Net data used"),
-                    .ik_info(ns("tod_help"), "Activity by time of day", behaviour_tod_help_body()))),
+                div(class = "ik-card-body", plotOutput(ns("tod"), height = "420px"))),
               div(class = "ik-card",
                 div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
                     tags$span("Diel Activity")),
@@ -320,8 +301,10 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     }, bg = "transparent")
 
     # ---- Behaviour (camera): time-of-day histogram + effort-normalised diel ----
-    cam_events <- reactive({ req(active(), spec$camera); ik_species_camera_events(ik_data, taxa, .ik_nz(selection()$reserve)) }) |>
+    cam_events <- reactive({ req(active(), spec$camera); ik_species_camera_events(ik_data, taxa, selection()) }) |>
       bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
+    diel <- reactive({ req(active(), spec$camera); ik_diel_class(ik_data, taxa, selection()) }) |>
+      bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, ik_active_datasets())
 
     # Time-of-day: a 24h radial "clock" (00:00 dead top, clockwise) of detections per hour.
     output$tod <- renderPlot({
@@ -344,7 +327,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     # not a plot — matches the rest of the app's summary cards). Classification in ik_diel_class().
     output$diel_card <- renderUI({
       req(active(), spec$camera)
-      dc <- ik_diel_class(ik_data, taxa, .ik_nz(selection()$reserve))
+      dc <- diel()
       validate(need(!is.null(dc) && dc$n > 0, "No camera detections to classify."))
       sh  <- dc$shares                                                    # named integer % in period order
       seg <- function(p) if (isTRUE(sh[[p]] > 0))
@@ -367,11 +350,16 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     })
 
     # ---- Bait (trapped species): which baits catch it best ----
+    # honours the sidebar period + reserve (bait recipes are network-wide, but a reserve scopes them)
+    bait_data <- reactive({ req(active(), spec$trapped)
+      tryCatch(ik_bait_effectiveness(ik_data, seasons = .ik_nz(selection()$season), species = spec$sci,
+                 norm = nt, group = input$bait_group %||% "recipe", min_captures = 2,
+                 reserve = .ik_nz(selection()$reserve)), error = function(e) NULL)
+    }) |> bindCache(spec$key, input$bait_group, selection()$season, selection()$reserve, ik_active_datasets())
+
     output$bait <- renderPlot({
-      req(active(), spec$trapped)
       grp <- input$bait_group %||% "recipe"
-      d <- tryCatch(ik_bait_effectiveness(ik_data, species = spec$sci, norm = nt, group = grp,
-                                          min_captures = 2), error = function(e) NULL)
+      d <- bait_data()
       validate(need(!is.null(d) && nrow(d), "Not enough baited captures of this species to compare baits."))
       d <- utils::head(d[order(-d$rate), , drop = FALSE], 15); d$bait <- factor(d$bait, levels = rev(d$bait))
       lab  <- sprintf("  %.2f  (%s caught · %s trap-days)", d$rate,
@@ -392,10 +380,14 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     # ---- Co-occurrence (predator/protected): time to the nearest opposing-role detection ----
     opp_role <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
     opp_sci  <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
-    output$cooc <- renderPlot({
-      req(active(), spec$camera, !is.na(opp_role), length(opp_sci) > 0)
+    cooc_gaps <- reactive({ req(active(), spec$camera, !is.na(opp_role), length(opp_sci) > 0)
       pp <- if (identical(spec$role, "predator")) list(pred = spec$sci, prot = opp_sci) else list(pred = opp_sci, prot = spec$sci)
-      g  <- tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot), error = function(e) NULL)
+      tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot, seasons = .ik_nz(selection()$season),
+                                          reserve = .ik_nz(selection()$reserve)), error = function(e) NULL)
+    }) |> bindCache(spec$key, selection()$season, selection()$reserve, ik_active_datasets())
+
+    output$cooc <- renderPlot({
+      g <- cooc_gaps()
       validate(need(!is.null(g) && nrow(g), "No camera co-detections of this species with the opposing role yet."))
       bucket <- cut(g$gap_h, breaks = GAP_BREAKS, labels = GAP_LABELS, right = FALSE, include.lowest = TRUE)
       h <- as.data.frame(table(factor(bucket, levels = GAP_LABELS))); names(h) <- c("gap", "n")
