@@ -16,6 +16,17 @@
 .ik-card-title { display: flex; align-items: center; gap: 0.45rem; font-weight: 600; }
 .ik-card-body { padding: 0.9rem; }
 
+/* time-of-day shading key — swatches sit on the card bg, matching the plot's night/twilight bands */
+.ik-tod-key { display: flex; gap: 1.4rem; justify-content: center; margin-top: 0.2rem;
+              font-size: 0.8rem; color: var(--bs-secondary-color, #6c757d); }
+.ik-tod-key-item { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ik-tod-key .sw { width: 1.2rem; height: 0.75rem; border-radius: 2px; border: 1px solid rgba(0, 0, 0, 0.12); }
+.ik-tod-key .sw-night { background: rgba(68, 80, 94, 0.16); }
+.ik-tod-key .sw-twi   { background: rgba(68, 80, 94, 0.07); }
+[data-bs-theme="dark"] .ik-tod-key .sw      { border-color: rgba(255, 255, 255, 0.18); }
+[data-bs-theme="dark"] .ik-tod-key .sw-night { background: rgba(0, 0, 0, 0.32); }
+[data-bs-theme="dark"] .ik-tod-key .sw-twi   { background: rgba(0, 0, 0, 0.15); }
+
 /* Diel-class summary card: big class headline · stacked proportion bar · 2-col legend. */
 .ik-diel { border-left: 4px solid #2e8b57; border-radius: 0.4rem; text-align: center;
            padding: 1.3rem 1.4rem; background: var(--bs-tertiary-bg, #f6f8f7); }

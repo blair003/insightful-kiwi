@@ -29,6 +29,23 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
         tags$li(tags$b("Map"), " — per-location RAI (camera) and catches (trap) for the selected period."))))
 }
 
+#' Help body for the Activity Pattern (time-of-day) card. @keywords internal
+behaviour_tod_help_body <- function() {
+  tagList(
+    tags$p("Detections by hour of the local day — the species' daily rhythm on camera. Hours come ",
+           "straight off each detection's time, with no effort adjustment: cameras watch around the ",
+           "clock, so every hour gets the same exposure. (For the dawn/day/dusk/night split, which ",
+           tags$em("does"), " correct for unequal period lengths, see the ", tags$b("Diel Activity"), " card.)"),
+    tags$h6("The shading"),
+    tags$p("Night and twilight are shaded behind the bars from the selected period's sun times (mean ",
+           "civil dawn, sunrise, sunset and civil dusk for the chosen reserve). Because those shift ",
+           "through the year, the shading has two tones:"),
+    tags$ul(
+      tags$li(tags$b("Solid"), " — night on ", tags$em("every"), " day in the selection (always dark)."),
+      tags$li(tags$b("Faded"), " — the dawn/dusk window that ", tags$em("shifts"), " across the period ",
+              "(night on some days, light on others). One season → a tight band; a full year → a wide edge.")))
+}
+
 #' Help body for the diel-activity classification card (periods · classes · rules). @keywords internal
 diel_class_help_body <- function() {
   r  <- IK_DIEL_CLASS_RULES
@@ -40,8 +57,8 @@ diel_class_help_body <- function() {
              "on camera, with the four diel periods' shares beneath it."),
       tags$p("Shares come from ", tags$b("effort-normalised rates"), " — detections per ",
              tags$em("available hour"), " in each period, not raw counts — so a long winter night can't ",
-             "masquerade as more activity just because it's longer.")),
-    tabPanel("Diel periods", icon = icon("sun"),
+             "masquerade as more activity just because it's longer."),
+      tags$h6("The four diel periods"),
       tags$table(class = "table table-sm ik-help-table", tags$tbody(
         pc("Matutinal",  "Civil dawn to sunrise (first light)."),
         pc("Diurnal",    "Sunrise to sunset (daylight)."),
@@ -115,8 +132,12 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             div(class = "ik-behav",
               div(class = "ik-card",
                 div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
-                    tags$span("Activity Pattern (Time of Day)"))),
-                div(class = "ik-card-body", plotOutput(ns("tod"), height = "420px"))),
+                    tags$span("Activity Pattern")),
+                    .ik_info(ns("tod_help"), "Activity Pattern — how to read this", behaviour_tod_help_body())),
+                div(class = "ik-card-body", plotOutput(ns("tod"), height = "420px"),
+                    div(class = "ik-tod-key",
+                        tags$span(class = "ik-tod-key-item", tags$span(class = "sw sw-night"), "Night"),
+                        tags$span(class = "ik-tod-key-item", tags$span(class = "sw sw-twi"), "Dawn / dusk")))),
               div(class = "ik-card",
                 div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
                     tags$span("Diel Activity")),
@@ -315,10 +336,8 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       dk <- is_dark()
       sh <- ik_sun_hours(ik_data, .ik_nz(selection()$reserve), .ik_nz(selection()$season))
       g  <- ggplot2::ggplot()
-      multi <- FALSE
       if (!is.null(sh) && all(is.finite(c(sh$civil_dawn, sh$civil_dusk)))) {
         dawn <- sh$civil_dawn; dusk <- sh$civil_dusk              # each c(min, max) hour over the period
-        multi <- (dawn[2] - dawn[1]) > 0.5 || (dusk[2] - dusk[1]) > 0.5   # span of seasons → fuzzy edges
         night <- if (dk) "#000000" else "#44505e"
         a_solid <- if (dk) 0.32 else 0.16; a_fade <- if (dk) 0.15 else 0.07
         # solid = night on EVERY selected day; faded = night on SOME days (the dawn/dusk window shifts)
@@ -336,14 +355,10 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
         ggplot2::scale_x_continuous(breaks = seq(0, 21, 3), labels = function(x) sprintf("%02d:00", x %% 24),
                                     limits = c(-0.5, 23.5), expand = c(0, 0)) +
         ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.08))) +
-        ggplot2::labs(x = NULL, y = "Detections", title = "Detections by hour of day",
-                      subtitle = if (is.null(sh)) NULL else if (multi)
-                        "Shaded = night; faded edges = dawn/dusk shift across the period"
-                        else "Shaded = night, from the period's sun times") +
+        ggplot2::labs(x = NULL, y = "Detections", title = "Detections by hour of day") +
         ik_ggtheme(is_dark()) +
         ggplot2::theme(panel.grid.major.x = ggplot2::element_blank(),
-          plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())),
-          plot.subtitle = ggplot2::element_text(size = 9, colour = ik_plot_ink(is_dark())))
+          plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
     }, bg = "transparent")
 
     # Diel activity: an overall CLASS headline + the four periods' effort-normalised shares (a card,
@@ -361,7 +376,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       div(class = paste0("ik-diel", if (identical(dc$confidence, "low")) " is-low" else ""),
         div(class = "ik-diel-class", dc$class),
         div(class = "ik-diel-desc", dc$desc),
-        div(class = "ik-diel-n", sprintf("%s net observation%s",
+        div(class = "ik-diel-n", sprintf("%s observation%s",
             format(dc$n, big.mark = ","), if (dc$n == 1) "" else "s")),
         if (identical(dc$confidence, "low"))
           div(class = "ik-diel-lowconf",
