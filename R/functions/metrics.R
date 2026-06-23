@@ -203,6 +203,11 @@ ik_trap_rate <- function(ik_data, spec, taxa, level = "reserve") {
   cfg  <- ik_data$meta$trapping$rate %||% list(norm_trap_days = 100)
   norm <- cfg$norm_trap_days %||% 100
   locs <- ik_data$app$geography$locations
+  # Traps without a line still belong to their reserve — roll them up under one "(unlined)" pseudo-line
+  # so their effort and catches count (the reserve×line grouping would otherwise DROP NA-line traps,
+  # losing real captures, e.g. a goat caught at an unlined trap). Camera RAI is line-based by protocol,
+  # so this is trap-only. NA reserve is already mapped to a pseudo-reserve at geography build.
+  locs$line[is.na(locs$line)] <- "(unlined)"
 
   r      <- ik_resolve(ik_data, spec, source_type = "trap")
   effort <- .metrics_effort(r, locs, by = c("reserve", "line"), unit_fn = function(h) h / 24)  # trap-days
@@ -280,6 +285,7 @@ ik_metric_obs <- function(ik_data, spec, taxa, taxon, reserve = NULL, line = NUL
   source_type <- match.arg(source_type)
   net  <- source_type == "camera" && isTRUE((ik_data$meta$camera$rai %||% list())$use_net)
   locs <- ik_data$app$geography$locations
+  if (source_type == "trap") locs$line[is.na(locs$line)] <- "(unlined)"  # match ik_trap_rate's pseudo-line
   r    <- ik_resolve(ik_data, spec, source_type = source_type)
   obs  <- .metrics_obs(ik_data, r, locs, net = net)
   o    <- obs[obs$scientificName %in% taxa[[taxon]], , drop = FALSE]

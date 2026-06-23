@@ -197,12 +197,7 @@ overview_ui <- function(id) {
 .ov_control_card_taxa <- function(ik_data) {
   sg  <- ik_species_groups(ik_data)
   dp  <- ik_deployment_period(ik_data)
-  # Only count captures at PLACEABLE traps (location has a reserve AND line) — the rate metric rolls
-  # up by reserve × line and drops NA-key locations, so a species caught only at un-placed traps
-  # (e.g. a stray goat at an ungeocoded site) would otherwise get a card the metric can't fill.
-  locs   <- ik_data$app$geography$locations
-  placed <- locs$location_id[!is.na(locs$reserve) & !is.na(locs$line)]
-  trap_deps <- dp$deploymentID[!is.na(dp$source_type) & dp$source_type == "trap" & dp$locationID %in% placed]
+  trap_deps <- dp$deploymentID[!is.na(dp$source_type) & dp$source_type == "trap"]
   if (!length(trap_deps)) return(list())
   obs <- ik_observations(ik_data, with_location = FALSE)
   caught <- unique(obs$scientificName[obs$deploymentID %in% trap_deps &
