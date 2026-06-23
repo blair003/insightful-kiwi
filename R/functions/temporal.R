@@ -119,6 +119,26 @@ ik_diel_period <- function(ik_data, time, reserve) {
   factor(out, levels = IK_DIEL_PERIODS)
 }
 
+#' Mean sun-window boundaries as decimal HOURS-of-day, for shading a 24h activity histogram.
+#' Averages civil dawn / sunrise / sunset / civil dusk over the sun table, optionally scoped to a
+#' reserve and/or a set of calendar seasons — so a winter-only view gets winter's longer night.
+#' @param ik_data The container. @param reserve Optional reserve filter. @param seasons Optional
+#' `calendar_season` vector. @return named numeric c(civil_dawn, sunrise, sunset, civil_dusk) in
+#' [0,24); NULL when the (filtered) table is empty. @keywords internal
+ik_sun_hours <- function(ik_data, reserve = NULL, seasons = NULL) {
+  sun <- ik_temporal(ik_data)$sun
+  if (is.null(sun) || !nrow(sun)) return(NULL)
+  if (!is.null(reserve) && length(reserve)) sun <- sun[sun$reserve %in% reserve, , drop = FALSE]
+  if (!is.null(seasons) && length(seasons)) {
+    ssea <- ik_assign_season(as.POSIXct(sun$date), as.POSIXct(sun$date))$calendar_season
+    sun  <- sun[!is.na(ssea) & ssea %in% seasons, , drop = FALSE]
+  }
+  if (!nrow(sun)) return(NULL)
+  hr <- function(t) { lt <- as.POSIXlt(t); lt$hour + lt$min / 60 + lt$sec / 3600 }
+  c(civil_dawn = mean(hr(sun$civil_dawn), na.rm = TRUE), sunrise = mean(hr(sun$sunrise), na.rm = TRUE),
+    sunset = mean(hr(sun$sunset), na.rm = TRUE), civil_dusk = mean(hr(sun$civil_dusk), na.rm = TRUE))
+}
+
 #' Day/Night label of each event timestamp (sun-up definition: sunrise ≤ t < sunset).
 #'
 #' @inheritParams ik_diel_period

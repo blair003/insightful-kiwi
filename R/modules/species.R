@@ -306,21 +306,37 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     diel <- reactive({ req(active(), spec$camera); ik_diel_class(ik_data, taxa, selection()) }) |>
       bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, ik_active_datasets())
 
-    # Time-of-day: a 24h radial "clock" (00:00 dead top, clockwise) of detections per hour.
+    # Time-of-day: a linear 24h histogram of detections per hour, with night + twilight bands shaded
+    # behind the bars from the selection's mean sun times (so a winter view shows a longer night).
     output$tod <- renderPlot({
       ev <- cam_events(); validate(need(!is.null(ev) && nrow(ev), "No camera detections to chart."))
       h <- as.data.frame(table(factor(ev$hour, levels = 0:23))); names(h) <- c("hour", "n")
       h$hour <- as.integer(as.character(h$hour))
-      ggplot2::ggplot(h, ggplot2::aes(.data$hour, .data$n)) +
-        ggplot2::geom_col(fill = "#4a7fb0", width = 1, colour = "#ffffff", linewidth = 0.25, na.rm = TRUE) +
-        ggplot2::coord_polar(start = -pi / 24) +                          # x=0 lands at 12 o'clock
-        ggplot2::scale_x_continuous(breaks = 0:23, labels = sprintf("%d:00", 0:23),
-                                    limits = c(-0.5, 23.5)) +
-        ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.06))) +
-        ggplot2::labs(x = NULL, y = NULL, title = "Detections by hour of day") +
+      dk <- is_dark()
+      sh <- ik_sun_hours(ik_data, .ik_nz(selection()$reserve), .ik_nz(selection()$season))
+      g  <- ggplot2::ggplot()
+      if (!is.null(sh)) {                                               # night (dark) + twilight (amber) bands
+        bands <- data.frame(
+          xmin = c(-0.5, sh[["civil_dawn"]], sh[["sunset"]], sh[["civil_dusk"]]),
+          xmax = c(sh[["civil_dawn"]], sh[["sunrise"]], sh[["civil_dusk"]], 23.5),
+          fill = c(if (dk) "#000000" else "#44505e", "#e0a44d", "#e0a44d", if (dk) "#000000" else "#44505e"),
+          alpha = c(if (dk) 0.30 else 0.13, if (dk) 0.16 else 0.12,
+                    if (dk) 0.16 else 0.12, if (dk) 0.30 else 0.13), stringsAsFactors = FALSE)
+        g <- g + ggplot2::geom_rect(data = bands,
+               ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax, ymin = -Inf, ymax = Inf),
+               fill = bands$fill, alpha = bands$alpha)
+      }
+      g + ggplot2::geom_col(data = h, ggplot2::aes(.data$hour, .data$n), fill = "#4a7fb0",
+                            width = 0.9, na.rm = TRUE) +
+        ggplot2::scale_x_continuous(breaks = seq(0, 21, 3), labels = function(x) sprintf("%02d:00", x %% 24),
+                                    limits = c(-0.5, 23.5), expand = c(0, 0)) +
+        ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.08))) +
+        ggplot2::labs(x = NULL, y = "Detections", title = "Detections by hour of day",
+                      subtitle = if (!is.null(sh)) "Shaded: night (grey) and twilight (amber), from the period's sun times" else NULL) +
         ik_ggtheme(is_dark()) +
-        ggplot2::theme(axis.text.y = ggplot2::element_blank(), axis.ticks = ggplot2::element_blank(),
-          plot.title = ggplot2::element_text(face = "bold", hjust = 0.5, colour = ik_plot_ink(is_dark())))
+        ggplot2::theme(panel.grid.major.x = ggplot2::element_blank(),
+          plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())),
+          plot.subtitle = ggplot2::element_text(size = 9, colour = ik_plot_ink(is_dark())))
     }, bg = "transparent")
 
     # Diel activity: an overall CLASS headline + the four periods' effort-normalised shares (a card,
