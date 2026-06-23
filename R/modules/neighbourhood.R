@@ -6,17 +6,17 @@
 # per-camera-hour rate (exploratory); trap catches are a seasonal count (a kill is only known to its
 # check window). Data + click-drill from ik_neighbourhood_series() / ik_neighbourhood_records().
 
-#' "How to read this" help body for Neighbourhood — a tabbed walkthrough. `cam_norm` is the
-#' per-camera-hour scale (project config) woven into the calculation tab. @keywords internal
-neighbourhood_help_body <- function(cam_norm = 500) {
+#' "How to read this" help body for Neighbourhood — a tabbed walkthrough. `line_norm` is the
+#' per-LINE camera-hour scale (project config) woven into the calculation tab. @keywords internal
+neighbourhood_help_body <- function(line_norm = 2000) {
   P  <- function(...) tags$p(...)
-  ch <- format(cam_norm, big.mark = ",")
+  ch <- format(line_norm, big.mark = ",")
   tabsetPanel(
     type = "tabs",
     tabPanel(
       "What it shows", icon = icon("circle-question"),
-      P(tags$br(), "Pick one ", tags$b("anchor"), " — a single camera ", tags$b("site"), ", a monitoring ",
-        tags$b("line"), ", or a whole ", tags$b("reserve"), " — and (for a site or line) a ", tags$b("radius"),
+      P(tags$br(), "Pick an ", tags$b("anchor"), " — a monitoring ", tags$b("line"), " or a whole ",
+        tags$b("reserve"), " — and (for a line) a ", tags$b("radius"),
         ". The chart then tracks, season by season, three things in that neighbourhood:"),
       tags$ul(
         tags$li(tags$b("Protected"), " activity on camera (your chosen protected species)."),
@@ -28,7 +28,7 @@ neighbourhood_help_body <- function(cam_norm = 500) {
       "Reading it", icon = icon("chart-line"),
       P(tags$br(), "Two questions, depending on the anchor:"),
       tags$ul(
-        tags$li(tags$b("Site / line"), " — the ", tags$em("local story"), ": is a protected species holding on ",
+        tags$li(tags$b("Line"), " — the ", tags$em("local story"), ": is a protected species holding on ",
                 "here, and what are the cameras and nearby traps seeing of predators around it?"),
         tags$li(tags$b("Reserve"), " — the ", tags$em("alignment check"), ": does camera predator activity move ",
                 "with what the traps catch? If cameras show lots of predator activity but traps catch little, ",
@@ -45,7 +45,8 @@ neighbourhood_help_body <- function(cam_norm = 500) {
                 " of the anchor (a reserve uses all of its own cameras/traps, no radius), from the pre-computed ",
                 "spatial adjacency."),
         tags$li(tags$b("Camera rate"), " — detections pooled over the neighbourhood's cameras ÷ their combined ",
-                "camera-hours, × ", ch, " (the per-camera scale from config); net of likely duplicates."),
+                "camera-hours, × ", ch, " (the per-", tags$b("line"), " scale — ≈ a full line of ~4 cameras — so it ",
+                "reads on the same RAI scale as the rest of the app); net of likely duplicates."),
         tags$li(tags$b("Trap catches"), " — predators of the chosen species caught at trap checks in the ",
                 "neighbourhood, as a ", tags$b("per-season count"), "."),
         tags$li(tags$b("Why trap is a count, not a timing"), " — a kill is only known to the ", tags$b("check "),
@@ -65,7 +66,6 @@ neighbourhood_ui <- function(id, ik_data) {
   loc  <- .nbhd_locations(ik_data)
   cams <- loc[!is.na(loc$source_type) & loc$source_type == "camera" & is.finite(loc$latitude), , drop = FALSE]
   cams <- cams[order(cams$reserve, cams$name), , drop = FALSE]
-  site_ch  <- stats::setNames(cams$location_id, sprintf("%s · %s", cams$reserve, cams$name))
   lines_df <- ik_neighbourhood_lines(ik_data)
   line_val <- paste(lines_df$reserve, lines_df$line, sep = "|")
   line_ch  <- stats::setNames(line_val, sprintf("%s · Line %s", lines_df$reserve, lines_df$line))
@@ -80,18 +80,16 @@ neighbourhood_ui <- function(id, ik_data) {
         div(class = "ik-nbhd-titlebar",
             tags$h3(class = "ik-nbhd-title", "Neighbourhood — protected, predators & nearby trapping"),
             .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
-                     neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$camera_hours %||% 500))),
+                     neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000))),
         tags$p(class = "ik-nbhd-lead",
-          "Pick an anchor — a single camera ", tags$b("site"), ", a monitoring ", tags$b("line"),
-          ", or a whole ", tags$b("reserve"), ". For the cameras and traps in/around it, see season ",
+          "Pick an anchor — a monitoring ", tags$b("line"),
+          " or a whole ", tags$b("reserve"), ". For the cameras and traps in/around it, see season ",
           "by season how ", tags$b("protected"), " and ", tags$b("predator"), " activity on camera move, ",
           "alongside the ", tags$b("predators caught"), " in nearby traps. A trap catch is only known ",
           "to its check window, so the trap line is a per-season count — not a timing."),
         div(class = "ik-nbhd-controls",
             radioButtons(ns("level"), "Anchor", inline = TRUE,
-                         choices = c("Site" = "site", "Line" = "line", "Reserve" = "reserve"), selected = "line"),
-            conditionalPanel("input.level == 'site'", ns = ns,
-              selectInput(ns("anchor_site"), "Camera", choices = site_ch, selected = unname(site_ch)[1], width = "210px")),
+                         choices = c("Line" = "line", "Reserve" = "reserve"), selected = "line"),
             conditionalPanel("input.level == 'line'", ns = ns,
               selectInput(ns("anchor_line"), "Line", choices = line_ch, selected = line_val[1], width = "210px")),
             conditionalPanel("input.level == 'reserve'", ns = ns,
@@ -132,7 +130,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
     })
 
     lvl  <- reactive(input$level %||% "line")
-    akey <- reactive(switch(lvl(), site = input$anchor_site, reserve = input$anchor_reserve, input$anchor_line))
+    akey <- reactive(switch(lvl(), reserve = input$anchor_reserve, input$anchor_line))
     scope_lab <- function(s) if (identical(attr(s, "level"), "reserve")) sprintf("Across %s", attr(s, "label"))
                              else sprintf("Within %s of %s", rlab(input$radius), attr(s, "label"))
 

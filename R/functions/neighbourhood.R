@@ -146,9 +146,13 @@ ik_neighbourhood_series <- function(ik_data, level, key, radius_m = 500,
                       pred_ind = comp$pred_ind, catches = comp$catches, stringsAsFactors = FALSE)
   }
 
-  per_cam   <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
-  rate      <- function(ind, hrs) ifelse(hrs > 0, ind / hrs * per_cam, NA_real_)
-  cam_facet <- sprintf("Camera activity (per %s camera-hrs)", format(per_cam, big.mark = ","))
+  # Neighbourhood anchors at LINE or RESERVE level (pooling several cameras), so normalise to the
+  # per-LINE figure (norm_hours, ≈ 4 cameras' worth) — same scale as RAI everywhere else — not the
+  # per-camera camera_hours. (The Site anchor, which would have warranted the per-camera scale, was
+  # removed.)
+  per_line  <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000
+  rate      <- function(ind, hrs) ifelse(hrs > 0, ind / hrs * per_line, NA_real_)
+  cam_facet <- sprintf("Camera activity (per %s camera-hrs)", format(per_line, big.mark = ","))
   rows <- rbind(
     data.frame(period = agg$period, order = agg$order, facet = cam_facet,
                series = "Protected", value = rate(agg$prot_ind, agg$cam_hrs), stringsAsFactors = FALSE),
@@ -225,9 +229,14 @@ ik_coverage_gaps <- function(ik_data, seasons, predator_sci, protected_sci, radi
     pr <- pool_rate(cam_prot, nbr$cam_locs); pd <- pool_rate(cam_pred, nbr$cam_locs)
     tp <- if (is.null(trap_pred)) NULL else trap_pred[trap_pred$location_id %in% nbr$trap_locs, , drop = FALSE]
     sv <- if (is.null(serv))      NULL else serv[serv$location %in% nbr$trap_locs, , drop = FALSE]
+    # "Traps reaching the line" = ACTIVE traps in the neighbourhood, counted from the SAME servicing
+    # universe as Neglected (one row per trap) so Neglected ⊆ Traps. NB the old count came from
+    # ik_location_metric (traps with EFFORT this period), which EXCLUDES neglected traps (unchecked
+    # this period) — so Neglected could exceed it. Active = not dormant/historic (i.e. still running).
+    n_field <- if (is.null(sv)) 0L else as.integer(sum(!sv$status %in% c("dormant", "historic"), na.rm = TRUE))
     data.frame(reserve = rl$reserve, line = rl$line,
       prot_rate = pr$rate, prot_ind = pr$ind, pred_rate = pd$rate, pred_ind = pd$ind,
-      n_traps   = if (is.null(tp)) 0L else nrow(tp),
+      n_traps   = n_field,
       catches   = if (is.null(tp)) 0L else as.integer(sum(tp$captures, na.rm = TRUE)),
       n_neglected = if (is.null(sv)) 0L else as.integer(sum(sv$status == "neglected", na.rm = TRUE)),
       n_active    = if (is.null(sv)) 0L else as.integer(sum(sv$status %in% c("good", "watch", "neglected"), na.rm = TRUE)),
