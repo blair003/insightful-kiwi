@@ -100,12 +100,33 @@ overview_ui <- function(id) {
                     "All other detected", kind, spp_drill)
 }
 
-#' Control (trapping) species panel: control targets are CARDS above; here ALL OTHER species caught
-#' (bycatch + non-target), so they still surface. @keywords internal
-.ov_panel_control <- function(obs, sg, ik_data, prefer, itemise, kind = NULL, spp_drill = NULL) {
-  ct_groups <- sg$group[!duplicated(sg$group) & !is.na(sg$control) & sg$control == "target"]
-  .ov_other_species(obs, sg, ik_data, prefer, ct_groups, itemise, "catches",
-                    "All other caught", kind, spp_drill)
+#' The trapping Overview card set: EVERY species caught gets a card, so trapping defaults to
+#' "show all". Configured groups (by config priority, keeping FULL membership so e.g. "Mustelids"
+#' counts stoat/weasel/ferret) come first, then any unconfigured caught species as its own card by
+#' display name. A group flagged `control = "hide"` in project.R is the only opt-OUT — dropped from
+#' the cards entirely (and not surfaced elsewhere). Static (all-time catches), so the card set is
+#' stable across period/reserve filters — a card with no catch in the current selection shows "–".
+#' @keywords internal
+.ov_control_card_taxa <- function(ik_data) {
+  sg  <- ik_species_groups(ik_data)
+  dp  <- ik_deployment_period(ik_data)
+  trap_deps <- dp$deploymentID[!is.na(dp$source_type) & dp$source_type == "trap"]
+  if (!length(trap_deps)) return(list())
+  obs <- ik_observations(ik_data, with_location = FALSE)
+  caught <- unique(obs$scientificName[obs$deploymentID %in% trap_deps &
+              !is.na(obs$observationType) & obs$observationType == "animal" &
+              !is.na(obs$scientificName)])
+  if (!length(caught)) return(list())
+  hide_groups <- unique(sg$group[!is.na(sg$control) & sg$control == "hide"])
+  caught_groups <- unique(sg$group[!is.na(sg$scientificName) & sg$scientificName %in% caught &
+                                   !(sg$group %in% hide_groups)])
+  gm <- sg[sg$group %in% caught_groups, , drop = FALSE]
+  gm <- gm[order(gm$priority), , drop = FALSE]
+  configured <- split(gm$scientificName, factor(gm$label, levels = unique(gm$label)))
+  standalone_sci <- sort(setdiff(caught, sg$scientificName))   # caught but in no configured group
+  standalone <- stats::setNames(as.list(standalone_sci),
+    vapply(standalone_sci, function(s) ik_species_label(s, ik_data, "vernacular"), character(1)))
+  c(configured, standalone)
 }
 
 #' Caption suffix for the active comparison mode. @keywords internal
@@ -413,7 +434,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     mon_t <- ik_taxa_groups(sg, "monitor", "target")        # lead cards (protocol targets)
     mon_i <- ik_taxa_groups(sg, "monitor", "interesting")   # secondary "of interest" tier
     mon_targets <- c(mon_t, mon_i)                          # camera metric/drill set = target + interesting
-    ctl_targets <- ik_taxa_groups(sg, "control", "target")          # trap cards: control targets
+    ctl_targets <- .ov_control_card_taxa(ik_data)   # trap cards: EVERY caught species (minus control="hide")
     # desirable change direction: "up" for protected species, "down" for pests/predators.
     desire  <- function(taxa) stats::setNames(
       ifelse(sg$role[match(names(taxa), sg$label)] == "protected", "up", "down"), names(taxa))
@@ -531,7 +552,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       .ov_device_section("Trapping (control)", trp(),
                          "Trap-nights", .ov_num(round(trp()$effort_hours / 24)),
                          "Checks", "Catches", sg,
-                         function(o, s, k, sd) .ov_panel_control(o, s, ik_data, prefer, itemise, k, sd),
+                         function(o, s, k, sd) NULL,   # trapping cards now cover EVERY caught species → no "other" section
+
                          metric = tagList(tags$div(class = "ik-metric-cap", cap), cards, matrix),
                          kind = "trap", box_drill = session$ns("box_drill"),
                          spp_drill = session$ns("spp_drill"), subs = .ov_trap_subs(trp(), ik_data, prefer),

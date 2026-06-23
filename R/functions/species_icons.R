@@ -10,7 +10,8 @@
 #' @param class Extra CSS class(es) for the <svg>.
 #' @return An htmltools::HTML() inline <svg>, or the generic paw for an unknown key.
 ik_species_icon <- function(key, class = NULL) {
-  inner <- .IK_SPP_ICONS[[tolower(key %||% "other")]] %||% .IK_SPP_ICONS[["other"]]
+  key <- key %||% "other"; if (length(key) == 1L && is.na(key)) key <- "other"  # unconfigured species → generic paw
+  inner <- .IK_SPP_ICONS[[tolower(key)]] %||% .IK_SPP_ICONS[["other"]]
   htmltools::HTML(sprintf(
     '<svg class="ik-spp-icon%s" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">%s</svg>',
     if (is.null(class)) "" else paste0(" ", class), inner))
