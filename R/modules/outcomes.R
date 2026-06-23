@@ -15,6 +15,51 @@ outcome_panels <- function(norm = 100) c(
   "Predators · camera RAI (lower is better)",
   "Protected · camera RAI (higher is better)")
 
+#' "How to read this" help body for "Are we winning?" — tabbed. `norm_trap`/`norm_hours` are the
+#' trap-night and camera-hour norms from project config, woven into the calculation tab. @keywords internal
+outcomes_help_body <- function(norm_trap = 100, norm_hours = 2000) {
+  P  <- function(...) tags$p(...)
+  nt <- paste0(format(norm_trap, big.mark = ","), " trap-nights")
+  nh <- paste0(format(norm_hours, big.mark = ","), " camera-hours")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "The idea", icon = icon("circle-question"),
+      P(tags$br(), "One screen for the whole control story, on a shared seasonal timeline. It lays out the ",
+        tags$b("causal chain"), " the trust is betting on, top to bottom:"),
+      tags$ul(
+        tags$li(tags$b("Catches"), " — predators removed by trapping (the action)."),
+        tags$li(tags$b("Predators on camera"), " — should ", tags$b("fall"), " as trapping bites (want ↓)."),
+        tags$li(tags$b("Protected on camera"), " — should ", tags$b("rise"), " as predators thin (want ↑).")),
+      P("Read it top→bottom: effort in, predators down, protected up. Pick which predators and protected ",
+        "species to chart up top (the default is the core Mustelids-vs-Kiwi story).")),
+    tabPanel(
+      "Reading it", icon = icon("chart-line"),
+      P(tags$br(), "“Winning” looks like ", tags$b("catches sustained"), ", then ", tags$b("predator activity "),
+        tags$b("trending down"), ", then ", tags$b("protected activity trending up"), " — usually with a ",
+        tags$b("lag"), " between the links (it takes time for fewer predators to show up as more kiwi)."),
+      P("Each line is the ", tags$b("network mean across reserves"), "; the band is ± 1 standard error — wide ",
+        "where reserves disagree, tight where they move together. ", tags$b("Click any point"), " for its ",
+        "per-reserve breakdown and the records behind it."),
+      P("The three panels use ", tags$b("different units"), " (catches vs camera activity) and ", tags$b("can't"),
+        " be read off one shared scale — compare each panel's ", tags$em("shape over time"), ", not heights ",
+        "between panels.")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Catches"), " — predators caught per ", nt, " (catch rate), so effort is divided out."),
+        tags$li(tags$b("Camera activity"), " — RAI: detections per ", nh, ", net of likely duplicates (predators ",
+                "and protected each on their own panel)."),
+        tags$li(tags$b("Network value"), " — computed per reserve, then averaged to a ", tags$b("mean ± SE"),
+                " so no single big reserve dominates."),
+        tags$li(tags$b("Timeline"), " — one point per season, in calendar order.")),
+      P(tags$em("Observational, not a controlled trial — many things move with the seasons, so treat aligned ",
+                "trends as encouraging evidence, not proof that trapping caused the change. Co-occurrence and ",
+                "Neighbourhood dig deeper.")))
+  )
+}
+
 #' Outcomes nav panel UI. @param id Module id.
 outcomes_ui <- function(id) {
   ns <- NS(id)
@@ -66,7 +111,11 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
     output$intro <- renderUI({
       projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
       tagList(
-        tags$h3(class = "ik-out-title", "Are we winning?"),
+        div(class = "ik-out-titlebar",
+            tags$h3(class = "ik-out-title", "Are we winning?"),
+            .ik_info(session$ns("out_help"), "Are we winning? — how to read this",
+                     outcomes_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100,
+                                        ik_data$meta$camera$rai$norm_hours %||% 2000))),
         tags$p(class = "ik-out-lead",
           tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
             "We ", tags$b("trap predators"), " → predator detections on camera should ",

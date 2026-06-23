@@ -3,6 +3,48 @@
 # (dead camera) · amber noisy (high blanks) · grey gap (no deployment). The cell shows the
 # animal-detection count (what feeds RAI); click a cell for the full deployment detail.
 
+#' "How to read this" help body for Camera deployment review — tabbed. @keywords internal
+monitoring_help_body <- function() {
+  P <- function(...) tags$p(...)
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "A grid with one cell ", tags$b("per camera location × season"), " (most recent first). ",
+        "The number in a cell is its ", tags$b("animal detections"), " — the same data that feeds RAI — and the ",
+        tags$b("colour"), " is the deployment's ", tags$b("health"), ", so you can tell a genuine quiet patch ",
+        "from a camera that wasn't really working."),
+      P("It's a ", tags$b("data-quality"), " check: a dead or misfiring camera makes RAI lie (a real hotspot ",
+        "reads as empty, or blanks swamp the rate). Spot those here before you trust the activity numbers. ",
+        "Click a cell for the specific deployment's detail.")),
+    tabPanel(
+      "The grades", icon = icon("traffic-light"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b(tags$span(style = "color:#2e7d32", "OK")), " — healthy: a normal mix of triggers."),
+        tags$li(tags$b("Watch"), " — few triggers / elevated blanks; keep an eye on it."),
+        tags$li(tags$b("Concern"), " — mostly blanks; the camera may be misaimed, obscured or misfiring."),
+        tags$li(tags$b("Problem"), " — almost no triggers for the effort: likely a ", tags$b("dead camera"),
+                " (flat battery, failure) — treat its zero as unknown, not a true absence."),
+        tags$li(tags$b("No deployment"), " — grey: no camera ran on that line that season (a coverage gap, ",
+                "not a quality problem).")),
+      P("Use the ", tags$b("Highlight"), " toggles to focus on just the grades you're chasing.")),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Per deployment"), " — each camera deployment in a season is graded from its balance of ",
+                tags$b("animal triggers vs blanks"), " for the effort it ran: plenty of triggers → OK; almost ",
+                "none → Problem; mostly blanks → Concern."),
+        tags$li(tags$b("Cell value"), " — the animal-detection count (what RAI is built from), so the grid ",
+                "doubles as a coverage map of where the detections came from."),
+        tags$li(tags$b("Why it matters"), " — RAI divides detections by effort; a dead camera still accrues ",
+                "effort but no detections, dragging the rate down, so flagging it keeps RAI honest.")),
+      P(tags$em("A grade is about the camera working, not about the place being empty — a true quiet site reads ",
+                "OK with a low count, a dead camera reads Problem.")))
+  )
+}
+
 #' Camera deployment-review tab content (lives inside the Quality nav_panel).
 #' @param id Module id.
 monitoring_ui <- function(id) {
@@ -10,7 +52,9 @@ monitoring_ui <- function(id) {
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/monitoring.css")),
     div(class = "ik-monitoring",
-        tags$h5("Camera deployment review", class = "ik-review-head"),
+        div(class = "ik-review-headrow",
+            tags$h5("Camera deployment review", class = "ik-review-head"),
+            .ik_info(ns("mon_help"), "Camera review — how to read this", monitoring_help_body())),
         uiOutput(ns("intro")),
         div(class = "mon-highlight",
             checkboxGroupInput(ns("highlight"), "Highlight", inline = TRUE,

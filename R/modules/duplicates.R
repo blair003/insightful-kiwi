@@ -4,13 +4,56 @@
 # camera × species's detections in a column so you can confirm a flagged run is one individual.
 # Camera-only (traps are date-only). All views derive from ik_duplicate_gaps().
 
+#' "How to read this" help body for the Duplicate window tuner — tabbed. @keywords internal
+duplicates_help_body <- function() {
+  P <- function(...) tags$p(...)
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "One animal that lingers in front of a camera trips it again and again — counted naively, ",
+        "that one visitor looks like ", tags$em("many"), " and inflates RAI. The ", tags$b("duplicate window"),
+        " collapses a quick run of the ", tags$b("same species at the same camera"), " into one visit."),
+      P("This screen helps you ", tags$b("choose"), " that window: drag it and watch how many detections ",
+        "collapse, then confirm with the actual images. The chosen window lives in project config (with ",
+        "per-species overrides); RAI is reported ", tags$b("net"), " of duplicates.")),
+    tabPanel(
+      "Reading it", icon = icon("chart-column"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("Gap distribution"), " — minutes between consecutive same-species detections at a camera, ",
+                "for monitoring targets vs the rest. A ", tags$b("trough"), " between a tight cluster (one animal ",
+                "lingering) and the spread-out rest is a natural place to set the window."),
+        tags$li(tags$b("Impact by species"), " — at the current window, how many detections each species loses ",
+                "as duplicates. Big drops flag species (or a camera) where lingering really matters."),
+        tags$li(tags$b("Burst inspector"), " — pick a camera × species and look at the images side by side: is a ",
+                "flagged run genuinely ", tags$b("one individual"), " (set the window to catch it) or different ",
+                "animals (don't)?"))),
+    tabPanel(
+      "How it's calculated", icon = icon("calculator"),
+      tags$ul(
+        tags$br(),
+        tags$li(tags$b("The flag"), " — a detection is a ", tags$b("possible duplicate"), " if the gap to the ",
+                "previous detection of the ", tags$b("same species at the same camera"), " is ≤ the window."),
+        tags$li(tags$b("The window"), " — a default minutes value in project config, with optional ",
+                tags$b("per-species"), " overrides (a slow lingerer can warrant a longer window than a quick one)."),
+        tags$li(tags$b("Net counts"), " — RAI and the Overview detection counts exclude flagged duplicates, so a ",
+                "lingering animal counts once."),
+        tags$li(tags$b("Camera-only"), " — needs real clock times; trapping is date-only, so it doesn't apply there.")),
+      P(tags$em("It's a heuristic on time gaps, not animal recognition — the burst inspector is how you sanity-",
+                "check that the window matches what the images actually show.")))
+  )
+}
+
 #' Duplicate-window tuner UI (a section within the Quality > Cameras tab). @param id Module id.
 duplicates_ui <- function(id) {
   ns <- NS(id)
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/duplicates.css")),
     div(class = "ik-dups",
-        tags$h5("Duplicate window", class = "ik-dups-head"),
+        div(class = "ik-review-headrow",
+            tags$h5("Duplicate window", class = "ik-dups-head"),
+            .ik_info(ns("dups_help"), "Duplicate window — how to read this", duplicates_help_body())),
         uiOutput(ns("intro")),
         sliderInput(ns("window"), "Possible-duplicate window (minutes)",
                     min = 5, max = 240, value = 30, step = 5, width = "100%"),
