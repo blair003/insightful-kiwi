@@ -55,7 +55,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   # default shows the six axis controls; `compare` and `net` are opt-in (request via `show`).
   ctrls <- ctrls[show %||% c("period", "reserve", "line", "location", "device", "species")]
   tagList(
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/selection.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/selection.css")),
     div(class = "ik-selection", ctrls)
   )
 }

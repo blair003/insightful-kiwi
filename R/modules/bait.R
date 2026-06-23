@@ -9,7 +9,7 @@ bait_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     "Bait effectiveness", value = "bait", icon = icon("drumstick-bite"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/bait.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/bait.css")),
     div(class = "ik-bait",
         div(class = "ik-bait-head",
             tags$h3(class = "ik-bait-title", "Bait effectiveness"),

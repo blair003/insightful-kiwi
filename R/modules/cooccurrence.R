@@ -14,7 +14,7 @@ cooccurrence_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     "Co-occurrence", value = "cooccurrence", icon = icon("hourglass-half"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/cooccurrence.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/cooccurrence.css")),
     div(class = "ik-cooc",
         tags$h3(class = "ik-cooc-title", "Protected ↔ predator timing"),
         tags$p(class = "ik-cooc-lead",

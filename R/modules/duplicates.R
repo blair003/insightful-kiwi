@@ -8,7 +8,7 @@
 duplicates_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/duplicates.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/duplicates.css")),
     div(class = "ik-dups",
         tags$h5("Duplicate window", class = "ik-dups-head"),
         uiOutput(ns("intro")),

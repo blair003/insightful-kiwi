@@ -28,10 +28,13 @@
 
 /* Inline help: a small "?" / "i" button (.ik_info) that opens a description modal. */
 .ik-info-btn {
-  border: none; background: transparent; padding: 0 0.15rem; cursor: pointer; line-height: 1;
-  color: var(--bs-secondary-color, #6c757d); font-size: 0.95em; vertical-align: middle;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.2rem; height: 1.2rem; padding: 0; border: none; border-radius: 50%;
+  background: var(--bs-secondary-bg, #e9ecef); color: var(--bs-secondary-color, #6c757d);
+  cursor: pointer; line-height: 1; font-size: 0.72rem; vertical-align: middle; flex: 0 0 auto;
+  transition: background-color 0.15s, color 0.15s;
 }
-.ik-info-btn:hover { color: var(--ik-accent, #e8924d); }
+.ik-info-btn:hover { background: var(--ik-accent, #e8924d); color: #fff; }
 .ik-info-modal .modal-body { line-height: 1.5; }
 .ik-info-modal .modal-body h6 { margin: 0.9rem 0 0.25rem; font-weight: 600; }
 .ik-info-modal .modal-body p:last-child { margin-bottom: 0; }

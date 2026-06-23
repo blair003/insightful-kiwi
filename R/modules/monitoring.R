@@ -8,7 +8,7 @@
 monitoring_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/monitoring.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/monitoring.css")),
     div(class = "ik-monitoring",
         tags$h5("Camera deployment review", class = "ik-review-head"),
         uiOutput(ns("intro")),

@@ -24,6 +24,26 @@
     HTML("&larr;"), paste0(" ", label))
 }
 
+#' JSON-encode a scalar for SAFE embedding in an inline-JS `Shiny.setInputValue` value — escapes
+#' apostrophes, quotes, backslashes, etc. A reserve like "Bob's Cove Sanctuary" or an odd line name
+#' would otherwise close the single-quoted JS string and silently break the click. Returns a quoted
+#' literal (e.g. `"Bob's Cove"`), so embed it as `reserve:%s` (no surrounding quotes). NA → `""`.
+#' @keywords internal
+.ik_jsq <- function(x) as.character(jsonlite::toJSON(
+  if (length(x) && !is.na(x)) as.character(x) else "", auto_unbox = TRUE))
+
+#' Append a cache-busting version query to a `www/` asset URL so browsers always fetch the CURRENT
+#' file after an edit. Shiny serves `www/` with caching headers and our `<script>`/`<link>` srcs are
+#' static paths, so a changed `maps.js` or module CSS otherwise keeps serving the browser's cached
+#' copy — the cause of "the fix is in the file but the page still shows the old behaviour" (and why a
+#' map fix can look like it works in one environment/browser and not another). Version = file mtime,
+#' so the URL changes exactly when the file does; falls back to a constant if the file isn't found.
+#' @param path Path under `www/` (e.g. "js/maps.js", "styles/maps.css"). @keywords internal
+.ik_asset <- function(path) {
+  v <- tryCatch(as.integer(file.mtime(file.path("www", path))), error = function(e) NA_integer_)
+  paste0(path, "?v=", if (is.na(v)) 1L else v)
+}
+
 #' An inline help affordance: a small "?" (or "i") button that opens a Bootstrap modal with a
 #' description. Pure client-side (Bootstrap's own modal JS) — no server observer needed, so it
 #' drops into any UI. Use a "?" for whole-feature/page explainers, an "i" for a single field.
@@ -34,7 +54,7 @@
 #' @param icon_name FontAwesome name for the trigger ("circle-question" default; "circle-info").
 #' @param class Extra class(es) for the trigger button.
 #' @return A tagList: the trigger button + the (hidden) modal markup.
-.ik_info <- function(id, title, ..., icon_name = "circle-question", class = NULL) {
+.ik_info <- function(id, title, ..., icon_name = "question", class = NULL) {
   tagList(
     tags$button(type = "button", class = paste("ik-info-btn", class),
                 title = "About this", `aria-label` = "About this",
