@@ -1,6 +1,7 @@
 /* coverage.css — the Coverage map (Outcomes → Deeper analysis). */
 
 .ik-cov { padding-top: 0.25rem; }
+.ik-cov-titlebar { display: flex; align-items: center; gap: 0.4rem; }
 .ik-cov-title { margin-bottom: 0.25rem; }
 .ik-cov-lead { color: var(--bs-secondary-color, #6c757d); max-width: 64rem; margin-bottom: 0.7rem; }
 
@@ -16,9 +17,13 @@
 
 /* Coverage-gap table */
 .ik-cov-gaps { margin-top: 1rem; }
-.ik-cov-gaps-head { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+/* heading (+ help) on the left, the gap-radius control pushed to the right, same line */
+.ik-cov-gaps-head { display: flex; gap: 1rem; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
+.ik-cov-gaps-head-l { display: flex; align-items: center; gap: 0.4rem; }
 .ik-cov-gaps-head .shiny-input-container { margin-bottom: 0; }
 .ik-cov-gaps-title { margin-bottom: 0.2rem; }
 .ik-cov-gaps-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; max-width: 64rem; margin-bottom: 0.5rem; }
 .ik-gap-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.7rem; color: #fff;
   font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+/* small hover-info (ⓘ) marker on a table header */
+.ik-th-i { color: var(--bs-secondary-color, #888); font-weight: 400; margin-left: 0.25rem; cursor: help; font-size: 0.85em; }

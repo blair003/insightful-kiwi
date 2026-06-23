@@ -10,15 +10,88 @@
 # Period + Reserve come from the sidebar; the predator/protected role pickers are in-panel. Reuses
 # ik_location_metric() for every layer (camera rate / trap captures), so no new data layer.
 
+#' Body of the whole-map "how to read this" help modal. @keywords internal
+coverage_help_body <- function() {
+  tagList(
+    tags$p("One map carrying ", tags$b("both devices"), " so you can see where the protected species ",
+           "are and whether predator control is reaching them. ", tags$b("Colour says what a marker is; ",
+           "size says how much"), " — so there's one legend and no clashing colour scales."),
+    tags$h6("The layers (toggle top-right)"),
+    tags$ul(
+      tags$li(tags$b(tags$span(style = "color:#2e7d32", "Protected")), " (camera) — green dots, size ∝ detection rate. The hotspots you're protecting."),
+      tags$li(tags$b(tags$span(style = "color:#c62828", "Predators")), " (camera) — red rings, size ∝ detection rate. Where predators roam. Off by default (turn it on to compare)."),
+      tags$li(tags$b(tags$span(style = "color:#6a3d9a", "Catches")), " (traps) — purple dots, size ∝ predators caught. Where removal is actually happening."),
+      tags$li(tags$b(tags$span(style = "color:#8a8a8a", "Traps")), " — small grey dots, every trap deployed: the trapping field."),
+      tags$li(tags$b("Boundary"), " — the dashed monitored footprint (convex hull of the devices) per reserve.")),
+    tags$h6("Reading it"),
+    tags$p("A green hotspot ringed by purple and grey is ", tags$b("covered"), "; a green hotspot with ",
+           "little around it is a ", tags$b("gap"), ". Camera markers are a detection ", tags$b("rate"),
+           " (per camera-hour norm), so big vs small is comparable across cameras regardless of how long each ran."),
+    tags$p("Period and reserve come from the sidebar. Click any marker for its detail. The ",
+           tags$b("Coverage gaps"), " table below ranks the gaps numerically.")
+  )
+}
+
+#' Body of the Coverage-gaps "how to read this" help modal. @keywords internal
+coverage_gaps_help_body <- function() {
+  tagList(
+    tags$p("Every monitoring ", tags$b("line"), " (its cameras) is ranked ", tags$b("worst-first"),
+           " by how well predator control reaches it. It turns the map's eyeball judgement into a list."),
+    tags$h6("The gap radius"),
+    tags$p("A line's “neighbourhood” is the traps within the ", tags$b("gap radius"), " of its cameras. ",
+           "A bigger radius counts more distant traps as nearby, so more lines look covered. It drives the ",
+           tags$b("Traps"), ", ", tags$b("Caught"), " and ", tags$b("Neglected"), " columns."),
+    tags$p(tags$em("Why isn't the radius drawn on the map?"), " Because it's applied ", tags$b("per line"),
+           " — every line has its own circle around its own cameras, so a single circle would be misleading. ",
+           "The table is where the radius lives."),
+    tags$h6("The columns"),
+    tags$ul(
+      tags$li(tags$b("Protected / Predator"), " — detections on the line's cameras, as a rate per the camera-hour norm (same units as the map). 0 = none seen on camera."),
+      tags$li(tags$b("Traps"), " — traps running within the gap radius (how much trapping reaches the line)."),
+      tags$li(tags$b("Caught"), " — predators caught in those nearby traps this period."),
+      tags$li(tags$b("Neglected"), " — of the nearby active traps, how many are unserviced this period."),
+      tags$li(tags$b("Traps/km²"), " — trap density across the whole reserve, for context.")),
+    tags$h6("Status"),
+    tags$ul(
+      tags$li(tags$b("No trapping"), " — protected on camera, but no traps running nearby."),
+      tags$li(tags$b("Predators uncaught"), " — predators on camera nearby, but none being caught."),
+      tags$li(tags$b("Trapping neglected"), " — traps are nearby but mostly unserviced."),
+      tags$li(tags$b("Covered"), " — protected hotspot with serviced trapping reaching it."),
+      tags$li(tags$b("No protected here"), " — no protected species on camera on this line."))
+  )
+}
+
+#' DT header container for the gaps table, with a hover-info (ⓘ) tooltip on the metric columns.
+#' @keywords internal
+.cov_gaps_header <- function(norm) {
+  n  <- format(norm, big.mark = ",")
+  # NB: build with explicit tags$* — htmltools::withTags() would shadow a local `th` helper with the
+  # built-in tag function, dropping the tooltip span.
+  thx <- function(label, tip = NULL) tags$th(label,
+    if (!is.null(tip)) tags$span(class = "ik-th-i", title = tip, HTML("&#9432;")))
+  tags$table(class = "display", tags$thead(tags$tr(
+    thx("Line"), thx("Reserve"),
+    thx("Protected", sprintf("Protected detections on this line's cameras, as a rate per %s camera-hours (same as the map). 0 = none on camera.", n)),
+    thx("Predator",  sprintf("Predator detections on this line's cameras, per %s camera-hours. Higher = more predator activity on camera.", n)),
+    thx("Traps", "Traps running within the gap radius of this line's cameras — how much trapping reaches it. Set by the Gap radius control."),
+    thx("Caught", "Predators caught in those nearby traps this period."),
+    thx("Neglected", "Of the nearby active traps, how many are unserviced (neglected) this period."),
+    thx("Traps/km²", "Trap density across the whole reserve (structural context)."),
+    thx("Status")
+  )))
+}
+
 #' Coverage nav panel. @param id Module id.
 coverage_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     "Coverage", value = "coverage", icon = icon("shield-halved"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/coverage.css"),
-    tags$script(src = "js/maps.js"),                            # reuse the resize-on-tab-show fix
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/coverage.css")),
+    tags$script(src = .ik_asset("js/maps.js")),                            # reuse the resize-on-tab-show fix
     div(class = "ik-cov",
-        tags$h3(class = "ik-cov-title", "Coverage — protected hotspots vs predator control"),
+        div(class = "ik-cov-titlebar",
+            tags$h3(class = "ik-cov-title", "Coverage — protected hotspots vs predator control"),
+            .ik_info(ns("cov_help"), "Coverage — how to read this map", coverage_help_body())),
         tags$p(class = "ik-cov-lead",
           "Where are the protected species, and is predator control reaching them? ",
           tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
@@ -30,7 +103,7 @@ coverage_ui <- function(id) {
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "230px"),
             selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "230px")),
         uiOutput(ns("caption")),
-        leaflet::leafletOutput(ns("map"), height = "62vh"),
+        leaflet::leafletOutput(ns("map"), height = "55vh"),
         div(class = "ik-cov-density",
             tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
             tags$p(class = "ik-cov-gaps-lead",
@@ -39,7 +112,9 @@ coverage_ui <- function(id) {
             DT::DTOutput(ns("density"))),
         div(class = "ik-cov-gaps",
             div(class = "ik-cov-gaps-head",
-                tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
+                div(class = "ik-cov-gaps-head-l",
+                    tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
+                    .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body())),
                 selectInput(ns("radius"), "Gap radius", width = "120px",  # drives THIS table (not the map)
                             choices = c("250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 500)),
             tags$p(class = "ik-cov-gaps-lead",
@@ -102,10 +177,10 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
       m <- leaflet::addProviderTiles(m, canvas, group = "Map")
       m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("traps", "catches", "protected", "predators")   # predators on TOP (drawn as a ring)
+      pns <- c("boundary", "traps", "catches", "protected", "predators")   # boundary lowest, predators on TOP
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Protected", "Predators", "Catches", "Traps"),
+        overlayGroups = c("Protected", "Predators", "Catches", "Traps", "Boundary"),
         options = leaflet::layersControlOptions(collapsed = FALSE))
       m <- leaflet::hideGroup(m, "Predators")                   # off by default — the coverage story is Protected vs Catches/Traps
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
@@ -159,6 +234,21 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                          name, ifelse(is.na(line), "—", line), reserve, prot_lab(), metric, format(per_cam, big.mark = ","), as.integer(individuals)),
         options = leaflet::pathOptions(pane = "protected"))
     })
+    observe({                                                   # Boundary — monitored footprint (convex hull) per reserve
+      p <- proxy(); leaflet::clearGroup(p, "Boundary"); req(active())
+      locs <- ik_data$app$geography$locations
+      locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
+      rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) locs <- locs[locs$reserve %in% rsv, , drop = FALSE]
+      h <- ik_selection_hulls(locs, "reserve"); if (is.null(h) || !nrow(h)) return()
+      edge <- if (is_dark()) "#cfd8dc" else "#37474f"
+      # A faint fill makes the whole reserve hoverable (not just the dashed line); the label names it
+      # and hover brings it to the front — so foreign / nested reserves can be told apart.
+      leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
+        labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
+        highlightOptions = leaflet::highlightOptions(weight = 3, color = "#1565c0", fillOpacity = 0.12, bringToFront = TRUE),
+        fill = TRUE, fillColor = edge, fillOpacity = 0.05, stroke = TRUE,
+        color = edge, weight = 1.5, dashArray = "5,6", options = leaflet::pathOptions(pane = "boundary"))
+    })
     observe({                                                   # re-frame to the deployed extent of the selection
       p <- proxy(); d <- trap_pred()
       ext <- rbind(cam_prot()[, c("longitude", "latitude")], cam_pred()[, c("longitude", "latitude")], if (!is.null(d)) d[, c("longitude", "latitude")])
@@ -189,8 +279,12 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                        as.numeric(input$radius %||% 500))
     }) |> bindCache(.ik_nz(selection()$season), .ik_nz(selection()$reserve), input$radius, input$pred, input$prot, ik_active_datasets())
 
+    has_camera <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "camera"), logical(1)))
     output$gaps <- DT::renderDT({
-      g <- gaps(); validate(need(!is.null(g) && nrow(g), "Pick a predator and a protected species."))
+      g <- gaps()
+      validate(need(!is.null(g) && nrow(g), if (!has_camera)
+        "Coverage gaps compare protected detections on camera with nearby trapping — they need camera monitoring data, which isn't loaded here."
+        else "Pick a predator and a protected species."))
       rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) g <- g[g$reserve %in% rsv, , drop = FALSE]
       validate(need(nrow(g), "No camera lines in this reserve."))
       lab <- c(no_trapping = "No trapping", predators_uncaught = "Predators uncaught",
@@ -206,8 +300,9 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         `Traps` = g$n_traps, `Caught` = g$catches, `Neglected` = g$n_neglected,
         `Traps/km²` = ifelse(is.na(dens), "—", sprintf("%.0f", dens)),
         Status = badge, check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, rownames = FALSE, escape = -ncol(df), selection = "none",
-        class = "stripe hover row-border", options = list(pageLength = 15, dom = "t", ordering = FALSE))
+      DT::datatable(df, container = .cov_gaps_header(per_cam), rownames = FALSE, escape = -ncol(df),
+        selection = "none", class = "stripe hover row-border",
+        options = list(dom = "t", ordering = FALSE, paging = FALSE))   # show every line, no hidden rows
     })
 
     # ---- per-reserve network density (structural coverage — is it dense enough?) ----
@@ -223,7 +318,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         `Trap spacing (m)` = ifelse(is.na(cov$mean_trap_spacing_m), "—", format(round(cov$mean_trap_spacing_m), big.mark = ",")),
         check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border",
-        options = list(dom = "t", ordering = FALSE))
+        options = list(dom = "t", ordering = FALSE, paging = FALSE))   # every reserve, no hidden rows
     })
   })
 }
