@@ -8,6 +8,29 @@
 # gracefully (too few points, no coords) so a caller can simply skip a layer. Derived
 # columns are snake_case; sf geometries are WGS84 (EPSG:4326), ready for Leaflet.
 
+#' Circle-marker radius scaled to a value vector — the single home for the map modules' marker sizing.
+#' Area-fair (`sqrt`), clamped to `[lo, hi]`; a degenerate range collapses to the midpoint. With
+#' `cap_pctl` set, values are first capped at that percentile (so one low-effort outlier can't flatten
+#' the rest, scaling from 0); with `cap_pctl = NULL` it scales over the data range. @keywords internal
+ik_marker_radius <- function(v, lo = 5, hi = 20, cap_pctl = NULL) {
+  v <- pmax(as.numeric(v), 0)
+  if (is.null(cap_pctl)) {
+    r <- range(v, na.rm = TRUE)
+    if (!length(v) || !is.finite(diff(r)) || diff(r) == 0) return(rep((lo + hi) / 2, length(v)))
+    return(scales::rescale(sqrt(v), to = c(lo, hi)))
+  }
+  cap <- stats::quantile(v[v > 0], cap_pctl, na.rm = TRUE)
+  if (!is.finite(cap) || cap <= 0) return(rep((lo + hi) / 2, length(v)))
+  scales::rescale(sqrt(pmin(v, cap)), to = c(lo, hi), from = c(0, sqrt(cap)))
+}
+
+#' Robust upper cap for a colour/size scale: the `pctl` percentile of the positive values (never below
+#' the min, never zero). The single home for the maps colour/size clamp. @keywords internal
+ik_robust_cap <- function(v, pctl = 0.95) {
+  pos <- v[is.finite(v) & v > 0]; if (!length(pos)) return(1)
+  max(as.numeric(stats::quantile(pos, pctl, names = FALSE, type = 7)), min(pos), 1e-9)
+}
+
 #' Inverse-distance-weighted prediction surface over point values, per group.
 #'
 #' Ported in algorithm from v0.1's `create_idw_prediction_surface` (reference only):

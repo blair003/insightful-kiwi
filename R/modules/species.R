@@ -183,9 +183,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
              overlayGroups = c("Camera activity", "Catches"),
              options = leaflet::layersControlOptions(collapsed = FALSE))
-      rad <- function(v, lo, hi) { v <- pmax(as.numeric(v), 0); cap <- stats::quantile(v[v > 0], 0.95, na.rm = TRUE)
-        if (!is.finite(cap) || cap <= 0) return(rep((lo + hi) / 2, length(v)))
-        scales::rescale(sqrt(pmin(v, cap)), to = c(lo, hi), from = c(0, sqrt(cap))) }
+      rad <- function(v, lo, hi) ik_marker_radius(v, lo, hi, cap_pctl = 0.95)   # shared impl in spatial.R
       if (!is.null(camp) && nrow(camp))
         m <- leaflet::addCircleMarkers(m, data = camp, lng = ~longitude, lat = ~latitude, group = "Camera activity",
                radius = rad(camp$metric, 6, 22), fillColor = "#1f78b4", fillOpacity = 0.8, stroke = TRUE,

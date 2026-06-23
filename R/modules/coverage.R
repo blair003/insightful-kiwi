@@ -206,9 +206,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       table(dp$locationID)
     })
 
-    .radius <- function(v, lo, hi) { v <- pmax(as.numeric(v), 0)
-      if (!length(v) || !is.finite(diff(range(v))) || diff(range(v)) == 0) return(rep((lo + hi) / 2, length(v)))
-      scales::rescale(sqrt(v), to = c(lo, hi)) }
+    .radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)        # shared impl in spatial.R
     proxy <- function() leaflet::leafletProxy("map", session)
 
     output$map <- leaflet::renderLeaflet({

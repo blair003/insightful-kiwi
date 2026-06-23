@@ -311,15 +311,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     frame_pts    <- reactive(if (src() == "trap" && measure() == "servicing") serv_pts() else rate_loc_pts())
 
     # ---- helpers ----
-    .robust_cap <- function(v) {
-      pos <- v[is.finite(v) & v > 0]; if (!length(pos)) return(1)
-      max(as.numeric(stats::quantile(pos, .MAPS_CAP_PCTL, names = FALSE, type = 7)), min(pos), 1e-9)
-    }
-    .area_radius <- function(v, lo, hi) {
-      v <- pmax(v, 0); r <- range(v, na.rm = TRUE)
-      if (!is.finite(diff(r)) || diff(r) == 0) return(rep((lo + hi) / 2, length(v)))
-      scales::rescale(sqrt(v), to = c(lo, hi))
-    }
+    .robust_cap  <- function(v) ik_robust_cap(v, .MAPS_CAP_PCTL)      # shared impl in spatial.R
+    .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)
     .prio_ramp <- c("#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c")   # yellow→red — priority/danger
     surf_pal <- function(cap) leaflet::colorNumeric(if (is_priority() || is_timing()) .prio_ramp else "viridis", c(0, cap))
     # median gap (hours) → readable "Xh / Xd / Xmo" — VECTORISED (leaflet builds every popup at once)
