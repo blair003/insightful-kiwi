@@ -32,7 +32,8 @@ outcomes_ui <- function(id) {
 outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
-    series <- reactive(ik_outcome_series(ik_data))    # ~7s, computed once per session
+    series <- reactive(ik_outcome_series(ik_data)) |>  # slow (~15-20s, per-season scan) → cache it
+      bindCache("outcome_series", ik_active_datasets())   # once per active-dataset set, across sessions
 
     # Predator / Protected pickers — same unified grouped control as the Map (group whole or split
     # into sub-species per the project `split` flag). Default to the core Mustelids-vs-Kiwi story so

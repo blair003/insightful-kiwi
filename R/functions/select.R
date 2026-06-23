@@ -67,7 +67,12 @@ ik_select <- function(ik_data, season = NULL, reserve = NULL, line = NULL,
 
   # 3a. effort = in-season clipped hours across the WHOLE scope. Overlap-based clipping is
   #     required so a long cross-season trap interval splits its hours into each season.
-  ef <- build_monitoring_season(dep)
+  #     Fast path: filter the per-deployment clipped-effort table precomputed at build (same
+  #     clipping ⇒ identical totals) to the scoped deployments; fall back to recomputing it
+  #     when absent (older cache / a build that didn't populate it).
+  ef_all <- ik_data$app$period$deployment_season
+  ef <- if (is.null(ef_all)) build_monitoring_season(dep)
+        else ef_all[ef_all$deploymentID %in% dep$deploymentID, , drop = FALSE]
   if (!is.null(season)) ef <- ef[ef$calendar_season %in% season, , drop = FALSE]
 
   # 3b. deployments returned/counted = those ASSIGNED to the selected season(s), BY SOURCE:
@@ -82,7 +87,8 @@ ik_select <- function(ik_data, season = NULL, reserve = NULL, line = NULL,
     asea <- asg$calendar_season
     is_trap <- !is.na(asg$source_type) & asg$source_type == "trap"
     if (any(is_trap) && !identical(ik_data$meta$trapping$season_by %||% "check_date", "interval"))
-      asea[is_trap] <- ik_assign_season(asg$deploymentEnd[is_trap], asg$deploymentEnd[is_trap])$calendar_season
+      asea[is_trap] <- if (!is.null(asg$check_calendar_season)) asg$check_calendar_season[is_trap]   # precomputed at build
+                       else ik_assign_season(asg$deploymentEnd[is_trap], asg$deploymentEnd[is_trap])$calendar_season
     dep <- dep[dep$deploymentID %in% asg$deploymentID[asea %in% season], , drop = FALSE]
   }
 

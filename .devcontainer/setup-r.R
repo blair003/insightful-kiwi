@@ -16,40 +16,49 @@ if (!requireNamespace("pak", quietly = TRUE)) {
 #   "gapminder",
 
 
+# NOTE: this list still carries packages from the OLD v0.1 app. The split below records which
+# packages the CURRENT v1 app actually uses vs. legacy ones kept only for v0.1 — nothing is removed
+# yet, so the legacy block can be pruned later once v0.1 is retired. (Determined by scanning v1 code:
+# attached in global.R or referenced via pkg:: across R/.)
 pkgs <- c(
-  "memoise",
-
+  # ── Required by v1 (the current app) ───────────────────────────────────────────
+  # Runtime — attached in global.R or called via pkg:: across R/ (the app needs these to run):
   "logger",
   "shiny",
   "bslib",
-  "lubridate",
-  "dplyr",
-  "tidyr",
   "DT",
-  "stringr",
-  "kableExtra",
+  "inbo/camtrapdp",   # v1 data reader (camtrap DP)
+  "dplyr",
+  "lubridate",
+  "httr2",
+  "sf",
+  "suncalc",
+  "ggplot2",
   "leaflet",
   "leaflet.extras",
-  "ggplot2",
   "scales",
-  "plotly",
-  "httr2",
-  "fs",
   "magick",
+  "jsonlite",
+  # Dev / test tooling used by the v1 workflow (not the app runtime):
+  "chromote",         # headless verification / profiling
+  "watcher",          # performant autoreload file watcher (dev only)
+
+  # ── Legacy / not referenced by v1 (kept for the v0.1 app; safe to prune later) ──
+  "inbo/camtraptor",  # v0.1 read data via camtraptor; v1 uses camtrapdp
+  "memoise",
+  "tidyr",
+  "stringr",
+  "kableExtra",
+  "plotly",
+  "fs",
   "future",
   "shinybusy",
   "htmlwidgets",
   "shinyjs",
-  "sf",
   "geosphere",
-  "suncalc",
   "webshot2",
-  "jsonlite",
   "dotenv",
-  "chromote",
-  "remotes",
-  "inbo/camtraptor",
-  "inbo/camtrapdp"
+  "remotes"
 )
 
 pak::pak(pkgs, ask = FALSE, upgrade = FALSE)

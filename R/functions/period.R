@@ -103,6 +103,9 @@ build_period <- function(datasets, geography) {
     dep <- camtrapdp::deployments(ds$package)
     dep <- ik_localize_times(dep, ds$meta, c("deploymentStart", "deploymentEnd"))
     sa  <- ik_assign_season(dep$deploymentStart, dep$deploymentEnd)
+    # check-date season (by deploymentEnd): how a TRAP check is counted (see ik_select 3b). Precomputed
+    # here so the resolve fast path reads a column instead of re-seasoning all deployments each call.
+    ck  <- ik_assign_season(dep$deploymentEnd, dep$deploymentEnd)
     data.frame(
       deploymentID    = dep$deploymentID,
       dataset         = id,
@@ -115,6 +118,7 @@ build_period <- function(datasets, geography) {
       season          = sa$season,
       season_year     = sa$season_year,
       calendar_season = sa$calendar_season,
+      check_calendar_season = ck$calendar_season,
       stringsAsFactors = FALSE
     )
   })
@@ -158,7 +162,8 @@ build_period <- function(datasets, geography) {
 
   list(deployments = deployments,
        observations = dplyr::bind_rows(obs_per),
-       monitoring_season = build_monitoring_season(deployments))
+       monitoring_season = build_monitoring_season(deployments),
+       deployment_season = build_deployment_season_effort(deployments))   # per-deployment clipped effort (ik_select fast path)
 }
 
 # Start month of each austral season — the chronological key (summer's anchor year is
@@ -375,9 +380,60 @@ build_monitoring_season <- function(dep) {
     dplyr::arrange(.data$season_year, .data$season, .data$reserve, .data$source_type)
 }
 
+#' Per-DEPLOYMENT in-season clipped effort, keyed by deploymentID — the same overlap clipping as
+#' `build_monitoring_season`, but WITHOUT collapsing deploymentID (a trap spanning two seasons
+#' yields two rows). Precomputed once at build so `ik_select` can FILTER it to the scoped
+#' deployments + season and sum, instead of re-running the matrix clip on every resolve (the
+#' single hottest cost in the Overview's ~7 resolves/render). Same clipping ⇒ identical totals.
+#' @param dep Deployments with deploymentID/source_type/reserve/deploymentStart/End (period table).
+#' @return data.frame: deploymentID · calendar_season · season · season_year · source_type ·
+#'   reserve · effort_hours (one row per deployment×season it overlaps). @keywords internal
+build_deployment_season_effort <- function(dep) {
+  empty <- data.frame(deploymentID = character(), calendar_season = character(),
+                      season = character(), season_year = integer(), source_type = character(),
+                      reserve = character(), effort_hours = numeric(), stringsAsFactors = FALSE)
+  d <- dep[!is.na(dep$deploymentStart) & !is.na(dep$deploymentEnd), , drop = FALSE]
+  if (!nrow(d)) return(empty)
+  tzone <- attr(d$deploymentStart, "tzone"); if (is.null(tzone) || !nzchar(tzone)) tzone <- "Pacific/Auckland"
+  is_pulse <- !is.na(d$source_type) & d$source_type == "camera"
+  parts <- list()
+  # Pulse (camera): whole deployment under its assigned (majority) season.
+  if (any(is_pulse)) {
+    p  <- d[is_pulse, , drop = FALSE]
+    sa <- ik_assign_season(p$deploymentStart, p$deploymentEnd)
+    parts[[length(parts) + 1L]] <- data.frame(
+      deploymentID = p$deploymentID, calendar_season = sa$calendar_season,
+      season = sa$season, season_year = sa$season_year, source_type = p$source_type,
+      reserve = p$reserve, cstart = as.numeric(p$deploymentStart),
+      cend = pmax(as.numeric(p$deploymentEnd), as.numeric(p$deploymentStart)), stringsAsFactors = FALSE)
+  }
+  # Continuous (traps, …): clip every deployment (rows) against every season (cols).
+  if (any(!is_pulse)) {
+    c_ <- d[!is_pulse, , drop = FALSE]
+    start_s <- as.numeric(c_$deploymentStart); end_s <- pmax(as.numeric(c_$deploymentEnd), start_s)
+    grid <- ik_season_grid(min(c_$deploymentStart), max(c_$deploymentEnd), tzone)
+    nd <- nrow(c_); ns <- nrow(grid)
+    cs <- pmax(matrix(start_s, nd, ns), matrix(as.numeric(grid$start), nd, ns, byrow = TRUE))
+    ce <- pmin(matrix(end_s,   nd, ns), matrix(as.numeric(grid$end),   nd, ns, byrow = TRUE))
+    keep <- which(ce > cs)
+    if (length(keep)) {
+      ri <- ((keep - 1L) %%  nd) + 1L; ci <- ((keep - 1L) %/% nd) + 1L
+      parts[[length(parts) + 1L]] <- data.frame(
+        deploymentID = c_$deploymentID[ri], calendar_season = grid$calendar_season[ci],
+        season = grid$season[ci], season_year = grid$season_year[ci], source_type = c_$source_type[ri],
+        reserve = c_$reserve[ri], cstart = cs[keep], cend = ce[keep], stringsAsFactors = FALSE)
+    }
+  }
+  if (!length(parts)) return(empty)
+  out <- do.call(rbind, parts)
+  out$effort_hours <- (out$cend - out$cstart) / 3600
+  out$cstart <- NULL; out$cend <- NULL
+  out
+}
+
 #' The temporal segmentation substrate.
 #' @param ik_data The ik_data container.
-#' @return ik_data$app$period (list of `deployments` + `monitoring_season`).
+#' @return ik_data$app$period (list of `deployments` + `monitoring_season` + `deployment_season`).
 ik_period <- function(ik_data) ik_data$app$period
 
 #' Per-deployment season attributes (keyed by deploymentID). Scoped to the session's active

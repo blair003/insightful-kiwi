@@ -70,11 +70,13 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
 #'   active set, and an empty pick = "All available" (the active datasets, like every other view).
 #'   NULL omits the axis.
 #' @return A reactive returning `ik_select()` output (observations, deployments, effort).
-selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, species_default = NULL) {
+selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, species_default = NULL,
+                             show = NULL, active = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     locs        <- ik_data$app$geography$locations
     reserves    <- sort(unique(locs$reserve[!is.na(locs$reserve)]))
     group_map   <- ik_group_taxa(ik_data)   # label -> sci, for resolving the unified Species picker
+    shows <- function(axis) is.null(show) || axis %in% show   # NULL = all axes (selection_ui default)
 
     # Period choices + default season are rendered in the UI (selection_ui), so the control
     # loads already pointing at the default and never round-trips through an empty → "all data"
@@ -110,6 +112,8 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, sp
     # `isolate(input$location)` preserves the current pick WITHOUT depending on it — else
     # this observer would re-fire (and re-render the select) every time you pick a location.
     observe({
+      if (!shows("location")) return()                         # axis not rendered → skip the cascade
+      req(active())                                             # only when this view's nav is visible
       l <- reserve_locs()
       if (!is.null(.ik_nz(input$line))) l <- l[l$line %in% input$line, , drop = FALSE]
       choices <- stats::setNames(l$location_id, l$name)
@@ -123,6 +127,8 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, sp
     # Unified Species picker: configured groups (split per project flag) + every ungrouped species;
     # values grp:/sci:. Labels follow the Settings name preference (relabel on change; keep the pick).
     observe({
+      if (!shows("species")) return()                          # axis not rendered → skip building choices
+      req(active())
       prefer  <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       cur     <- isolate(input$species)
       updateSelectizeInput(session, "species", choices = ik_species_choices_full(ik_data, prefer),

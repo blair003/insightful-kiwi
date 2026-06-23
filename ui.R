@@ -41,8 +41,12 @@ ui <- page_navbar(
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
                                   period_default = .bait_period_def)),
     conditionalPanel("input.nav === 'trap-review'",
-                     selection_ui("trap_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = .trap_period_def)),
+                     # Period drives only the "By trapline" tab; the "Over time" trend ignores it, so the
+                     # Period control hides on that tab. Reserve stays on both (the trend is reserve-scoped).
+                     conditionalPanel("input['trapping-trap_view'] !== 'Over time'",
+                       selection_ui("trap_selection", show = c("period"), ik_data = ik_data,
+                                    period_default = .trap_period_def)),
+                     selection_ui("trap_selection", show = c("reserve"), ik_data = ik_data)),
     conditionalPanel("input.nav === 'coverage'",
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = "all")),

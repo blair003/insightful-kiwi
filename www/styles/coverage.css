@@ -16,6 +16,8 @@
 
 /* Coverage-gap table */
 .ik-cov-gaps { margin-top: 1rem; }
+.ik-cov-gaps-head { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+.ik-cov-gaps-head .shiny-input-container { margin-bottom: 0; }
 .ik-cov-gaps-title { margin-bottom: 0.2rem; }
 .ik-cov-gaps-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; max-width: 64rem; margin-bottom: 0.5rem; }
 .ik-gap-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.7rem; color: #fff;

@@ -103,6 +103,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     }, ignoreInit = TRUE)
 
     # readable label for the selected period value (e.g. "year:2025" → "2025/26 (whole year)")
+    pc <- ik_period_choices(ik_data)                    # period choice groups (label → encoded value)
     period_label <- function(val) {
       for (i in seq_along(pc)) {
         m <- match(val, pc[[i]]); if (is.na(m)) next

@@ -108,8 +108,19 @@ ik_deployments <- function(ik_data, dataset = NULL) {
 #'   `locationID` is the canonical key into `app$geography$locations` (= `location_id`).
 #' @return Observations tibble with provenance (+ location) columns.
 ik_observations <- function(ik_data, dataset = NULL, with_location = TRUE) {
-  ids <- ik_dataset_ids(ik_data, dataset)
-  dplyr::bind_rows(lapply(ids, function(id) {
+  ids <- ik_dataset_ids(ik_data, dataset)   # reads ik_active_datasets() → keeps the reactive dependency
+  # Memo within a Shiny SESSION: the Overview resolves the selection ~7×/render, each rebuilding this
+  # (extract → location join → localize → tag). The result is pure given (ids, with_location) and the
+  # package data is immutable per process, so cache it on the session (key includes ids, so a Settings
+  # toggle yields a fresh key). No session (build / headless) → always compute fresh.
+  dom <- shiny::getDefaultReactiveDomain()
+  key <- paste0(paste(sort(ids), collapse = ","), "|", with_location)
+  if (!is.null(dom)) {
+    cache <- dom$userData$.ik_obs_cache %||% new.env(parent = emptyenv())
+    dom$userData$.ik_obs_cache <- cache
+    hit <- cache[[key]]; if (!is.null(hit)) return(hit)
+  }
+  res <- dplyr::bind_rows(lapply(ids, function(id) {
     ds  <- ik_data$datasets[[id]]
     obs <- camtrapdp::observations(ds$package)
     if (with_location) {
@@ -121,6 +132,8 @@ ik_observations <- function(ik_data, dataset = NULL, with_location = TRUE) {
     obs <- ik_localize_times(obs, ds$meta, c("eventStart", "eventEnd"))
     ik_tag_provenance(obs, id, ds)
   }))
+  if (!is.null(dom)) cache[[key]] <- res
+  res
 }
 
 #' One observation by id, enriched with its deployment + geography context.

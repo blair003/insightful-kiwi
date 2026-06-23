@@ -37,7 +37,7 @@ duplicates_ui <- function(id) {
 duplicates_server <- function(id, ik_data, color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
-    gaps    <- ik_duplicate_gaps(ik_data)            # static (all camera data); compute once
+    gaps    <- ik_data$app$duplicate_gaps            # static (all camera data); precomputed at build
     sg         <- ik_species_groups(ik_data)
     target_sci <- unlist(ik_taxa_groups(sg, "monitor", "target"), use.names = FALSE)   # match by sci (robust)
     target_lab <- { l <- unique(sg$label[!is.na(sg$monitor) & sg$monitor == "target"]); if (length(l)) paste(l, collapse = " · ") else "—" }

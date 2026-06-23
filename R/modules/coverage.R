@@ -28,9 +28,7 @@ coverage_ui <- function(id) {
           "ringed by purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
         div(class = "ik-cov-controls",
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "230px"),
-            selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "230px"),
-            selectInput(ns("radius"), "Gap radius", width = "120px",
-                        choices = c("250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 500)),
+            selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "230px")),
         uiOutput(ns("caption")),
         leaflet::leafletOutput(ns("map"), height = "62vh"),
         div(class = "ik-cov-density",
@@ -40,7 +38,10 @@ coverage_ui <- function(id) {
               "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
             DT::DTOutput(ns("density"))),
         div(class = "ik-cov-gaps",
-            tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
+            div(class = "ik-cov-gaps-head",
+                tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
+                selectInput(ns("radius"), "Gap radius", width = "120px",  # drives THIS table (not the map)
+                            choices = c("250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 500)),
             tags$p(class = "ik-cov-gaps-lead",
               "Protected hotspots ranked worst-first by how well predator control reaches them, ",
               "within the ", tags$b("gap radius"), ". ", tags$b("No trapping"), " = no traps running nearby; ",
@@ -54,7 +55,8 @@ coverage_ui <- function(id) {
 #' @param id Module id. @param ik_data The container. @param prefer_scientific reactive name pref.
 #' @param selection reactive selection SPEC (Period + Reserve from sidebar). @param color_mode theme.
 coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
-                            selection = reactive(list()), color_mode = reactive("light")) {
+                            selection = reactive(list()), color_mode = reactive("light"),
+                            active = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
     sg <- ik_species_groups(ik_data)
@@ -78,11 +80,11 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     pred_lab <- reactive({ v <- input$pred; if (!length(v)) "predator"  else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
 
     .pts <- function(m) if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE]
-    cam_prot <- reactive({ if (!length(prot_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = prot_sci()), "camera", norm = per_cam)) })
-    cam_pred <- reactive({ if (!length(pred_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = pred_sci()), "camera", norm = per_cam)) })
-    trap_pred <- reactive({ if (!length(pred_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = pred_sci()), "trap")) })
+    cam_prot <- reactive({ req(active()); if (!length(prot_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = prot_sci()), "camera", norm = per_cam)) })
+    cam_pred <- reactive({ req(active()); if (!length(pred_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = pred_sci()), "camera", norm = per_cam)) })
+    trap_pred <- reactive({ req(active()); if (!length(pred_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = pred_sci()), "trap")) })
     # checks per trap in the period (check-date) — the servicing-effort number, distinct from trap-days
-    trap_checks <- reactive({
+    trap_checks <- reactive({ req(active())
       dp <- ik_deployment_period(ik_data); dp <- dp[!is.na(dp$source_type) & dp$source_type == "trap", , drop = FALSE]
       seas <- .ik_nz(selection()$season); if (!is.null(seas)) dp <- .trap_in_period(ik_data, dp, seas)
       table(dp$locationID)
@@ -100,7 +102,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
       m <- leaflet::addProviderTiles(m, canvas, group = "Map")
       m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("traps", "catches", "predators", "protected")
+      pns <- c("traps", "catches", "protected", "predators")   # predators on TOP (drawn as a ring)
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
         overlayGroups = c("Protected", "Predators", "Catches", "Traps"),
@@ -109,7 +111,6 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
     })
-    outputOptions(output, "map", suspendWhenHidden = FALSE)
 
     observeEvent(color_mode(), {
       p <- proxy(); leaflet::clearGroup(p, "Map")
@@ -140,8 +141,10 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       p <- proxy(); leaflet::clearGroup(p, "Predators")
       d <- cam_pred(); d <- if (is.null(d)) NULL else d[is.finite(d$metric) & d$metric > 0, , drop = FALSE]
       if (is.null(d) || !nrow(d)) return()
+      # drawn as a hollow RING on the top pane (+2px), so when toggled on it sits over the protected
+      # dots without hiding them — green fill shows through a red ring where both are present.
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Predators",
-        radius = .radius(d$metric, 6, 22), fillColor = "#c62828", fillOpacity = 0.8, stroke = TRUE, color = "#ffffff", weight = 1,
+        radius = .radius(d$metric, 6, 22) + 2, fill = FALSE, stroke = TRUE, color = "#c62828", weight = 2.5, opacity = 0.95,
         popup = ~sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>%s: %.2f</b> / %s ch<br/>%d detections",
                          name, ifelse(is.na(line), "—", line), reserve, pred_lab(), metric, format(per_cam, big.mark = ","), as.integer(individuals)),
         options = leaflet::pathOptions(pane = "predators"))

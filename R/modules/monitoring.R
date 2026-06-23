@@ -38,11 +38,15 @@ monitoring_ui <- function(id) {
 #' Monitoring server.
 #' @param id      Module id.
 #' @param ik_data The ik_data container.
-monitoring_server <- function(id, ik_data) {
+#' @param prefer_scientific Reactive returning TRUE to label species scientifically (record drill).
+monitoring_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    g  <- ik_monitoring_review(ik_data)            # static (from the cache); compute once
+    g  <- ik_data$app$monitoring_review            # static; precomputed at build (was ~1.4s per session)
     by_cell <- if (!is.null(g)) split(g, paste(g$location, g$season)) else list()
+    prefer   <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
+    cell_obs <- reactiveVal(NULL)   # animal detections behind the clicked cell's count
+    rec_obs  <- reactiveVal(NULL)   # observationID open in the Record details tab
 
     output$intro <- renderUI({
       counts <- if (is.null(g)) integer(0) else
@@ -90,7 +94,9 @@ monitoring_server <- function(id, ik_data) {
                  tags$thead(header), tags$tbody(body))
     })
 
-    # Cell click → the deployment detail for that location & season.
+    # Cell click → a tabbed modal: the deployment detail, the animal detections behind the cell's
+    # count, and (on row click) the full record viewer — the standard count → Records → Record
+    # details drill, each stage with a back link.
     observeEvent(input$cell, {
       d   <- input$cell
       row <- by_cell[[paste(d$location, d$season)]]
@@ -100,25 +106,62 @@ monitoring_server <- function(id, ik_data) {
         tags$tr(tags$td(class = "mon-k", k), tags$td(v))
       }
       fdate <- function(x) if (is.finite(as.numeric(x))) format(x, "%d %b %Y") else "—"
+      detail <- tags$table(class = "mon-detail",
+        kv("Reserve", row$reserve),
+        kv("Line", row$line),
+        kv("Issue", tags$span(class = paste0("mon-badge mon-", row$severity), row$issue)),
+        kv("Deployed", sprintf("%s – %s", fdate(row$dep_start), fdate(row$dep_end))),
+        kv("Deployments", .ov_num(row$n_deployments)),
+        kv("Effort", sprintf("%s camera-days (%s hrs)",
+                             .ov_num(round(row$effort_hours / 24)), .ov_num(round(row$effort_hours)))),
+        kv("Triggers (events)", .ov_num(row$n_events)),
+        kv("Animal detections", .ov_num(row$n_animal)),
+        kv("Blanks", sprintf("%s (%.0f%%)", .ov_num(row$n_blank), 100 * (row$blank_frac %||% 0))),
+        kv("Triggers / day", sprintf("%.1f", row$events_per_day %||% 0)),
+        kv("Last trigger", fdate(row$last_trigger)),
+        kv("Set up by", row$setup_by),
+        kv("Comments", row$comments))
+      # the records behind the cell number = this location's animal detections that season
+      o <- ik_select(ik_data, season = row$season, location = row$location, source_type = "camera")$observations
+      o <- o[!is.na(o$observationType) & o$observationType == "animal", , drop = FALSE]
+      o <- o[order(o$eventStart, decreasing = TRUE), , drop = FALSE]
+      cell_obs(o); rec_obs(NULL)
       showModal(modalDialog(
         title = .ik_modal_title(sprintf("%s · %s", row$name, row$season),
                                 paste("Deployment", row$deployment_id)),
-        tags$table(class = "mon-detail",
-          kv("Reserve", row$reserve),
-          kv("Line", row$line),
-          kv("Issue", tags$span(class = paste0("mon-badge mon-", row$severity), row$issue)),
-          kv("Deployed", sprintf("%s – %s", fdate(row$dep_start), fdate(row$dep_end))),
-          kv("Deployments", .ov_num(row$n_deployments)),
-          kv("Effort", sprintf("%s camera-days (%s hrs)",
-                               .ov_num(round(row$effort_hours / 24)), .ov_num(round(row$effort_hours)))),
-          kv("Triggers (events)", .ov_num(row$n_events)),
-          kv("Animal detections", .ov_num(row$n_animal)),
-          kv("Blanks", sprintf("%s (%.0f%%)", .ov_num(row$n_blank), 100 * (row$blank_frac %||% 0))),
-          kv("Triggers / day", sprintf("%.1f", row$events_per_day %||% 0)),
-          kv("Last trigger", fdate(row$last_trigger)),
-          kv("Set up by", row$setup_by),
-          kv("Comments", row$comments)),
-        easyClose = TRUE, size = "m", footer = modalButton("Close")))
+        tabsetPanel(id = ns("cell_tabs"),
+          tabPanel("Deployment",     icon = icon("video"),       detail),
+          tabPanel("Records",        icon = icon("list"),        DT::dataTableOutput(ns("cell_table"))),
+          tabPanel("Record details", icon = icon("circle-info"), uiOutput(ns("cell_record")))),
+        easyClose = TRUE, size = "l", footer = modalButton("Close")))
+      hideTab(session = session, inputId = "cell_tabs", target = "Record details")   # appears on row click
+    })
+
+    output$cell_table <- DT::renderDT({
+      o <- cell_obs(); validate(need(!is.null(o) && nrow(o), "No animal detections in this deployment."))
+      p <- prefer()
+      has_t    <- format(o$eventStart, "%H:%M:%S") != "00:00:00"
+      when_lab <- ifelse(has_t, format(o$eventStart, "%Y-%m-%d %H:%M"), format(o$eventStart, "%Y-%m-%d"))
+      df <- data.frame(When = when_lab, Species = ik_species_label(o$scientificName, ik_data, p),
+        Count = o$count, .obs = o$observationID, check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
+          columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1L))))
+    })
+    observeEvent(input$cell_table_rows_selected, {
+      i <- input$cell_table_rows_selected; o <- cell_obs()
+      if (length(i) && !is.null(o) && i <= nrow(o)) {
+        rec_obs(o$observationID[i]); showTab(session = session, inputId = "cell_tabs", target = "Record details", select = TRUE)
+      }
+      DT::selectRows(DT::dataTableProxy("cell_table"), NULL)
+    })
+    observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
+    output$cell_record <- renderUI({
+      if (is.null(rec_obs())) return(tags$p(class = "mon-lead", "Pick a record from the Records tab."))
+      ob <- ik_observation(ik_data, rec_obs()); if (is.null(ob)) return(tags$p("Record not found."))
+      tagList(.ik_tab_back(ns("tab_back"), "cell_tabs", "Records", "Back to records"),
+              .ovw_title(ik_data, ob, prefer()),
+              .ovw_tabs(ik_data, ob, prefer(), tabset_id = ns("cell_subtabs")))
     })
   })
 }

@@ -10,10 +10,20 @@ trapping_ui <- function(id) {
     tags$link(rel = "stylesheet", type = "text/css", href = "styles/trapping.css"),
     div(class = "ik-trapping",
         tags$h5("Trap check-frequency review", class = "ik-review-head"),
-        # Two tabs keep the cross-period TREND apart from the current-period management DETAIL — the
-        # trend ignores Period, the table is Period-driven, so they don't belong on one page together.
+        # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
+        # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
+        # "By trapline" leads (default): it's the day-to-day management view and the quicker to load;
+        # "Over time" is the longer-horizon trend.
         tabsetPanel(
           id = ns("trap_view"),
+          tabPanel(
+            "By trapline", icon = icon("table-list"),
+            div(class = "trap-controls",
+                checkboxGroupInput(ns("show_extra"), "Also show (otherwise active traps only)", inline = TRUE,
+                  choices = c("Dormant (6 mo+)" = "dormant", "Historic (12 mo+)" = "historic"),
+                  selected = "dormant")),
+            uiOutput(ns("intro")),
+            div(class = "ik-trapping-scroll", uiOutput(ns("table")))),
           tabPanel(
             "Over time", icon = icon("chart-line"),
             div(class = "trap-timeline",
@@ -22,25 +32,19 @@ trapping_ui <- function(id) {
                     radioButtons(ns("grain"), NULL, inline = TRUE,
                                  choices = c("By season" = "season", "By year" = "year"), selected = "season")),
                 uiOutput(ns("timeline_note")),
-                plotOutput(ns("timeline"), height = "360px"))),
-          tabPanel(
-            "By trapline", icon = icon("table-list"),
-            div(class = "trap-controls",
-                checkboxGroupInput(ns("show_extra"), "Also show (otherwise active traps only)", inline = TRUE,
-                  choices = c("Dormant (6 mo+)" = "dormant", "Historic (12 mo+)" = "historic"),
-                  selected = "dormant")),
-            uiOutput(ns("intro")),
-            div(class = "ik-trapping-scroll", uiOutput(ns("table"))))))
+                plotOutput(ns("timeline"), height = "620px")))))
   )
 }
 
 #' Trapping review server. @param id Module id. @param ik_data The ik_data container.
 #' @param selection Reactive selection SPEC (Period + Reserve from the sidebar).
 #' @param color_mode Reactive theme ("light"/"dark") for the timeline plot.
-trapping_server <- function(id, ik_data, selection, color_mode = reactive("light")) {
+trapping_server <- function(id, ik_data, selection, color_mode = reactive("light"),
+                            prefer_scientific = reactive(FALSE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     is_dark <- reactive(identical(color_mode(), "dark"))
+    prefer  <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
 
     # Status cell text: cadence "X d" for good/watch/neglected; sparse → check count; else the tier name.
     .iv <- function(status, mean, n) {
@@ -95,7 +99,9 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       per <- review()$all                       # counts over ALL traps (so hidden tiers still show a count)
       if (is.null(per)) return(tags$p("No trap checks in this period."))
       st <- table(factor(per$status, c("good", "watch", "neglected", "insufficient_data", "dormant", "historic")))
-      h  <- ik_trap_health_cutoffs(ik_data)     # per-dataset cutoffs, averaged over the active datasets
+      # Legend cutoffs scoped to the dataset(s) actually IN VIEW (a Reserve usually narrows to one
+      # dataset → the legend shows that dataset's exact cadence cutoff, not a blend across all active).
+      h  <- ik_trap_health_cutoffs(ik_data, datasets = unique(per$dataset))
       gm <- round(max(h$good_max  %||% TRAP_GOOD_INTERVAL_DAYS, h$floor   %||% 0))
       wm <- round(min(h$watch_max %||% TRAP_WATCH_INTERVAL_DAYS, h$ceiling %||% Inf))
       leg <- function(cls, lab, n) tags$span(class = "trap-legend-item",
@@ -143,9 +149,11 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       tags$table(class = "ik-trapping-table", tags$thead(hdr), tags$tbody(body))
     })
 
-    # Line → a two-tab modal: a per-trap summary ("Traps"), and the individual checks of a
-    # clicked trap ("Trap detail"). Tabs mean you can go back to the summary without reopening.
+    # Line → a three-tab modal: a per-trap summary ("Traps"), the individual checks of a clicked
+    # trap ("Trap detail"), and the full record viewer for a clicked check ("Record"). Tabs +
+    # back-links let you climb back up the drill without reopening.
     sel_trap <- reactiveVal(NULL)
+    rec_obs  <- reactiveVal(NULL)   # observationID open in the Record tab (a check IS an observation)
 
     .summary_table <- function(t) tags$table(class = "trap-detail",
       tags$thead(tags$tr(tags$th("Trap"), tags$th("Checks"), tags$th("Mean interval"),
@@ -165,7 +173,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       per <- review()$per
       t   <- per[per$reserve == d$reserve & per$line == d$line, , drop = FALSE]
       t   <- t[order(-t$mean_interval_days), , drop = FALSE]
-      sel_trap(NULL)
+      sel_trap(NULL); rec_obs(NULL)
       showModal(modalDialog(
         title = sprintf("%s · Line %s — %d traps", d$reserve, d$line, nrow(t)),
         tabsetPanel(
@@ -173,13 +181,20 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
           tabPanel("Traps",
             tags$p(class = "trap-lead", "Click a trap to see its individual checks this period."),
             .summary_table(t)),
-          tabPanel("Trap detail", uiOutput(ns("trap_detail")))),
+          tabPanel("Trap detail", uiOutput(ns("trap_detail"))),
+          tabPanel("Record",      uiOutput(ns("check_record")))),
         easyClose = TRUE, size = "l", footer = modalButton("Close")))
     })
 
     observeEvent(input$trap, {
-      sel_trap(input$trap)
+      sel_trap(input$trap); rec_obs(NULL)
       updateTabsetPanel(session, "line_tabs", selected = "Trap detail")
+    })
+
+    # Check row → its full observation record (a trap check is exactly one observation).
+    observeEvent(input$check, {
+      rec_obs(input$check$obs)
+      updateTabsetPanel(session, "line_tabs", selected = "Record")
     })
 
     observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
@@ -191,17 +206,30 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       dash <- function(x) if (length(x) == 0 || is.na(x) || !nzchar(x)) "—" else x
       tagList(
         .ik_tab_back(ns("tab_back"), "line_tabs", "Traps", "Back to traps"),
-        tags$p(class = "trap-lead", sprintf("Trap %s — %d checks this period (newest first).",
+        tags$p(class = "trap-lead", sprintf("Trap %s — %d checks this period (newest first). Click a check for its full record.",
                                             tr$name, if (is.null(ch)) 0 else nrow(ch))),
         if (is.null(ch)) tags$p("No checks this period.") else tags$table(class = "trap-detail",
           tags$thead(tags$tr(tags$th("Check date"), tags$th("Interval"), tags$th("Outcome"),
                              tags$th("Bait"), tags$th("Volunteer"))),
           tags$tbody(lapply(seq_len(nrow(ch)), function(i) tags$tr(
+            class = "trap-click",
+            onclick = sprintf("Shiny.setInputValue('%s',{obs:'%s'},{priority:'event'})",
+                              ns("check"), ch$observationID[i]),
             tags$td(format(ch$check_date[i], "%d %b %Y")),
             tags$td(if (isTRUE(ch$is_first[i])) tags$em("first record") else sprintf("%d d", ch$interval_days[i])),
             tags$td(ch$outcome[i]),
             tags$td(dash(ch$bait[i])),
             tags$td(dash(ch$volunteer[i])))))))
+    })
+
+    # Record tab — the full observation viewer for the clicked check, with a back link to the checks.
+    output$check_record <- renderUI({
+      if (is.null(rec_obs())) return(tags$p(class = "trap-lead", "Select a check from the Trap detail tab."))
+      ob <- ik_observation(ik_data, rec_obs()); if (is.null(ob)) return(tags$p("Record not found."))
+      tagList(
+        .ik_tab_back(ns("tab_back"), "line_tabs", "Trap detail", "Back to checks"),
+        .ovw_title(ik_data, ob, prefer()),
+        .ovw_tabs(ik_data, ob, prefer(), tabset_id = ns("trap_subtabs")))
     })
   })
 }

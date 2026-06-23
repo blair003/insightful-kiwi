@@ -59,5 +59,9 @@ build_ik_data <- function(config, manifest = load_manifest(config),
   ik_data$meta$trapping$health_by_dataset <- stats::setNames(
     lapply(names(ik_data$datasets), function(id) ik_trap_health_thresholds(ik_data, pcts, dataset = id)),
     names(ik_data$datasets))
+  # Static all-data quality snapshots — precomputed here so they're cached in the RDS, not recomputed
+  # (~1.2-1.4s each) at every session's module init, which was blocking the startup / overview load.
+  ik_data$app$duplicate_gaps    <- ik_duplicate_gaps(ik_data)     # camera possible-duplicate gaps
+  ik_data$app$monitoring_review <- ik_monitoring_review(ik_data)  # camera deployment review
   ik_data
 }
