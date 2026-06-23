@@ -37,7 +37,7 @@ build_ik_data <- function(config, manifest = load_manifest(config),
       camera     = project$camera   %||% list(rai = list(norm_hours = 2000, use_net = TRUE)),
       trapping   = project$trapping %||% list(rate = list(norm_trap_days = 100), season_by = "check_date"),
       overview   = project$overview %||% list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
-                                              default_compare = "none"),
+                                              default_compare = "none", default_period = "latest_complete"),
       proximity  = project$proximity %||% list(max_radius_m = 2000),   # neighbourhood radius (app$proximity)
       media      = project$media    %||% list(keep_originals = TRUE)
     )

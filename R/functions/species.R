@@ -17,7 +17,7 @@ load_project_config <- function(config) {
                                                  floor = 14, ceiling = 60),
                                    season_by = "check_date"),
                    overview = list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
-                                   default_compare = "none"),
+                                   default_compare = "none", default_period = "latest_complete"),
                    proximity = list(max_radius_m = 2000),
                    media    = list(keep_originals = TRUE))
   if (!file.exists(path)) return(defaults)

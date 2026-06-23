@@ -8,7 +8,7 @@
 # tracks the manifest + package DATA files + the CONVERSION code (R/functions/import) — but
 # NOT the rest of the build code, so bump this (or run with IK_REBUILD=1) when you edit a
 # builder outside import/ and want the cache rebuilt.
-IK_CACHE_VERSION <- 34L   # v34: relations date-only honours dataset temporal_resolution (not just timestampIssues)
+IK_CACHE_VERSION <- 35L   # v35: meta$overview$default_period (project-configurable default period)
 
 #' Fingerprint the import inputs (manifest + package files + conversion code).
 #'

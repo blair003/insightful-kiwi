@@ -275,23 +275,23 @@ ik_period_choices <- function(ik_data) {
       if (k >= 2) quick[sprintf("All %ss (%d)", tolower(nm), k)] <- paste0("seasonall:", nm)
     }
   }
-  base <- list("All data" = "all")
-  if (length(quick)) base[["Quick periods"]] <- quick
-  c(base, groups)
+  quick["All data"] <- "all"                            # the catch-all sits at the END of the shortcuts
+  c(list("Quick periods" = quick), groups)
 }
 
-#' The default Period selection (an `ik_period_choices()` value) for a fresh control: the
-#' latest season WITH CAMERA (monitoring) data — trapping runs later into the current season
-#' (e.g. Winter 2026) where there's little/no camera yet, and the camera RAI is the headline.
-#' Falls back to the latest season overall, then "all". Computed at UI-build time so the control
-#' renders already pointing here — there's no empty → "all data" → season double-load.
+#' The default Period selection (an `ik_period_choices()` value) for a fresh control. Defaults to the
+#' "Latest full season" shortcut (`latest_complete`) — the most recent fully-elapsed season, which has
+#' the complete picture for both devices (the in-progress season at the data's edge is partial). A
+#' project can override it via `project.R` `overview$default_period` (any encoded value, e.g.
+#' `"latest"`, `"rolling12"`, `"season:Autumn 2026"`, `"all"`). Being a shortcut, the default tracks
+#' the active datasets automatically. Falls back if the configured value can't resolve.
 #' @param ik_data The ik_data container.
-#' @return An encoded period value: `"season:<label>"`, or `"all"` if no seasons exist.
+#' @return An encoded period value (defaults to `"latest_complete"`; `"all"` if no seasons exist).
 ik_default_period <- function(ik_data) {
-  dp  <- ik_deployment_period(ik_data)
-  cam <- ik_season_levels(dp[!is.na(dp$source_type) & dp$source_type == "camera", , drop = FALSE])
-  if (length(cam)) return(paste0("season:", cam[length(cam)]))
-  seasons <- ik_season_levels(dp)
+  cfg <- (ik_data$meta$overview %||% list())$default_period %||% "latest_complete"
+  if (identical(cfg, "all") || length(ik_expand_period(cfg, ik_data))) return(cfg)   # configured + resolves
+  if (length(ik_expand_period("latest_complete", ik_data))) return("latest_complete")
+  seasons <- ik_season_levels(ik_deployment_period(ik_data))
   if (length(seasons)) paste0("season:", seasons[length(seasons)]) else "all"
 }
 

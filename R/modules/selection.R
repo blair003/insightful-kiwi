@@ -79,9 +79,19 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, sp
     group_map   <- ik_group_taxa(ik_data)   # label -> sci, for resolving the unified Species picker
     shows <- function(axis) is.null(show) || axis %in% show   # NULL = all axes (selection_ui default)
 
-    # Period choices + default season are rendered in the UI (selection_ui), so the control
-    # loads already pointing at the default and never round-trips through an empty → "all data"
-    # state (which would resolve the view twice on first load). See ik_default_period().
+    # Period choices + default season are rendered in the UI (selection_ui), so the control loads
+    # already pointing at the default and never round-trips through an empty → "all data" state on
+    # first load. But the choices must then TRACK the active datasets (global Settings toggle), exactly
+    # like the reserve/line pickers — a hidden dataset's seasons drop out. Skip the init fire (the UI
+    # baked them); on a later toggle keep the current pick if it's still valid, else reset to default.
+    observeEvent(ik_active_datasets(), {
+      if (!shows("period")) return()
+      choices <- ik_period_choices(ik_data)
+      cur  <- isolate(input$period)
+      sel  <- if (!is.null(cur) && cur %in% unlist(choices, use.names = FALSE)) cur else ik_default_period(ik_data)
+      updateSelectInput(session, "period", choices = choices, selected = sel)
+    }, ignoreInit = TRUE)
+
     observe({                                                  # reserve choices = active datasets' reserves
       rv <- sort(unique(active_locs()$reserve[!is.na(active_locs()$reserve)]))
       updateSelectizeInput(session, "reserve", choices = rv,
