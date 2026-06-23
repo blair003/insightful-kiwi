@@ -282,7 +282,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     })
     observe({                                                   # Boundary — monitored footprint (convex hull) per reserve
       p <- proxy(); leaflet::clearGroup(p, "Boundary"); req(active())
-      locs <- ik_data$app$geography$locations
+      locs <- ik_active_locations(ik_data)                      # active datasets only → no hidden reserves
       locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
       rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) locs <- locs[locs$reserve %in% rsv, , drop = FALSE]
       h <- ik_selection_hulls(locs, "reserve"); if (is.null(h) || !nrow(h)) return()
@@ -336,7 +336,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     .line_traps <- function(reserve, line) {
       nbr <- .nbhd_resolve(ik_data, "line", paste(reserve, line, sep = "|"), as.numeric(input$radius %||% 500))
       if (is.null(nbr) || !length(nbr$trap_locs)) return(NULL)
-      locs <- ik_data$app$geography$locations
+      locs <- ik_active_locations(ik_data)                      # nbr$trap_locs already active via .nbhd_locations
       d <- locs[locs$location_id %in% nbr$trap_locs & is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
       if (!nrow(d)) return(NULL)
       sv <- ik_trap_review(ik_data, seasons = .ik_nz(selection()$season))
@@ -426,6 +426,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     # ---- per-reserve network density (structural coverage — is it dense enough?) ----
     output$density <- DT::renderDT({
       cov <- ik_coverage(ik_data); validate(need(!is.null(cov) && nrow(cov), "No coverage stats."))
+      areserves <- unique(ik_active_locations(ik_data)$reserve)  # pre-built table spans all datasets — scope it
+      cov <- cov[cov$reserve %in% areserves, , drop = FALSE]
       rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) cov <- cov[cov$reserve %in% rsv, , drop = FALSE]
       validate(need(nrow(cov), "No reserves in this selection."))
       df <- data.frame(Reserve = cov$reserve,

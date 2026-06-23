@@ -15,7 +15,7 @@
 #   consistent with the app-wide season anchoring.
 
 .nbhd_locations <- function(ik_data) {
-  loc <- ik_data$app$geography$locations
+  loc <- ik_active_locations(ik_data)   # scope to active datasets → neighbourhood/coverage hide unticked
   st  <- vapply(ik_data$datasets, function(d) d$meta$source_type %||% NA_character_, character(1))
   loc$source_type <- unname(st[loc$dataset])
   loc

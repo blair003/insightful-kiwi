@@ -28,6 +28,14 @@ ik_active_filter <- function(df) {
   df[df$dataset %in% active, , drop = FALSE]
 }
 
+#' The canonical locations table SCOPED to the active datasets — use this (not the raw
+#' `ik_data$app$geography$locations`) anywhere a view ENUMERATES places (reserve/line/location
+#' choices, boundary hulls, density, the project header), so a hidden dataset's reserves/lines/sites
+#' don't leak in. Reactive-aware (a toggle re-runs the view); returns all locations outside a session
+#' (build / headless). Computed metrics already scope via ik_resolve(), so this is for the place
+#' UNIVERSE only. @keywords internal
+ik_active_locations <- function(ik_data) ik_active_filter(ik_data$app$geography$locations)
+
 #' Dataset ids to operate on — an explicit one (or vector), else the session's ACTIVE set (the
 #' global toggle), else all. An explicit `dataset` OVERRIDES the toggle (so a view can be
 #' independent of it, e.g. Records). @keywords internal

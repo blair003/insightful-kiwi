@@ -138,6 +138,12 @@ trapping_effectiveness_server <- function(id, ik_data, prefer_scientific = react
     ctl <- ik_taxa_groups(sg, "control", "target")
     taxa_r    <- reactive({ v <- input$species %||% "__all__"; if (identical(v, "__all__")) NULL else ik_resolve_species_choice(v, ctl) })
     reserve_r <- reactive({ v <- input$reserve %||% "__all__"; if (identical(v, "__all__")) NULL else v })
+    observe({                                                  # Reserve choices follow the active datasets
+      ar <- sort(unique(ik_active_locations(ik_data)$reserve[!is.na(ik_active_locations(ik_data)$reserve)]))
+      ch <- c("All reserves" = "__all__", stats::setNames(ar, ar))
+      updateSelectInput(session, "reserve", choices = ch,
+        selected = if ((isolate(input$reserve) %||% "__all__") %in% ch) isolate(input$reserve) else "__all__")
+    })
 
     data <- reactive(ik_trap_effectiveness(ik_data, taxa_r(), reserve_r())) |>
       bindCache(input$species, input$reserve, ik_active_datasets())

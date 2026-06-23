@@ -73,15 +73,20 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
 selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, species_default = NULL,
                              show = NULL, active = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
-    locs        <- ik_data$app$geography$locations
-    reserves    <- sort(unique(locs$reserve[!is.na(locs$reserve)]))
+    # Geography UNIVERSE follows the active datasets (global Settings toggle), so a hidden dataset's
+    # reserves / lines / sites never appear in the pickers — reactive, re-fires when you save the toggle.
+    active_locs <- reactive(ik_active_locations(ik_data))
     group_map   <- ik_group_taxa(ik_data)   # label -> sci, for resolving the unified Species picker
     shows <- function(axis) is.null(show) || axis %in% show   # NULL = all axes (selection_ui default)
 
     # Period choices + default season are rendered in the UI (selection_ui), so the control
     # loads already pointing at the default and never round-trips through an empty → "all data"
     # state (which would resolve the view twice on first load). See ik_default_period().
-    updateSelectizeInput(session, "reserve", choices = reserves, server = FALSE)
+    observe({                                                  # reserve choices = active datasets' reserves
+      rv <- sort(unique(active_locs()$reserve[!is.na(active_locs()$reserve)]))
+      updateSelectizeInput(session, "reserve", choices = rv,
+                           selected = intersect(isolate(input$reserve), rv), server = FALSE)
+    })
     # device choices + default are baked in the UI (selection_ui) so they survive while the sidebar
     # conditionalPanel is hidden — no server-side device update here.
     # Dataset axis (Records): list only the datasets ACTIVE in the global Settings toggle, so the
@@ -96,7 +101,7 @@ selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, sp
 
     # Locations restricted to the chosen reserve(s) (all when none chosen).
     reserve_locs <- reactive({
-      l <- locs
+      l <- active_locs()
       if (!is.null(.ik_nz(input$reserve))) l <- l[l$reserve %in% input$reserve, , drop = FALSE]
       l
     })

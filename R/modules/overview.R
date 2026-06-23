@@ -568,7 +568,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       # the instance ORGANISATION (project.R) leads; the data sources (dataset names) sit
       # smaller on a second line. Falls back to the dataset/project tags if no org is set.
       org    <- ik_data$meta$organisation
-      dnames <- unique(vapply(ik_data$datasets, function(d) d$meta$name %||% "", character(1)))
+      active <- ik_active_datasets()                            # reactive → header re-runs when the toggle is saved
+      ds     <- if (is.null(active)) ik_data$datasets else ik_data$datasets[intersect(names(ik_data$datasets), active)]
+      dnames <- unique(vapply(ds, function(d) d$meta$name %||% "", character(1)))
       dnames <- dnames[nzchar(dnames)]
       tags$div(
         class = "ik-ov-header",
