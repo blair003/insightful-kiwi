@@ -38,31 +38,15 @@ ik_outcome_taxa <- function(ik_data) {
 
 ik_outcome_series <- function(ik_data) {
   otx <- ik_outcome_taxa(ik_data)
-  cam_taxa  <- otx$cam      # predators + protected on camera (groups + split sub-species)
-  trap_taxa <- otx$trap     # predators in traps
-  role_of   <- otx$role
-
+  role_of <- otx$role
   seasons <- ik_season_levels(ik_deployment_period(ik_data))
   if (!length(seasons)) return(NULL)
-
-  net <- function(summary, mtype, season, order, roles) {     # per-reserve summary → network row(s)
-    if (is.null(summary) || !nrow(summary)) return(NULL)
-    n <- ik_metric_combine(summary)
-    if (!nrow(n)) return(NULL)
-    data.frame(season = season, season_order = order, metric_type = mtype,
-               taxon = n$taxon, role = roles[n$taxon], value = n$metric, se = n$se,
-               n_reserves = n$n_lines, stringsAsFactors = FALSE)
-  }
-
-  rows <- lapply(seq_along(seasons), function(i) {
-    sp  <- list(season = ik_expand_period(paste0("season:", seasons[i]), ik_data))
-    rai  <- tryCatch(ik_rai(ik_data, sp, cam_taxa, level = "reserve")$summary, error = function(e) NULL)
-    rate <- tryCatch(ik_trap_rate(ik_data, sp, trap_taxa, level = "reserve")$summary, error = function(e) NULL)
-    dplyr::bind_rows(
-      net(rai,  "camera_rai", seasons[i], i, role_of),
-      net(rate, "trap_rate",  seasons[i], i, stats::setNames(rep("predator", length(trap_taxa)), names(trap_taxa))))
-  })
-  out <- dplyr::bind_rows(rows)
-  if (!nrow(out)) return(NULL)
-  out
+  periods <- lapply(seq_along(seasons), function(i) list(label = seasons[i], order = i, seasons = seasons[i]))
+  out <- .ik_metric_series(ik_data, periods, otx$cam, otx$trap)   # shared engine (see species.R)
+  if (is.null(out) || !nrow(out)) return(NULL)
+  # role: protected/predator from the camera taxa map; trap captures are always predators
+  out$role <- ifelse(out$metric_type == "trap_rate", "predator", unname(role_of[out$taxon]))
+  data.frame(season = out$period, season_order = out$order, metric_type = out$metric_type,
+             taxon = out$taxon, role = out$role, value = out$value, se = out$se,
+             n_reserves = out$n_reserves, stringsAsFactors = FALSE)
 }

@@ -164,21 +164,35 @@ ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = 
     periods <- periods[order(vapply(periods, `[[`, numeric(1), "order"))]
     for (k in seq_along(periods)) periods[[k]]$order <- k
   }
+  out <- .ik_metric_series(ik_data, periods, taxa, taxa, reserve)
+  if (is.null(out) || !nrow(out)) return(NULL)
+  out$n_reserves <- NULL                                      # species trend doesn't surface it
+  out$period <- factor(out$period, levels = unique(out$period[order(out$order)]))
+  out
+}
+
+#' Per-period network metric series — the shared engine behind `ik_species_trend()` and
+#' `ik_outcome_series()`. For each period (a `label` + `order` + its constituent calendar `seasons`)
+#' compute camera RAI (for `cam_taxa`) and trap catch-rate (for `trap_taxa`), each combined across
+#' reserves to a network mean ± SE. @param periods list of list(label, order, seasons).
+#' @param cam_taxa,trap_taxa named taxa lists (label→sci); pass the same list for both to chart one
+#' species both ways. @param reserve optional reserve filter. @return df: period · order · metric_type
+#' (camera_rai/trap_rate) · taxon · value · se · n_reserves; NULL when empty. @keywords internal
+.ik_metric_series <- function(ik_data, periods, cam_taxa, trap_taxa, reserve = NULL) {
   net <- function(s, mtype, p) {
     if (is.null(s) || !nrow(s)) return(NULL)
     n <- ik_metric_combine(s); if (!nrow(n)) return(NULL)
-    data.frame(period = p$label, order = p$order, metric_type = mtype,
-               taxon = n$taxon, value = n$metric, se = n$se, stringsAsFactors = FALSE)
+    data.frame(period = p$label, order = p$order, metric_type = mtype, taxon = n$taxon,
+               value = n$metric, se = n$se, n_reserves = n$n_lines, stringsAsFactors = FALSE)
   }
   rows <- lapply(periods, function(p) {
     sp   <- list(season = unlist(lapply(p$seasons, function(s) ik_expand_period(paste0("season:", s), ik_data))),
                  reserve = reserve)
-    rai  <- tryCatch(ik_rai(ik_data, sp, taxa, level = "reserve")$summary, error = function(e) NULL)
-    rate <- tryCatch(ik_trap_rate(ik_data, sp, taxa, level = "reserve")$summary, error = function(e) NULL)
+    rai  <- if (length(cam_taxa))  tryCatch(ik_rai(ik_data, sp, cam_taxa, level = "reserve")$summary, error = function(e) NULL) else NULL
+    rate <- if (length(trap_taxa)) tryCatch(ik_trap_rate(ik_data, sp, trap_taxa, level = "reserve")$summary, error = function(e) NULL) else NULL
     dplyr::bind_rows(net(rai, "camera_rai", p), net(rate, "trap_rate", p))
   })
   out <- dplyr::bind_rows(rows); if (!nrow(out)) return(NULL)
-  out$period <- factor(out$period, levels = unique(out$period[order(out$order)]))
   out
 }
 
