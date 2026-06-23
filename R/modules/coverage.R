@@ -160,7 +160,7 @@ coverage_ui <- function(id, ik_data = NULL) {
                             choices = c("250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 500)),
             tags$p(class = "ik-cov-gaps-lead",
               "Protected hotspots ranked worst-first by how well predator control reaches them, ",
-              "within the ", tags$b("gap radius"), ". ", tags$b("No trapping"), " = no traps running nearby; ",
+              "within the ", tags$b("gap radius."), tags$b("No trapping"), " = no traps running nearby; ",
               tags$b("Predators uncaught"), " = predators on camera but none caught nearby; ",
               tags$b("Neglected"), " = nearby traps mostly unserviced."),
             DT::DTOutput(ns("gaps"))))
@@ -218,7 +218,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
       m <- leaflet::addProviderTiles(m, canvas, group = "Map")
       m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("boundary", "traps", "catches", "protected", "predators")   # boundary lowest, predators on TOP
+      pns <- c("boundary", "traps", "catches", "protected", "predators", "highlight")  # boundary lowest; highlight on TOP
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
         overlayGroups = c("Protected", "Predators", "Catches", "Traps", "Boundary"),
@@ -324,6 +324,24 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       ik_coverage_gaps(ik_data, .ik_nz(selection()$season), pred_sci(), prot_sci(),
                        as.numeric(input$radius %||% 500))
     }) |> bindCache(.ik_nz(selection()$season), .ik_nz(selection()$reserve), input$radius, input$pred, input$prot, ik_active_datasets())
+    gaps_shown <- reactiveVal(NULL)   # the gaps rows currently DISPLAYED (filtered/ordered) — for row hover/click
+
+    # The traps reaching a line (within the current gap radius), with their servicing status + catches —
+    # shared by the row drill (modal) and the map hover-highlight, so both show the SAME trap set.
+    .line_traps <- function(reserve, line) {
+      nbr <- .nbhd_resolve(ik_data, "line", paste(reserve, line, sep = "|"), as.numeric(input$radius %||% 500))
+      if (is.null(nbr) || !length(nbr$trap_locs)) return(NULL)
+      locs <- ik_data$app$geography$locations
+      d <- locs[locs$location_id %in% nbr$trap_locs & is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
+      if (!nrow(d)) return(NULL)
+      sv <- ik_trap_review(ik_data, seasons = .ik_nz(selection()$season))
+      if (!is.null(sv)) { mi <- match(d$location_id, sv$location)
+        d$status <- sv$status[mi]; d$n_checks <- sv$n_checks[mi]; d$trap_days <- sv$trap_days[mi]
+      } else { d$status <- NA_character_; d$n_checks <- NA_integer_; d$trap_days <- NA_real_ }
+      tp <- trap_pred(); d$captures <- if (is.null(tp)) 0L else tp$captures[match(d$location_id, tp$location_id)]
+      d$captures[is.na(d$captures)] <- 0L
+      d
+    }
 
     has_camera <- any(vapply(ik_data$datasets, function(d) identical(d$meta$source_type, "camera"), logical(1)))
     output$gaps <- DT::renderDT({
@@ -333,6 +351,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         else "Pick a predator and a protected species."))
       rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) g <- g[g$reserve %in% rsv, , drop = FALSE]
       validate(need(nrow(g), "No camera lines in this reserve."))
+      gaps_shown(g)                                            # remember the displayed order for row hover/click
       lab <- c(no_trapping = "No trapping", predators_uncaught = "Predators uncaught",
                neglected = "Trapping neglected", covered = "Covered", no_protected = "No protected here")
       col <- c(no_trapping = "#c62828", predators_uncaught = "#e8590c",
@@ -347,8 +366,56 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         `Traps/km²` = ifelse(is.na(dens), "—", sprintf("%.0f", dens)),
         Status = badge, check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, container = .cov_gaps_header(per_cam), rownames = FALSE, escape = -ncol(df),
-        selection = "none", class = "stripe hover row-border",
-        options = list(dom = "t", ordering = FALSE, paging = FALSE))   # show every line, no hidden rows
+        selection = "single", class = "stripe hover row-border ik-row-click",
+        # row index drives the drill (click) + map highlight (hover); ordering/paging off so the
+        # display order matches gaps_shown() one-to-one.
+        options = list(dom = "t", ordering = FALSE, paging = FALSE,
+          createdRow = DT::JS(sprintf(
+            "function(row,data,i){row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',i+1,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s',0,{priority:'event'});});}",
+            session$ns("gaps_hover"), session$ns("gaps_hover")))))
+    })
+    gaps_dt_proxy <- DT::dataTableProxy("gaps")
+
+    # Hover a gaps row → highlight that line's neighbourhood traps on the map (bright rings on the top
+    # pane), so you can see WHICH traps the Traps/Caught/Neglected numbers count. 0 / empty → clear.
+    observeEvent(input$gaps_hover, {
+      p <- proxy(); leaflet::clearGroup(p, "GapHighlight")
+      i <- input$gaps_hover; g <- gaps_shown()
+      if (is.null(i) || i < 1 || is.null(g) || i > nrow(g)) return()
+      d <- .line_traps(g$reserve[i], g$line[i]); if (is.null(d) || !nrow(d)) return()
+      col <- if (is_dark()) "#4dabf7" else "#1565c0"
+      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "GapHighlight",
+        radius = 9, fill = FALSE, stroke = TRUE, color = col, weight = 3, opacity = 0.95,
+        options = leaflet::pathOptions(pane = "highlight"))
+    }, ignoreNULL = FALSE)
+
+    # Click a gaps row → the traps reaching that line, in a modal (status · checks · trap-days · caught).
+    observeEvent(input$gaps_rows_selected, {
+      i <- input$gaps_rows_selected; g <- gaps_shown(); req(i, !is.null(g), i <= nrow(g))
+      DT::selectRows(gaps_dt_proxy, NULL)                     # clear so the same row can be re-clicked
+      row <- g[i, , drop = FALSE]
+      d <- .line_traps(row$reserve, row$line)
+      rad <- as.numeric(input$radius %||% 500)
+      rad_lab <- if (rad >= 1000) sprintf("%g km", rad / 1000) else sprintf("%g m", rad)
+      body <- if (is.null(d) || !nrow(d))
+        tags$p(class = "ik-spp-other", "No traps within this radius of the line's cameras.")
+      else {
+        st_lab <- c(good = "Good", watch = "Watch", neglected = "Neglected",
+                    insufficient_data = "Insufficient data", dormant = "Dormant", historic = "Historic")
+        d <- d[order(match(d$status, c("neglected", "watch", "good", "insufficient_data", "dormant", "historic"))), , drop = FALSE]
+        tbl <- data.frame(Trap = d$name, Line = ifelse(is.na(d$line), "—", d$line),
+          Status = ifelse(is.na(d$status), "—", st_lab[d$status] %||% d$status),
+          Checks = ifelse(is.na(d$n_checks), 0L, as.integer(d$n_checks)),
+          `Trap-days` = ifelse(is.na(d$trap_days), 0, round(d$trap_days)),
+          Caught = as.integer(d$captures), check.names = FALSE, stringsAsFactors = FALSE)
+        DT::datatable(tbl, rownames = FALSE, class = "stripe hover row-border",
+          options = list(dom = "tp", pageLength = 15, order = list(list(5, "desc"))))
+      }
+      showModal(modalDialog(
+        title = .ik_modal_title(sprintf("Line %s · %s", row$line, row$reserve),
+                                sprintf("%d trap%s within %s of the line's cameras", if (is.null(d)) 0L else nrow(d),
+                                        if (!is.null(d) && nrow(d) == 1) "" else "s", rad_lab)),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"), body))
     })
 
     # ---- per-reserve network density (structural coverage — is it dense enough?) ----
