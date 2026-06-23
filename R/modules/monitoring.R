@@ -86,15 +86,21 @@ monitoring_ui <- function(id) {
 monitoring_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    g  <- ik_data$app$monitoring_review            # static; precomputed at build (was ~1.4s per session)
-    by_cell <- if (!is.null(g)) split(g, paste(g$location, g$season)) else list()
+    # Precomputed at build for ALL datasets — scope to the ACTIVE datasets (by location) so the grid
+    # hides cells from hidden datasets, reactive on the Settings toggle. (Was a static all-datasets snapshot.)
+    g <- reactive({
+      gg <- ik_data$app$monitoring_review
+      if (is.null(gg) || !nrow(gg)) return(gg)
+      gg[gg$location %in% ik_active_locations(ik_data)$location_id, , drop = FALSE]
+    })
+    by_cell <- reactive(if (!is.null(g()) && nrow(g())) split(g(), paste(g()$location, g()$season)) else list())
     prefer   <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
     cell_obs <- reactiveVal(NULL)   # animal detections behind the clicked cell's count
     rec_obs  <- reactiveVal(NULL)   # observationID open in the Record details tab
 
     output$intro <- renderUI({
-      counts <- if (is.null(g)) integer(0) else
-        table(factor(g$severity, c("ok", "mild", "moderate", "serious", "none")))
+      counts <- if (is.null(g())) integer(0) else
+        table(factor(g()$severity, c("ok", "mild", "moderate", "serious", "none")))
       legend <- function(cls, lab, n) tags$span(class = "mon-legend-item",
         tags$span(class = paste0("mon-swatch mon-", cls)), sprintf("%s (%d)", lab, n))
       tagList(
@@ -111,7 +117,9 @@ monitoring_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) 
     })
 
     output$grid <- renderUI({
-      if (is.null(g)) return(tags$p("No camera deployments to review."))
+      g <- g()
+      if (is.null(g) || !nrow(g)) return(tags$p("No camera deployments to review."))
+      bc   <- by_cell()
       hl   <- input$highlight                                   # severities to keep bright
       seas <- rev(unique(g[order(g$season_order), "season"]))   # most recent first (left)
       loc  <- unique(g[, c("location", "name", "reserve", "line")])
@@ -125,7 +133,7 @@ monitoring_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) 
           tags$tr(
             tags$td(class = "mon-loc", lr$name[i]),
             lapply(seas, function(s) {
-              row <- by_cell[[paste(lr$location[i], s)]]
+              row <- bc[[paste(lr$location[i], s)]]
               sv  <- if (is.null(row)) "none" else row$severity
               dim <- !is.null(hl) && !(sv %in% hl)
               if (is.null(row)) tags$td(class = paste0("mon-cell mon-none", if (dim) " mon-dim"), "")
@@ -143,7 +151,7 @@ monitoring_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) 
     # details drill, each stage with a back link.
     observeEvent(input$cell, {
       d   <- input$cell
-      row <- by_cell[[paste(d$location, d$season)]]
+      row <- by_cell()[[paste(d$location, d$season)]]
       if (is.null(row)) return()
       kv  <- function(k, v) {                                  # drop rows with empty text values
         if (is.character(v) && (length(v) == 0 || is.na(v) || !nzchar(v))) return(NULL)
