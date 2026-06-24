@@ -450,8 +450,16 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # so a hidden surface (species maps default it off) shouldn't pay for it. `input$map_groups` is the
     # leaflet layers-control state; NULL before the client reports → fall back to the default (standalone
     # on, species off). Toggling Surface on updates the input → the interpolation runs (then caches).
-    surface_on <- reactive({ g <- input$map_groups
-      if (is.null(g)) is.null(fixed_species) else "Surface" %in% g })
+    # `input$map_groups` fires on EVERY layer toggle (and once when the client first reports the control
+    # state on load). A plain reactive here would therefore re-invalidate the surface — clearing and
+    # redrawing it (a flicker) — whenever ANY other layer is toggled, or on that first NULL->reported
+    # transition. Hold the answer in a reactiveVal that only updates when the SURFACE membership actually
+    # flips, so unrelated toggles leave the surface untouched.
+    surface_on <- reactiveVal(NULL)
+    observe({
+      v <- { g <- input$map_groups; if (is.null(g)) is.null(fixed_species) else "Surface" %in% g }
+      if (!identical(v, surface_on())) surface_on(v)
+    })
     surface_compute <- reactive({
       if (src() == "trap" && measure() == "servicing") return(NULL)
       d <- rate_loc_pts(); if (is.null(d) || !nrow(d)) return(NULL)
