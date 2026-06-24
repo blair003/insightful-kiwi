@@ -1,0 +1,6 @@
+/* reserve_report.css — "Reserve report": the per-reserve effort→outcome story over time. */
+.ik-rr { padding-top: 0.5rem; }
+.ik-rr-title { margin: 0 0 0.1rem; }
+.ik-rr-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; margin: 0.2rem 0 0.7rem; max-width: 62rem; }
+.ik-rr-controls { display: flex; align-items: end; gap: 1.2rem; flex-wrap: wrap; margin: 0.4rem 0 0.5rem; }
+.ik-rr-note { color: var(--bs-secondary-color, #6c757d); font-size: 0.8rem; font-style: italic; margin: 0.1rem 0 0.4rem; }
