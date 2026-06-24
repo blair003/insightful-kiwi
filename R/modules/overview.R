@@ -95,16 +95,25 @@ overview_trap_help_body <- function(norm = 100) {
 #' Overview nav panel UI.
 #' @param id Module id.
 #' @return A bslib nav_panel for page_navbar().
-overview_ui <- function(id) {
+#' @param sections Which device sections this instance renders ("camera"/"trap"). The per-device
+#'   Overview pages (Monitoring / Trapping menus) pass a single device; the main page passes both.
+#' @param compact When TRUE, render the slim cross-device HEADLINE (one panel: Detections/Catches +
+#'   Species boxes + target-species cards) instead of the full sections — the main Overview page. The
+#'   full effort/by-reserve/other-species detail now lives on each device's own Overview page.
+overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
+                        label = "Overview", value = "overview") {
   ns <- NS(id)
   nav_panel(
-    "Overview", value = "overview", icon = icon("gauge"),
+    label, value = value, icon = icon("gauge"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/overview.css")),
     div(
       class = "ik-overview",
       uiOutput(ns("header")),
-      uiOutput(ns("camera")),
-      uiOutput(ns("trapping"))
+      if (isTRUE(compact)) uiOutput(ns("compact"))
+      else tagList(
+        if ("camera" %in% sections) uiOutput(ns("camera")),
+        if ("trap"   %in% sections) uiOutput(ns("trapping"))
+      )
     )
   )
 }
@@ -481,6 +490,32 @@ overview_ui <- function(id) {
   )
 }
 
+#' One slim device block for the COMPACT main Overview: a small device title, two clickable value
+#' boxes (records + species) and the target-species cards — the cross-device headline. The full
+#' effort/deployments boxes, the by-reserve matrix and the "other species" panel live on the device's
+#' OWN Overview page now. Boxes/cards reuse the same `box_drill`/`drill` modals as the full section.
+#' @keywords internal
+.ov_compact_block <- function(title, kind, record_label, record_value, species_value, cards,
+                              box_drill = NULL) {
+  box <- function(metric_key, label, value, icon_name) {
+    vb <- value_box(label, value, showcase = icon(icon_name))
+    if (is.null(box_drill)) return(vb)
+    div(class = "ov-box-click", title = "Show the underlying records",
+        onclick = sprintf("Shiny.setInputValue('%s',{kind:'%s',metric:'%s'},{priority:'event'})",
+                          box_drill, kind, metric_key),
+        vb)
+  }
+  tags$div(
+    class = paste0("ik-ov-compact-block ik-device-", kind),
+    tags$div(class = "ik-device-title ik-ov-compact-title", title),
+    layout_column_wrap(
+      width = 1/2,
+      box("records", record_label, record_value, "paw"),
+      box("species", "Species",    species_value, "dna")),
+    cards
+  )
+}
+
 #' Empty-state for a device section (no data loaded / nothing in the selection) — keeps the styled
 #' header so the page still reads as two sections. @keywords internal
 .ov_empty_section <- function(title, kind, msg) {
@@ -572,11 +607,13 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     mon_i <- ik_taxa_groups(sg, "monitor", "interesting")   # secondary "of interest" tier
     mon_targets <- c(mon_t, mon_i)                          # camera metric/drill set = target + interesting
     ctl_targets <- .ov_control_card_taxa(ik_data)   # trap cards: EVERY caught species (minus control="hide")
+    ctl_t       <- ik_taxa_groups(sg, "control", "target")  # compact headline shows only control TARGETS
     # desirable change direction: "up" for protected species, "down" for pests/predators.
     desire  <- function(taxa) stats::setNames(
       ifelse(sg$role[match(names(taxa), sg$label)] == "protected", "up", "down"), names(taxa))
-    mon_dir <- desire(mon_targets)
-    ctl_dir <- desire(ctl_targets)
+    mon_dir   <- desire(mon_targets)
+    ctl_dir   <- desire(ctl_targets)
+    ctl_t_dir <- desire(ctl_t)
 
     cam     <- reactive(ik_resolve(ik_data, selection(), source_type = "camera"))
     trp     <- reactive(ik_resolve(ik_data, selection(), source_type = "trap"))
@@ -676,7 +713,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                         if (!is.null(m$prev)) .ov_compare_note(selection()$compare) else "")
       cards  <- .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines), names(ctl_targets),
                                  "trap", ctl_dir, session$ns("drill"), headline = "count",
-                                 rate_unit = " /100 TN", colour = FALSE, digits = 3, min_digits = 2, sg = sg,
+                                 rate_unit = sprintf(" /%s TN", ik_data$meta$trapping$rate$norm_trap_days %||% 100),
+                                 colour = FALSE, digits = 3, min_digits = 2, sg = sg,
                                  sort_by = ik_data$meta$overview$sort_cards_by %||% "value")
       matrix <- if (isTRUE(ik_data$meta$overview$show_rai_matrix_by_reserve))
         .ov_metric_table(m$summary, names(ctl_targets), "By reserve", prev = m$prev,
@@ -693,6 +731,39 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                          ik_data = ik_data, period = selection()$period,
                          help = .ik_info(session$ns("trap_help"), "Trapping — how to read this",
                                          overview_trap_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
+    })
+
+    # The COMPACT main Overview: one panel, both devices, just the headline — Detections/Catches +
+    # Species boxes and the TARGET-species cards (camera: monitor targets, RAI; trap: control targets,
+    # catch count). The full effort/by-reserve/other-species detail + drills are on each device's own
+    # Overview page; the boxes/cards here reuse the very same box_drill/drill modals. Net counts.
+    output$compact <- renderUI({
+      sort_by <- ik_data$meta$overview$sort_cards_by %||% "value"   # cards label off sg, so no name-pref needed here
+      n_spp   <- function(o) length(unique(stats::na.omit(o$scientificName)))
+      animals <- function(res, net) { o <- res$observations
+        o <- o[!is.na(o$observationType) & o$observationType == "animal", , drop = FALSE]
+        if (net) .ov_net_obs(o, ik_data) else o }
+      blocks <- list()
+      if (has_camera && !is.null(cam()$deployments) && nrow(cam()$deployments)) {
+        o <- animals(cam(), TRUE); m <- rai_r()
+        cards <- if (length(mon_t)) .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
+          names(mon_t), "camera", mon_dir, session$ns("drill"), headline = "rai", sg = sg, sort_by = sort_by)
+        blocks[["camera"]] <- .ov_compact_block("Camera monitoring", "camera",
+          "Detections", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"))
+      }
+      if (has_trap && !is.null(trp()$deployments) && nrow(trp()$deployments)) {
+        o <- animals(trp(), FALSE); m <- rate_r()
+        unit  <- sprintf(" /%s TN", ik_data$meta$trapping$rate$norm_trap_days %||% 100)
+        cards <- if (length(ctl_t)) .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
+          names(ctl_t), "trap", ctl_t_dir, session$ns("drill"), headline = "count",
+          rate_unit = unit, colour = FALSE, digits = 3, min_digits = 2, sg = sg, sort_by = sort_by)
+        blocks[["trap"]] <- .ov_compact_block("Trapping", "trap",
+          "Catches", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"))
+      }
+      if (!length(blocks))
+        return(.ov_empty_section("Overview", "camera",
+          if (has_camera || has_trap) "No data for the current selection." else "No data loaded."))
+      card(card_body(class = "ik-ov-compact", do.call(tagList, unname(blocks))))
     })
 
     # Drill-down: a clicked metric cell opens its breakdown (the auditable basis) — a

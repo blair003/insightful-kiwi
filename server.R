@@ -37,10 +37,18 @@ server <- function(input, output, session) {
       active   = active_datasets()))
   })
 
-  # Overview view — its own selection instance (period/geography/device).
+  # Overview — the main page is the slim cross-device headline; the FULL per-device sections now live
+  # on their own "Overview" page under the Monitoring / Trapping menus. Three instances of the same
+  # module (own selection each); the metric reactives are bindCache'd, so identical selections share.
   overview_selection <- selection_server("overview_selection", ik_data, prefer_scientific,
     show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "overview")))
   overview_server("overview", ik_data, prefer_scientific, overview_selection)
+  monitoring_overview_selection <- selection_server("monitoring_overview_selection", ik_data, prefer_scientific,
+    show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "monitoring-overview")))
+  overview_server("monitoring_overview", ik_data, prefer_scientific, monitoring_overview_selection)
+  trapping_overview_selection <- selection_server("trapping_overview_selection", ik_data, prefer_scientific,
+    show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "trapping-overview")))
+  overview_server("trapping_overview", ik_data, prefer_scientific, trapping_overview_selection)
 
   # Maps — one device-locked instance per menu: a camera "Monitoring map" and a trap "Trapping map"
   # (the device toggle is gone; each lives under its device menu). Period/geography from the sidebar,
@@ -113,7 +121,8 @@ server <- function(input, output, session) {
   # Auto-hide the sidebar on views that have no sidebar controls — only Overview and Records
   # populate it; every other view keeps its controls in-page, so an empty rail is just clutter.
   # (The collapse toggle stays, so a curious user can still open it and see the note.)
-  SIDEBAR_NAVS <- c("overview", "monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
+  SIDEBAR_NAVS <- c("overview", "monitoring-overview", "trapping-overview",
+                    "monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
                     "trap-review", "bait", "coverage", "trap-hero",
                     vapply(species_specs, `[[`, character(1), "key"))   # species pages have period+reserve
   observeEvent(input$nav, {

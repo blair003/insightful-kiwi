@@ -39,6 +39,12 @@ ui <- page_navbar(
     conditionalPanel("input.nav === 'overview'",
                      selection_ui("overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
+    conditionalPanel("input.nav === 'monitoring-overview'",
+                     selection_ui("monitoring_overview_selection",
+                                  show = c("period", "compare", "reserve"), ik_data = ik_data)),
+    conditionalPanel("input.nav === 'trapping-overview'",
+                     selection_ui("trapping_overview_selection",
+                                  show = c("period", "compare", "reserve"), ik_data = ik_data)),
     conditionalPanel("input.nav === 'outcomes'", tags$small("All seasons · network mean across reserves.")),
     conditionalPanel("input.nav === 'bait'",
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
@@ -91,13 +97,14 @@ ui <- page_navbar(
   # Centre the menu: equal flexible space on both sides of the nav.
   nav_spacer(),
 
-  overview_ui("overview"),
+  overview_ui("overview", compact = TRUE),   # main page: slim cross-device headline (full detail moved to the device menus)
 
   # Menus are organised by DEVICE — Monitoring (camera/observation) and "Trapping" (predator CONTROL:
   # trapping today, poison/etc. later — friendly label now, conceptually Control). Each shown only when
   # the org has that data; Records sits in each, device-filtered (default to the device, still changeable).
   if (.has_camera) nav_menu(
     "Monitoring", icon = icon("binoculars"),
+    overview_ui("monitoring_overview", sections = "camera", label = "Overview", value = "monitoring-overview"),
     if (.has_favourites) highlights_ui("highlights", ik_data),   # friendly visual entry point
     maps_ui("monitoring_map", device = "camera", label = "Map", value = "monitoring-map", ik_data = ik_data),
     nav_panel("Camera review", value = "camera-review", icon = icon("camera"),
@@ -109,6 +116,7 @@ ui <- page_navbar(
   ),
   if (.has_trap) nav_menu(
     "Trapping", icon = icon("location-crosshairs"),
+    overview_ui("trapping_overview", sections = "trap", label = "Overview", value = "trapping-overview"),
     maps_ui("trapping_map", device = "trap", label = "Map", value = "trapping-map", ik_data = ik_data),
     nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"),
               trapping_ui("trapping", ik_data)),
