@@ -417,21 +417,25 @@ overview_ui <- function(id) {
 #' The selection's encoded period value (for the seasonall case). @keywords internal
 .ov_section_meta <- function(res, ik_data, period = NULL) {
   dep <- res$deployments; if (is.null(dep) || !nrow(dep)) return(NULL)
+  obs  <- res$observations
+  when <- if (!is.null(obs) && nrow(obs)) { w <- obs$eventEnd; na <- is.na(w); w[na] <- obs$eventStart[na]; w
+          } else dep$deploymentEnd
+  tz    <- attr(when, "tzone"); if (is.null(tz) || !nzchar(tz)) tz <- "Pacific/Auckland"
+  ndays <- length(unique(as.Date(when[is.finite(as.numeric(when))], tz = tz)))   # distinct days with records
   locs  <- ik_data$app$geography$locations
   gl    <- locs[locs$location_id %in% unique(dep$locationID), , drop = FALSE]
   lines <- length(unique(paste(gl$reserve, gl$line)[!is.na(gl$line)]))   # distinct reserve×line (real lines)
   when_str <- if (!is.null(period) && startsWith(period, "seasonall:")) {
     op   <- ik_observation_period(ik_data)                               # this device's seasons-with-data
-    seas <- unique(op$calendar_season[match(res$observations$observationID, op$observationID)])
+    seas <- unique(op$calendar_season[match(obs$observationID, op$observationID)])
     sprintf("%d %ss", length(seas[!is.na(seas)]), tolower(sub("^seasonall:", "", period)))
   } else {
-    obs  <- res$observations
-    when <- if (!is.null(obs) && nrow(obs)) { w <- obs$eventEnd; na <- is.na(w); w[na] <- obs$eventStart[na]; w
-            } else dep$deploymentEnd
     fmt  <- function(x) if (!is.finite(as.numeric(x))) "—" else format(x, "%d %b %Y")
     sprintf("%s – %s", fmt(suppressWarnings(min(when, na.rm = TRUE))), fmt(suppressWarnings(max(when, na.rm = TRUE))))
   }
-  tags$div(class = "ik-device-meta", when_str, tags$span(class = "ik-ov-dot", "·"),
+  dot <- function() tags$span(class = "ik-ov-dot", "·")
+  tags$div(class = "ik-device-meta", when_str, dot(),
+    sprintf("%d day%s with records", ndays, if (ndays == 1) "" else "s"), dot(),
     sprintf("%d reserves · %d lines · %d locations",
             length(unique(gl$reserve[!is.na(gl$reserve)])), lines, length(unique(gl$location_id))))
 }

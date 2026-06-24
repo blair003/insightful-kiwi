@@ -76,7 +76,7 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
         tags$li(tags$b("Traps"), " — traps running within the gap radius (how much trapping reaches the line)."),
         tags$li(tags$b("Caught"), " — predators caught in those nearby traps this period."),
         tags$li(tags$b("Neglected"), " — of the nearby active traps, how many are unserviced this period."),
-        tags$li(tags$b("Traps/km²"), " — trap density across the whole reserve, for context.")),
+        tags$li(tags$b("Traps/km²"), " — trap density for THIS line: the traps above divided by the area within the gap radius of its cameras (so it moves with the line and the radius).")),
       tags$h6("Status"),
       tags$ul(
         tags$li(tags$b("No trapping"), " — protected on camera, but no traps running nearby."),
@@ -116,7 +116,7 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
     thx("Traps", "Traps running within the gap radius of this line's cameras — how much trapping reaches it. Set by the Gap radius control."),
     thx("Caught", "Predators caught in those nearby traps this period."),
     thx("Neglected", "Of the nearby active traps, how many are unserviced (neglected) this period."),
-    thx("Traps/km²", "Trap density across the whole reserve (structural context)."),
+    thx("Traps/km²", "Per-line trap density: the traps above ÷ the area within the gap radius of this line's cameras (moves with the line and the radius)."),
     thx("Status")
   )))
 }
@@ -360,8 +360,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       col <- c(no_trapping = "#c62828", predators_uncaught = "#e8590c",
                neglected = "#f59f00", covered = "#2e7d32", no_protected = "#868e96")
       badge <- sprintf("<span class='ik-gap-badge' style='background:%s'>%s</span>", col[g$status], lab[g$status])
-      cov  <- ik_coverage(ik_data)                              # reserve network density, for context
-      dens <- if (is.null(cov)) rep(NA_real_, nrow(g)) else cov$traps_per_km2[match(g$reserve, cov$reserve)]
+      dens <- g$traps_per_km2                                   # PER-LINE density within the gap radius
       df <- data.frame(Line = g$line, Reserve = g$reserve,
         `Protected` = ifelse(is.na(g$prot_rate), "—", sprintf("%.2f", g$prot_rate)),
         `Predator`  = ifelse(is.na(g$pred_rate), "—", sprintf("%.2f", g$pred_rate)),

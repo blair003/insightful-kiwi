@@ -207,11 +207,23 @@ ik_neighbourhood_records <- function(ik_data, level, key, radius_m, sci, seasons
 #' first.
 #'
 #' @return data.frame: reserve · line · prot_rate · prot_ind · pred_rate · pred_ind · n_traps
-#'   (deployed within R this period) · catches · n_neglected · n_active · status, where status ∈
-#'   no_trapping / predators_uncaught / neglected / covered / no_protected. NULL when no camera lines.
+#'   (active within R this period) · traps_per_km2 (n_traps ÷ the line's neighbourhood area at R — a
+#'   per-line density that moves with the radius) · catches · n_neglected · n_active · status, where
+#'   status ∈ no_trapping / predators_uncaught / neglected / covered / no_protected. NULL when none.
 ik_coverage_gaps <- function(ik_data, seasons, predator_sci, protected_sci, radius_m = 500) {
   lines <- ik_neighbourhood_lines(ik_data); if (!nrow(lines)) return(NULL)
   norm <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
+  locs <- ik_data$app$geography$locations
+  # Area within `radius_m` of a line's cameras (union of disks, NZTM), km² — the denominator for the
+  # PER-LINE trap density, so it tracks the line AND the gap radius (not a flat reserve average).
+  nbhd_area_km2 <- function(anchor_ids) {
+    p <- locs[match(anchor_ids, locs$location_id), c("longitude", "latitude"), drop = FALSE]
+    p <- p[is.finite(p$longitude) & is.finite(p$latitude), , drop = FALSE]
+    if (!nrow(p)) return(NA_real_)
+    buf <- sf::st_union(sf::st_buffer(sf::st_transform(
+      sf::st_as_sf(p, coords = c("longitude", "latitude"), crs = 4326), 2193), radius_m))
+    as.numeric(units::drop_units(sf::st_area(buf))) / 1e6
+  }
   spec <- list(season = seasons)
   cam_prot  <- if (length(protected_sci)) ik_location_metric(ik_data, spec, list(P = protected_sci), "camera", norm = norm) else NULL
   cam_pred  <- if (length(predator_sci))  ik_location_metric(ik_data, spec, list(P = predator_sci),  "camera", norm = norm) else NULL
@@ -234,9 +246,11 @@ ik_coverage_gaps <- function(ik_data, seasons, predator_sci, protected_sci, radi
     # ik_location_metric (traps with EFFORT this period), which EXCLUDES neglected traps (unchecked
     # this period) — so Neglected could exceed it. Active = not dormant/historic (i.e. still running).
     n_field <- if (is.null(sv)) 0L else as.integer(sum(!sv$status %in% c("dormant", "historic"), na.rm = TRUE))
+    area_km2 <- nbhd_area_km2(nbr$anchor)                       # this line's neighbourhood area at radius_m
     data.frame(reserve = rl$reserve, line = rl$line,
       prot_rate = pr$rate, prot_ind = pr$ind, pred_rate = pd$rate, pred_ind = pd$ind,
       n_traps   = n_field,
+      traps_per_km2 = if (!is.na(area_km2) && area_km2 > 0) n_field / area_km2 else NA_real_,
       catches   = if (is.null(tp)) 0L else as.integer(sum(tp$captures, na.rm = TRUE)),
       n_neglected = if (is.null(sv)) 0L else as.integer(sum(sv$status == "neglected", na.rm = TRUE)),
       n_active    = if (is.null(sv)) 0L else as.integer(sum(sv$status %in% c("good", "watch", "neglected"), na.rm = TRUE)),
