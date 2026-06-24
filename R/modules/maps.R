@@ -157,10 +157,13 @@ maps_ui <- function(id, device = NULL, label = "Map", value = "map", ik_data = N
 #' @param id Module id. @param ik_data The ik_data container.
 #' @param prefer_scientific Reactive: TRUE to show scientific names.
 #' @param selection Reactive selection SPEC. @param color_mode Reactive theme ("light"/"dark").
-#' @param active Accepted for symmetry with the other tab modules, but the map layers no longer gate
-#'   on it: the leaflet widget renders from load (suspendWhenHidden = FALSE) and its layers populate
-#'   like the records table, so a map on a not-yet-viewed tab is already drawn. Gating on it left the
-#'   map blank when this instance's tab wasn't the server-side "current" nav value.
+#' @param active Reactive, TRUE when this map's tab is the current nav value. The base leaflet widget
+#'   still renders from load (suspendWhenHidden = FALSE) so proxy layer-updates always land — but the
+#'   HEAVY work (every metric/IDW *data* reactive `req(active())`s) is gated, exactly like coverage.R,
+#'   so a map on a not-yet-viewed tab costs nothing at session start: the overview landing isn't slowed
+#'   building two maps it isn't showing. The layers populate on first view (maps.js re-fits on show);
+#'   navigating away leaves them drawn, so coming back is instant. NB: gate the DATA reactives, NEVER
+#'   the base renderLeaflet — an active-gate inside the render aborts the whole widget (blank tiles).
 #' @param fixed_species Optional named list `label = scientificNames` — locks the map to ONE species
 #'   (the Species page embeds it this way): the in-panel pickers are dropped, the measure is the device
 #'   default (camera rate / trap captures), and the surface groups by this taxon. NULL = the normal
@@ -246,7 +249,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     show_lines <- reactive(src() == "camera" && measure() == "rate" && grain_rv() == "line" && is.null(selected()))
 
     # ---- data ----
-    cam_all <- reactive({ req(src() == "camera", has_group())
+    cam_all <- reactive({ req(active(), src() == "camera", has_group())
       ik_location_metric(ik_data, sel(), group_taxa(), "camera", norm = per_cam()) })
     cam_pts      <- reactive({ m <- cam_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     cam_unplaced <- reactive({ m <- cam_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
@@ -254,7 +257,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # Priority = norm(predator RAI) × (1 − norm(kiwi RAI)) per camera; both metrics share the
     # deployed-camera set (0 where none), so they join on location_id. Normalised across the
     # selection's cameras; high only where predators are high AND kiwi low.
-    prio_all <- reactive({ req(is_priority(), has_pred(), has_prot())   # empty pickers → NULL (empty state)
+    prio_all <- reactive({ req(active(), is_priority(), has_pred(), has_prot())   # empty pickers → NULL (empty state)
       preds <- input$predators; prots <- input$protected
       pred <- ik_location_metric(ik_data, sel(), list(Predators = ik_resolve_species_choice(preds, pred_taxa)), "camera", norm = per_cam())
       prot <- ik_location_metric(ik_data, sel(), list(Protected = ik_resolve_species_choice(prots, prot_taxa)), "camera", norm = per_cam())
@@ -273,7 +276,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # "proximity" score — metric = 1/(1+gap_days), so SHORT gaps (predators & protected sharing the
     # ground close in time = act) score HIGH and read red, mirroring the priority layer's high=act.
     # The popup carries the real median gap + pair count. Same predator/protected selectors as priority.
-    timing_all <- reactive({ req(is_timing(), has_pred(), has_prot())   # empty pickers → NULL (empty state)
+    timing_all <- reactive({ req(active(), is_timing(), has_pred(), has_prot())   # empty pickers → NULL (empty state)
       preds <- input$predators; prots <- input$protected
       g <- ik_predator_protected_gaps(ik_data, ik_resolve_species_choice(preds, pred_taxa),
                                       ik_resolve_species_choice(prots, prot_taxa), .ik_nz(selection()$season))
@@ -291,25 +294,25 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     timing_pts      <- reactive({ m <- timing_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     timing_unplaced <- reactive({ m <- timing_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
 
-    line_metric <- reactive({ req(src() == "camera", has_group())
+    line_metric <- reactive({ req(active(), src() == "camera", has_group())
       rr <- ik_rai(ik_data, sel(), group_taxa()); ln <- rr$lines
       if (is.null(ln) || !nrow(ln)) return(NULL)
       ce <- ik_group_centroids(cam_pts(), c("reserve", "line")); if (is.null(ce)) return(NULL)
       m <- merge(ln, ce, by = c("reserve", "line")); if (nrow(m)) m else NULL })
 
-    trap_all <- reactive({ req(src() == "trap", measure() %in% c("captures", "rate"), has_group())
+    trap_all <- reactive({ req(active(), src() == "trap", measure() %in% c("captures", "rate"), has_group())
       ik_location_metric(ik_data, sel(), group_taxa(), "trap") })
     trap_pts      <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     trap_unplaced <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
 
-    serv_all <- reactive({ req(src() == "trap", measure() == "servicing")
+    serv_all <- reactive({ req(active(), src() == "trap", measure() == "servicing")
       spec <- selection()
       tr <- ik_trap_review(ik_data, seasons = .ik_nz(spec$season))
       if (is.null(tr) || !nrow(tr)) return(NULL)
       locs <- ik_data$app$geography$locations
       tr$dataset <- locs$dataset[match(tr$location, locs$location_id)]
-      active <- ik_active_datasets()
-      if (!is.null(active))                tr <- tr[tr$dataset %in% active, , drop = FALSE]
+      active_ds <- ik_active_datasets()
+      if (!is.null(active_ds))             tr <- tr[tr$dataset %in% active_ds, , drop = FALSE]
       if (!is.null(.ik_nz(spec$reserve)))  tr <- tr[tr$reserve  %in% spec$reserve,  , drop = FALSE]
       if (!is.null(.ik_nz(spec$line)))     tr <- tr[tr$line     %in% spec$line,     , drop = FALSE]
       if (!is.null(.ik_nz(spec$location))) tr <- tr[tr$location %in% spec$location, , drop = FALSE]
@@ -333,7 +336,11 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # spread the colours better on a heavy tail, but it left markers above the cap reading the top colour
     # while the legend topped out lower — a recurring "key doesn't match reality" confusion.)
     .robust_cap  <- function(v) { m <- suppressWarnings(max(v, na.rm = TRUE)); if (is.finite(m) && m > 0) m else 1 }
-    .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)
+    # Marker AREA scaled from 0 (area-fair: a 2 is ~twice the ink of a 1), not the data range — the old
+    # range-rescale forced the smallest value to the floor and the largest to the ceiling, so 1 vs 2 blew
+    # out to ~16x the area. Capped at the 95th pctl so one big outlier can't shrink everyone. (Size only;
+    # the colour key uses the true max — they're independent.)
+    .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi, cap_pctl = .MAPS_CAP_PCTL)
     .prio_ramp <- c("#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c")   # yellow→red — priority/danger
     surf_pal <- function(cap) leaflet::colorNumeric(if (is_priority() || is_timing()) .prio_ramp else "viridis", c(0, cap))
     # median gap (hours) → readable "Xh / Xd / Xmo" — VECTORISED (leaflet builds every popup at once)
@@ -423,6 +430,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # observers below push their markers/surface via leafletProxy to a map that doesn't exist yet, so
     # they're dropped and the map shows blank (records table still fills, since it isn't proxy-based).
     # With the widget present from load, every proxy update lands; maps.js re-fits/sizes it on show.
+    # The widget is eager, but the LAYERS it draws are NOT: every metric/IDW data reactive is gated on
+    # active() (see the data section), so the eager widget stays empty — and cheap — until first viewed.
     outputOptions(output, "map", suspendWhenHidden = FALSE)
 
     observeEvent(color_mode(), {
@@ -514,7 +523,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # Replaces the old "No records": a trap with no captures still has activity records (checks), so a
     # location layer is the honest framing. Shows ALL device locations (camera = blue, trap = grey); the
     # Points above swallow any that have a record, so a bare dot = "device here, nothing of the group".
-    all_dev_locs <- reactive({
+    all_dev_locs <- reactive({ req(active())
       dev_types <- if (is.null(device)) c("camera", "trap") else device
       dev_ds <- names(ik_data$datasets)[vapply(ik_data$datasets,
                   function(d) isTRUE(d$meta$source_type %in% dev_types), logical(1))]

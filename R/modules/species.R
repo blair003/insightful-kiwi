@@ -376,8 +376,8 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     observeEvent(active(), {
       if (!isTRUE(active()) || maps_inited()) return()
       maps_inited(TRUE)
-      if (spec$camera)  maps_server("cam_map",  ik_data, prefer_scientific, selection, color_mode, device = "camera", fixed_species = taxa)
-      if (spec$trapped) maps_server("trap_map", ik_data, prefer_scientific, selection, color_mode, device = "trap",   fixed_species = taxa)
+      if (spec$camera)  maps_server("cam_map",  ik_data, prefer_scientific, selection, color_mode, device = "camera", active = active, fixed_species = taxa)
+      if (spec$trapped) maps_server("trap_map", ik_data, prefer_scientific, selection, color_mode, device = "trap",   active = active, fixed_species = taxa)
     })
 
     # ---- Summary: an all-time footprint of this species (the Summary tab hides the Period control,
