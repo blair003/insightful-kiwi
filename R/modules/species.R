@@ -106,7 +106,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
   opp_sci   <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
   .cooc_ok  <- isTRUE(spec$camera) && !is.na(opp_role) && length(opp_sci) > 0
   .cooc_hint <- if (.cooc_ok) sprintf(
-    "Time on camera between this %s and the nearest %s at the same camera — shorter gaps mean they share ground close in time.",
+    "Time on camera between this %s and the nearest %s — at the same camera, or within a chosen radius. Shorter gaps mean they share ground close in time.",
     spec$role, opp_role) else ""
   nav_panel(
     spec$label, value = spec$key, icon = icon(if (isTRUE(spec$member)) "paw" else "dna"),
@@ -158,6 +158,9 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             plotOutput(ns("bait"), height = "440px", click = ns("bait_click"))),
           if (.cooc_ok) tabPanel("Co-occurrence", icon = icon("hourglass-half"),
             tags$p(class = "ik-species-hint", .cooc_hint, " ", tags$b("Click a bar"), " for the co-detections."),
+            div(class = "ik-species-controls",
+                radioButtons(ns("cooc_radius"), "Within", inline = TRUE,
+                             choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 0)),
             plotOutput(ns("cooc"), height = "340px", click = ns("cooc_click"))),
           tabPanel("Records", icon = icon("list"),
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",
@@ -583,11 +586,14 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     # ---- Co-occurrence (predator/protected): time to the nearest opposing-role detection ----
     opp_role <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
     opp_sci  <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
+    cooc_prox <- reactive({ r <- as.numeric(input$cooc_radius %||% 0)   # the "where" phrase, woven into the copy
+      if (r <= 0) "at the same camera" else sprintf("within %s", if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r)) })
     cooc_gaps <- reactive({ req(active(), spec$camera, !is.na(opp_role), length(opp_sci) > 0)
       pp <- if (identical(spec$role, "predator")) list(pred = spec$sci, prot = opp_sci) else list(pred = opp_sci, prot = spec$sci)
       tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot, seasons = .ik_nz(selection()$season),
-                                          reserve = .ik_nz(selection()$reserve)), error = function(e) NULL)
-    }) |> bindCache(spec$key, selection()$season, selection()$reserve, ik_active_datasets())
+                                          reserve = .ik_nz(selection()$reserve),
+                                          radius_m = as.numeric(input$cooc_radius %||% 0)), error = function(e) NULL)
+    }) |> bindCache(spec$key, selection()$season, selection()$reserve, input$cooc_radius, ik_active_datasets())
 
     output$cooc <- renderPlot({
       g <- cooc_gaps()
@@ -596,8 +602,8 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       h <- as.data.frame(table(factor(bucket, levels = GAP_LABELS))); names(h) <- c("gap", "n")
       ggplot2::ggplot(h, ggplot2::aes(.data$gap, .data$n)) +
         ggplot2::geom_col(fill = "#3f6fb0", width = 0.85) +
-        ggplot2::labs(x = sprintf("Time to nearest %s detection (same camera)", opp_role), y = "Co-detections",
-                      title = "How close in time, on the same camera") +
+        ggplot2::labs(x = sprintf("Time to nearest %s detection %s", opp_role, cooc_prox()), y = "Co-detections",
+                      title = sprintf("How close in time, %s", cooc_prox())) +
         ik_ggtheme(is_dark()) +
         ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
     }, bg = "transparent")
@@ -605,11 +611,19 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     # Co-occurrence drill: click a gap bucket → the co-detections in it (the anchor detection + its
     # nearest opposing-role detection). Each row → the anchor record.
     cooc_recs <- reactiveVal(NULL)
-    cooc_open <- .make_drill("cooc", cooc_recs, function(d)
-      data.frame(When = .ik_when_label(d$when), Species = ik_species_label(d$scientificName, ik_data, prefer()),
+    cooc_locs <- ik_data$app$geography$locations
+    cooc_open <- .make_drill("cooc", cooc_recs, function(d) {
+      df <- data.frame(When = .ik_when_label(d$when), Species = ik_species_label(d$scientificName, ik_data, prefer()),
         `Gap (h)` = round(d$gap_h, 1), `Nearest predator` = ik_species_label(d$pred_sci, ik_data, prefer()),
         `Predator at` = .ik_when_label(d$pred_when),
-        .when_sort = as.numeric(d$when), check.names = FALSE, stringsAsFactors = FALSE))
+        .when_sort = as.numeric(d$when), check.names = FALSE, stringsAsFactors = FALSE)
+      if ("pred_dist_m" %in% names(d) && any(d$pred_dist_m > 0, na.rm = TRUE)) {   # proximity view: where it was
+        df$`Predator camera` <- cooc_locs$name[match(d$pred_loc, cooc_locs$location_id)]
+        df$Apart <- ifelse(d$pred_dist_m <= 0, "same camera",
+                      ifelse(d$pred_dist_m >= 1000, sprintf("%.1f km", d$pred_dist_m / 1000), sprintf("%.0f m", d$pred_dist_m)))
+      }
+      df
+    })
     observeEvent(input$cooc_click, {
       g <- cooc_gaps(); cl <- input$cooc_click
       if (is.null(g) || !nrow(g) || is.null(cl) || is.null(cl$x)) return()
@@ -619,7 +633,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       r <- g[!is.na(bucket) & as.character(bucket) == lab, , drop = FALSE]; if (!nrow(r)) return()
       cooc_recs(r[order(r$when, decreasing = TRUE), , drop = FALSE])
       cooc_open(sprintf("%s — co-detections %s away", spec$label, lab),
-        sprintf("Each detection and its nearest %s at the same camera", opp_role),
+        sprintf("Each detection and its nearest %s %s", opp_role, cooc_prox()),
         tagList("The pairs in this time bucket. ", tags$b("Click a row"), " for the full record."))
     })
   })
