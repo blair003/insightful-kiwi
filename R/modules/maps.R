@@ -233,7 +233,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
                          else if (is_timing()) "Predator proximity"
                          else if (src() == "trap" && measure() == "captures") "Captures"
                          else if (src() == "trap") "Capture rate"
-                         else "Detections / deployment")
+                         else "Detections")   # per-camera (zoomed in); zoom out rolls up to "RAI / line"
 
     grain_rv <- reactiveVal("line")
     observeEvent(input$map_zoom, {
