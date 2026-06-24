@@ -145,12 +145,8 @@ coverage_ui <- function(id, ik_data = NULL) {
             selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "230px")),
         uiOutput(ns("caption")),
         leaflet::leafletOutput(ns("map"), height = "55vh"),
-        div(class = "ik-cov-density",
-            tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
-            tags$p(class = "ik-cov-gaps-lead",
-              "Is the network even dense enough to work? Footprint area, traps & cameras per km², and ",
-              "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
-            DT::DTOutput(ns("density"))),
+        # Coverage gaps sit DIRECTLY below the map — they drive its hover/click. Network density (a
+        # period-independent structural summary) follows underneath as supporting context.
         div(class = "ik-cov-gaps",
             div(class = "ik-cov-gaps-head",
                 div(class = "ik-cov-gaps-head-l",
@@ -163,7 +159,13 @@ coverage_ui <- function(id, ik_data = NULL) {
               "within the ", tags$b("gap radius."), tags$b("No trapping"), " = no traps running nearby; ",
               tags$b("Predators uncaught"), " = predators on camera but none caught nearby; ",
               tags$b("Neglected"), " = nearby traps mostly unserviced."),
-            DT::DTOutput(ns("gaps"))))
+            DT::DTOutput(ns("gaps"))),
+        div(class = "ik-cov-density",
+            tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
+            tags$p(class = "ik-cov-gaps-lead",
+              "Is the network even dense enough to work? Footprint area, traps & cameras per km², and ",
+              "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
+            DT::DTOutput(ns("density"))))
   )
 }
 

@@ -131,7 +131,6 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
             tagList("Predator ", tags$b("after"), " only ", tags$span(class = "ik-maps-hint", "(stalking)")),
             value = FALSE)))
     ),
-    uiOutput(ns("unplaced")),
     leaflet::leafletOutput(ns("map"), height = height),
     div(
       class = "ik-maps-records",
@@ -140,7 +139,8 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
           uiOutput(ns("records_caption")),
           downloadButton(ns("download_csv"), "Download CSV", class = "btn-sm")),
       DT::DTOutput(ns("table"))
-    )
+    ),
+    uiOutput(ns("unplaced"))   # coordless-records note: a footnote below the table, not above the map
   )
 }
 
@@ -329,7 +329,14 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     frame_pts    <- reactive(if (src() == "trap" && measure() == "servicing") serv_pts() else rate_loc_pts())
 
     # ---- helpers ----
-    .robust_cap  <- function(v) ik_robust_cap(v, .MAPS_CAP_PCTL)      # shared impl in spatial.R
+    # Colour/size clamp. Pooled standalone maps use the 95th-pctl robust cap (a heavy tail would
+    # otherwise wash the colours out). A SPECIES map shows one species at few markers, where that clamp
+    # is confusing — the legend would top at 0.8 while a marker's popup reads 1.74 — so there we use the
+    # TRUE max, and the legend matches the markers.
+    .robust_cap  <- function(v) {
+      if (!is.null(fixed_species)) { m <- suppressWarnings(max(v, na.rm = TRUE)); return(if (is.finite(m) && m > 0) m else 1) }
+      ik_robust_cap(v, .MAPS_CAP_PCTL)
+    }
     .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)
     .prio_ramp <- c("#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c")   # yellow→red — priority/danger
     surf_pal <- function(cap) leaflet::colorNumeric(if (is_priority() || is_timing()) .prio_ramp else "viridis", c(0, cap))

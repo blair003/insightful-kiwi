@@ -88,8 +88,9 @@ td .ik-link, .ik-link {
    is a flex column filling the rail height, so margin-top:auto pushes the credit to the bottom. */
 .bslib-sidebar-layout > .sidebar > .sidebar-content { display: flex; flex-direction: column; }
 .ik-sidebar-foot {
-  margin-top: auto; padding-top: 1.25rem; font-size: 0.72rem; font-style: italic;
-  line-height: 1.45; color: var(--bs-secondary-color, #6c757d);
+  margin-top: auto;            /* pin to the bottom of the rail height without adding any */
+  padding-top: 1.25rem; padding-bottom: 0.85rem; text-align: center;
+  font-size: 0.72rem; font-style: italic; line-height: 1.45; color: var(--bs-secondary-color, #6c757d);
 }
 .ik-sidebar-foot a { color: inherit; text-decoration: underline; }
 .ik-sidebar-foot a:hover { color: var(--ik-accent, #cf6819); }
