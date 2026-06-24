@@ -334,6 +334,8 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       cam <- fin(cam); trp <- fin(trp)
       camp <- if (is.null(cam)) NULL else cam[cam$metric > 0, , drop = FALSE]
       trpp <- if (is.null(trp)) NULL else trp[trp$captures > 0, , drop = FALSE]
+      validate(need((!is.null(camp) && nrow(camp)) || (!is.null(trpp) && nrow(trpp)),
+                    "No records of this species in the selection."))   # don't fall back to a world map
       canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
       m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
       m <- leaflet::addProviderTiles(m, canvas, group = "Map")
