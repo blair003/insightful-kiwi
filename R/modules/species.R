@@ -91,6 +91,15 @@ diel_class_help_body <- function() {
         tags$li(tags$b("Arrhythmic"), " — the sample is sufficient, but none of the above is dominant."))))
 }
 
+#' Opposing-role groups (label→sci) for the Co-occurrence species picker — all groups of the role
+#' opposite the page's species (predator↔protected), split flag ignored here. @keywords internal
+.opp_taxa <- function(ik_data, opp_role) {
+  if (is.na(opp_role)) return(list())
+  sg <- ik_species_groups(ik_data)
+  l  <- unique(sg$label[sg$role == opp_role & !is.na(sg$label)])
+  stats::setNames(lapply(l, function(x) sg$scientificName[sg$label == x & !is.na(sg$scientificName)]), l)
+}
+
 #' Species dashboard nav panel. @param id Module id. @param spec One taxon spec (ik_species_taxa).
 #'   @param ik_data The container (overlay choices + norms baked into the UI).
 species_dashboard_ui <- function(id, spec, ik_data = NULL) {
@@ -105,6 +114,13 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
   opp_role  <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
   opp_sci   <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
   .cooc_ok  <- isTRUE(spec$camera) && !is.na(opp_role) && length(opp_sci) > 0
+  # Opposing-species picker for Co-occurrence: all opposing-role groups (split-aware), defaulting to
+  # Mustelids on a protected page — so a kiwi page isn't swamped by rats (which are role=predator).
+  opp_taxa    <- .opp_taxa(ik_data, opp_role)
+  opp_splits  <- if (.cooc_ok) unique(ik_species_groups(ik_data)$label[which(ik_species_groups(ik_data)$split)]) else character(0)
+  opp_choices <- if (.cooc_ok) ik_species_choices(opp_taxa, ik_data, "vernacular", opp_splits) else NULL
+  opp_default <- if (.cooc_ok && length(opp_taxa))
+    (if (identical(opp_role, "predator") && "Mustelids" %in% names(opp_taxa)) "grp:Mustelids" else paste0("grp:", names(opp_taxa)[1])) else NULL
   .cooc_hint <- if (.cooc_ok) sprintf(
     "Time on camera between this %s and the nearest %s — at the same camera, or within a chosen radius. Shorter gaps mean they share ground close in time.",
     spec$role, opp_role) else ""
@@ -155,6 +171,8 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
           if (.cooc_ok) tabPanel("Co-occurrence", icon = icon("hourglass-half"),
             tags$p(class = "ik-species-hint", .cooc_hint, " ", tags$b("Click a bar"), " for the co-detections."),
             div(class = "ik-species-controls",
+                selectInput(ns("cooc_opp"), if (identical(opp_role, "predator")) "Predator(s)" else "Protected",
+                            choices = opp_choices, selected = opp_default, multiple = TRUE, width = "240px"),
                 radioButtons(ns("cooc_radius"), "Within", inline = TRUE,
                              choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 0)),
             plotOutput(ns("cooc"), height = "340px", click = ns("cooc_click"))),
@@ -569,16 +587,26 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     })
 
     # ---- Co-occurrence (predator/protected): time to the nearest opposing-role detection ----
-    opp_role <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
-    opp_sci  <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
+    opp_role    <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
+    opp_taxa    <- .opp_taxa(ik_data, opp_role)
+    opp_splits  <- unique(ik_species_groups(ik_data)$label[which(ik_species_groups(ik_data)$split)])
+    opp_default <- if (length(opp_taxa))
+      (if (identical(opp_role, "predator") && "Mustelids" %in% names(opp_taxa)) "grp:Mustelids" else paste0("grp:", names(opp_taxa)[1])) else NULL
+    if (!is.na(opp_role)) observe({ p <- prefer()       # relabel the opposing picker on name-preference change
+      sel <- if (length(input$cooc_opp)) input$cooc_opp else opp_default
+      updateSelectInput(session, "cooc_opp", choices = ik_species_choices(opp_taxa, ik_data, p, opp_splits), selected = sel)
+    })
+    opp_sel <- reactive({ v <- input$cooc_opp; if (!length(v)) v <- opp_default
+      ik_resolve_species_choice(v, ik_group_taxa(ik_data)) })   # picked opposing species → scientificNames
     cooc_prox <- reactive({ r <- as.numeric(input$cooc_radius %||% 0)   # the "where" phrase, woven into the copy
       if (r <= 0) "at the same camera" else sprintf("within %s", if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r)) })
-    cooc_gaps <- reactive({ req(active(), spec$camera, !is.na(opp_role), length(opp_sci) > 0)
-      pp <- if (identical(spec$role, "predator")) list(pred = spec$sci, prot = opp_sci) else list(pred = opp_sci, prot = spec$sci)
+    cooc_gaps <- reactive({ req(active(), spec$camera, !is.na(opp_role))
+      osel <- opp_sel(); req(length(osel))
+      pp <- if (identical(spec$role, "predator")) list(pred = spec$sci, prot = osel) else list(pred = osel, prot = spec$sci)
       tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot, seasons = .ik_nz(selection()$season),
                                           reserve = .ik_nz(selection()$reserve),
                                           radius_m = as.numeric(input$cooc_radius %||% 0)), error = function(e) NULL)
-    }) |> bindCache(spec$key, selection()$season, selection()$reserve, input$cooc_radius, ik_active_datasets())
+    }) |> bindCache(spec$key, selection()$season, selection()$reserve, input$cooc_radius, input$cooc_opp, ik_active_datasets())
 
     output$cooc <- renderPlot({
       g <- cooc_gaps()
