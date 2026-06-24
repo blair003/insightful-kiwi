@@ -162,7 +162,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",
                    tags$b("Click a row"), " to open the full record."),
             DT::DTOutput(ns("records"))),
-          tabPanel("Map", icon = icon("ranking-star"),
+          tabPanel("Map", icon = icon("map-location-dot"),
             tags$p(class = "ik-species-hint",
                    "Where this species is detected and caught — an activity surface, per-site points, the boundary, ",
                    "and the records (hover a row to highlight it on the map; toggle layers top-right)."),
