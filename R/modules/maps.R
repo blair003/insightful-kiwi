@@ -94,53 +94,62 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 #' Maps nav panel UI.
 #' @param id Module id.
 #' @return A bslib nav_panel for page_navbar().
-maps_ui <- function(id, device = NULL, label = "Map", value = "map", ik_data = NULL) {
-  ns <- NS(id)
+#' The map's inner content (controls + leaflet + records) — split out of `maps_ui` so it can be a
+#' standalone nav panel OR embedded elsewhere (the Species page locks it to one species).
+#' @param fixed When TRUE, the in-panel controls (device/measure/species/predator pickers) are dropped —
+#'   the caller fixes the species via `maps_server(fixed_species=)` and locks the measure to the device
+#'   default. @param height Leaflet height. @keywords internal
+maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, height = "70vh") {
+  ns   <- NS(id)
   meas <- .MAPS_MEASURES[[device %||% "camera"]]
   pk   <- .maps_picker_defs(ik_data)                            # baked picker defaults (dropdown-lazy-safe)
   norm <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100   # rate normalisation (config)
+  div(
+    class = "ik-maps",
+    if (!fixed) div(
+      class = "ik-maps-controls",
+      if (is.null(device))                                      # device-locked instances drop the toggle
+        radioButtons(ns("source"), "Device",
+                     choices = c(Camera = "camera", Trap = "trap"), selected = "camera", inline = TRUE),
+      div(class = "ik-maps-measure",
+        radioButtons(ns("measure"), tagList("Measure", .ik_info(ns("measure_help"),
+          if (identical(device, "trap")) "Trapping map — measures"
+          else if (identical(device, "camera")) "Monitoring map — measures" else "Map measures",
+          .maps_measure_help(device, norm))),
+          choices = meas, selected = unname(meas)[1], inline = TRUE)),
+      # Species sits with the other map controls (it's a GROUPING choice, like Device/Measure) and only
+      # for the measures that group by it (camera RAI, trap captures/rate); priority & timing instead
+      # use their own predator/protected pickers, servicing ignores species — so it's hidden for those.
+      conditionalPanel("input.measure == 'rate' || input.measure == 'captures'", ns = ns,
+        selectInput(ns("species"), "Species", choices = pk$species, selected = pk$group_default, multiple = TRUE)),
+      conditionalPanel("input.measure == 'priority' || input.measure == 'timing'", ns = ns,
+        selectInput(ns("predators"), "Predator(s)", choices = pk$predators, selected = pk$pred_default, multiple = TRUE),
+        selectInput(ns("protected"), "Protected",   choices = pk$protected, selected = pk$prot_default, multiple = TRUE)),
+      conditionalPanel("input.measure == 'timing'", ns = ns,
+        div(class = "ik-maps-measure",
+          checkboxInput(ns("after_only"),
+            tagList("Predator ", tags$b("after"), " only ", tags$span(class = "ik-maps-hint", "(stalking)")),
+            value = FALSE)))
+    ),
+    uiOutput(ns("unplaced")),
+    leaflet::leafletOutput(ns("map"), height = height),
+    div(
+      class = "ik-maps-records",
+      uiOutput(ns("drill_chip")),
+      div(class = "ik-maps-records-header",
+          uiOutput(ns("records_caption")),
+          downloadButton(ns("download_csv"), "Download CSV", class = "btn-sm")),
+      DT::DTOutput(ns("table"))
+    )
+  )
+}
+
+maps_ui <- function(id, device = NULL, label = "Map", value = "map", ik_data = NULL) {
   nav_panel(
     label, value = value, icon = icon("map"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
     tags$script(src = .ik_asset("js/maps.js")),
-    div(
-      class = "ik-maps",
-      div(
-        class = "ik-maps-controls",
-        if (is.null(device))                                    # device-locked instances drop the toggle
-          radioButtons(ns("source"), "Device",
-                       choices = c(Camera = "camera", Trap = "trap"), selected = "camera", inline = TRUE),
-        div(class = "ik-maps-measure",
-          radioButtons(ns("measure"), tagList("Measure", .ik_info(ns("measure_help"),
-            if (identical(device, "trap")) "Trapping map — measures"
-            else if (identical(device, "camera")) "Monitoring map — measures" else "Map measures",
-            .maps_measure_help(device, norm))),
-            choices = meas, selected = unname(meas)[1], inline = TRUE)),
-        # Species sits with the other map controls (it's a GROUPING choice, like Device/Measure) and only
-        # for the measures that group by it (camera RAI, trap captures/rate); priority & timing instead
-        # use their own predator/protected pickers, servicing ignores species — so it's hidden for those.
-        conditionalPanel("input.measure == 'rate' || input.measure == 'captures'", ns = ns,
-          selectInput(ns("species"), "Species", choices = pk$species, selected = pk$group_default, multiple = TRUE)),
-        conditionalPanel("input.measure == 'priority' || input.measure == 'timing'", ns = ns,
-          selectInput(ns("predators"), "Predator(s)", choices = pk$predators, selected = pk$pred_default, multiple = TRUE),
-          selectInput(ns("protected"), "Protected",   choices = pk$protected, selected = pk$prot_default, multiple = TRUE)),
-        conditionalPanel("input.measure == 'timing'", ns = ns,
-          div(class = "ik-maps-measure",
-            checkboxInput(ns("after_only"),
-              tagList("Predator ", tags$b("after"), " only ", tags$span(class = "ik-maps-hint", "(stalking)")),
-              value = FALSE)))
-      ),
-      uiOutput(ns("unplaced")),
-      leaflet::leafletOutput(ns("map"), height = "70vh"),
-      div(
-        class = "ik-maps-records",
-        uiOutput(ns("drill_chip")),
-        div(class = "ik-maps-records-header",
-            uiOutput(ns("records_caption")),
-            downloadButton(ns("download_csv"), "Download CSV", class = "btn-sm")),
-        DT::DTOutput(ns("table"))
-      )
-    )
+    maps_panel_body(id, device = device, ik_data = ik_data, fixed = FALSE, height = "70vh")
   )
 }
 
@@ -152,8 +161,12 @@ maps_ui <- function(id, device = NULL, label = "Map", value = "map", ik_data = N
 #'   on it: the leaflet widget renders from load (suspendWhenHidden = FALSE) and its layers populate
 #'   like the records table, so a map on a not-yet-viewed tab is already drawn. Gating on it left the
 #'   map blank when this instance's tab wasn't the server-side "current" nav value.
+#' @param fixed_species Optional named list `label = scientificNames` — locks the map to ONE species
+#'   (the Species page embeds it this way): the in-panel pickers are dropped, the measure is the device
+#'   default (camera rate / trap captures), and the surface groups by this taxon. NULL = the normal
+#'   interactive map driven by the in-panel Species picker.
 maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = reactive("light"),
-                        device = NULL, active = reactive(TRUE)) {
+                        device = NULL, active = reactive(TRUE), fixed_species = NULL) {
   moduleServer(id, function(input, output, session) {
 
     prefer <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
@@ -168,7 +181,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     }, ignoreInit = TRUE)
 
     src      <- reactive(device %||% input$source %||% "camera")   # device-locked when set
-    measure  <- reactive(input$measure %||% unname(.MAPS_MEASURES[[device %||% "camera"]])[1])
+    # measure: normally the in-panel radio; for a fixed-species embed there's no radio, so lock to the
+    # device default (camera "rate" surface / trap "captures") — the species-relevant grouping measure.
+    measure  <- reactive(if (!is.null(fixed_species)) unname(.MAPS_MEASURES[[device %||% "camera"]])[1]
+                         else input$measure %||% unname(.MAPS_MEASURES[[device %||% "camera"]])[1])
     # Priority composite (camera only): predators-high × kiwi-low → "where to act". Predators are the
     # predator-role groups, kiwi the protected-role group (both as seen on camera).
     is_priority <- reactive(src() == "camera" && measure() == "priority")
@@ -184,7 +200,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     pk <- .maps_picker_defs(ik_data)
     pred_taxa <- pk$pred_taxa; prot_taxa <- pk$prot_taxa; splits <- pk$splits
     .group_default <- pk$group_default; .pred_default <- pk$pred_default; .prot_default <- pk$prot_default
-    observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
+    if (is.null(fixed_species)) observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       # All three taxa pickers live in-panel (Species is a grouping choice, like Device/Measure).
       # Species offers the full set (groups, split per project flag, + every ungrouped species);
       # predator/protected stay role-scoped. Defaults: Species/predator = Mustelids, protected = Kiwi.
@@ -195,7 +211,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # The map surface's taxa come from the in-panel Species pick (input$species), combined into one
     # labelled surface; default to the top monitor-target group. (The map uses Species as a GROUPING,
     # never as a spec filter — the dual role, like device.)
-    group_taxa <- reactive({ v <- input$species; if (!length(v)) v <- .group_default
+    group_taxa <- reactive({
+      if (!is.null(fixed_species)) return(fixed_species)          # Species page: the page's taxon, locked
+      v <- input$species; if (!length(v)) v <- .group_default
       sci <- ik_resolve_species_choice(v, ik_group_taxa(ik_data)); if (!length(sci)) return(NULL)
       stats::setNames(list(sci), paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ")) })
     group_lab  <- reactive({ g <- group_taxa(); if (is.null(g)) "group" else names(g) })
