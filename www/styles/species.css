@@ -8,6 +8,27 @@
 .ik-species .leaflet-container { border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 0.375rem; }
 .ik-species-maptitle { margin: 0.2rem 0 0.4rem; font-weight: 600; }
 .ik-species-hotspots { margin-top: 1.3rem; border-top: 1px solid var(--bs-border-color, #dee2e6); padding-top: 0.9rem; }
+.ik-species-section { margin-top: 1.3rem; border-top: 1px solid var(--bs-border-color, #dee2e6); padding-top: 0.9rem; }
+
+/* Summary tab — presence stat-cards + the settings table */
+.ik-sum-superlabel { display: flex; align-items: center; gap: 0.45rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.82rem;
+  color: var(--bs-secondary-color, #6c757d); margin: 0.5rem 0 0.35rem; }
+.ik-sum-superlabel svg { width: 1.05em; height: 1.05em; }
+.ik-sum-rate { margin-top: 0.3rem; font-weight: 600; font-size: 0.9rem;
+  color: var(--bs-body-color, #212529); font-variant-numeric: tabular-nums; }
+.ik-sum-cards { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.4rem 0 0.2rem; }
+.ik-sum-card { display: flex; align-items: center; gap: 0.85rem; flex: 1 1 240px; min-width: 220px;
+  border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 0.5rem; padding: 0.9rem 1.1rem;
+  background: var(--bs-body-bg); }
+.ik-sum-icon { font-size: 1.6rem; color: var(--bs-secondary-color, #6c757d); flex: 0 0 auto; }
+.ik-sum-val { font-size: 2rem; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.ik-sum-lab { font-weight: 600; }
+.ik-sum-sub { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; }
+.ik-sum-config { border-collapse: collapse; margin: 0.2rem 0 0.4rem; max-width: 540px; }
+.ik-sum-config td { padding: 0.28rem 0.9rem 0.28rem 0; border-bottom: 1px solid var(--bs-border-color, #eceff2);
+  vertical-align: top; }
+.ik-sum-config .ik-sum-k { font-weight: 600; white-space: nowrap; color: var(--bs-secondary-color, #495057); }
 
 /* Behaviour tab — two stacked cards (the daily clock + the diel-class summary). */
 .ik-behav { display: flex; flex-direction: column; gap: 1rem; max-width: 640px; }

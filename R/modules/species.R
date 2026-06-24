@@ -10,10 +10,12 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
   tabsetPanel(type = "tabs",
     tabPanel("What it shows", icon = icon("circle-question"),
       P(tags$br(), "Everything this project knows about one species (or species group), camera and trap ",
-        "together. ", tags$b("Trend"), " — how its activity and catches move over time; ", tags$b("Records"),
-        " — every detection/capture; ", tags$b("Map"), " — where it's seen and caught."),
-      P("Period & reserve come from the sidebar (the Trend spans all time by design; the others honour ",
-        "the period).")),
+        "together. ", tags$b("Summary"), " — its footprint across the network, the settings that govern it, ",
+        "and where it turns up most; ", tags$b("Trend"), " — how its activity and catches move over time; ",
+        tags$b("Map"), " — where it's seen and caught; ", tags$b("Records"), " — every detection/capture."),
+      P("Period & reserve come from the sidebar; ", tags$b("Period"), " defaults to ", tags$b("All data"),
+        ". ", tags$b("Summary"), " and ", tags$b("Trend"), " always span all time (a note sits in the ",
+        "Period's place there); from the ", tags$b("Map"), " tab on you can set a Period to focus the rest.")),
     tabPanel("Trend", icon = icon("chart-line"),
       P(tags$br(), tags$b("Camera activity"), " is RAI (detections per ", format(norm_hours, big.mark = ","),
         " camera-hours); ", tags$b("Catch rate"), " is captures per ", format(norm_trap, big.mark = ","),
@@ -26,6 +28,8 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
                 "per reserve then averaged to a network mean ± SE."),
         tags$li(tags$b("A group"), " (e.g. Mustelids) pools its members; a split sub-species (Stoat, Ferret) ",
                 "counts only its own. Ambiguous IDs (e.g. weasel/stoat) stay in the group total."),
+        tags$li(tags$b("Summary presence"), " — the share of camera locations with at least one detection, ",
+                "and trap sites with at least one catch, all-time within the selected reserve(s)."),
         tags$li(tags$b("Map"), " — per-location RAI (camera) and catches (trap) for the selected period."))))
 }
 
@@ -136,12 +140,35 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
         tags$p(class = "ik-species-sub", tags$em(sci_lab)),
         tabsetPanel(
           id = ns("tabs"),
+          tabPanel("Summary", icon = icon("circle-info"),
+            tags$p(class = "ik-species-hint",
+                   "This species at a glance — its footprint across the network, the settings that govern it, ",
+                   "and where it turns up most. All-time (reserve from the sidebar)."),
+            uiOutput(ns("summary_cards")),
+            tags$h6(class = "ik-species-maptitle ik-species-section", "Settings"),
+            uiOutput(ns("summary_config")),
+            tags$h6(class = "ik-species-maptitle ik-species-hotspots", "Hotspots — top lines & reserves"),
+            tags$p(class = "ik-species-hint", tags$b("Click a bar"), " for the records behind it."),
+            if (spec$camera)  plotOutput(ns("where_cam"),  height = "300px", click = ns("where_cam_click")),
+            if (spec$trapped) plotOutput(ns("where_trap"), height = "300px", click = ns("where_trap_click"))),
           tabPanel("Trend", icon = icon("chart-line"),
             div(class = "ik-species-controls",
                 radioButtons(ns("by"), NULL, inline = TRUE,
                              choices = c("By season" = "season", "By year" = "year"), selected = "season"),
                 selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__", width = "220px")),
             plotOutput(ns("trend"), height = "460px")),
+          tabPanel("Map", icon = icon("map-location-dot"),
+            tags$p(class = "ik-species-hint",
+                   "Where this species is detected and caught — an activity surface, per-site points, the boundary, ",
+                   "and the records (hover a row to highlight it on the map; toggle layers top-right)."),
+            if (spec$camera && spec$trapped)
+              layout_columns(col_widths = c(6, 6),
+                div(tags$h6(class = "ik-species-maptitle", icon("camera"), " Camera monitoring"),
+                    maps_panel_body(ns("cam_map"), "camera", ik_data, fixed = TRUE, height = "56vh")),
+                div(tags$h6(class = "ik-species-maptitle", icon("clipboard-check"), " Trapping"),
+                    maps_panel_body(ns("trap_map"), "trap", ik_data, fixed = TRUE, height = "56vh")))
+            else if (spec$camera) maps_panel_body(ns("cam_map"), "camera", ik_data, fixed = TRUE, height = "62vh")
+            else                  maps_panel_body(ns("trap_map"), "trap", ik_data, fixed = TRUE, height = "62vh")),
           if (spec$camera) tabPanel("Behaviour", icon = icon("clock"),
             tags$p(class = "ik-species-hint",
                    "When this species is active on camera — the daily clock, and an overall diel class."),
@@ -179,23 +206,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
           tabPanel("Records", icon = icon("list"),
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",
                    tags$b("Click a row"), " to open the full record."),
-            DT::DTOutput(ns("records"))),
-          tabPanel("Map", icon = icon("map-location-dot"),
-            tags$p(class = "ik-species-hint",
-                   "Where this species is detected and caught — an activity surface, per-site points, the boundary, ",
-                   "and the records (hover a row to highlight it on the map; toggle layers top-right)."),
-            if (spec$camera && spec$trapped)
-              layout_columns(col_widths = c(6, 6),
-                div(tags$h6(class = "ik-species-maptitle", icon("camera"), " Camera monitoring"),
-                    maps_panel_body(ns("cam_map"), "camera", ik_data, fixed = TRUE, height = "56vh")),
-                div(tags$h6(class = "ik-species-maptitle", icon("clipboard-check"), " Trapping"),
-                    maps_panel_body(ns("trap_map"), "trap", ik_data, fixed = TRUE, height = "56vh")))
-            else if (spec$camera) maps_panel_body(ns("cam_map"), "camera", ik_data, fixed = TRUE, height = "62vh")
-            else                  maps_panel_body(ns("trap_map"), "trap", ik_data, fixed = TRUE, height = "62vh"),
-            tags$h6(class = "ik-species-maptitle ik-species-hotspots", "Hotspots — top lines & reserves"),
-            tags$p(class = "ik-species-hint", tags$b("Click a bar"), " for the records behind it."),
-            if (spec$camera)  plotOutput(ns("where_cam"),  height = "300px", click = ns("where_cam_click")),
-            if (spec$trapped) plotOutput(ns("where_trap"), height = "300px", click = ns("where_trap_click")))
+            DT::DTOutput(ns("records")))
         ))
   )
 }
@@ -214,6 +225,13 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     nh <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000
     nt <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100
     per_cam <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
+
+    # Bridge this page's active tab to one shared top-level input the sidebar reads, so the Period
+    # control can hide on Trend (which spans all time). Only the visible page reports (active()-gated),
+    # so the many species pages don't fight over the one input.
+    observeEvent(list(active(), input$tabs), {
+      if (isTRUE(active())) session$sendCustomMessage("ik-species-tab", input$tabs %||% "Trend")
+    }, ignoreNULL = FALSE)
 
     # overlay taxon (another page's sci) → a 2nd line on the matching panel
     .other_spec <- reactive({
@@ -362,7 +380,79 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       if (spec$trapped) maps_server("trap_map", ik_data, prefer_scientific, selection, color_mode, device = "trap",   fixed_species = taxa)
     })
 
-    # ---- Where (hotspots): top camera lines by RAI · reserves by catch rate ----
+    # ---- Summary: an all-time footprint of this species (the Summary tab hides the Period control,
+    #      so force all-time here; the sidebar Reserve still scopes it). ----
+    sg          <- ik_species_groups(ik_data)
+    sel_summary <- reactive({ s <- selection(); s$period <- "all"; s$season <- NULL; s })
+    .presence   <- function(m) {                               # share of locations holding ≥1 record
+      if (is.null(m) || !nrow(m)) return(NULL)
+      cc  <- if ("individuals" %in% names(m)) "individuals" else "captures"
+      n   <- sum(m[[cc]] > 0, na.rm = TRUE); tot <- nrow(m)
+      list(n = n, tot = tot, pct = if (tot) 100 * n / tot else 0)
+    }
+    presence <- reactive({ req(active())
+      list(cam  = if (spec$camera)  .presence(tryCatch(ik_location_metric(ik_data, sel_summary(), taxa, "camera", norm = per_cam), error = function(e) NULL)) else NULL,
+           trap = if (spec$trapped) .presence(tryCatch(ik_location_metric(ik_data, sel_summary(), taxa, "trap",   norm = nt),      error = function(e) NULL)) else NULL)
+    }) |> bindCache(spec$key, .ik_nz(selection()$reserve), ik_active_datasets())
+
+    # Network-level activity rates (all-time): the Combined RAI / catch-rate, the same numbers the
+    # Overview headline shows — surfaced here so the Summary isn't only presence.
+    rates <- reactive({ req(active())
+      pick <- function(s) { if (is.null(s) || !nrow(s)) return(c(m = NA_real_, se = NA_real_))
+        r <- s[s$reserve == "Combined", , drop = FALSE]; if (!nrow(r)) r <- s    # network mean ± SE across reserves
+        c(m = mean(r$metric, na.rm = TRUE), se = if ("se" %in% names(r)) mean(r$se, na.rm = TRUE) else NA_real_) }
+      cam <- if (spec$camera)  pick(tryCatch(ik_rai(ik_data, sel_summary(), taxa, level = "reserve")$summary, error = function(e) NULL))       else c(m = NA_real_, se = NA_real_)
+      trp <- if (spec$trapped) pick(tryCatch(ik_trap_rate(ik_data, sel_summary(), taxa, level = "reserve")$summary, error = function(e) NULL)) else c(m = NA_real_, se = NA_real_)
+      list(rai = cam[["m"]], rai_se = cam[["se"]], catch = trp[["m"]], catch_se = trp[["se"]])
+    }) |> bindCache(spec$key, .ik_nz(selection()$reserve), ik_active_datasets())
+
+    output$summary_cards <- renderUI({
+      req(active()); pr <- presence(); rt <- rates()
+      fmt  <- function(x) format(x, big.mark = ",")
+      pfmt <- function(p) if (p$n > 0 && round(p$pct) == 0) "<1%" else sprintf("%.0f%%", p$pct)
+      card <- function(ic, p, lab, noun, rate_line) div(class = "ik-sum-card",
+        div(class = "ik-sum-icon", icon(ic)),
+        div(class = "ik-sum-body",
+          div(class = "ik-sum-val", if (is.null(p)) "—" else pfmt(p)),
+          div(class = "ik-sum-lab", lab),
+          div(class = "ik-sum-sub", if (is.null(p)) "no data" else sprintf("%s of %s %s", fmt(p$n), fmt(p$tot), noun)),
+          if (!is.null(rate_line)) div(class = "ik-sum-rate", rate_line)))
+      pm <- function(m, se) if (is.finite(se)) sprintf("%.2f ± %.2f", m, se) else sprintf("%.2f", m)
+      cam_rate <- if (spec$camera  && is.finite(rt$rai))   paste0("RAI ", pm(rt$rai, rt$rai_se), " / ", fmt(nh), " ch")              else NULL
+      trp_rate <- if (spec$trapped && is.finite(rt$catch)) paste0(pm(rt$catch, rt$catch_se), " catches / ", fmt(nt), " trap-nights") else NULL
+      tagList(
+        div(class = "ik-sum-superlabel", icon("eye"), tags$span("Seen")),
+        div(class = "ik-sum-cards",
+          if (spec$camera)  card("camera",          pr$cam,  "of monitoring locations", "cameras", cam_rate),
+          if (spec$trapped) card("clipboard-check", pr$trap, "of the trap network",     "traps",   trp_rate)))
+    })
+
+    output$summary_config <- renderUI({
+      srow <- sg[sg$scientificName %in% spec$sci, , drop = FALSE]
+      srow <- if (nrow(srow)) srow[1, , drop = FALSE] else NULL
+      dw   <- ik_data$meta$duplicate_window %||% list(default = 5, by_species = list())
+      def  <- dw$default %||% 5; bysp <- dw$by_species %||% list()
+      wins <- vapply(spec$sci, function(s) as.numeric(bysp[[s]] %||% def), numeric(1))
+      win_txt <- if (length(unique(wins)) == 1) sprintf("%g min", wins[1]) else sprintf("%g–%g min", min(wins), max(wins))
+      kv <- function(k, v, tip = NULL) if (is.null(v) || (is.character(v) && (is.na(v) || !nzchar(v)))) NULL else
+        tags$tr(tags$td(class = "ik-sum-k", k, if (!is.null(tip)) .ik_hint(tip)), tags$td(v))
+      tags$table(class = "ik-sum-config",
+        kv("Group", spec$group),
+        kv("Role",  tools::toTitleCase(spec$role %||% "—")),
+        kv("Monitoring", if (!is.null(srow) && !is.na(srow$monitor)) tools::toTitleCase(srow$monitor) else "—",
+           "How it features in camera monitoring: target (a focal species) or interesting (noted, not focal)."),
+        kv("Trap target", if (!is.null(srow) && !is.na(srow$control)) "Yes" else "No",
+           "Whether this species is a target of the trapping programme."),
+        kv("Priority", if (!is.null(srow) && !is.na(srow$priority)) as.character(srow$priority) else NULL,
+           "Ranking order within its role (lower = higher priority)."),
+        kv("Duplicate window", win_txt,
+           "Two detections of this species at one camera within this gap are flagged a possible duplicate."),
+        kv("Camera RAI norm", sprintf("%s camera-hours (per line)", format(nh, big.mark = ",")),
+           "Camera detections are expressed per this many camera-hours, pooled per monitoring line."),
+        kv("Catch-rate norm", sprintf("%s trap-nights", format(nt, big.mark = ","))))
+    })
+
+    # ---- Where (hotspots): top camera lines by RAI · reserves by catch rate (all-time, like Summary) ----
     .hbar_prep <- function(d, xcol) {                          # filter >0, top 15, factor labels (best on top)
       d <- d[is.finite(d[[xcol]]) & d[[xcol]] > 0, , drop = FALSE]
       if (!nrow(d)) return(d)
@@ -378,9 +468,9 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                        plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
     }
     where <- reactive({ req(active())
-      list(cam  = if (spec$camera)  tryCatch(ik_rai(ik_data, selection(), taxa, level = "reserve")$lines, error = function(e) NULL) else NULL,
-           trap = if (spec$trapped) tryCatch(ik_trap_rate(ik_data, selection(), taxa, level = "reserve")$summary, error = function(e) NULL) else NULL)
-    }) |> bindCache(spec$key, selection()$period, selection()$season, selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
+      list(cam  = if (spec$camera)  tryCatch(ik_rai(ik_data, sel_summary(), taxa, level = "reserve")$lines, error = function(e) NULL) else NULL,
+           trap = if (spec$trapped) tryCatch(ik_trap_rate(ik_data, sel_summary(), taxa, level = "reserve")$summary, error = function(e) NULL) else NULL)
+    }) |> bindCache(spec$key, .ik_nz(selection()$reserve), ik_active_datasets())
 
     where_cam_plotted <- reactiveVal(NULL); where_trap_plotted <- reactiveVal(NULL)
     output$where_cam <- renderPlot({
@@ -388,7 +478,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       d$.lab <- ifelse(is.na(d$line), "(unlined)", sprintf("%s · %s", d$reserve, d$line))
       d <- .hbar_prep(d, "metric"); validate(need(nrow(d), "No camera activity for this species in the selection."))
       where_cam_plotted(d)
-      .hbar_plot(d, "metric", "Camera activity by line (RAI)", sprintf("RAI / %s ch", format(per_cam, big.mark = ",")), "#1f78b4")
+      .hbar_plot(d, "metric", "Camera activity by line (RAI)", sprintf("RAI / %s ch", format(nh, big.mark = ",")), "#1f78b4")
     }, bg = "transparent")
 
     output$where_trap <- renderPlot({
@@ -414,7 +504,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     }
     observeEvent(input$where_cam_click, {
       row <- .where_bar(where_cam_plotted, input$where_cam_click); if (is.null(row)) return()
-      o <- tryCatch(ik_metric_obs(ik_data, selection(), taxa, spec$label, source_type = "camera"), error = function(e) NULL)
+      o <- tryCatch(ik_metric_obs(ik_data, sel_summary(), taxa, spec$label, source_type = "camera"), error = function(e) NULL)
       if (is.null(o) || !nrow(o)) return()
       keep <- !is.na(o$reserve) & o$reserve == row$reserve &
         (if (is.na(row$line)) is.na(o$line) else (!is.na(o$line) & o$line == row$line))
@@ -428,7 +518,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     })
     observeEvent(input$where_trap_click, {
       row <- .where_bar(where_trap_plotted, input$where_trap_click); if (is.null(row)) return()
-      o <- tryCatch(ik_metric_obs(ik_data, selection(), taxa, spec$label, source_type = "trap"), error = function(e) NULL)
+      o <- tryCatch(ik_metric_obs(ik_data, sel_summary(), taxa, spec$label, source_type = "trap"), error = function(e) NULL)
       if (is.null(o) || !nrow(o)) return()
       r <- o[!is.na(o$reserve) & o$reserve == row$reserve, , drop = FALSE]; if (!nrow(r)) return()
       where_trap_recs(r[order(r$when, decreasing = TRUE), , drop = FALSE])
