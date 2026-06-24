@@ -23,12 +23,20 @@
   margin: 0 0.4rem;
   opacity: 0.5;
 }
+.ik-ov-compare {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
 
 /* Device section headers (Camera monitoring · Trapping) — bolder, with a subtle per-device accent
    bar + tint so the two sections read apart at a glance. */
 .ik-device-head { font-weight: 700; font-size: 1.05rem;
-  display: flex; align-items: center; gap: 0.5rem; }
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .ik-device-title { flex: 1 1 auto; }   /* push the help (?) button to the right of the section title */
+.ik-device-meta {                      /* per-device data span + place counts, wraps onto its own line */
+  flex-basis: 100%; font-weight: 400; font-size: 0.85rem;
+  color: var(--bs-secondary-color, #6c757d); }
 .ik-device-camera { border-left: 4px solid #3f6fb0; background: rgba(63, 111, 176, 0.06); }
 .ik-device-trap   { border-left: 4px solid #b06a3f; background: rgba(176, 106, 63, 0.06); }
 

@@ -391,6 +391,44 @@ overview_ui <- function(id) {
   obs[is.na(d) | !d, , drop = FALSE]                          # keep non-duplicates
 }
 
+#' Display string for a selection's PERIOD span (the header date line). A contiguous selection
+#' (one season / a year / rolling-12 / latest / all data) shows its window `start – end`; a
+#' "seasonall" selection (All summers/…) is non-contiguous, so instead of a misleading single range
+#' it shows the season count + the year span. @keywords internal
+.ov_period_span <- function(ik_data, sel) {
+  fmt <- function(x) format(x, "%d %b %Y")
+  sc  <- ik_season_calendar(ik_data); if (is.null(sc) || !nrow(sc)) return("—")
+  sub <- if (length(sel$season)) sc[sc$calendar_season %in% sel$season, , drop = FALSE] else sc
+  if (!nrow(sub)) return("—")
+  p <- sel$period
+  if (!is.null(p) && startsWith(p, "seasonall:")) {           # non-contiguous → count + year span
+    nm <- sub("^seasonall:", "", p); cy <- .ik_cycle_year(sub$season, sub$season_year)
+    return(sprintf("All %ss · %d seasons (%s – %s)", tolower(nm), nrow(sub),
+                   .ik_cycle_year_label(min(cy)), .ik_cycle_year_label(max(cy))))
+  }
+  sprintf("%s – %s", fmt(min(sub$start)), fmt(max(sub$end) - 1))   # end is exclusive → show last day
+}
+
+#' Per-device header sub-line: the record-date envelope WITHIN the selection (when this device's data
+#' actually falls — scoped, so a continuous trap that started two years ago still reads in-season) +
+#' its own reserve / line / location counts. NULL when nothing resolved. @keywords internal
+.ov_section_meta <- function(res, ik_data) {
+  dep <- res$deployments; if (is.null(dep) || !nrow(dep)) return(NULL)
+  obs <- res$observations
+  when <- if (!is.null(obs) && nrow(obs)) {                              # record dates (already in-season)
+    w <- obs$eventEnd; na <- is.na(w); w[na] <- obs$eventStart[na]; w
+  } else dep$deploymentEnd
+  locs <- ik_data$app$geography$locations
+  gl   <- locs[locs$location_id %in% unique(dep$locationID), , drop = FALSE]
+  fmt  <- function(x) if (!is.finite(as.numeric(x))) "—" else format(x, "%d %b %Y")
+  lines <- length(unique(paste(gl$reserve, gl$line)[!is.na(gl$line)]))   # distinct reserve×line (real lines)
+  tags$div(class = "ik-device-meta",
+    sprintf("%s – %s", fmt(suppressWarnings(min(when, na.rm = TRUE))), fmt(suppressWarnings(max(when, na.rm = TRUE)))),
+    tags$span(class = "ik-ov-dot", "·"),
+    sprintf("%d reserves · %d lines · %d locations",
+            length(unique(gl$reserve[!is.na(gl$reserve)])), lines, length(unique(gl$location_id))))
+}
+
 #' One device card: metric value-boxes + an outcome-metric table + a species panel. Each value
 #' box is clickable when `box_drill` (a Shiny input id) is given — clicking sets it to
 #' `{kind, metric}` (metric = effort/deployments/records/species), handled into a drill modal.
@@ -415,6 +453,7 @@ overview_ui <- function(id) {
   }
   card(
     card_header(tags$span(class = "ik-device-title", title), help,
+                .ov_section_meta(res, ik_data),
                 class = paste0("ik-device-head ik-device-", kind)),
     card_body(
       layout_column_wrap(
@@ -528,7 +567,6 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     mon_dir <- desire(mon_targets)
     ctl_dir <- desire(ctl_targets)
 
-    all_dev <- reactive(ik_resolve(ik_data, selection()))
     cam     <- reactive(ik_resolve(ik_data, selection(), source_type = "camera"))
     trp     <- reactive(ik_resolve(ik_data, selection(), source_type = "trap"))
     # Append the combined row (mean ± SE over reserves) when >1 reserve — the right-most
@@ -558,19 +596,17 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     rai_r  <- metric_react(ik_rai, mon_targets, "rai")
     rate_r <- metric_react(ik_trap_rate, ctl_targets, "rate")
 
-    fmt_date <- function(x) if (!is.finite(as.numeric(x))) "—" else format(x, "%d %b %Y")
-
     output$header <- renderUI({
-      r   <- all_dev()
-      obs <- r$observations
-      gl  <- locs[locs$location_id %in% unique(r$deployments$locationID), , drop = FALSE]
-      # the instance ORGANISATION (project.R) leads; the data sources (dataset names) sit
-      # smaller on a second line. Falls back to the dataset/project tags if no org is set.
+      # the instance ORGANISATION (project.R) leads; the data sources (dataset names) sit smaller on a
+      # second line. The third line is the SELECTION period window (per-device data spans + place counts
+      # now live under each section header), with the comparison period in brackets when one is set.
       org    <- ik_data$meta$organisation
       active <- ik_active_datasets()                            # reactive → header re-runs when the toggle is saved
       ds     <- if (is.null(active)) ik_data$datasets else ik_data$datasets[intersect(names(ik_data$datasets), active)]
       dnames <- unique(vapply(ds, function(d) d$meta$name %||% "", character(1)))
       dnames <- dnames[nzchar(dnames)]
+      cmp     <- ik_comparison_spec(ik_data, selection())
+      cmp_lab <- if (!is.null(cmp)) .ov_period_span(ik_data, cmp) else NULL
       tags$div(
         class = "ik-ov-header",
         tags$h3(org %||% paste(if (length(dnames)) dnames else projects, collapse = " · ")),
@@ -578,13 +614,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
           tags$div(class = "ik-ov-datasets", paste(dnames, collapse = " · ")),
         tags$div(
           class = "ik-ov-sub",
-          sprintf("%s – %s", fmt_date(suppressWarnings(min(obs$eventEnd, na.rm = TRUE))),
-                  fmt_date(suppressWarnings(max(obs$eventEnd, na.rm = TRUE)))),
-          tags$span(class = "ik-ov-dot", "·"),
-          sprintf("%d reserves · %d lines · %d locations",
-                  length(unique(gl$reserve[!is.na(gl$reserve)])),
-                  length(unique(gl$line[!is.na(gl$line)])),
-                  length(unique(gl$location_id)))
+          .ov_period_span(ik_data, selection()),
+          if (!is.null(cmp_lab)) tags$span(class = "ik-ov-compare", sprintf("(vs %s)", cmp_lab))
         )
       )
     })
