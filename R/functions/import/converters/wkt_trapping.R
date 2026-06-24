@@ -186,7 +186,9 @@ convert_wkt_trapping <- function(raw_dir, out_dir, meta = list(), dataset_id = "
       paste0("status:",        ifelse(is_animal, "caught", d$description)),  # non-capture: still set/sprung/bait gone
       paste0("volunteer:",     d$volunteer_id %||% NA),
       paste0("bait_outcome:",  d$bait_outcome %||% NA),
-      paste0("bait:",          d$baitstatus %||% NA),
+      # "Special Recipe (In notes)" — the notes are a free-text per-trap history, too unstructured to
+      # mine a recipe from, so shorten the label to just "Special Recipe" (less width on the Bait chart).
+      paste0("bait:",          gsub("Special Recipe (In notes)", "Special Recipe", d$baitstatus %||% NA, fixed = TRUE)),
       paste0("bait_change:",   d$baitchange %||% NA),
       sep = " | "),
     observationComments = d$description,
