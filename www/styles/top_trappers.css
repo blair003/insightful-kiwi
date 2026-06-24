@@ -1,0 +1,36 @@
+/* top_trappers.css — "Top trappers" season leaderboard: podium, award chips, ranked table. */
+.ik-tt { padding-top: 0.5rem; }
+.ik-tt-title { margin: 0 0 0.1rem; }
+.ik-tt-lead  { color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; margin: 0.2rem 0 0.7rem; max-width: 62rem; }
+.ik-tt-controls { display: flex; align-items: end; gap: 1.2rem; flex-wrap: wrap; margin: 0.2rem 0 0.5rem; }
+.ik-tt-note { color: var(--bs-secondary-color, #6c757d); font-size: 0.88rem; margin: 0.2rem 0 0.7rem; }
+
+/* Podium — top 3 cards */
+.ik-tt-podium { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ik-tt-pod { flex: 1 1 220px; min-width: 200px; border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.6rem; padding: 0.9rem 1rem; background: var(--bs-body-bg); position: relative;
+  border-top: 4px solid var(--bs-border-color, #dee2e6); }
+.ik-tt-pod-1 { border-top-color: #e6b800; }   /* gold   */
+.ik-tt-pod-2 { border-top-color: #9aa3ab; }   /* silver */
+.ik-tt-pod-3 { border-top-color: #cd7f32; }   /* bronze */
+.ik-tt-medal { position: absolute; top: 0.7rem; right: 0.9rem; width: 1.8rem; height: 1.8rem;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;
+  color: #fff; background: #9aa3ab; }
+.ik-tt-pod-1 .ik-tt-medal { background: #e6b800; }
+.ik-tt-pod-2 .ik-tt-medal { background: #9aa3ab; }
+.ik-tt-pod-3 .ik-tt-medal { background: #cd7f32; }
+.ik-tt-vol { font-weight: 600; font-size: 0.95rem; }
+.ik-tt-score { font-size: 2rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ik-tt-score-u { font-size: 0.9rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
+.ik-tt-podstat { color: var(--bs-secondary-color, #6c757d); font-size: 0.82rem; margin-bottom: 0.4rem; }
+.ik-tt-podchips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+/* Award chips (podium + table) */
+.tt-chip { display: inline-block; padding: 0.08rem 0.5rem; border-radius: 999px; font-size: 0.74rem;
+  font-weight: 600; white-space: nowrap; line-height: 1.4; }
+.tt-trophy { background: rgba(230, 184, 0, 0.18); color: #8a6d00; border: 1px solid rgba(230, 184, 0, 0.5); }
+.tt-badge  { background: rgba(13, 110, 253, 0.10); color: #0a58ca; border: 1px solid rgba(13, 110, 253, 0.35); }
+.tt-none   { color: var(--bs-secondary-color, #adb5bd); }
+
+.ik-tt-board td { vertical-align: middle; }
+.ik-tt-board .tt-chip { margin: 1px 0; }
