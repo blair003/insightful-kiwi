@@ -407,6 +407,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         overlayGroups = c("Surface", "Points", "No records", "Boundary", "Activity"),
         options = leaflet::layersControlOptions(collapsed = FALSE))
       m <- leaflet::hideGroup(m, "Activity")
+      if (!is.null(fixed_species)) m <- leaflet::hideGroup(m, "Surface")   # species maps: clean by default, surface opt-in
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
     })
@@ -434,11 +435,18 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # points already encode the selection + active datasets, so they fully determine the surface);
     # revisiting a view — or another session on the same selection — then skips the recompute. The
     # theme is deliberately NOT in the key: it only affects the redraw below, not the interpolation.
-    surface_idw <- reactive({
+    # Only interpolate when the Surface layer is actually shown — the IDW is the heaviest computation,
+    # so a hidden surface (species maps default it off) shouldn't pay for it. `input$map_groups` is the
+    # leaflet layers-control state; NULL before the client reports → fall back to the default (standalone
+    # on, species off). Toggling Surface on updates the input → the interpolation runs (then caches).
+    surface_on <- reactive({ g <- input$map_groups
+      if (is.null(g)) is.null(fixed_species) else "Surface" %in% g })
+    surface_compute <- reactive({
       if (src() == "trap" && measure() == "servicing") return(NULL)
       d <- rate_loc_pts(); if (is.null(d) || !nrow(d)) return(NULL)
       ik_idw_surface(d, valcol(), "reserve")
     }) |> bindCache(rate_loc_pts(), valcol())
+    surface_idw <- reactive(if (isTRUE(surface_on())) surface_compute() else NULL)
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Surface")
       s <- surface_idw(); if (is.null(s) || !nrow(s)) return()
@@ -554,7 +562,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
                else if (is_timing()) sprintf("Predator proximity &middot; red = %s close to %s in time", pred_label(), prot_label())
                else if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
                else sprintf("%s &middot; %s", vallabel(), group_lab())
-        leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl, opacity = 0.9)
+        leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl,
+                           bins = 5, opacity = 0.9)   # fixed bin count → camera & trap legends match height
       }
     })
 
