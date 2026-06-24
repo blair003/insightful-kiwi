@@ -27,7 +27,9 @@ coverage_help_body <- function(cam_norm = 500) {
         tags$li(tags$b(tags$span(style = "color:#2e7d32", "Protected")), " (camera) — green dots, size ∝ detection rate. The hotspots you're protecting."),
         tags$li(tags$b(tags$span(style = "color:#c62828", "Predators")), " (camera) — red rings, size ∝ detection rate. Where predators roam. Off by default."),
         tags$li(tags$b(tags$span(style = "color:#6a3d9a", "Catches")), " (traps) — purple dots, size ∝ predators caught. Where removal is actually happening."),
-        tags$li(tags$b(tags$span(style = "color:#8a8a8a", "Traps")), " — small grey dots, every trap deployed: the trapping field."),
+        tags$li(tags$b("Device"), " — small dots for every device location: ",
+                tags$span(style = "color:#8a8a8a", "grey traps"), " and ", tags$span(style = "color:#2c7fb8", "blue cameras"),
+                " (the underlying field; the markers above show where something was detected or caught)."),
         tags$li(tags$b("Boundary"), " — the monitored footprint (convex hull of the devices) per reserve; hover it for the reserve name."))),
     tabPanel(
       "Reading it", icon = icon("magnifying-glass-chart"),
@@ -66,13 +68,16 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
         " by how well predator control reaches it — turning the map's eyeball judgement into a list you ",
         "can work down."),
       P("Each line gets a ", tags$b("status"), " (next tab) and the numbers behind it. Use it to find the ",
-        "protected hotspots where the trapping is thin, absent, or neglected.")),
+        "protected hotspots where the trapping is thin, absent, or neglected."),
+      
+      P(tags$b("Hint:"), " Select a single Reserve. Mousever the table entry",
+        "to see the traps within the Gap radius of that line.")),
     tabPanel(
       "Columns & status", icon = icon("table-list"),
       tags$h6("Columns"),
       tags$ul(
-        tags$li(tags$b("Protected / Predator"), " — detections on the line's cameras, a rate per ", ch,
-                " camera-hours (same units as the map). 0 = none seen on camera."),
+        tags$li(tags$b("Protected / Predator"), " — detections pooled across the line's cameras, as a rate per ", ch,
+                " camera-hours (the line's RAI — a per-line figure, so a larger unit than the per-camera map). 0 = none seen on camera."),
         tags$li(tags$b("Traps"), " — traps running within the gap radius (how much trapping reaches the line)."),
         tags$li(tags$b("Caught"), " — predators caught in those nearby traps this period."),
         tags$li(tags$b("Neglected"), " — of the nearby active traps, how many are unserviced this period."),
@@ -91,7 +96,7 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
         tags$li(tags$b("Neighbourhood"), " — a line's “nearby” is the traps within the ", tags$b("gap radius"),
                 " of its cameras. A bigger radius counts more distant traps as nearby, so more lines look ",
                 "covered — it drives the Traps, Caught and Neglected columns."),
-        tags$li(tags$b("Rates"), " — protected/predator are detections ÷ camera-hours × ", ch, " (as on the map)."),
+        tags$li(tags$b("Rates"), " — protected/predator are the line's detections ÷ its cameras' camera-hours × ", ch, " (pooled into one per-line RAI)."),
         tags$li(tags$b("Neglected"), " — from the trap servicing assessment (a nearby active trap unchecked ",
                 "this period); see the Trap review help for the cadence buckets."),
         tags$li(tags$b("Ranking"), " — worst gap first (protected present, control weakest).")),
@@ -110,8 +115,8 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
   thx <- function(label, tip = NULL) tags$th(label, if (!is.null(tip)) .ik_hint(tip))
   tags$table(class = "display", tags$thead(tags$tr(
     thx("Line"), thx("Reserve"),
-    thx("Protected", sprintf("Protected detections on this line's cameras, as a rate per %s camera-hours (same as the map). 0 = none on camera.", n)),
-    thx("Predator",  sprintf("Predator detections on this line's cameras, per %s camera-hours. Higher = more predator activity on camera.", n)),
+    thx("Protected", sprintf("Protected detections pooled across this line's cameras, as a rate per %s camera-hours (the line's RAI). 0 = none on camera.", n)),
+    thx("Predator",  sprintf("Predator detections pooled across this line's cameras, per %s camera-hours. Higher = more predator activity on camera.", n)),
     thx("Traps", "Traps running within the gap radius of this line's cameras — how much trapping reaches it. Set by the Gap radius control."),
     thx("Caught", "Predators caught in those nearby traps this period."),
     thx("Neglected", "Of the nearby active traps, how many are unserviced (neglected) this period."),
@@ -128,7 +133,8 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
 #' Coverage nav panel. @param id Module id. @param ik_data The container (camera-hour norm for help).
 coverage_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
-  cam_norm <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
+  cam_norm  <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500    # per-camera (map markers)
+  line_norm <- (ik_data$meta$camera$rai %||% list())$norm_hours   %||% 2000   # per-line (gaps table, pooled cameras)
   nav_panel(
     "Coverage", value = "coverage", icon = icon("shield-halved"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/coverage.css")),
@@ -150,7 +156,8 @@ coverage_ui <- function(id, ik_data = NULL) {
           tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
           tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera; ",
           tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps; ",
-          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = traps. A green hotspot ringed by ",
+          tags$b(tags$span(style = "color:#2c7fb8", "blue")), " = camera & ",
+          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap locations (the Device layer). A green hotspot ringed by ",
           "purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
         div(class = "ik-cov-controls",
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "230px"),
@@ -163,7 +170,7 @@ coverage_ui <- function(id, ik_data = NULL) {
             div(class = "ik-cov-gaps-head",
                 div(class = "ik-cov-gaps-head-l",
                     tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
-                    .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body(cam_norm))),
+                    .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body(line_norm))),
                 selectInput(ns("radius"), "Gap radius", width = "120px",  # drives THIS table (not the map)
                             choices = c("250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 500)),
             tags$p(class = "ik-cov-gaps-lead",
@@ -188,7 +195,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     prefer <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
     .pred_def <- paste0("grp:", if ("Mustelids" %in% names(pred_taxa)) "Mustelids" else names(pred_taxa)[1])
     .prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_taxa)) "Kiwi" else names(prot_taxa)[1])
-    per_cam   <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
+    per_cam   <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500    # per-camera (map markers)
+    line_norm <- (ik_data$meta$camera$rai %||% list())$norm_hours   %||% 2000   # per-line (gaps table header)
 
     observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       updateSelectInput(session, "prot", choices = ik_species_choices(prot_taxa, ik_data, p, splits), selected = keep(isolate(input$prot), .prot_def))
@@ -210,6 +218,11 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       seas <- .ik_nz(selection()$season); if (!is.null(seas)) dp <- .trap_in_period(ik_data, dp, seas)
       table(dp$locationID)
     })
+    cam_locs_all <- reactive({ req(active())                    # all camera locations — the blue half of Device
+      st <- ik_dataset_source_types(ik_data$datasets); al <- ik_active_locations(ik_data)
+      al$st <- unname(st[al$dataset])
+      al[!is.na(al$st) & al$st == "camera" & is.finite(al$latitude) & is.finite(al$longitude), , drop = FALSE]
+    })
 
     .radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)        # shared impl in spatial.R
     proxy <- function() leaflet::leafletProxy("map", session)
@@ -221,41 +234,51 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
       m <- leaflet::addProviderTiles(m, canvas, group = "Map")
       m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("boundary", "traps", "catches", "protected", "predators", "highlight")  # boundary lowest; highlight on TOP
+      pns <- c("boundary", "device", "catches", "protected", "predators", "highlight")  # boundary lowest; highlight on TOP
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Protected", "Predators", "Catches", "Traps", "Boundary"),
+        overlayGroups = c("Protected", "Predators", "Catches", "Device", "Boundary"),
         options = leaflet::layersControlOptions(collapsed = FALSE))
       m <- leaflet::hideGroup(m, "Predators")                   # off by default — the coverage story is Protected vs Catches/Traps
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
     })
+    # Render from load (not just when the Coverage tab is first shown) so the proxy layers below land
+    # on a live widget — otherwise the first marker draw races the render and the markers are dropped,
+    # leaving the map blank until a data-selection change re-fires the observers (the gap radius, which
+    # only drives the table, wouldn't).
+    outputOptions(output, "map", suspendWhenHidden = FALSE)
 
     observeEvent(color_mode(), {
       p <- proxy(); leaflet::clearGroup(p, "Map")
       leaflet::addProviderTiles(p, if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
     }, ignoreInit = TRUE)
 
-    observe({                                                   # Traps — every deployed trap (the network)
-      p <- proxy(); leaflet::clearGroup(p, "Traps")
-      d <- trap_pred(); if (is.null(d) || !nrow(d)) return()
-      chk <- trap_checks(); nck <- as.integer(chk[as.character(d$location_id)]); nck[is.na(nck)] <- 0L
-      lab <- sprintf("%s — %d check%s · %s trap-days · %d caught", d$name, nck, ifelse(nck == 1L, "", "s"),
-                     format(round(d$trap_days), big.mark = ","), as.integer(d$captures))
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Traps", layerId = paste0("T|", d$location_id),
-        radius = 3, fill = TRUE, fillColor = "#8a8a8a", fillOpacity = 0.5, stroke = FALSE,
-        label = lab, options = leaflet::pathOptions(pane = "traps"))
+    observe({                                                   # Device — every trap (grey) + camera (blue) location
+      p <- proxy(); leaflet::clearGroup(p, "Device")
+      d <- trap_pred()                                          # traps (grey) — click for check history
+      if (!is.null(d) && nrow(d)) {
+        chk <- trap_checks(); nck <- as.integer(chk[as.character(d$location_id)]); nck[is.na(nck)] <- 0L
+        lab <- sprintf("%s — %d check%s · %s trap-days · %d caught · click for check history", d$name, nck, ifelse(nck == 1L, "", "s"),
+                       format(round(d$trap_days), big.mark = ","), as.integer(d$captures))
+        leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Device", layerId = paste0("T|", d$location_id),
+          radius = 3, fill = TRUE, fillColor = "#8a8a8a", fillOpacity = 0.5, stroke = FALSE,
+          label = lab, options = leaflet::pathOptions(pane = "device"))
+      }
+      cl <- cam_locs_all()                                      # cameras (blue) — swallowed by any detection marker above
+      if (!is.null(cl) && nrow(cl))
+        leaflet::addCircleMarkers(p, data = cl, lng = ~longitude, lat = ~latitude, group = "Device",
+          radius = 3, fill = TRUE, fillColor = "#2c7fb8", fillOpacity = 0.7, stroke = FALSE,
+          label = sprintf("%s — camera", cl$name), options = leaflet::pathOptions(pane = "device"))
     })
     observe({                                                   # Catches — traps that caught the predator
       p <- proxy(); leaflet::clearGroup(p, "Catches")
       d <- trap_pred(); d <- if (is.null(d)) NULL else d[is.finite(d$captures) & d$captures > 0, , drop = FALSE]
       if (is.null(d) || !nrow(d)) return()
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Catches",
+      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Catches", layerId = paste0("T|", d$location_id),
         radius = .radius(d$captures, 6, 22), fillColor = "#6a3d9a", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1,
-        label = sprintf("%s — %s caught: %d", d$name, pred_lab(), as.integer(d$captures)),
-        popup = ~sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>%s caught: %d</b><br/>Trap-days: %s",
-                         name, ifelse(is.na(line), "—", line), reserve, pred_lab(), as.integer(captures), format(round(trap_days), big.mark = ",")),
-        options = leaflet::pathOptions(pane = "catches"))
+        label = sprintf("%s — %s caught: %d · click for check history", d$name, pred_lab(), as.integer(d$captures)),
+        options = leaflet::pathOptions(pane = "catches"))   # popup dropped: click now opens the trap's check history
     })
     observe({                                                   # Predators on camera (off by default)
       p <- proxy(); leaflet::clearGroup(p, "Predators")
@@ -372,7 +395,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         `Traps` = g$n_traps, `Caught` = g$catches, `Neglected` = g$n_neglected,
         `Traps/km²` = ifelse(is.na(dens), "—", sprintf("%.0f", dens)),
         Status = badge, check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, container = .cov_gaps_header(per_cam), rownames = FALSE, escape = -ncol(df),
+      DT::datatable(df, container = .cov_gaps_header(line_norm), rownames = FALSE, escape = -ncol(df),
         selection = "single", class = "stripe hover row-border ik-row-click",
         # row index drives the drill (click) + map highlight (hover); ordering/paging off so the
         # display order matches gaps_shown() one-to-one.
@@ -447,6 +470,52 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border",
         options = list(dom = "t", ordering = FALSE, paging = FALSE))   # every reserve, no hidden rows
+    })
+
+    # ---- click a TRAP marker → its full check history (all-time) → Record Details (as on Neighbourhood) ----
+    th_loc <- reactiveVal(NULL); th_open <- reactiveVal(NULL)
+    observeEvent(input$map_marker_click, {
+      cid <- input$map_marker_click$id
+      if (is.null(cid) || !startsWith(cid, "T|")) return()       # trap markers only (layerId "T|<loc>")
+      loc <- sub("^T\\|", "", cid); th_loc(loc); th_open(NULL)
+      al  <- ik_active_locations(ik_data); nm <- al$name[match(loc, al$location_id)]
+      showModal(modalDialog(
+        title = .ik_modal_title(sprintf("%s — check history", nm %||% loc),
+                                "Every check at this trap (all-time) — click one for its full record."),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
+        tabsetPanel(id = session$ns("th_tabs"),
+          tabPanel("Trap history",   icon = icon("clock-rotate-left"), DT::dataTableOutput(session$ns("th_table"))),
+          tabPanel("Record details", icon = icon("circle-info"),       uiOutput(session$ns("th_record"))))))
+      hideTab(session = session, inputId = "th_tabs", target = "Record details")
+    })
+    output$th_table <- DT::renderDT({
+      req(th_loc())
+      ch <- ik_trap_checks(ik_data, th_loc(), NULL)              # full history, newest first
+      validate(need(!is.null(ch) && nrow(ch), "No checks recorded for this trap."))
+      df <- data.frame(
+        Date = format(ch$check_date, "%d %b %Y"),
+        Interval = ifelse(ch$is_first, "first record", paste0(ch$interval_days, " d")),
+        Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait),
+        Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer), ObsID = ch$observationID,
+        check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip",
+          columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))   # hide ObsID
+    })
+    observeEvent(input$th_table_rows_selected, {                 # a check → its record
+      i <- input$th_table_rows_selected; ch <- ik_trap_checks(ik_data, th_loc(), NULL)
+      if (length(i) && !is.null(ch) && i <= nrow(ch)) {
+        th_open(ch$observationID[i]); showTab(session = session, inputId = "th_tabs", target = "Record details", select = TRUE)
+      }
+      DT::selectRows(DT::dataTableProxy("th_table"), NULL)
+    })
+    observeEvent(input$th_back, updateTabsetPanel(session, input$th_back$tabset, selected = input$th_back$to))
+    output$th_record <- renderUI({
+      if (is.null(th_open())) return(tags$p(class = "ik-spp-other", "Pick a check from the Trap history tab."))
+      ob <- ik_observation(ik_data, th_open()); if (is.null(ob)) return(tags$p("Record not found."))
+      tagList(.ik_tab_back(session$ns("th_back"), "th_tabs", "Trap history", "Back to trap history"),
+              .ovw_title(ik_data, ob, prefer()),
+              .ovw_tabs(ik_data, ob, prefer(), tabset_id = session$ns("th_subtabs")))
     })
   })
 }

@@ -72,6 +72,8 @@ trapping_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping.css")),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
+    tags$script(src = .ik_asset("js/maps.js")),                            # leaflet resize-on-tab-show
     div(class = "ik-trapping",
         div(class = "ik-review-headrow",
             tags$h5("Trap check-frequency review", class = "ik-review-head"),
@@ -90,6 +92,24 @@ trapping_ui <- function(id, ik_data = NULL) {
                   selected = "dormant")),
             uiOutput(ns("intro")),
             div(class = "ik-trapping-scroll", uiOutput(ns("table")))),
+          tabPanel(
+            "Map", icon = icon("map-location-dot"),
+            tags$p(class = "trap-lead",
+              "Where the traps are and how they're being serviced this period. Most stay ",
+              tags$span(style = "color:#8a8a8a", "grey"), "; only ",
+              tags$b(tags$span(style = "color:#f9a825", "Watch")), " and ",
+              tags$b(tags$span(style = "color:#c62828", "Neglected")), " get colour — toggle each status ",
+              "layer top-right. High-pressure traps (productive but under-checked) carry a ",
+              tags$b("black ring"), ". ", tags$b("Click any trap"), " for its check history."),
+            leaflet::leafletOutput(ns("map"), height = "55vh"),
+            uiOutput(ns("pressure_note")),
+            tags$h6(class = "trap-pressure-title", "Trap pressure — productive traps checked too rarely"),
+            tags$p(class = "trap-lead",
+              "The ", tags$b("black-ringed"), " traps above: catching on ", tags$b("at least half their checks"),
+              " yet on a ", tags$b("watch / neglected"), " cadence — you're likely missing catches between ",
+              "visits, so these ", tags$b("would reward more frequent checks"), ". Worst first; hover a row to ",
+              "find it on the map, click for its history."),
+            DT::DTOutput(ns("pressure_table"))),
           tabPanel(
             "Over time", icon = icon("chart-line"),
             div(class = "trap-timeline",
@@ -300,6 +320,174 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         .ik_tab_back(ns("tab_back"), "line_tabs", "Trap detail", "Back to checks"),
         .ovw_title(ik_data, ob, prefer()),
         .ovw_tabs(ik_data, ob, prefer(), tabset_id = ns("trap_subtabs")))
+    })
+
+    # ============================ Map tab: spatial servicing + "trap pressure" ============================
+    # Most traps stay grey; only Watch + Neglected get colour, and each status is its own selectable
+    # layer. A HIGH-PRESSURE trap — productive (catches on ≥ PRESSURE_PCT % of checks) yet under-checked
+    # (watch/neglected cadence) — carries a purple ring: you're likely missing catches, so check it more.
+    PRESSURE_PCT <- 50
+    .PRESS_RING  <- "#000000"                                  # black ring — reads clearly over the status colours
+    map_traps <- reactive({
+      per <- review()$per; if (is.null(per) || !nrow(per)) return(NULL)
+      locs <- ik_data$app$geography$locations; gi <- match(per$location, locs$location_id)
+      per$latitude  <- locs$latitude[gi]; per$longitude <- locs$longitude[gi]
+      per$catch_pct <- ifelse(is.na(per$n_checks) | per$n_checks == 0, 0, 100 * per$captures / per$n_checks)
+      per$high_pressure <- per$status %in% c("watch", "neglected") & per$catch_pct >= PRESSURE_PCT & per$n_checks >= 2
+      per$pressure_score <- ifelse(per$high_pressure, (per$catch_pct / 100) *
+                                   ifelse(is.na(per$mean_interval_days), 0, per$mean_interval_days), 0)
+      per$grp <- ifelse(per$status == "neglected", "Neglected",
+                 ifelse(per$status == "watch",     "Watch", "Good & inactive"))   # everything else stays grey
+      per
+    })
+
+    mproxy <- function() leaflet::leafletProxy("map", session)
+    output$map <- leaflet::renderLeaflet({
+      locs <- ik_data$app$geography$locations
+      locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
+      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
+      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
+      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
+      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
+      m <- leaflet::addMapPane(m, "traps", zIndex = 410)
+      m <- leaflet::addMapPane(m, "highlight", zIndex = 450)
+      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
+             overlayGroups = c("Good & inactive", "Watch", "Neglected"),   # each status a selectable layer
+             options = leaflet::layersControlOptions(collapsed = FALSE))
+      if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
+      m
+    })
+    outputOptions(output, "map", suspendWhenHidden = FALSE)   # render from load so proxy layers land
+    observeEvent(color_mode(), {
+      leaflet::addProviderTiles(leaflet::clearGroup(mproxy(), "Map"),
+        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
+    }, ignoreInit = TRUE)
+
+    observe({                                                  # draw the three selectable status layers
+      req(identical(input$trap_view, "Map"))                   # only when the Map tab is visible, so the
+      p <- mproxy()                                            # fit/redraw happen at real size (not 0×0 while
+      for (g in c("Good & inactive", "Watch", "Neglected", "PressHighlight")) leaflet::clearGroup(p, g)  # on another tab — which left it stale + wrong-zoomed)
+      leaflet::clearControls(p)
+      d <- map_traps(); req(!is.null(d))
+      d <- d[is.finite(d$latitude) & is.finite(d$longitude), , drop = FALSE]; if (!nrow(d)) return()
+      scol <- if (is_dark()) .MAPS_STATUS$dark else .MAPS_STATUS$light   # central servicing palette (maps.R)
+      grp_col <- c("Good & inactive" = "#8a8a8a", "Watch" = unname(scol["watch"]), "Neglected" = unname(scol["neglected"]))
+      for (g in names(grp_col)) {
+        dd <- d[d$grp == g, , drop = FALSE]; if (!nrow(dd)) next
+        # high-pressure traps get a bold purple ring drawn as the marker's OWN stroke — no separate layer,
+        # so the marker stays clickable and nothing intercepts the click.
+        leaflet::addCircleMarkers(p, data = dd, lng = ~longitude, lat = ~latitude, group = g,
+          layerId = paste0("T|", dd$location), radius = 4, fillColor = grp_col[[g]],
+          fillOpacity = if (g == "Good & inactive") 0.55 else 0.85,
+          stroke = TRUE, color = ifelse(dd$high_pressure, .PRESS_RING, "#ffffff"),
+          weight = ifelse(dd$high_pressure, 3, 0.4),
+          label = lapply(sprintf("<b>%s</b><br>%s &middot; %s checks &middot; %s caught<br>%s%s · click for history",
+            dd$name, tools::toTitleCase(ifelse(is.na(dd$status), "—", dd$status)),
+            as.integer(ifelse(is.na(dd$n_checks), 0L, dd$n_checks)), as.integer(dd$captures),
+            ifelse(is.finite(dd$mean_interval_days), sprintf("~%.0f d gap", dd$mean_interval_days), ""),
+            ifelse(dd$high_pressure, sprintf(" &middot; %d%% catch — high pressure", round(dd$catch_pct)), "")), htmltools::HTML),
+          options = leaflet::pathOptions(pane = "traps"))
+      }
+      leaflet::addLegend(p, "bottomright",
+        colors = c("#8a8a8a", unname(scol["watch"]), unname(scol["neglected"]), .PRESS_RING),
+        labels = c("Good / inactive", "Watch", "Neglected", "High pressure (ring)"), title = "Servicing", opacity = 0.9)
+      leaflet::fitBounds(p, min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude), options = list(padding = c(25, 25)))
+    })
+
+    # ---- "trap pressure" flag table — hover to locate, click for history ----
+    pressure_shown <- reactiveVal(NULL)
+    output$pressure_note <- renderUI({
+      d <- map_traps(); if (is.null(d)) return(NULL)
+      wn <- sum(d$status %in% c("watch", "neglected")); hp <- sum(d$high_pressure)
+      nomap <- sum(d$high_pressure & (!is.finite(d$latitude) | !is.finite(d$longitude)))
+      tags$p(class = "trap-pressure-note",
+        if (hp == 0) sprintf("Of %d watch/neglected trap%s, none are high-pressure — the productive traps are being checked often enough.",
+                             wn, if (wn == 1) "" else "s")
+        else sprintf("Of %d watch/neglected trap%s, %s high-pressure (productive — catching on ≥%d%% of checks): the priority for more frequent checks%s.",
+                     wn, if (wn == 1) "" else "s", if (hp == 1) "1 is" else paste(hp, "are"), PRESSURE_PCT,
+                     if (nomap > 0) sprintf("; %d have no coordinates (table only)", nomap) else ""))
+    })
+    output$pressure_table <- DT::renderDT({
+      d <- map_traps(); validate(need(!is.null(d), "No traps in this period."))
+      t <- d[d$high_pressure, , drop = FALSE]
+      validate(need(nrow(t), "No high-pressure traps — productive traps are being checked often enough."))
+      t <- t[order(-t$pressure_score), , drop = FALSE]; pressure_shown(t)
+      st <- c(watch = "Watch", neglected = "Neglected")
+      df <- data.frame(
+        Trap = t$name, Reserve = t$reserve, Line = ifelse(is.na(t$line), "—", t$line),
+        `Catch %` = round(t$catch_pct), `Mean gap (d)` = round(t$mean_interval_days),
+        Captures = t$captures, Checks = as.integer(t$n_checks),
+        Status = unname(ifelse(t$status %in% names(st), st[t$status], t$status)),
+        .loc = t$location, check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 10, scrollX = TRUE, dom = "tip",
+          columnDefs = list(list(visible = FALSE, targets = 8)),       # hide .loc (index 8)
+          rowCallback = DT::JS(sprintf(
+            "function(r,d){r.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',d[8],{priority:'event'});});r.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
+            ns("pressure_hover"), ns("pressure_hover")))))
+    })
+    observeEvent(input$pressure_hover, {                        # hover a row → ring that trap (by id)
+      p <- mproxy(); leaflet::clearGroup(p, "PressHighlight")
+      loc <- input$pressure_hover; t <- pressure_shown()
+      if (is.null(loc) || !nzchar(loc) || is.null(t)) return()
+      r <- t[t$location == loc, , drop = FALSE]
+      if (!nrow(r) || !is.finite(r$latitude[1]) || !is.finite(r$longitude[1])) return()
+      leaflet::addCircleMarkers(p, data = r[1, , drop = FALSE], lng = ~longitude, lat = ~latitude, group = "PressHighlight",
+        radius = 13, fill = FALSE, stroke = TRUE, color = "#1565c0", weight = 3,
+        options = leaflet::pathOptions(pane = "highlight"))
+    })
+    observeEvent(input$pressure_table_rows_selected, {
+      i <- input$pressure_table_rows_selected; t <- pressure_shown()
+      if (length(i) && !is.null(t) && i <= nrow(t)) .open_history(t$location[i])
+      DT::selectRows(DT::dataTableProxy("pressure_table"), NULL)
+    })
+
+    # ---- click a trap MARKER (or pressure row) → its full check history → Record Details ----
+    th_loc <- reactiveVal(NULL); th_open <- reactiveVal(NULL)
+    .open_history <- function(loc) {
+      al <- ik_active_locations(ik_data); nm <- al$name[match(loc, al$location_id)]
+      th_loc(loc); th_open(NULL)
+      showModal(modalDialog(
+        title = .ik_modal_title(sprintf("%s — check history", nm %||% loc),
+                                "Every check at this trap (all-time) — click one for its full record."),
+        size = "l", easyClose = TRUE, footer = modalButton("Close"),
+        tabsetPanel(id = ns("th_tabs"),
+          tabPanel("Trap history",   icon = icon("clock-rotate-left"), DT::dataTableOutput(ns("th_table"))),
+          tabPanel("Record details", icon = icon("circle-info"),       uiOutput(ns("th_record"))))))
+      hideTab(session = session, inputId = "th_tabs", target = "Record details")
+    }
+    observeEvent(input$map_marker_click, {
+      cid <- input$map_marker_click$id
+      if (!is.null(cid) && startsWith(cid, "T|")) .open_history(sub("^T\\|", "", cid))
+    })
+    output$th_table <- DT::renderDT({
+      req(th_loc())
+      ch <- ik_trap_checks(ik_data, th_loc(), NULL)             # full all-time history, newest first
+      validate(need(!is.null(ch) && nrow(ch), "No checks recorded for this trap."))
+      df <- data.frame(
+        Date = format(ch$check_date, "%d %b %Y"),
+        Interval = ifelse(ch$is_first, "first record", paste0(ch$interval_days, " d")),
+        Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait),
+        Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer), ObsID = ch$observationID,
+        check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip",
+          columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))
+    })
+    observeEvent(input$th_table_rows_selected, {
+      i <- input$th_table_rows_selected; ch <- ik_trap_checks(ik_data, th_loc(), NULL)
+      if (length(i) && !is.null(ch) && i <= nrow(ch)) {
+        th_open(ch$observationID[i]); showTab(session = session, inputId = "th_tabs", target = "Record details", select = TRUE)
+      }
+      DT::selectRows(DT::dataTableProxy("th_table"), NULL)
+    })
+    observeEvent(input$th_back, updateTabsetPanel(session, input$th_back$tabset, selected = input$th_back$to))
+    output$th_record <- renderUI({
+      if (is.null(th_open())) return(tags$p(class = "trap-lead", "Pick a check from the Trap history tab."))
+      ob <- ik_observation(ik_data, th_open()); if (is.null(ob)) return(tags$p("Record not found."))
+      tagList(.ik_tab_back(ns("th_back"), "th_tabs", "Trap history", "Back to trap history"),
+              .ovw_title(ik_data, ob, prefer()),
+              .ovw_tabs(ik_data, ob, prefer(), tabset_id = ns("th_subtabs")))
     })
   })
 }

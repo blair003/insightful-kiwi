@@ -48,3 +48,10 @@ Shiny.addCustomMessageHandler('ik-maps-scroll', function (id) {
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+
+// The species pages share one sidebar, but each page's tabset is its own (namespaced) input — so the
+// active page's server bridges its current tab to this one top-level input, which the sidebar's Period
+// control reads (hidden on the Trend tab, which spans all time). Set globally → no namespace.
+Shiny.addCustomMessageHandler('ik-species-tab', function (tab) {
+  Shiny.setInputValue('ik_species_tab', tab);
+});

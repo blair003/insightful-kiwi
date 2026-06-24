@@ -59,9 +59,13 @@ ik_neighbourhood_lines <- function(ik_data) {
                 trap_locs = loc$location_id[inres & !is.na(loc$source_type) & loc$source_type == "trap"],
                 dist_map  = numeric(0)))
   }
+  # The camera story is the anchor's OWN cameras (the line itself), NOT diluted by neighbouring lines'
+  # cameras. The radius governs only which TRAPS count as nearby — distance-only, so a trap just over
+  # the reserve boundary still counts (predators don't respect boundaries; trap protection is about
+  # proximity, not which reserve the trap belongs to).
   nb <- ik_within_distance(ik_data, anchor, radius_m = radius_m)
   list(anchor = anchor, level = level, label = label,
-       cam_locs  = unique(c(anchor, nb$to_id[nb$to_type == "camera"])),
+       cam_locs  = anchor,
        trap_locs = unique(nb$to_id[nb$to_type == "trap"]),
        dist_map  = if (nrow(nb)) tapply(nb$distance_m, nb$to_id, min) else numeric(0))
 }
@@ -200,6 +204,46 @@ ik_neighbourhood_records <- function(ik_data, level, key, radius_m, sci, seasons
              stringsAsFactors = FALSE)[order(when, decreasing = TRUE), , drop = FALSE]
 }
 
+#' All-time spatial snapshot of a neighbourhood, for the map under the Neighbourhood chart.
+#'
+#' The anchor's own cameras (with all-time protected & predator RAI) and the nearby traps (within
+#' `radius_m`; all of the reserve's for a reserve) with all-time predator catches + servicing. Same
+#' neighbourhood as the series/records (shared `.nbhd_resolve`), so the map shows exactly what the
+#' chart summarises. Per-CAMERA rates here (map markers), unlike the per-line chart.
+#'
+#' @param ik_data The container. @param level "line"/"reserve". @param key the anchor.
+#' @param radius_m Trap radius (line only). @param predator_sci,protected_sci resolved sci vectors.
+#' @return list(cams, traps, anchor, per_cam, per_tn) — cams have prot_rai/pred_rai, traps have
+#'   catches/n_checks/status/distance_m; or NULL when the anchor is empty.
+ik_neighbourhood_map <- function(ik_data, level, key, radius_m = 500,
+                                 predator_sci = character(0), protected_sci = character(0)) {
+  nbr <- .nbhd_resolve(ik_data, level, key, radius_m); if (is.null(nbr)) return(NULL)
+  locs <- ik_data$app$geography$locations
+  per_cam <- (ik_data$meta$camera$rai %||% list())$camera_hours   %||% 500
+  per_tn  <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100
+  sel <- list(season = NULL, reserve = NULL)                       # all-time, all reserves; we filter by id
+  fin <- function(d) d[is.finite(d$latitude) & is.finite(d$longitude), , drop = FALSE]
+  metric_for <- function(taxa, src, norm) if (!length(taxa)) NULL else
+    tryCatch(ik_location_metric(ik_data, sel, list(P = taxa), src, norm = norm), error = function(e) NULL)
+
+  cam <- fin(locs[locs$location_id %in% nbr$cam_locs, , drop = FALSE])
+  pm <- metric_for(protected_sci, "camera", per_cam); rm <- metric_for(predator_sci, "camera", per_cam)
+  grab <- function(m, col) { if (is.null(m)) return(rep(0, nrow(cam))); v <- m[[col]][match(cam$location_id, m$location_id)]; v[is.na(v)] <- 0; v }
+  cam$prot_rai <- grab(pm, "metric"); cam$pred_rai <- grab(rm, "metric")
+
+  trp <- fin(locs[locs$location_id %in% nbr$trap_locs, , drop = FALSE])
+  tm  <- metric_for(predator_sci, "trap", per_tn)
+  trp$catches <- if (is.null(tm)) rep(0, nrow(trp)) else { v <- tm$captures[match(trp$location_id, tm$location_id)]; v[is.na(v)] <- 0; v }
+  sv <- tryCatch(ik_trap_review(ik_data, seasons = NULL), error = function(e) NULL)
+  si <- if (is.null(sv)) NA_integer_ else match(trp$location_id, sv$location)
+  trp$n_checks <- if (is.null(sv)) NA_integer_ else sv$n_checks[si]
+  trp$mean_interval_days <- if (is.null(sv)) NA_real_ else sv$mean_interval_days[si]
+  trp$status   <- if (is.null(sv)) NA_character_ else sv$status[si]
+  trp$distance_m <- if (length(nbr$dist_map)) as.numeric(nbr$dist_map[trp$location_id]) else NA_real_
+
+  list(cams = cam, traps = trp, anchor = nbr$anchor, per_cam = per_cam, per_tn = per_tn)
+}
+
 #' Coverage-gap ranking — for every camera LINE (a protected hotspot), the protected & predator
 #' presence on its cameras and the trapping in its neighbourhood (within `radius_m`) for the period,
 #' classified to flag hotspots with thin / ineffective / neglected nearby predator control. Built on
@@ -212,7 +256,7 @@ ik_neighbourhood_records <- function(ik_data, level, key, radius_m, sci, seasons
 #'   status ∈ no_trapping / predators_uncaught / neglected / covered / no_protected. NULL when none.
 ik_coverage_gaps <- function(ik_data, seasons, predator_sci, protected_sci, radius_m = 500) {
   lines <- ik_neighbourhood_lines(ik_data); if (!nrow(lines)) return(NULL)
-  norm <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
+  norm <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000   # per-LINE rate (pooled cameras), like the Neighbourhood — not per-camera
   locs <- ik_data$app$geography$locations
   # Area within `radius_m` of a line's cameras (union of disks, NZTM), km² — the denominator for the
   # PER-LINE trap density, so it tracks the line AND the gap radius (not a flat reserve average).

@@ -66,7 +66,7 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
       "never checked); too few checks to judge a cadence → ", tags$b("insufficient data."), " The buckets are ",
       "calibrated to ", tags$b("each reserve's own"), " typical check cadence, not one global yardstick. Sized ",
       "by days since checked (bigger = staler); ", tags$b("dormant"), " (6 mo+) and ", tags$b("historic"),
-      " (12 mo+) traps are faint — toggle ", tags$b("No records"), " to see them."))
+      " (12 mo+) traps have no current status, so they show as bare grey dots in the ", tags$b("Device"), " layer."))
   if (identical(device, "camera"))    do.call(tagList, cam)
   else if (identical(device, "trap")) do.call(tagList, trp)
   else tagList(tags$h6("Camera"), do.call(tagList, cam), tags$h6("Traps"), do.call(tagList, trp))
@@ -337,6 +337,11 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       if (!is.null(fixed_species)) { m <- suppressWarnings(max(v, na.rm = TRUE)); return(if (is.finite(m) && m > 0) m else 1) }
       ik_robust_cap(v, .MAPS_CAP_PCTL)
     }
+    # Legend cuts: an explicit 0→cap sequence so the TOP tick equals the max (cap) — leaflet's default
+    # `bins = 5` lands on pretty numbers below the max, leaving coloured bar above the last label. Fixed
+    # count (5) keeps the camera & trap legends the same height. Digits scale with the cap's magnitude.
+    .legend_bins <- function(cap, n = 5) if (!is.finite(cap) || cap <= 0) n else seq(0, cap, length.out = n)
+    .lg_digits   <- function(cap) if (!is.finite(cap)) 1L else if (cap >= 10) 0L else if (cap >= 1) 1L else if (cap >= 0.1) 2L else 3L
     .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)
     .prio_ramp <- c("#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c")   # yellow→red — priority/danger
     surf_pal <- function(cap) leaflet::colorNumeric(if (is_priority() || is_timing()) .prio_ramp else "viridis", c(0, cap))
@@ -408,12 +413,11 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
       # Boundary sits ABOVE the surface fill but BELOW every marker layer, so markers always win
       # the hover/click (a boundary on top would steal a marker's tooltip — see the Coverage map).
-      pns <- c("surface", "boundary", "heat", "zeros", "points", "selected")
+      pns <- c("surface", "boundary", "device", "points", "selected")
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 400 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Surface", "Points", "No records", "Boundary", "Activity"),
+        overlayGroups = c("Surface", "Points", "Device", "Boundary"),
         options = leaflet::layersControlOptions(collapsed = FALSE))
-      m <- leaflet::hideGroup(m, "Activity")
       if (!is.null(fixed_species)) m <- leaflet::hideGroup(m, "Surface")   # species maps: clean by default, surface opt-in
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
@@ -502,25 +506,25 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       }
     })
 
-    # ---- No records (rate/count sites with effort but zero of the group; servicing: no check this period) ----
+    # ---- Device (every camera/trap LOCATION; the bottom context field) ----
+    # Replaces the old "No records": a trap with no captures still has activity records (checks), so a
+    # location layer is the honest framing. Shows ALL device locations (camera = blue, trap = grey); the
+    # Points above swallow any that have a record, so a bare dot = "device here, nothing of the group".
+    all_dev_locs <- reactive({
+      dev_types <- if (is.null(device)) c("camera", "trap") else device
+      dev_ds <- names(ik_data$datasets)[vapply(ik_data$datasets,
+                  function(d) isTRUE(d$meta$source_type %in% dev_types), logical(1))]
+      al <- ik_active_locations(ik_data)
+      al[al$dataset %in% dev_ds & is.finite(al$latitude) & is.finite(al$longitude), , drop = FALSE]
+    })
     observe({
-      p <- proxy(); leaflet::clearGroup(p, "No records")
-      if (src() == "trap" && measure() == "servicing") {        # servicing: faint = inactive/dormant traps
-        d <- serv_absent(); if (is.null(d) || !nrow(d)) return()
-        leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "No records", layerId = d$location,
-          radius = 3, fill = FALSE, stroke = TRUE, weight = 1, color = if (is_dark()) "#8a8a8a" else "#9a9a9a", opacity = 0.4,
-          label = sprintf("%s — dormant (last checked %s)", d$name,
-                          ifelse(is.finite(d$last_check), format(d$last_check, "%d %b %Y"), "—")),
-          options = leaflet::pathOptions(pane = "zeros"))
-        return()
-      }
-      if (is_priority() || is_timing()) return()               # composite 0/score is not "no records"
-      if (src() == "camera" && grain_rv() == "line") return()
-      d <- rate_loc_pts(); d <- if (is.null(d)) NULL else d[d$metric == 0, , drop = FALSE]
-      if (is.null(d) || !nrow(d)) return()
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "No records", layerId = d$location_id,
-        radius = 3, fill = FALSE, stroke = TRUE, weight = 1, color = if (is_dark()) "#8a8a8a" else "#9a9a9a", opacity = 0.4,
-        label = sprintf("%s — no records", d$name), options = leaflet::pathOptions(pane = "zeros"))
+      p <- proxy(); leaflet::clearGroup(p, "Device")
+      d <- all_dev_locs(); if (is.null(d) || !nrow(d)) return()
+      col <- if (identical(src(), "trap")) "#8a8a8a" else "#2c7fb8"   # grey trap · blue camera
+      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Device",
+        radius = 3, fill = TRUE, fillColor = col, fillOpacity = 0.55, stroke = FALSE,   # no layerId: Points (same id) must win on top
+        label = ~sprintf("%s — %s", name, if (identical(src(), "trap")) "trap" else "camera"),
+        options = leaflet::pathOptions(pane = "device"))
     })
 
     observe({                                                   # Boundary — names the reserve on hover of the line
@@ -533,15 +537,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         highlightOptions = leaflet::highlightOptions(weight = 3.5, color = "#1565c0", bringToFront = TRUE),
         fill = FALSE, color = if (is_dark()) "#9ccc65" else "#2e7d32", weight = 2, dashArray = "5,5",
         options = leaflet::pathOptions(pane = "boundary"))
-    })
-
-    observe({                                                   # Activity heatmap (default off)
-      p <- proxy(); leaflet::clearGroup(p, "Activity")
-      d <- frame_pts(); if (is.null(d) || !nrow(d)) return()
-      intensity <- if (src() == "trap" && measure() == "servicing") d$trap_days else d[[valcol()]]
-      keep <- is.finite(intensity) & intensity > 0; if (!any(keep)) return()
-      leaflet.extras::addHeatmap(p, lng = d$longitude[keep], lat = d$latitude[keep], intensity = intensity[keep],
-        group = "Activity", blur = 22, radius = 16, max = max(intensity[keep], na.rm = TRUE), minOpacity = 0.3)
     })
 
     observe({                                                   # Selected highlight (drill)
@@ -570,7 +565,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
                else if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
                else sprintf("%s &middot; %s", vallabel(), group_lab())
         leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl,
-                           bins = 5, opacity = 0.9)   # fixed bin count → camera & trap legends match height
+                           bins = .legend_bins(cap), opacity = 0.9,   # top tick = max; 5 cuts → cam & trap legends match height
+                           labFormat = leaflet::labelFormat(digits = .lg_digits(cap)))
       }
     })
 
@@ -635,7 +631,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           if (nskip) sprintf(" (incl. %s never checked)", format(nskip, big.mark = ",")) else "",
           if (nins) sprintf(" · %s insufficient data", format(nins, big.mark = ",")) else "",
           if (nu) sprintf(" · %s unmapped (no coords)", format(nu, big.mark = ",")) else "",
-          if (na) sprintf(" · %s dormant/historic (faint — toggle “No records”)", format(na, big.mark = ",")) else "",
+          if (na) sprintf(" · %s dormant/historic (grey in the Device layer)", format(na, big.mark = ",")) else "",
           format(n_trap_total(), big.mark = ",")))
       } else if (show_lines()) {
         d <- line_metric(); n <- if (is.null(d)) 0L else nrow(d)
