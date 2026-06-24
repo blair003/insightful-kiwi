@@ -1,14 +1,16 @@
 # ui.R
 
 # Per-view Period defaults for the standalone reviews (now sidebar-driven, like every other view):
-# Trap review → the latest near-full TRAP season; Bait → the latest whole YEAR (more data, rarer baits).
-.trap_period_def <- { s <- .default_trap_season(ik_data); if (!is.null(s)) paste0("season:", s) else "all" }
+# Trap review → the latest 12 months (recency over a single season); Bait → the latest whole YEAR (more data, rarer baits).
+.trap_period_def <- "rolling12"
 .bait_period_def <- { pc <- ik_period_choices(ik_data); if (length(pc) >= 2) unname(pc[[2]][1]) else "all" }
 
 # Device-organised menus are shown only when the org actually has that kind of data, so a
 # trapping-only (or monitoring-only) group sees just its menu (bslib drops the NULL nav items).
 .has_camera <- ik_has_source_type(ik_data, "camera")
 .has_trap   <- ik_has_source_type(ik_data, "trap")
+.has_favourites <- ik_has_favourites(ik_data)   # Highlights nav only when the data has favourite images
+.has_trappers   <- ik_has_trappers(ik_data)     # Top trappers nav only when trap data carries volunteer tags
 .species_specs <- ik_species_taxa(ik_data)   # per-species dashboard pages (Species menu); see modules/species.R
 
 ui <- page_navbar(
@@ -51,6 +53,9 @@ ui <- page_navbar(
     conditionalPanel("input.nav === 'coverage'",
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = "all")),
+    conditionalPanel("input.nav === 'trap-hero'",
+                     selection_ui("trap_hero_selection", show = c("period", "reserve"), ik_data = ik_data,
+                                  period_default = "rolling12")),
     conditionalPanel("input.nav === 'camera-review' || input.nav === 'duplicates'",
                      tags$small("Controls are within the view.")),
     conditionalPanel("input.nav === 'monitoring-map'",
@@ -67,10 +72,16 @@ ui <- page_navbar(
                      selection_ui("control_records_selection",
                                   show = c("dataset", "period", "reserve", "line", "location",
                                            "device", "species", "net"), ik_data = ik_data, device_default = "trap")),
-    # Species dashboards (one shared selection — every species page's value starts grp-/sp-). The Trend
-    # tab spans all time by design; Records/Map honour the period.
+    # Species dashboards (one shared selection — every species page's value starts grp-/sp-). Period
+    # defaults to All data so every tab starts on the same footing; Summary & Trend always span all
+    # data (Period hidden, a note in its place), the rest honour whatever Period the user sets.
     conditionalPanel("input.nav && (input.nav.indexOf('grp-') === 0 || input.nav.indexOf('sp-') === 0)",
-                     selection_ui("species_selection", show = c("period", "reserve"), ik_data = ik_data)),
+                     selection_ui("species_selection", show = c("period", "reserve"), ik_data = ik_data,
+                                  period_default = "all",
+                                  period_show_js = "input.ik_species_tab !== 'Trend' && input.ik_species_tab !== 'Summary'",
+                                  period_note = tagList(
+                                    tags$span(class = "ik-period-note-h", "Period · All data"),
+                                    "Summary & Trend always span all data — set a Period from the Map tab on."))),
     tags$div(class = "ik-sidebar-foot",
              tags$em("Insightful Kiwi"), tags$br(),
              tags$a(href = "mailto:blair@aketechnology.co.nz?subject=Insightful%20Kiwi%20Query",
@@ -87,6 +98,7 @@ ui <- page_navbar(
   # the org has that data; Records sits in each, device-filtered (default to the device, still changeable).
   if (.has_camera) nav_menu(
     "Monitoring", icon = icon("binoculars"),
+    if (.has_favourites) highlights_ui("highlights", ik_data),   # friendly visual entry point
     maps_ui("monitoring_map", device = "camera", label = "Map", value = "monitoring-map", ik_data = ik_data),
     nav_panel("Camera review", value = "camera-review", icon = icon("camera"),
               monitoring_ui("monitoring")),
@@ -102,6 +114,8 @@ ui <- page_navbar(
               trapping_ui("trapping", ik_data)),
     bait_ui("bait", ik_data),                              # bait effectiveness (trap)
     trapping_effectiveness_ui("trapping_eff", ik_data),    # catch rate vs cadence, by season
+    trap_hero_ui("trap_hero", ik_data),                    # best-performing traps on a map
+    if (.has_trappers) top_trappers_ui("top_trappers", ik_data),   # gamified per-season volunteer leaderboard
     records_ui("control_records", label = "Records", value = "trapping-records")
   ),
 
@@ -113,7 +127,8 @@ ui <- page_navbar(
   # Insights — cross-device synthesis, or features that work on whichever data you have.
   nav_menu(
     "Insights", icon = icon("chart-line"),
-    outcomes_ui("outcomes"),                              # "Are we winning?"
+    outcomes_ui("outcomes"),                              # "Are we winning?" — the snapshot
+    if (.has_camera && .has_trap) reserve_report_ui("reserve_report", ik_data),   # the over-time chain (cross-device)
     "Deeper analysis",                                    # section header within the dropdown
     # Neighbourhood is camera-ANCHORED (pick a camera site/line/reserve) — useless without camera
     # data, so hide it then, the same way the Monitoring menu auto-hides. Coverage still degrades

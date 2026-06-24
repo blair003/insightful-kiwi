@@ -35,11 +35,13 @@ build_ik_data <- function(config, manifest = load_manifest(config),
       n_datasets   = length(datasets),
       organisation = project$organisation,   # instance identity (project.R), shown in the header
       camera     = project$camera   %||% list(rai = list(norm_hours = 2000, use_net = TRUE)),
-      trapping   = project$trapping %||% list(rate = list(norm_trap_days = 100), season_by = "check_date"),
+      trapping   = { tp <- project$trapping %||% list(rate = list(norm_trap_days = 100), season_by = "check_date")
+                     tp$target_weights <- tp$target_weights %||% IK_DEFAULT_TRAP_WEIGHTS; tp },   # Top trappers scoring (stoat #1)
       overview   = project$overview %||% list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
                                               default_compare = "none", default_period = "latest_complete"),
       proximity  = project$proximity %||% list(max_radius_m = 2000),   # neighbourhood radius (app$proximity)
-      media      = project$media    %||% list(keep_originals = TRUE)
+      media      = project$media    %||% list(keep_originals = TRUE),
+      duplicate_window = project$duplicate_window %||% list(default = 5, by_species = list())  # shown on the species Summary
     )
   )
 

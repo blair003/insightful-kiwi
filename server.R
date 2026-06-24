@@ -70,6 +70,7 @@ server <- function(input, output, session) {
   # Data → Quality — camera deployment review + possible-duplicate review + trapping check review.
   # Trap review takes Period + Reserve from the sidebar (its own selection instance).
   monitoring_server("monitoring", ik_data, prefer_scientific)
+  highlights_server("highlights", ik_data, active = reactive(identical(input$nav, "highlights")))
   duplicates_server("duplicates", ik_data, color_mode = reactive(input$color_mode))
   trap_selection <- selection_server("trap_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "trap-review")))
@@ -81,6 +82,7 @@ server <- function(input, output, session) {
   outcomes_server("outcomes", ik_data, prefer_scientific, color_mode = cm)
   cooccurrence_server("cooccurrence", ik_data, prefer_scientific, color_mode = cm)
   neighbourhood_server("neighbourhood", ik_data, prefer_scientific, color_mode = cm)
+  reserve_report_server("reserve_report", ik_data, prefer_scientific, color_mode = cm)
   coverage_selection <- selection_server("coverage_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "coverage")))
   coverage_server("coverage", ik_data, prefer_scientific, coverage_selection, color_mode = cm,
@@ -89,6 +91,12 @@ server <- function(input, output, session) {
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
   trapping_effectiveness_server("trapping_eff", ik_data, prefer_scientific, color_mode = cm)
+  trap_hero_selection <- selection_server("trap_hero_selection", ik_data, prefer_scientific,
+    show = c("period", "reserve"), active = reactive(identical(input$nav, "trap-hero")))
+  trap_hero_server("trap_hero", ik_data, prefer_scientific, trap_hero_selection, color_mode = cm,
+                   active = reactive(identical(input$nav, "trap-hero")))
+  top_trappers_server("top_trappers", ik_data, prefer_scientific,
+                      active = reactive(identical(input$nav, "top-trappers")))
 
   # Species dashboards — one server per page (group or split sub-species), sharing one period+reserve
   # selection. Each gates on its own nav value so only the open page computes. (Module id underscores
@@ -106,7 +114,7 @@ server <- function(input, output, session) {
   # populate it; every other view keeps its controls in-page, so an empty rail is just clutter.
   # (The collapse toggle stays, so a curious user can still open it and see the note.)
   SIDEBAR_NAVS <- c("overview", "monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
-                    "trap-review", "bait", "coverage",
+                    "trap-review", "bait", "coverage", "trap-hero",
                     vapply(species_specs, `[[`, character(1), "key"))   # species pages have period+reserve
   observeEvent(input$nav, {
     bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
