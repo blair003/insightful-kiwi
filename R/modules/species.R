@@ -111,6 +111,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
   nav_panel(
     spec$label, value = spec$key, icon = icon(if (isTRUE(spec$member)) "paw" else "dna"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/species.css")),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
     tags$script(src = .ik_asset("js/maps.js")),
     div(class = "ik-species",
         .ik_titlebar(
@@ -125,11 +126,6 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                              choices = c("By season" = "season", "By year" = "year"), selected = "season"),
                 selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__", width = "220px")),
             plotOutput(ns("trend"), height = "460px")),
-          tabPanel("Where", icon = icon("ranking-star"),
-            tags$p(class = "ik-species-hint", "This species' hotspots — top camera lines by activity and ",
-                   "reserves by catches. ", tags$b("Click a bar"), " for the records behind it."),
-            if (spec$camera) plotOutput(ns("where_cam"), height = "320px", click = ns("where_cam_click")),
-            if (spec$trapped) plotOutput(ns("where_trap"), height = "320px", click = ns("where_trap_click"))),
           if (spec$camera) tabPanel("Behaviour", icon = icon("clock"),
             tags$p(class = "ik-species-hint",
                    "When this species is active on camera — the daily clock, and an overall diel class."),
@@ -166,10 +162,22 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",
                    tags$b("Click a row"), " to open the full record."),
             DT::DTOutput(ns("records"))),
-          tabPanel("Map", icon = icon("map"),
+          tabPanel("Map", icon = icon("ranking-star"),
             tags$p(class = "ik-species-hint",
-                   "Where this species is detected on camera and caught in traps (toggle layers top-right)."),
-            leaflet::leafletOutput(ns("map"), height = "62vh"))
+                   "Where this species is detected and caught — an activity surface, per-site points, the boundary, ",
+                   "and the records (hover a row to highlight it on the map; toggle layers top-right)."),
+            if (spec$camera && spec$trapped)
+              layout_columns(col_widths = c(6, 6),
+                div(tags$h6(class = "ik-species-maptitle", icon("camera"), " Camera monitoring"),
+                    maps_panel_body(ns("cam_map"), "camera", ik_data, fixed = TRUE, height = "56vh")),
+                div(tags$h6(class = "ik-species-maptitle", icon("clipboard-check"), " Trapping"),
+                    maps_panel_body(ns("trap_map"), "trap", ik_data, fixed = TRUE, height = "56vh")))
+            else if (spec$camera) maps_panel_body(ns("cam_map"), "camera", ik_data, fixed = TRUE, height = "62vh")
+            else                  maps_panel_body(ns("trap_map"), "trap", ik_data, fixed = TRUE, height = "62vh"),
+            tags$h6(class = "ik-species-maptitle ik-species-hotspots", "Hotspots — top lines & reserves"),
+            tags$p(class = "ik-species-hint", tags$b("Click a bar"), " for the records behind it."),
+            if (spec$camera)  plotOutput(ns("where_cam"),  height = "300px", click = ns("where_cam_click")),
+            if (spec$trapped) plotOutput(ns("where_trap"), height = "300px", click = ns("where_trap_click")))
         ))
   )
 }
@@ -325,40 +333,15 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       DT::selectRows(DT::dataTableProxy("records"), NULL)
     })
 
-    # ---- Map (camera RAI + trap catches as layers; drawn in-render so it's lazy + no proxy race) ----
-    output$map <- leaflet::renderLeaflet({
-      req(active())
-      cam <- if (spec$camera) tryCatch(ik_location_metric(ik_data, selection(), taxa, "camera", norm = per_cam), error = function(e) NULL) else NULL
-      trp <- if (spec$trapped) tryCatch(ik_location_metric(ik_data, selection(), taxa, "trap"), error = function(e) NULL) else NULL
-      fin <- function(d) if (is.null(d)) NULL else d[is.finite(d$latitude) & is.finite(d$longitude), , drop = FALSE]
-      cam <- fin(cam); trp <- fin(trp)
-      camp <- if (is.null(cam)) NULL else cam[cam$metric > 0, , drop = FALSE]
-      trpp <- if (is.null(trp)) NULL else trp[trp$captures > 0, , drop = FALSE]
-      validate(need((!is.null(camp) && nrow(camp)) || (!is.null(trpp) && nrow(trpp)),
-                    "No records of this species in the selection."))   # don't fall back to a world map
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-             overlayGroups = c("Camera activity", "Catches"),
-             options = leaflet::layersControlOptions(collapsed = FALSE))
-      rad <- function(v, lo, hi) ik_marker_radius(v, lo, hi, cap_pctl = 0.95)   # shared impl in spatial.R
-      if (!is.null(camp) && nrow(camp))
-        m <- leaflet::addCircleMarkers(m, data = camp, lng = ~longitude, lat = ~latitude, group = "Camera activity",
-               radius = rad(camp$metric, 6, 22), fillColor = "#1f78b4", fillOpacity = 0.8, stroke = TRUE,
-               color = "#ffffff", weight = 1, label = sprintf("%s — RAI %.2f / %s ch · %d detections",
-                 camp$name, camp$metric, format(per_cam, big.mark = ","), as.integer(camp$individuals)))
-      if (!is.null(trpp) && nrow(trpp))
-        m <- leaflet::addCircleMarkers(m, data = trpp, lng = ~longitude, lat = ~latitude, group = "Catches",
-               radius = rad(trpp$captures, 6, 22), fillColor = "#6a3d9a", fillOpacity = 0.85, stroke = TRUE,
-               color = "#ffffff", weight = 1, label = sprintf("%s — %d caught", trpp$name, as.integer(trpp$captures)))
-      ext <- rbind(if (!is.null(camp)) camp[, c("longitude", "latitude")],
-                   if (!is.null(trpp)) trpp[, c("longitude", "latitude")])
-      if (!is.null(ext) && nrow(ext))
-        m <- leaflet::fitBounds(m, min(ext$longitude), min(ext$latitude), max(ext$longitude), max(ext$latitude),
-                                options = list(padding = c(30, 30)))
-      m
+    # ---- Map: embed the full Maps module (Surface · Points · No records · Boundary · records · hover),
+    #      locked to this species — camera + trap side by side. Instantiated on FIRST page-view so the
+    #      14 species pages don't each spin up leaflets at load (the standalone maps render eagerly). ----
+    maps_inited <- reactiveVal(FALSE)
+    observeEvent(active(), {
+      if (!isTRUE(active()) || maps_inited()) return()
+      maps_inited(TRUE)
+      if (spec$camera)  maps_server("cam_map",  ik_data, prefer_scientific, selection, color_mode, device = "camera", fixed_species = taxa)
+      if (spec$trapped) maps_server("trap_map", ik_data, prefer_scientific, selection, color_mode, device = "trap",   fixed_species = taxa)
     })
 
     # ---- Where (hotspots): top camera lines by RAI · reserves by catch rate ----
