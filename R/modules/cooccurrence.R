@@ -77,7 +77,7 @@ cooccurrence_ui <- function(id) {
             selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "260px"),
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "260px"),
             selectInput(ns("radius"), "Within",
-                        choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "1 km" = 1000),
+                        choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000),
                         selected = 0, width = "150px"),
             div(class = "ik-cooc-check",
               checkboxInput(ns("after_only"),

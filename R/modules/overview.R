@@ -84,7 +84,7 @@ overview_trap_help_body <- function(norm = 100) {
                 "“Mustelids” pools its members; an unconfigured species is counted on its own)."),
         tags$li(tags$b("Trap-night"), " = one trap, set, for one night — summed over the checks in the selection ",
                 "(a check’s interval is its trap-nights of effort)."),
-        tags$li(tags$b("Rate"), " = catches ÷ trap-nights × ", format(norm, big.mark = ","), "."),
+        tags$li(tags$b("Rate"), " = catches ÷ trap-nights × ", paste0(format(norm, big.mark = ","), ".")),
         tags$li(tags$b("Rolled up"), " — computed per trapline, averaged to a reserve and to the network as a ",
                 tags$b("mean ± SE"), ", the same as the camera RAI.")),
       P(tags$em("A blank trap check (caught nothing) still counts as effort — that's the point of a rate: it ",

@@ -119,7 +119,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
         tags$p(class = "ik-out-lead",
           tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
             "We ", tags$b("trap predators"), " → predator detections on camera should ",
-            tags$b("fall"), " → kiwi detections should ", tags$b("rise"), ". ",
+            tags$b("fall"), " → kiwi detections should ", tags$b("rise."), " ",
             "Lines are the network mean across reserves; bands are ± 1 SE. ",
             tags$b("Click a point"), " for its per-reserve breakdown."))
       )

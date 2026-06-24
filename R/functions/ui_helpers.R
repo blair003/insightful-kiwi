@@ -102,6 +102,12 @@
   )
 }
 
+#' A HOVER quick-help: a small ⓘ that shows `tip` as a native tooltip on mouseover — no click,
+#' unlike the heavier `.ik_info` (?) modal. Use for a one-line clarification beside a heading or a
+#' table-column label; reach for `.ik_info` when the explanation needs room. @param tip Plain-text
+#' tooltip ("\n" for line breaks). @keywords internal
+.ik_hint <- function(tip) tags$span(class = "ik-hint", title = tip, HTML("&#9432;"))
+
 #' Highlight ONE row of a DT by a (usually hidden) id column — the "the row you came from"
 #' marker in our drill modals. Robust where a plain `target = "row"` background is NOT: under
 #' bslib/Bootstrap (and modern DataTables) zebra striping is painted on the CELLS (`td`), which

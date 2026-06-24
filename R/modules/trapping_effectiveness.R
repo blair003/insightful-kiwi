@@ -26,7 +26,7 @@ trapping_effectiveness_help_body <- function(norm = 100) {
         tags$li(tags$b("Effort."), " More checks simply mean more chances to find and record a catch. A raw ",
                 "count partly measures how much work was done, not how well the trapping worked.")),
       P("To remove both, the chart uses a ", tags$b("rate"), " (catches per ", ntn, ", not raw counts) ",
-        "and compares only ", tags$b("within a season"), ". What's left is the real question:"),
+        "and compares only ", tags$b("within a season."), " What's left is the real question:"),
       P(tags$em("Per trap-night, and within a given season, does a trap that's checked more often actually ",
                 "catch more than one checked rarely?")),
       P("It's a live question because most control here is ", tags$b("kill traps"), ": once one fires it ",
@@ -35,7 +35,7 @@ trapping_effectiveness_help_body <- function(norm = 100) {
 
     tabPanel(
       "Reading the chart", icon = icon("chart-column"),
-      P(tags$br(), "One ", tags$b("panel per season"), ". Within a panel, bars are grouped by how often a ",
+      P(tags$br(), "One ", tags$b("panel per season."), " Within a panel, bars are grouped by how often a ",
         "trap is checked — ", tags$b("tightest (≤7 d) on the left"), " to ", tags$b("sparsest (>30 d) on the right"),
         "; bar height is the catch rate (per ", ntn, "); the figure above each band is how many ",
         tags$b("trap-seasons"), " it pools (across years)."),
@@ -70,7 +70,7 @@ trapping_effectiveness_help_body <- function(norm = 100) {
         tags$li(tags$b("Cadence"), " = a trap's ", tags$b("mean check interval"), " over the data (the ",
                 "average number of days between its checks)."),
         tags$li(tags$b("Catch rate"), " = catches of the chosen species ÷ trap-nights × ",
-                format(norm, big.mark = ","), "."),
+                paste0(format(norm, big.mark = ","), ".")),
         tags$li(tags$b("Bands"), " = ≤7 d · 7–14 d · 14–30 d · >30 d, by that mean interval."),
         tags$li(tags$b("Pooling"), " = each (season-of-year × band) sums catches and trap-nights across ",
                 "all years of that season (e.g. every summer pooled, every autumn pooled), for sample ",
@@ -85,7 +85,7 @@ trapping_effectiveness_help_body <- function(norm = 100) {
                 "the figure above each band is the trap-seasons it pools."),
         tags$li(tags$b("Which lines, not just how often"), " — within-season holds season constant, but not ",
                 "which traplines are worked (keen volunteers tend to work the high-predator lines too), so read ",
-                "a gradient as ", tags$b("suggestive, not proof"), "."),
+                "a gradient as ", tags$b("suggestive, not proof.")),
         tags$li(tags$b("Species mix"), " — “All predators” is dominated by rats; pick a species (mustelids sit ",
                 "much lower) to see its own pattern.")))
   )

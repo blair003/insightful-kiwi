@@ -94,3 +94,8 @@ td .ik-link, .ik-link {
 }
 .ik-sidebar-foot a { color: inherit; text-decoration: underline; }
 .ik-sidebar-foot a:hover { color: var(--ik-accent, #cf6819); }
+
+/* ── Hover quick-help (.ik_hint): a small ⓘ with a native tooltip; the light counterpart to the
+   click-to-open .ik_info (?). ─────────────────────────────────────────────────────────────── */
+.ik-hint { color: var(--bs-secondary-color, #888); font-weight: 400; margin-left: 0.3rem;
+           cursor: help; font-size: 0.85em; }

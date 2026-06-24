@@ -48,7 +48,7 @@ neighbourhood_help_body <- function(line_norm = 2000) {
                 "camera-hours, × ", ch, " (the per-", tags$b("line"), " scale — ≈ a full line of ~4 cameras — so it ",
                 "reads on the same RAI scale as the rest of the app); net of likely duplicates."),
         tags$li(tags$b("Trap catches"), " — predators of the chosen species caught at trap checks in the ",
-                "neighbourhood, as a ", tags$b("per-season count"), "."),
+                "neighbourhood, as a ", tags$b("per-season count.")),
         tags$li(tags$b("Why trap is a count, not a timing"), " — a kill is only known to the ", tags$b("check "),
                 tags$b("window"), " (we know it happened sometime between two checks, not the day), so a within-",
                 "season count is the honest resolution; it can't be lined up to a camera detection in time."),
@@ -71,7 +71,7 @@ neighbourhood_ui <- function(id, ik_data) {
   line_ch  <- stats::setNames(line_val, sprintf("%s · Line %s", lines_df$reserve, lines_df$line))
   res_ch   <- sort(unique(cams$reserve)); res_ch <- stats::setNames(res_ch, res_ch)
   max_r    <- (ik_data$meta$proximity %||% list())$max_radius_m %||% 2000
-  rad_ch   <- c("250 m" = 250, "500 m" = 500, "1 km" = 1000, "1.5 km" = 1500, "2 km" = 2000)
+  rad_ch   <- c("250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000)   # beyond ~1 km, use the Reserve anchor
   rad_ch   <- rad_ch[rad_ch <= max_r]
   nav_panel(
     "Neighbourhood", value = "neighbourhood", icon = icon("circle-nodes"),
@@ -82,11 +82,10 @@ neighbourhood_ui <- function(id, ik_data) {
             .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
                      neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000))),
         tags$p(class = "ik-nbhd-lead",
-          "Pick an anchor — a monitoring ", tags$b("line"),
-          " or a whole ", tags$b("reserve"), ". For the cameras and traps in/around it, see season ",
-          "by season how ", tags$b("protected"), " and ", tags$b("predator"), " activity on camera move, ",
-          "alongside the ", tags$b("predators caught"), " in nearby traps. A trap catch is only known ",
-          "to its check window, so the trap line is a per-season count — not a timing."),
+          "Pick an anchor — a monitoring ", tags$b("line"), " or a whole ", tags$b("reserve"),
+          " (and, for a line, a radius). Within that neighbourhood, see how ", tags$b("protected"),
+          " and ", tags$b("predator"), " activity on camera move over time, alongside the predators ",
+          "caught in nearby traps."),
         div(class = "ik-nbhd-controls",
             radioButtons(ns("level"), "Anchor", inline = TRUE,
                          choices = c("Line" = "line", "Reserve" = "reserve"), selected = "line"),

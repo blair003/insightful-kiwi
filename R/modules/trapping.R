@@ -43,7 +43,7 @@ trapping_help_body <- function(tr_meta = NULL) {
       P("Two ", tags$b("guardrails"), " stop the percentiles branding someone unfairly when everyone's fine ",
         "(or letting everyone off when they're not): a trap checked every ", tags$b(paste0(fl, " days")),
         " or better is ", tags$b("always good"), "; a gap longer than ", tags$b(paste0(ce, " days")),
-        " is ", tags$b("always neglected"), "."),
+        " is ", tags$b("always neglected.")),
       P(tags$b("Insufficient data"), " — fewer than ", mc, " checks in the period is too little to judge a cadence. ",
         tags$b("Dormant"), " (~", dorm, " mo+ since a check) and ", tags$b("historic"), " (~", hist, " mo+) traps ",
         "are shown faint — likely paused or retired, not neglected.")),

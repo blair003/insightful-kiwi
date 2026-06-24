@@ -63,7 +63,7 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
       "low-effort outlier (e.g. 1 catch in a few trap-nights) can't flatten the rest."),
     tags$p(tags$b("Servicing health"), " — each trap judged ", tags$b("as of the period end"), " by its gap ",
       "since last check — ", tags$b("good"), " / ", tags$b("watch"), " / ", tags$b("neglected"), " (including ",
-      "never checked); too few checks to judge a cadence → ", tags$b("insufficient data"), ". The buckets are ",
+      "never checked); too few checks to judge a cadence → ", tags$b("insufficient data."), " The buckets are ",
       "calibrated to ", tags$b("each reserve's own"), " typical check cadence, not one global yardstick. Sized ",
       "by days since checked (bigger = staler); ", tags$b("dormant"), " (6 mo+) and ", tags$b("historic"),
       " (12 mo+) traps are faint — toggle ", tags$b("No records"), " to see them."))

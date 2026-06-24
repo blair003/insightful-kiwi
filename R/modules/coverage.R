@@ -107,8 +107,7 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
   n  <- format(norm, big.mark = ",")
   # NB: build with explicit tags$* — htmltools::withTags() would shadow a local `th` helper with the
   # built-in tag function, dropping the tooltip span.
-  thx <- function(label, tip = NULL) tags$th(label,
-    if (!is.null(tip)) tags$span(class = "ik-th-i", title = tip, HTML("&#9432;")))
+  thx <- function(label, tip = NULL) tags$th(label, if (!is.null(tip)) .ik_hint(tip))
   tags$table(class = "display", tags$thead(tags$tr(
     thx("Line"), thx("Reserve"),
     thx("Protected", sprintf("Protected detections on this line's cameras, as a rate per %s camera-hours (same as the map). 0 = none on camera.", n)),
@@ -117,7 +116,12 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
     thx("Caught", "Predators caught in those nearby traps this period."),
     thx("Neglected", "Of the nearby active traps, how many are unserviced (neglected) this period."),
     thx("Traps/km²", "Per-line trap density: the traps above ÷ the area within the gap radius of this line's cameras (moves with the line and the radius)."),
-    thx("Status")
+    thx("Status", paste0(
+      "No trapping — no traps running nearby.\n",
+      "Predators uncaught — predators on camera but none caught nearby.\n",
+      "Trapping neglected — nearby active traps mostly unserviced.\n",
+      "Covered — protected present and control reaching it.\n",
+      "No protected here — none detected on camera."))
   )))
 }
 
@@ -131,41 +135,40 @@ coverage_ui <- function(id, ik_data = NULL) {
     tags$script(src = .ik_asset("js/maps.js")),                            # reuse the resize-on-tab-show fix
     div(class = "ik-cov",
         .ik_titlebar(
-            tags$h3(class = "ik-cov-title", "Coverage — protected hotspots vs predator control"),
-            .ik_info(ns("cov_help"), "Coverage — how to read this map", coverage_help_body(cam_norm))),
+            tags$h3(class = "ik-cov-title", "Coverage"),
+            .ik_info(ns("cov_help"), "Coverage — how to read this", coverage_help_body(cam_norm))),
+        # 1. Network density — the structural "is the network even dense enough?" context, up front.
+        tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
+        tags$p(class = "ik-cov-gaps-lead",
+          "Is the network even dense enough to work? Footprint area, traps & cameras per km², and ",
+          "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
+        DT::DTOutput(ns("density")),
+        # 2. The map — protected hotspots vs the predator control around them.
+        tags$h5(class = "ik-cov-gaps-title ik-cov-section", "Protected hotspots vs predator control"),
         tags$p(class = "ik-cov-lead",
           "Where are the protected species, and is predator control reaching them? ",
           tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
           tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera; ",
           tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps; ",
-          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = traps. A green hotspot ",
-          "ringed by purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
+          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = traps. A green hotspot ringed by ",
+          "purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
         div(class = "ik-cov-controls",
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "230px"),
             selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "230px")),
         uiOutput(ns("caption")),
         leaflet::leafletOutput(ns("map"), height = "55vh"),
-        # Coverage gaps sit DIRECTLY below the map — they drive its hover/click. Network density (a
-        # period-independent structural summary) follows underneath as supporting context.
+        # 3. Coverage gaps — directly below the map (they drive its hover/click); status meanings live
+        #    on the Status column's hover-ⓘ now (see .cov_gaps_header), not in this lead.
         div(class = "ik-cov-gaps",
             div(class = "ik-cov-gaps-head",
                 div(class = "ik-cov-gaps-head-l",
                     tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
                     .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body(cam_norm))),
                 selectInput(ns("radius"), "Gap radius", width = "120px",  # drives THIS table (not the map)
-                            choices = c("250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 500)),
+                            choices = c("250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 500)),
             tags$p(class = "ik-cov-gaps-lead",
-              "Protected hotspots ranked worst-first by how well predator control reaches them, ",
-              "within the ", tags$b("gap radius."), tags$b("No trapping"), " = no traps running nearby; ",
-              tags$b("Predators uncaught"), " = predators on camera but none caught nearby; ",
-              tags$b("Neglected"), " = nearby traps mostly unserviced."),
-            DT::DTOutput(ns("gaps"))),
-        div(class = "ik-cov-density",
-            tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
-            tags$p(class = "ik-cov-gaps-lead",
-              "Is the network even dense enough to work? Footprint area, traps & cameras per km², and ",
-              "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
-            DT::DTOutput(ns("density"))))
+              "Protected hotspots ranked worst-first by how well predator control reaches them, within the gap radius."),
+            DT::DTOutput(ns("gaps"))))
   )
 }
 

@@ -18,7 +18,7 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
       P(tags$br(), tags$b("Camera activity"), " is RAI (detections per ", format(norm_hours, big.mark = ","),
         " camera-hours); ", tags$b("Catch rate"), " is captures per ", format(norm_trap, big.mark = ","),
         " trap-nights — each its own panel (different units, don't compare heights between them). Lines are ",
-        "the network mean across reserves; toggle ", tags$b("By season / By year"), ". Add a ",
+        "the network mean across reserves; toggle ", tags$b("By season / By year."), " Add a ",
         tags$b("compare"), " species to overlay a second line on the matching panel.")),
     tabPanel("How it's calculated", icon = icon("calculator"),
       tags$ul(tags$br(),
@@ -174,7 +174,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                 selectInput(ns("cooc_opp"), if (identical(opp_role, "predator")) "Predator(s)" else "Protected",
                             choices = opp_choices, selected = opp_default, multiple = TRUE, width = "240px"),
                 radioButtons(ns("cooc_radius"), "Within", inline = TRUE,
-                             choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "1 km" = 1000), selected = 0)),
+                             choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 0)),
             plotOutput(ns("cooc"), height = "340px", click = ns("cooc_click"))),
           tabPanel("Records", icon = icon("list"),
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",
@@ -533,7 +533,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       diel_pick(p)
       diel_open(sprintf("%s — %s records", spec$label, p),
         sprintf("Diel period: %s", if (p %in% names(DIEL_DEF)) DIEL_DEF[[p]] else p),
-        tagList("Every detection classified ", tags$b(tolower(p)), ". Sun times are for each detection's ",
+        tagList("Every detection classified ", tags$b(paste0(tolower(p), ".")), " Sun times are for each detection's ",
                 "own date & reserve — check its time against them to verify the class. ",
                 tags$b("Click a row"), " for the full record."))
     })
