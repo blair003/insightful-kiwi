@@ -409,22 +409,29 @@ overview_ui <- function(id) {
   sprintf("%s – %s", fmt(min(sub$start)), fmt(max(sub$end) - 1))   # end is exclusive → show last day
 }
 
-#' Per-device header sub-line: the record-date envelope WITHIN the selection (when this device's data
-#' actually falls — scoped, so a continuous trap that started two years ago still reads in-season) +
-#' its own reserve / line / location counts. NULL when nothing resolved. @keywords internal
-.ov_section_meta <- function(res, ik_data) {
+#' Per-device header sub-line: a date describing when this device's data falls WITHIN the selection,
+#' plus its own reserve / line / location counts. For a contiguous selection that's the record-date
+#' envelope (scoped, so a continuous trap that began two years ago still reads in-season); for a
+#' non-contiguous "seasonall" selection (All summers/…) a single range would mislead, so it shows the
+#' count of those seasons this device actually has data in. NULL when nothing resolved. @param period
+#' The selection's encoded period value (for the seasonall case). @keywords internal
+.ov_section_meta <- function(res, ik_data, period = NULL) {
   dep <- res$deployments; if (is.null(dep) || !nrow(dep)) return(NULL)
-  obs <- res$observations
-  when <- if (!is.null(obs) && nrow(obs)) {                              # record dates (already in-season)
-    w <- obs$eventEnd; na <- is.na(w); w[na] <- obs$eventStart[na]; w
-  } else dep$deploymentEnd
-  locs <- ik_data$app$geography$locations
-  gl   <- locs[locs$location_id %in% unique(dep$locationID), , drop = FALSE]
-  fmt  <- function(x) if (!is.finite(as.numeric(x))) "—" else format(x, "%d %b %Y")
+  locs  <- ik_data$app$geography$locations
+  gl    <- locs[locs$location_id %in% unique(dep$locationID), , drop = FALSE]
   lines <- length(unique(paste(gl$reserve, gl$line)[!is.na(gl$line)]))   # distinct reserve×line (real lines)
-  tags$div(class = "ik-device-meta",
-    sprintf("%s – %s", fmt(suppressWarnings(min(when, na.rm = TRUE))), fmt(suppressWarnings(max(when, na.rm = TRUE)))),
-    tags$span(class = "ik-ov-dot", "·"),
+  when_str <- if (!is.null(period) && startsWith(period, "seasonall:")) {
+    op   <- ik_observation_period(ik_data)                               # this device's seasons-with-data
+    seas <- unique(op$calendar_season[match(res$observations$observationID, op$observationID)])
+    sprintf("%d %ss", length(seas[!is.na(seas)]), tolower(sub("^seasonall:", "", period)))
+  } else {
+    obs  <- res$observations
+    when <- if (!is.null(obs) && nrow(obs)) { w <- obs$eventEnd; na <- is.na(w); w[na] <- obs$eventStart[na]; w
+            } else dep$deploymentEnd
+    fmt  <- function(x) if (!is.finite(as.numeric(x))) "—" else format(x, "%d %b %Y")
+    sprintf("%s – %s", fmt(suppressWarnings(min(when, na.rm = TRUE))), fmt(suppressWarnings(max(when, na.rm = TRUE))))
+  }
+  tags$div(class = "ik-device-meta", when_str, tags$span(class = "ik-ov-dot", "·"),
     sprintf("%d reserves · %d lines · %d locations",
             length(unique(gl$reserve[!is.na(gl$reserve)])), lines, length(unique(gl$location_id))))
 }
@@ -436,7 +443,7 @@ overview_ui <- function(id) {
 .ov_device_section <- function(title, res, effort_label, effort_value,
                                deploy_label, record_label, sg, panel_fn, metric = NULL,
                                kind = "", box_drill = NULL, spp_drill = NULL, subs = NULL,
-                               ik_data = NULL, help = NULL) {
+                               ik_data = NULL, help = NULL, period = NULL) {
   obs <- res$observations
   obs <- obs[!is.na(obs$observationType) & obs$observationType == "animal", , drop = FALSE]
   obs <- .ov_net_obs(obs, ik_data)                            # net by default (trap no-op)
@@ -453,7 +460,7 @@ overview_ui <- function(id) {
   }
   card(
     card_header(tags$span(class = "ik-device-title", title), help,
-                .ov_section_meta(res, ik_data),
+                .ov_section_meta(res, ik_data, period),
                 class = paste0("ik-device-head ik-device-", kind)),
     card_body(
       layout_column_wrap(
@@ -649,7 +656,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                          metric = tagList(tags$div(class = "ik-metric-cap", cap), cards, matrix),
                          kind = "camera", box_drill = session$ns("box_drill"),
                          spp_drill = session$ns("spp_drill"), subs = .ov_camera_subs(cam(), ik_data, prefer),
-                         ik_data = ik_data,
+                         ik_data = ik_data, period = selection()$period,
                          help = .ik_info(session$ns("mon_help"), "Camera monitoring — how to read this",
                                          overview_monitor_help_body(ik_data$meta$camera$rai$norm_hours %||% 2000)))
     })
@@ -679,7 +686,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
                          metric = tagList(tags$div(class = "ik-metric-cap", cap), cards, matrix),
                          kind = "trap", box_drill = session$ns("box_drill"),
                          spp_drill = session$ns("spp_drill"), subs = .ov_trap_subs(trp(), ik_data, prefer),
-                         ik_data = ik_data,
+                         ik_data = ik_data, period = selection()$period,
                          help = .ik_info(session$ns("trap_help"), "Trapping — how to read this",
                                          overview_trap_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
     })
