@@ -268,9 +268,10 @@ ik_period_choices <- function(ik_data) {
   sc <- ik_season_calendar(ik_data)
   quick <- character(0)
   if (!is.null(sc) && nrow(sc)) {
-    quick["Latest season"] <- "latest"
-    if (any(sc$complete))      quick["Latest full season"] <- "latest_complete"
-    if (sum(sc$complete) >= 4) quick["Latest 12 months"]   <- "rolling12"
+    quick["Latest (partial season)"] <- "latest"
+    if (any(sc$complete))      quick["Latest full season"]  <- "latest_complete"
+    if (sum(sc$complete) >= 2) quick["Last 2 full seasons"] <- "latest2_complete"
+    if (sum(sc$complete) >= 4) quick["Latest 12 months"]    <- "rolling12"
     for (nm in c("Summer", "Autumn", "Winter", "Spring")) {
       k <- sum(sc$season == nm)
       if (k >= 2) quick[sprintf("All %ss (%d)", tolower(nm), k)] <- paste0("seasonall:", nm)
@@ -311,14 +312,15 @@ ik_expand_period <- function(value, ik_data) {
     return(unique(dp$calendar_season[!is.na(dp$calendar_season) & cyc == cy]))
   }
   # Quick-period shortcuts (see ik_season_calendar / ik_period_choices).
-  if (value %in% c("latest", "latest_complete", "rolling12")) {
+  if (value %in% c("latest", "latest_complete", "rolling12", "latest2_complete")) {
     sc <- ik_season_calendar(ik_data); if (is.null(sc) || !nrow(sc)) return(NULL)
     if (identical(value, "latest")) return(sc$calendar_season[nrow(sc)])
     cc <- sc[sc$complete, , drop = FALSE]
     if (identical(value, "latest_complete"))                          # latest fully-elapsed, else latest
       return(if (nrow(cc)) cc$calendar_season[nrow(cc)] else sc$calendar_season[nrow(sc)])
-    pool <- if (nrow(cc)) cc else sc                                  # rolling12: last 4 complete seasons
-    return(utils::tail(pool$calendar_season, 4L))
+    pool <- if (nrow(cc)) cc else sc
+    if (identical(value, "latest2_complete")) return(utils::tail(pool$calendar_season, 2L))   # last 2 complete
+    return(utils::tail(pool$calendar_season, 4L))                     # rolling12: last 4 complete seasons
   }
   if (startsWith(value, "seasonall:")) {                              # one season pooled across years
     nm <- sub("^seasonall:", "", value)

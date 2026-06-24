@@ -41,6 +41,8 @@
 .mon-dim    { opacity: 0.18; }   /* de-emphasise severities unticked in "Highlight" */
 .mon-highlight { margin-bottom: 0.6rem; }
 .mon-highlight .control-label { font-weight: 600; margin-right: 0.5rem; }
+.mon-range { margin-bottom: 0.4rem; }
+.mon-range .control-label { font-weight: 600; margin-right: 0.5rem; }
 
 /* Detail modal */
 .mon-detail { width: 100%; border-collapse: collapse; }

@@ -56,6 +56,9 @@ monitoring_ui <- function(id) {
             tags$h5("Camera deployment review", class = "ik-review-head"),
             .ik_info(ns("mon_help"), "Camera review — how to read this", monitoring_help_body())),
         uiOutput(ns("intro")),
+        div(class = "mon-range",
+            radioButtons(ns("range"), "Seasons shown", inline = TRUE,
+              choices = c("Last 1 year" = 4, "Last 2 years" = 8, "All" = 0), selected = 4)),
         div(class = "mon-highlight",
             checkboxGroupInput(ns("highlight"), "Highlight", inline = TRUE,
               choices  = c("OK" = "ok", "Watch" = "mild", "Concern" = "moderate",
@@ -93,14 +96,23 @@ monitoring_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) 
       if (is.null(gg) || !nrow(gg)) return(gg)
       gg[gg$location %in% ik_active_locations(ik_data)$location_id, , drop = FALSE]
     })
-    by_cell <- reactive(if (!is.null(g()) && nrow(g())) split(g(), paste(g()$location, g()$season)) else list())
+    # The view = active grid capped to the most-recent N seasons (1 yr = 4, 2 yr = 8, 0 = all). The
+    # whole UI (legend, grid, clicks) reads gv() so the legend counts match the columns on show.
+    gv <- reactive({
+      gg <- g(); if (is.null(gg) || !nrow(gg)) return(gg)
+      n  <- suppressWarnings(as.integer(input$range %||% 4L))
+      if (is.na(n) || n <= 0) return(gg)                       # "All"
+      keep <- utils::head(rev(unique(gg[order(gg$season_order), "season"])), n)  # most recent first
+      gg[gg$season %in% keep, , drop = FALSE]
+    })
+    by_cell <- reactive(if (!is.null(gv()) && nrow(gv())) split(gv(), paste(gv()$location, gv()$season)) else list())
     prefer   <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
     cell_obs <- reactiveVal(NULL)   # animal detections behind the clicked cell's count
     rec_obs  <- reactiveVal(NULL)   # observationID open in the Record details tab
 
     output$intro <- renderUI({
-      counts <- if (is.null(g())) integer(0) else
-        table(factor(g()$severity, c("ok", "mild", "moderate", "serious", "none")))
+      counts <- if (is.null(gv())) integer(0) else
+        table(factor(gv()$severity, c("ok", "mild", "moderate", "serious", "none")))
       legend <- function(cls, lab, n) tags$span(class = "mon-legend-item",
         tags$span(class = paste0("mon-swatch mon-", cls)), sprintf("%s (%d)", lab, n))
       tagList(
@@ -117,7 +129,7 @@ monitoring_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)) 
     })
 
     output$grid <- renderUI({
-      g <- g()
+      g <- gv()
       if (is.null(g) || !nrow(g)) return(tags$p("No camera deployments to review."))
       bc   <- by_cell()
       hl   <- input$highlight                                   # severities to keep bright

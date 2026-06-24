@@ -22,7 +22,8 @@ nat_sort <- function(x) {
 #'   through an empty → "all data" state on first load (which would double-resolve the view).
 #'   The other axes' choices are still populated server-side. If `NULL`, Period renders empty.
 #' @return A tagList of controls.
-selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL, device_default = NULL) {
+selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL, device_default = NULL,
+                         period_show_js = NULL, period_note = NULL) {
   ns <- NS(id)
   dev_choices <- if (!is.null(ik_data))                         # device = source_type; baked here so the
     stats::setNames(sort(unique(vapply(ik_data$datasets,        # default survives while the sidebar panel
@@ -52,6 +53,16 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
     # sidebar, not as an in-table filter. Camera-only (traps have no duplicate flag).
     net      = checkboxInput(ns("net"), "Exclude possible duplicates observations", FALSE)
   )
+  # Optionally gate the Period control on a top-level JS condition (e.g. hide it on a tab that spans
+  # all time). conditionalPanel's condition reads the GLOBAL input (no ns), so callers reference a
+  # top-level input id; the control keeps its own namespaced id, so the server side is unchanged.
+  # When `period_note` is given it shows in the control's place under the negated condition — so a
+  # tab that ignores the Period gets an explanatory note rather than a blank gap.
+  if (!is.null(period_show_js) && !is.null(ctrls$period)) {
+    note <- if (!is.null(period_note))
+      conditionalPanel(paste0("!(", period_show_js, ")"), tags$div(class = "ik-period-note", period_note)) else NULL
+    ctrls$period <- tagList(conditionalPanel(period_show_js, ctrls$period), note)
+  }
   # default shows the six axis controls; `compare` and `net` are opt-in (request via `show`).
   ctrls <- ctrls[show %||% c("period", "reserve", "line", "location", "device", "species")]
   tagList(

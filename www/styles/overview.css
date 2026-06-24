@@ -163,10 +163,9 @@
 /* Per-species metric cards (Overview headline). Camera leads with RAI ± SE, trapping with the
    catch count; the other figure is secondary. More prominent than the compact species list,
    less than the four value boxes. Click → the per-reserve breakdown. */
-/* Grid (not flex) so cards keep a uniform width and a lone card on the last row stays one column
-   wide instead of stretching to 100%. auto-fill (not auto-fit) keeps empty tracks, so a short row
-   is left-aligned at the normal card width rather than blowing the last card full-width. */
-.ik-metric-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.6rem; margin: 0.25rem 0 0.85rem; }
+/* Simple flex row that wraps — cards size to their own content and the browser handles the rest
+   (no forced track width / stretching, which caused more layout artifacts than it solved). */
+.ik-metric-cards { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.25rem 0 0.85rem; }
 .ik-metric-card {
   border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 0.5rem;
   padding: 0.5rem 0.7rem; background: var(--bs-body-bg, #fff);
@@ -187,7 +186,7 @@
 
 /* Secondary "of interest" tier: denser cards beneath the protocol targets, set off only by the
    gap between the two card blocks (no sub-heading — the smaller size carries the distinction). */
-.ik-metric-cards.ik-compact { grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 0.45rem; }
+.ik-metric-cards.ik-compact { gap: 0.45rem; }
 .ik-metric-cards.ik-compact .ik-metric-card { padding: 0.4rem 0.55rem; }
 .ik-metric-cards.ik-compact .ik-card-big { font-size: 1.05rem; }
 .ik-metric-cards.ik-compact .ik-card-name  { font-size: 0.84rem; }

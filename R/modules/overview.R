@@ -729,7 +729,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
         size = "l", easyClose = TRUE, footer = modalButton("Close"),
         tabsetPanel(id = session$ns("drill_tabs"),
           tabPanel("Summary",        icon = icon("table-list"),  uiOutput(session$ns("drill_breakdown"))),
-          tabPanel("Records",        icon = icon("list"),        uiOutput(session$ns("drill_records_ui"))),
+          tabPanel("Records",        icon = icon("list"),        uiOutput(session$ns("drill_records_cap")),
+                                                                 DT::dataTableOutput(session$ns("drill_records"))),
           tabPanel("Record Details", icon = icon("circle-info"), uiOutput(session$ns("drill_record"))))))
       hideTab(session = session, inputId = "drill_tabs", target = "Records")        # revealed on drill
       hideTab(session = session, inputId = "drill_tabs", target = "Record Details")
@@ -842,15 +843,18 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       showTab(session = session, inputId = "drill_tabs", target = "Records", select = TRUE)
     })
 
-    output$drill_records_ui <- renderUI({
+    # Caption only — the DTOutput itself is static in the tabPanel (created once when the modal opens),
+    # so the renderDT below binds once and just refreshes data. (Nesting the DTOutput in this
+    # re-rendering uiOutput recreated the element on every drill and raced the tab-switch → an
+    # intermittent blank first render. The box/trap drills keep their DTOutput static for the same reason.)
+    output$drill_records_cap <- renderUI({
       if (is.null(records()))
         return(tags$p(class = "ik-drill-summary",
           "Open a non-zero count in the Summary tab to list the records behind it here."))
       tagList(
         .ik_tab_back(session$ns("tab_back"), "drill_tabs", "Summary", "Back to summary"),
         tags$p(class = "ik-drill-summary", rec_ctx(),
-               tags$b("Click a row"), " for that record's full detail — then come back for another."),
-        DT::dataTableOutput(session$ns("drill_records")))
+               tags$b("Click a row"), " for that record's full detail — then come back for another."))
     })
 
     output$drill_records <- DT::renderDT({
