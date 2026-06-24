@@ -17,8 +17,11 @@ cooccurrence_help_body <- function() {
     tabPanel(
       "What it shows", icon = icon("circle-question"),
       P(tags$br(), "For every ", tags$b("protected"), "-species detection on camera, this measures how long ",
-        "until the nearest ", tags$b("predator"), " detection ", tags$b("at the same camera"), " — the ",
-        tags$b("time gap"), " between the two species using the same spot."),
+        "until the nearest ", tags$b("predator"), " detection — at the ", tags$b("same camera"), ", or, if you ",
+        "set a ", tags$b("Within"), " radius, at any camera within that distance — the ", tags$b("time gap"),
+        " between the two species sharing the same ground."),
+      P("The ", tags$b("Within"), " radius reuses the Coverage map's proximity engine: cameras are sparse, so ",
+        "“same camera” is strict — a wider radius counts a predator seen a few hundred metres away as nearby."),
       P("Two views: a ", tags$b("distribution"), " of those gaps (how often predator and protected are close ",
         "in time vs far apart) and a ", tags$b("seasonal trend"), " of the median gap. Click a distribution ",
         "bar to see the detections behind it, down to the record."),
@@ -42,14 +45,15 @@ cooccurrence_help_body <- function() {
       tags$ul(
         tags$br(),
         tags$li(tags$b("Pairing"), " — each protected detection is matched to the ", tags$b("nearest in time"),
-                " predator detection ", tags$b("at the same camera"), "; the gap is the hours between them."),
+                " predator detection at the same camera, or — with a ", tags$b("Within"), " radius — at any camera ",
+                "within it; the gap is the hours between them, and the modal shows how far apart the cameras were."),
         tags$li(tags$b("Direction"), " — by default the nearest predator detection either side counts; ",
                 tags$b("Predator after only"), " keeps just those where the predator came later."),
         tags$li(tags$b("Buckets"), " — gaps are grouped < 1 h · 1–6 h · 6–24 h · 1–7 d · 1–4 wk · > 1 mo."),
         tags$li(tags$b("Seasonal median"), " — within each season, the median gap (robust to a few extreme ",
                 "values), plotted over time."),
-        tags$li(tags$b("Needs both on one camera"), " — only cameras that saw ", tags$b("both"), " a protected ",
-                "and a predator contribute; a camera that saw only one never forms a pair.")),
+        tags$li(tags$b("Needs both in range"), " — a protected detection only forms a pair if a predator was ",
+                "seen at the same camera (or within the radius); an isolated detection never pairs.")),
       P(tags$em("Camera timestamps must be true clock times for this (trapping has no clock time, so it's ",
                 "camera-only). Treat proximity in time as co-occurrence risk, not a confirmed interaction.")))
   )
@@ -67,11 +71,14 @@ cooccurrence_ui <- function(id) {
             .ik_info(ns("cooc_help"), "Co-occurrence — how to read this", cooccurrence_help_body())),
         tags$p(class = "ik-cooc-lead",
           "For every protected-species detection on camera, how long until the nearest ", tags$b("predator"),
-          " detection at the same camera. Short gaps mean they share the same ground close in time. ",
-          "Rats are everywhere, so pick the predator that matters."),
+          " detection — at the same camera, or anywhere within a chosen ", tags$b("radius"),
+          ". Short gaps mean they share the same ground close in time."),
         div(class = "ik-cooc-controls",
             selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "260px"),
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "260px"),
+            selectInput(ns("radius"), "Within",
+                        choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "1 km" = 1000),
+                        selected = 0, width = "150px"),
             div(class = "ik-cooc-check",
               checkboxInput(ns("after_only"),
                 tagList("Predator ", tags$b("after"), " only ", tags$span(class = "ik-cooc-hint-inline", "(stalking — predator follows the protected animal)")),
@@ -100,6 +107,10 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     .prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_taxa)) "Kiwi" else names(prot_taxa)[1])
     .fmt_gap <- function(h) if (h < 1) sprintf("%d min", round(h * 60)) else
       if (h < 48) sprintf("%.1f h", h) else sprintf("%.1f d", h / 24)
+    .fmt_m   <- function(m) if (is.na(m)) "—" else if (m >= 1000) sprintf("%.1f km", m / 1000) else sprintf("%.0f m", m)
+    radius_m <- reactive(as.numeric(input$radius %||% 0))
+    prox     <- reactive({ r <- radius_m()                      # the "where" phrase, woven into the copy
+      if (r <= 0) "at the same camera" else sprintf("within %s", if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r)) })
     locs <- ik_data$app$geography$locations
     bucket_rows <- reactiveVal(NULL)                                          # detections behind a clicked bar
     rec_obs     <- reactiveVal(NULL)                                          # the record open in the Details tab
@@ -114,7 +125,7 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       preds <- input$pred; if (!length(preds)) preds <- .pred_def
       prots <- input$prot; if (!length(prots)) prots <- .prot_def
       g <- ik_predator_protected_gaps(ik_data, ik_resolve_species_choice(preds, pred_taxa),
-                                      ik_resolve_species_choice(prots, prot_taxa))
+                                      ik_resolve_species_choice(prots, prot_taxa), radius_m = radius_m())
       if (is.null(g)) return(NULL)
       if (isTRUE(input$after_only)) {                  # stalking: predator detected AFTER the protected animal
         g <- g[g$signed_h > 0, , drop = FALSE]
@@ -125,18 +136,18 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     })
 
     output$intro <- renderUI({
-      g <- gaps(); after <- isTRUE(input$after_only)
+      g <- gaps(); after <- isTRUE(input$after_only); px <- prox()
       if (is.null(g)) return(tags$p(class = "ik-cooc-lead",
-        if (after) "No protected-species detections were followed by a predator at the same camera."
-        else "No protected-species and predator detections share a camera."))
+        if (after) sprintf("No protected-species detections were followed by a predator %s.", px)
+        else sprintf("No protected-species and predator detections were found %s.", px)))
       prot_l <- paste(ik_choice_labels(input$prot %||% .prot_def, ik_data, prefer()), collapse = " + ")
       pred_l <- paste(ik_choice_labels(input$pred %||% .pred_def, ik_data, prefer()), collapse = " + ")
       tags$p(class = "ik-cooc-lead", if (after) sprintf(
-        "%s %s detections followed by a %s at the same camera · median %s until the predator arrives · %d%% within 24 h.",
-        format(nrow(g), big.mark = ","), prot_l, pred_l, .fmt_gap(stats::median(g$gap_h)), round(100 * mean(g$gap_h <= 24)))
+        "%s %s detections followed by a %s %s · median %s until the predator arrives · %d%% within 24 h.",
+        format(nrow(g), big.mark = ","), prot_l, pred_l, px, .fmt_gap(stats::median(g$gap_h)), round(100 * mean(g$gap_h <= 24)))
       else sprintf(
-        "%s %s detections · median %s to the nearest %s · %d%% within 24 h.",
-        format(nrow(g), big.mark = ","), prot_l, .fmt_gap(stats::median(g$gap_h)), pred_l, round(100 * mean(g$gap_h <= 24))))
+        "%s %s detections · median %s to the nearest %s %s · %d%% within 24 h.",
+        format(nrow(g), big.mark = ","), prot_l, .fmt_gap(stats::median(g$gap_h)), pred_l, px, round(100 * mean(g$gap_h <= 24))))
     })
 
     output$dist <- renderPlot({
@@ -145,7 +156,7 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       ggplot(d, aes(.data$bucket, .data$Freq)) +
         geom_col(fill = "#6a3d9a", width = 0.8) +
         geom_text(aes(label = .data$Freq), vjust = -0.3, size = 3.6, colour = ik_plot_ink(is_dark())) +
-        labs(x = "Time to nearest predator at the same camera", y = "Protected detections") +
+        labs(x = sprintf("Time to nearest predator %s", prox()), y = "Protected detections") +
         ik_ggtheme(is_dark()) +
         theme(panel.grid.major.x = element_blank(), panel.grid.minor = element_blank())
     }, bg = "transparent")
@@ -199,8 +210,12 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
         `Protected seen` = format(rows$when, "%d %b %Y · %H:%M"),
         Predator = mapply(.lnk, ik_species_label(rows$pred_sci, ik_data, prefer()), rows$pred_id),
         `Predator seen` = format(rows$pred_when, "%d %b %Y · %H:%M"),
-        Gap = paste0("predator ", vapply(rows$gap_h, .fmt_gap, character(1)), " ", dir),
         check.names = FALSE, stringsAsFactors = FALSE)
+      if (isTRUE(radius_m() > 0) && "pred_dist_m" %in% names(rows)) {    # proximity view: where the predator was
+        df$`Predator camera` <- locs$name[match(rows$pred_loc, locs$location_id)]
+        df$Apart <- ifelse(rows$pred_dist_m <= 0, "same camera", vapply(rows$pred_dist_m, .fmt_m, character(1)))
+      }
+      df$Gap <- paste0("predator ", vapply(rows$gap_h, .fmt_gap, character(1)), " ", dir)
       esc <- -which(names(df) %in% c("Protected", "Predator"))         # leave the link cells un-escaped
       DT::datatable(df, rownames = FALSE, selection = "none", escape = esc,
         class = "stripe hover row-border",
