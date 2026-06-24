@@ -217,6 +217,10 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
           tabPanel("Record Details", icon = icon("magnifying-glass"),
             uiOutput(session$ns("obs_ui"))))
       ))
+      # Progressive disclosure: the downstream tabs are dependent on a selection in the one before, so
+      # they stay hidden until you drill into them (then remain shown — no jarring re-hide).
+      hideTab("cap_tabs", "Trap history",   session = session)
+      hideTab("cap_tabs", "Record Details", session = session)
     })
 
     observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
@@ -235,6 +239,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       i <- input$cap_table_rows_selected; cap <- caps()
       if (length(i) && !is.null(cap) && i <= nrow(cap)) {
         sel_trap(cap$locationID[i]); sel_hl(cap$observationID[i]); sel_obs(NULL)
+        showTab("cap_tabs", "Trap history", session = session)   # reveal + jump to it
         updateTabsetPanel(session, "cap_tabs", selected = "Trap history")
       }
       DT::selectRows(DT::dataTableProxy("cap_table"), NULL)      # clear → same row re-clickable
@@ -294,7 +299,9 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       i <- input$hist_table_rows_selected
       ch <- ik_trap_checks(ik_data, sel_trap(), NULL)
       if (length(i) && !is.null(ch) && i <= nrow(ch)) {
-        sel_obs(ch$observationID[i]); updateTabsetPanel(session, "cap_tabs", selected = "Record Details")
+        sel_obs(ch$observationID[i])
+        showTab("cap_tabs", "Record Details", session = session)   # reveal + jump to it
+        updateTabsetPanel(session, "cap_tabs", selected = "Record Details")
       }
       DT::selectRows(DT::dataTableProxy("hist_table"), NULL)
     })

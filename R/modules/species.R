@@ -218,7 +218,9 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       observeEvent(input[[paste0(prefix, "_recs_rows_selected")]], {
         i <- input[[paste0(prefix, "_recs_rows_selected")]]; d <- recs_rv()
         if (length(i) && !is.null(d) && i <= nrow(d)) {
-          obs_rv(d$observationID[i]); updateTabsetPanel(session, tabs, selected = "Record Details")
+          obs_rv(d$observationID[i])
+          showTab(tabs, "Record Details", session = session)             # reveal once a record is picked
+          updateTabsetPanel(session, tabs, selected = "Record Details")
         }
         DT::selectRows(DT::dataTableProxy(paste0(prefix, "_recs")), NULL)   # clear → same row re-clickable
       })
@@ -242,6 +244,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
               DT::DTOutput(session$ns(paste0(prefix, "_recs")))),
             tabPanel("Record Details", icon = icon("magnifying-glass"),
               uiOutput(session$ns(paste0(prefix, "_obs_ui")))))))
+        hideTab(tabs, "Record Details", session = session)   # progressive disclosure: hidden until a row is picked
       }
     }
 
