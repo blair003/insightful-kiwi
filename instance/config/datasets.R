@@ -91,7 +91,7 @@ datasets <- list(
     force_timezone = "Pacific/Auckland",        # match core if its timestamps are the same
     geography   = list(derive = "coded_locationname",
                        reserves = c(OF = "Ohiwa Forest")),   # ← use Ohiwa's real code
-    enabled     = TRUE
+    enabled     = FALSE
   ),
 
 
@@ -129,7 +129,7 @@ datasets <- list(
     name        = "Southern Lakes Trapping",
     timezone    = "Pacific/Auckland",
     temporal_resolution = "day",        # trap.NZ check records — trustworthy to the day
-    enabled     = TRUE,
+    enabled     = FALSE,
     raw = list(dir = "southern-lakes-sanctuary/sls-trapping", converter = "trapnz"),
     geography = list(derive = "trapnz")            # reserve = trap.NZ project · line = trap.NZ line
   ),
@@ -143,7 +143,7 @@ datasets <- list(
     name        = "WKT Ohiwa Trapping",
     timezone    = "Pacific/Auckland",
     temporal_resolution = "day",        # trap.NZ check records — trustworthy to the day
-    enabled     = TRUE,
+    enabled     = FALSE,
     raw = list(dir = "whakatane-kiwi-trust/trapnz-ohiwa", converter = "trapnz"),
     geography = list(derive = "trapnz")
   )

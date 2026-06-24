@@ -329,19 +329,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     frame_pts    <- reactive(if (src() == "trap" && measure() == "servicing") serv_pts() else rate_loc_pts())
 
     # ---- helpers ----
-    # Colour/size clamp. Pooled standalone maps use the 95th-pctl robust cap (a heavy tail would
-    # otherwise wash the colours out). A SPECIES map shows one species at few markers, where that clamp
-    # is confusing — the legend would top at 0.8 while a marker's popup reads 1.74 — so there we use the
-    # TRUE max, and the legend matches the markers.
-    .robust_cap  <- function(v) {
-      if (!is.null(fixed_species)) { m <- suppressWarnings(max(v, na.rm = TRUE)); return(if (is.finite(m) && m > 0) m else 1) }
-      ik_robust_cap(v, .MAPS_CAP_PCTL)
-    }
-    # Legend cuts: an explicit 0→cap sequence so the TOP tick equals the max (cap) — leaflet's default
-    # `bins = 5` lands on pretty numbers below the max, leaving coloured bar above the last label. Fixed
-    # count (5) keeps the camera & trap legends the same height. Digits scale with the cap's magnitude.
-    .legend_bins <- function(cap, n = 5) if (!is.finite(cap) || cap <= 0) n else seq(0, cap, length.out = n)
-    .lg_digits   <- function(cap) if (!is.finite(cap)) 1L else if (cap >= 10) 0L else if (cap >= 1) 1L else if (cap >= 0.1) 2L else 3L
+    # Colour/size scale: the TRUE max, so the legend always matches the markers. (A 95th-pctl robust cap
+    # spread the colours better on a heavy tail, but it left markers above the cap reading the top colour
+    # while the legend topped out lower — a recurring "key doesn't match reality" confusion.)
+    .robust_cap  <- function(v) { m <- suppressWarnings(max(v, na.rm = TRUE)); if (is.finite(m) && m > 0) m else 1 }
     .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)
     .prio_ramp <- c("#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c")   # yellow→red — priority/danger
     surf_pal <- function(cap) leaflet::colorNumeric(if (is_priority() || is_timing()) .prio_ramp else "viridis", c(0, cap))
@@ -357,14 +348,19 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       "<b>%s</b><br/>Line %s &middot; %s<br/><b>Priority: %.2f</b><br/>%s RAI: %.2f &middot; %s RAI: %.2f",
       d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, d$metric, pred_label(), d$predator, prot_label(), d$protected)
     rate_popup <- function(d) {
-      if (src() == "trap") {
-        head  <- if (measure() == "captures") sprintf("Captures: %d", as.integer(d$captures)) else sprintf("Capture rate: %.2f / %s trap-nights", d$metric, format(norm, big.mark = ","))
-        extra <- sprintf("Captures: %d &middot; Trap-days: %s", as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
+      body <- if (src() == "trap") {
+        # captures measure: the raw line says it all (no separate "Captures: N" header). rate measure:
+        # the per-trap-night rate IS extra info, so keep it above the raw counts.
+        if (measure() == "captures")
+          sprintf("<b>Captures: %d</b> &middot; Trap-days: %s", as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
+        else
+          sprintf("<b>Capture rate: %.2f</b> / %s trap-nights<br/>Captures: %d &middot; Trap-days: %s",
+                  d$metric, format(norm, big.mark = ","), as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
       } else {
-        head  <- sprintf("Detections / deployment: %.2f", d$metric)
-        extra <- sprintf("Detections: %d &middot; Camera-hours: %s", as.integer(d$individuals), format(round(d$camera_hours), big.mark = ","))
+        # per-camera: just the raw count + effort (the per-deployment rate added nothing over "Detections: N").
+        sprintf("<b>Detections: %d</b> &middot; Camera-hours: %s", as.integer(d$individuals), format(round(d$camera_hours), big.mark = ","))
       }
-      sprintf("<b>%s</b><br/>Line %s &middot; %s<br/>%s<br/>%s", d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, head, extra)
+      sprintf("<b>%s</b><br/>Line %s &middot; %s<br/>%s", d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, body)
     }
     line_popup <- function(d) sprintf(
       "<b>Line %s</b> &middot; %s<br/>RAI: %.2f (per 2000 CH)<br/>%d cameras &middot; %d detections", d$line, d$reserve, d$metric, as.integer(d$n), as.integer(d$individuals))
@@ -572,9 +568,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
                else if (is_timing()) sprintf("Predator proximity &middot; red = %s close to %s in time", pred_label(), prot_label())
                else if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
                else sprintf("%s &middot; %s", vallabel(), group_lab())
-        leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl,
-                           bins = .legend_bins(cap), opacity = 0.9,   # top tick = max; 5 cuts → cam & trap legends match height
-                           labFormat = leaflet::labelFormat(digits = .lg_digits(cap)))
+        leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl, opacity = 0.9)
       }
     })
 

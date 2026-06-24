@@ -53,7 +53,7 @@ species_groups <- list(
 # to minute-resolution data; date-only sources are excluded.)
 duplicate_window <- list(
   default    = 5,
-  by_species = list("Gallirallus australis" = 30)   # e.g. "Rattus" = 60
+  by_species = list("Sus scrofa" = 10, "Gallirallus australis" = 30)   # e.g. "Rattus" = 60
 )
 
 # Metric methodology — project-wide so reported metrics are reproducible and roll up
