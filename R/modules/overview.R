@@ -812,9 +812,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
           tabPanel("Summary",        icon = icon("table-list"),  uiOutput(session$ns("drill_breakdown"))),
           tabPanel("Records",        icon = icon("list"),        uiOutput(session$ns("drill_records_cap")),
                                                                  DT::dataTableOutput(session$ns("drill_records"))),
-          tabPanel("Record Details", icon = icon("circle-info"), uiOutput(session$ns("drill_record"))))))
+          tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("drill_record"))))))
       hideTab(session = session, inputId = "drill_tabs", target = "Records")        # revealed on drill
-      hideTab(session = session, inputId = "drill_tabs", target = "Record Details")
+      hideTab(session = session, inputId = "drill_tabs", target = "Record details")
     })
 
     # Breakdown tab: the per-line (reserve cell) or per-reserve (Combined cell) basis the metric
@@ -958,7 +958,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     observeEvent(input$drill_records_rows_selected, {
       i <- input$drill_records_rows_selected; o <- records()
       if (length(i) && !is.null(o) && i <= nrow(o)) {
-        rec_obs(o$observationID[i]); showTab(session = session, inputId = "drill_tabs", target = "Record Details", select = TRUE)
+        rec_obs(o$observationID[i]); showTab(session = session, inputId = "drill_tabs", target = "Record details", select = TRUE)
       }
       DT::selectRows(DT::dataTableProxy("drill_records"), NULL)      # clear → same row re-clickable
     })
@@ -1053,9 +1053,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
         tabsetPanel(id = session$ns("box_tabs"),
           tabPanel("Records", icon = icon("list"),
                    DT::dataTableOutput(session$ns("box_records_table"))),
-          tabPanel("Record Details", icon = icon("circle-info"),
+          tabPanel("Record details", icon = icon("circle-info"),
                    uiOutput(session$ns("box_record"))))))
-      hideTab(session = session, inputId = "box_tabs", target = "Record Details")   # revealed on row click
+      hideTab(session = session, inputId = "box_tabs", target = "Record details")   # revealed on row click
     }
 
     observeEvent(input$box_drill, {
@@ -1136,7 +1136,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     observeEvent(input$box_records_table_rows_selected, {
       i <- input$box_records_table_rows_selected; df <- box_records()
       if (length(i) && !is.null(df) && i <= nrow(df)) {
-        box_rec_obs(df$ObsID[i]); showTab(session = session, inputId = "box_tabs", target = "Record Details", select = TRUE)
+        box_rec_obs(df$ObsID[i]); showTab(session = session, inputId = "box_tabs", target = "Record details", select = TRUE)
       }
       DT::selectRows(DT::dataTableProxy("box_records_table"), NULL)
     })

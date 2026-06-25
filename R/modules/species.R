@@ -288,8 +288,8 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
         i <- input[[paste0(prefix, "_recs_rows_selected")]]; d <- recs_rv()
         if (length(i) && !is.null(d) && i <= nrow(d)) {
           obs_rv(d$observationID[i])
-          showTab(tabs, "Record Details", session = session)             # reveal once a record is picked
-          updateTabsetPanel(session, tabs, selected = "Record Details")
+          showTab(tabs, "Record details", session = session)             # reveal once a record is picked
+          updateTabsetPanel(session, tabs, selected = "Record details")
         }
         DT::selectRows(DT::dataTableProxy(paste0(prefix, "_recs")), NULL)   # clear → same row re-clickable
       })
@@ -297,7 +297,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
         if (is.null(obs_rv())) return(tags$p(class = "ik-species-hint", "Click a record above to open it here."))
         ob <- ik_observation(ik_data, obs_rv()); if (is.null(ob)) return(tags$p("Record not found."))
         pr <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-        tagList(.ik_tab_back(session$ns(paste0(prefix, "_back")), tabs, "Records summary", "Back to records"),
+        tagList(.ik_tab_back(session$ns(paste0(prefix, "_back")), tabs, "Records", "Back to records"),
                 .ovw_title(ik_data, ob, pr),
                 .ovw_tabs(ik_data, ob, pr, tabset_id = session$ns(paste0(prefix, "_sub"))))
       })
@@ -308,12 +308,12 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
         showModal(modalDialog(title = .ik_modal_title(title, subtitle), size = "l", easyClose = TRUE,
           footer = modalButton("Close"),
           tabsetPanel(id = session$ns(tabs),
-            tabPanel("Records summary", icon = icon("table-list"),
+            tabPanel("Records", icon = icon("table-list"),
               if (!is.null(intro)) tags$p(class = "ik-species-hint", intro),
               DT::DTOutput(session$ns(paste0(prefix, "_recs")))),
-            tabPanel("Record Details", icon = icon("magnifying-glass"),
+            tabPanel("Record details", icon = icon("magnifying-glass"),
               uiOutput(session$ns(paste0(prefix, "_obs_ui")))))))
-        hideTab(tabs, "Record Details", session = session)   # progressive disclosure: hidden until a row is picked
+        hideTab(tabs, "Record details", session = session)   # progressive disclosure: hidden until a row is picked
       }
     }
 

@@ -216,9 +216,9 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
         tabsetPanel(id = session$ns("out_tabs"),
           tabPanel("Summary",        icon = icon("table-list"),  uiOutput(session$ns("out_breakdown"))),
           tabPanel("Records",        icon = icon("list"),        uiOutput(session$ns("out_records_ui"))),
-          tabPanel("Record Details", icon = icon("circle-info"), uiOutput(session$ns("out_record"))))))
+          tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("out_record"))))))
       hideTab(session = session, inputId = "out_tabs", target = "Records")          # revealed on drill
-      hideTab(session = session, inputId = "out_tabs", target = "Record Details")
+      hideTab(session = session, inputId = "out_tabs", target = "Record details")
     })
 
     # Summary tab: the per-reserve basis (Reserve · count · RAI/rate · Lines). A reserve with
@@ -282,7 +282,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
     observeEvent(input$out_records_table_rows_selected, {
       i <- input$out_records_table_rows_selected; o <- records()
       if (length(i) && !is.null(o) && i <= nrow(o)) {
-        rec_obs(o$observationID[i]); showTab(session = session, inputId = "out_tabs", target = "Record Details", select = TRUE)
+        rec_obs(o$observationID[i]); showTab(session = session, inputId = "out_tabs", target = "Record details", select = TRUE)
       }
       DT::selectRows(DT::dataTableProxy("out_records_table"), NULL)
     })
