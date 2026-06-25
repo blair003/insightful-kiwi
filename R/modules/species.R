@@ -58,9 +58,11 @@ behaviour_tod_help_body <- function() {
               "(night on some days, light on others). One season → a tight band; a full year → a wide edge.")))
 }
 
-#' Help body for the diel-activity classification card (periods · classes · rules). @keywords internal
-diel_class_help_body <- function() {
-  r  <- IK_DIEL_CLASS_RULES
+#' Help body for the diel-activity classification card (periods · classes · rules). `rules` defaults to
+#' the global, but callers pass `ik_data$meta$diel` so the help matches the (config-overridable) rules
+#' actually used. @keywords internal
+diel_class_help_body <- function(rules = IK_DIEL_CLASS_RULES) {
+  r  <- rules
   pc <- function(p, txt) tags$tr(tags$td(tags$b(p)), tags$td(txt))
   cl <- function(c, txt) tags$tr(tags$td(tags$b(c)), tags$td(txt))
   tabsetPanel(type = "tabs",
@@ -197,7 +199,8 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
               div(class = "ik-card",
                 div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
                     tags$span("Diel Activity")),
-                    .ik_info(ns("diel_help"), "Diel activity — classification", diel_class_help_body())),
+                    .ik_info(ns("diel_help"), "Diel activity — classification",
+                             diel_class_help_body(ik_data$meta$diel %||% IK_DIEL_CLASS_RULES))),
                 div(class = "ik-card-body", uiOutput(ns("diel_card")))))),
           if (spec$trapped) tabPanel("Bait", icon = icon("drumstick-bite"),
             tags$p(class = "ik-species-hint",

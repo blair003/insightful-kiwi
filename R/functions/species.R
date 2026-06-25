@@ -20,7 +20,8 @@ load_project_config <- function(config) {
                                    default_compare = "none", default_period = "latest_complete"),
                    proximity = list(max_radius_m = 2000),
                    media    = list(keep_originals = TRUE),
-                   features = list())   # per-feature on/off (omitted = on); see ik_feature_enabled()
+                   features = list(),   # per-feature on/off (omitted = on); see ik_feature_enabled()
+                   diel     = NULL)     # diel-class rules override; NULL → IK_DIEL_CLASS_RULES default
   if (!file.exists(path)) return(defaults)
   e <- new.env()
   sys.source(path, envir = e)
@@ -39,7 +40,8 @@ load_project_config <- function(config) {
                                          get0("media", envir = e, ifnotfound = list())),
     # feature flags: a flat name = TRUE/FALSE list; absent or TRUE = shown (subject to data capability)
     features         = utils::modifyList(defaults$features,
-                                         get0("features", envir = e, ifnotfound = list()))
+                                         get0("features", envir = e, ifnotfound = list())),
+    diel             = get0("diel", envir = e, ifnotfound = defaults$diel)   # whole-list override (or NULL)
   )
 }
 
