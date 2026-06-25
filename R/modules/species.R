@@ -361,23 +361,87 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     height = function() { d <- trend_shown()                   # grow with the panel count (incl. occupancy)
       n <- if (is.null(d)) 1L else length(unique(d$metric_type)); max(1L, n) * 185 + 30 })
 
-    # ---- Trend click → drill for the clicked season + panel. The clicked facet (panelvar1) maps back
-    #      to a metric via trend_flab; x rounds to the season; y picks the nearest taxon line (so an
-    #      overlay is drillable too). INTENSITY (RAI/catch-rate) → the records behind the point (the
-    #      shared 2-tab Records→Record modal); EXTENT (occupancy) → a per-site "how it's made up" table
-    #      (every deployed site that season, occupied or not). ----
-    trend_rec_rows <- reactiveVal(NULL)
-    trend_open <- .make_drill("trend", trend_rec_rows, function(o)
-      data.frame(When = .ik_when_label(o$when), Species = ik_species_label(o$scientificName, ik_data, prefer()),
-                 Count = o$count, Reserve = o$reserve, Line = ifelse(is.na(o$line), "—", o$line),
-                 Location = o$locationName, .when_sort = as.numeric(o$when),
-                 check.names = FALSE, stringsAsFactors = FALSE))
-    trend_occ_df <- reactiveVal(NULL)
-    output$trend_occ_table <- DT::renderDT({
-      df <- trend_occ_df(); validate(need(!is.null(df) && nrow(df), "No deployed sites that season."))
-      DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", order = list(list(3, "desc"))))
-    })
+    # ---- Trend click → a 3-stage drill (Summary → Records → Record details), matching the Overview
+    #      metric drill. The clicked facet (panelvar1) → metric via trend_flab; x → season; y picks the
+    #      nearest taxon line (so an overlay is drillable too). INTENSITY (RAI/catch-rate): Summary =
+    #      the per-RESERVE breakdown for that season → a reserve → its records. EXTENT (occupancy):
+    #      Summary = every deployed SITE that season (occupied or not) → a site → its records. ----
+    trend_ctx    <- reactiveVal(NULL)    # clicked point's context: list(sp, taxon, sci, src, mt, per)
+    trend_sum_rv <- reactiveVal(NULL)    # the Summary-tab df (per-reserve breakdown OR per-site list)
+
+    # Generic 3-stage drill builder (Summary → Records → Record details). `summary_dt(df)` renders the
+    # Summary tab (selection = single); `key_of(df,i)` is the clicked row's drill key; `records_for(key)`
+    # returns its records. Records + Record-details are the same as the 2-stage .make_drill.
+    .make_drill3 <- function(prefix, summary_rv, summary_dt, key_of, records_for) {
+      tabs <- paste0(prefix, "_tabs"); recs_rv <- reactiveVal(NULL); obs_rv <- reactiveVal(NULL)
+      output[[paste0(prefix, "_summary")]] <- DT::renderDT({
+        d <- summary_rv(); validate(need(!is.null(d) && nrow(d), "Nothing to show for this season.")); summary_dt(d)
+      })
+      observeEvent(input[[paste0(prefix, "_summary_rows_selected")]], {
+        i <- input[[paste0(prefix, "_summary_rows_selected")]]; d <- summary_rv()
+        if (length(i) && !is.null(d) && i <= nrow(d)) {
+          recs_rv(records_for(key_of(d, i))); obs_rv(NULL)
+          showTab(tabs, "Records", session = session); updateTabsetPanel(session, tabs, selected = "Records")
+        }
+        DT::selectRows(DT::dataTableProxy(paste0(prefix, "_summary")), NULL)
+      })
+      output[[paste0(prefix, "_recs")]] <- DT::renderDT({
+        o <- recs_rv(); validate(need(!is.null(o) && nrow(o), "No records here."))
+        df <- data.frame(When = .ik_when_label(o$when), Species = ik_species_label(o$scientificName, ik_data, prefer()),
+          Count = o$count, Reserve = o$reserve, Line = ifelse(is.na(o$line), "—", o$line), Location = o$locationName,
+          .when_sort = as.numeric(o$when), check.names = FALSE, stringsAsFactors = FALSE)
+        DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+          options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", order = list(list(0, "desc")),
+                         columnDefs = .ik_dt_when_defs(df, "When")))
+      })
+      observeEvent(input[[paste0(prefix, "_recs_rows_selected")]], {
+        i <- input[[paste0(prefix, "_recs_rows_selected")]]; o <- recs_rv()
+        if (length(i) && !is.null(o) && i <= nrow(o)) {
+          obs_rv(o$observationID[i])
+          showTab(tabs, "Record details", session = session); updateTabsetPanel(session, tabs, selected = "Record details")
+        }
+        DT::selectRows(DT::dataTableProxy(paste0(prefix, "_recs")), NULL)
+      })
+      output[[paste0(prefix, "_obs")]] <- renderUI({
+        if (is.null(obs_rv())) return(tags$p(class = "ik-species-hint", "Click a record above to open it here."))
+        ob <- ik_observation(ik_data, obs_rv()); if (is.null(ob)) return(tags$p("Record not found."))
+        pr <- prefer()
+        tagList(.ik_tab_back(session$ns(paste0(prefix, "_back")), tabs, "Records", "Back to records"),
+                .ovw_title(ik_data, ob, pr), .ovw_tabs(ik_data, ob, pr, tabset_id = session$ns(paste0(prefix, "_sub"))))
+      })
+      observeEvent(input[[paste0(prefix, "_back")]],
+        updateTabsetPanel(session, input[[paste0(prefix, "_back")]]$tabset, selected = input[[paste0(prefix, "_back")]]$to))
+      function(title, subtitle = NULL, intro = NULL) {
+        recs_rv(NULL); obs_rv(NULL)
+        showModal(modalDialog(title = .ik_modal_title(title, subtitle), size = "l", easyClose = TRUE,
+          footer = modalButton("Close"),
+          tabsetPanel(id = session$ns(tabs),
+            tabPanel("Summary", icon = icon("table-list"),
+              if (!is.null(intro)) tags$p(class = "ik-species-hint", intro),
+              DT::DTOutput(session$ns(paste0(prefix, "_summary")))),
+            tabPanel("Records", icon = icon("list"), DT::DTOutput(session$ns(paste0(prefix, "_recs")))),
+            tabPanel("Record details", icon = icon("magnifying-glass"), uiOutput(session$ns(paste0(prefix, "_obs")))))))
+        hideTab(tabs, "Records", session = session); hideTab(tabs, "Record details", session = session)
+      }
+    }
+
+    # Records for a clicked Summary key, using the stashed click context (occupancy → one site by
+    # location_id; intensity → one reserve).
+    .trend_records_for <- function(key) {
+      ctx <- trend_ctx(); if (is.null(ctx)) return(NULL)
+      o <- tryCatch(ik_metric_obs(ik_data, ctx$sp, stats::setNames(list(ctx$sci), ctx$taxon), ctx$taxon,
+                                  source_type = ctx$src), error = function(e) NULL)
+      if (is.null(o) || !nrow(o)) return(NULL)
+      o <- if (ctx$mt %in% c("camera_occ", "trap_occ")) o[!is.na(o$location_id) & o$location_id == key, , drop = FALSE]
+           else o[!is.na(o$reserve) & o$reserve == key, , drop = FALSE]
+      if (nrow(o)) o[order(o$when, decreasing = TRUE), , drop = FALSE] else NULL
+    }
+    trend_open <- .make_drill3("trend", trend_sum_rv,
+      summary_dt = function(d) DT::datatable(d[, setdiff(names(d), ".key"), drop = FALSE], rownames = FALSE,
+        selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 12, scrollX = TRUE, dom = "tip", order = list())),   # keep the pre-sorted order
+      key_of = function(d, i) d$.key[i], records_for = .trend_records_for)
+
     observeEvent(input$trend_click, {
       cl <- input$trend_click; d <- trend_shown()
       if (is.null(d) || is.null(cl) || is.null(cl$x) || is.null(cl$panelvar1)) return()
@@ -391,28 +455,43 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       sp  <- list(season = unlist(lapply(seasons, function(s) ik_expand_period(paste0("season:", s), ik_data))),
                   reserve = .ik_nz(selection()$reserve))
       src <- if (mt %in% c("camera_rai", "camera_occ")) "camera" else "trap"
-      if (mt %in% c("camera_occ", "trap_occ")) {               # extent → which sites were occupied
-        m  <- tryCatch(ik_location_metric(ik_data, sp, stats::setNames(list(sci), taxon), src), error = function(e) NULL)
+      taxa1 <- stats::setNames(list(sci), taxon)
+      trend_ctx(list(sp = sp, taxon = taxon, sci = sci, src = src, mt = mt, per = per))
+      if (mt %in% c("camera_occ", "trap_occ")) {               # EXTENT: per-site occupancy is the Summary
+        m  <- tryCatch(ik_location_metric(ik_data, sp, taxa1, src), error = function(e) NULL)
         cc <- if (!is.null(m) && "individuals" %in% names(m)) "individuals" else "captures"
-        if (is.null(m) || !nrow(m)) { trend_occ_df(NULL); nocc <- 0L; tot <- 0L }
+        if (is.null(m) || !nrow(m)) { trend_sum_rv(NULL); nocc <- 0L; tot <- 0L }
         else {
           m <- m[order(-m[[cc]]), , drop = FALSE]; nocc <- sum(m[[cc]] > 0, na.rm = TRUE); tot <- nrow(m)
-          trend_occ_df(data.frame(Site = m$name, Reserve = m$reserve, Line = ifelse(is.na(m$line), "—", m$line),
+          trend_sum_rv(data.frame(Site = m$name, Reserve = m$reserve, Line = ifelse(is.na(m$line), "—", m$line),
             Records = as.integer(m[[cc]]), Occupied = ifelse(m[[cc]] > 0, "Yes", "—"),
-            check.names = FALSE, stringsAsFactors = FALSE))
+            .key = m$location_id, check.names = FALSE, stringsAsFactors = FALSE))
         }
-        showModal(modalDialog(
-          title = .ik_modal_title(sprintf("%s — %s occupancy · %s", taxon, src, per),
-            sprintf("%d of %d %s site%s occupied (%.0f%%) — every deployed site this season, busiest first.",
-                    nocc, tot, src, if (tot == 1) "" else "s", if (tot) 100 * nocc / tot else 0)),
-          size = "l", easyClose = TRUE, footer = modalButton("Close"),
-          DT::DTOutput(session$ns("trend_occ_table"))))
-      } else {                                                  # intensity → the records behind the point
-        o <- tryCatch(ik_metric_obs(ik_data, sp, stats::setNames(list(sci), taxon), taxon, source_type = src), error = function(e) NULL)
-        trend_rec_rows(if (is.null(o) || !nrow(o)) NULL else o[order(o$when, decreasing = TRUE), , drop = FALSE])
-        trend_open(sprintf("%s — %s · %s", taxon, if (src == "camera") "detections" else "catches", per),
-          sprintf("Every %s of %s in %s.", if (src == "camera") "detection" else "catch", taxon, per),
-          tagList("The records behind this point. ", tags$b("Click a row"), " for the full record."))
+        trend_open(sprintf("%s — %s occupancy · %s", taxon, src, per),
+          sprintf("%d of %d %s site%s occupied (%.0f%%)", nocc, tot, src, if (tot == 1) "" else "s",
+                  if (tot) 100 * nocc / tot else 0),
+          tagList("Every deployed site this season, busiest first. ", tags$b("Click a site"), " for its records → record."))
+      } else {                                                  # INTENSITY: per-reserve breakdown is the Summary
+        rr <- tryCatch(if (mt == "camera_rai") ik_rai(ik_data, sp, taxa1, level = "reserve")
+                       else ik_trap_rate(ik_data, sp, taxa1, level = "reserve"), error = function(e) NULL)
+        sm <- if (is.null(rr)) NULL else rr$summary[rr$summary$reserve != "Combined", , drop = FALSE]
+        if (is.null(sm) || !nrow(sm)) trend_sum_rv(NULL)
+        else {
+          sm  <- sm[order(-sm$metric), , drop = FALSE]
+          cc  <- if (mt == "camera_rai") "individuals" else "captures"
+          cnt <- if (!is.null(rr$lines) && cc %in% names(rr$lines)) tapply(rr$lines[[cc]], rr$lines$reserve, sum, na.rm = TRUE) else NULL
+          n   <- if (is.null(cnt)) rep(NA_integer_, nrow(sm)) else as.integer(cnt[sm$reserve])
+          df  <- data.frame(Reserve = sm$reserve, check.names = FALSE, stringsAsFactors = FALSE)
+          df[[if (mt == "camera_rai") "Detections" else "Catches"]] <- ifelse(is.na(n), 0L, n)
+          df[[if (mt == "camera_rai") "RAI" else "Catch rate"]] <-
+            ifelse(is.na(sm$se), sprintf("%.2f", sm$metric), sprintf("%.2f ± %.2f", sm$metric, sm$se))
+          df$.key <- sm$reserve
+          trend_sum_rv(df)
+        }
+        nr <- if (is.null(sm)) 0L else nrow(sm)
+        trend_open(sprintf("%s — %s · %s", taxon, if (mt == "camera_rai") "camera RAI" else "catch rate", per),
+          sprintf("%d reserve%s this season", nr, if (nr == 1) "" else "s"),
+          tagList("The per-reserve basis behind this point. ", tags$b("Click a reserve"), " for its records → record."))
       }
     })
 
