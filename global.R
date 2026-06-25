@@ -87,11 +87,12 @@ source("R/functions/media_cache.R")
 source("R/functions/favourites.R")
 source("R/functions/media_validate.R")
 
-# Runtime config (paths/toggles) — the input that builds ik_data.
-config <- build_config()
+# Runtime config (paths/toggles) — the input that builds ik_data. Prefixed `ik_` like the other
+# app globals (ik_data, ik_registry) so the global namespace is consistent and `config` stays free.
+ik_config <- build_config()
 
 # Load ik_data from cache, re-importing only when the manifest, package data, or conversion
 # code change. Set IK_REBUILD=1 to force a full rebuild — use it while editing BUILD code
 # outside R/functions/import (geography, period, temporal, ...), which the fingerprint
 # deliberately does NOT track (so the dev autoreload loop isn't a re-import every save).
-ik_data <- load_or_build_ik_data(config, force = nzchar(Sys.getenv("IK_REBUILD")))
+ik_data <- load_or_build_ik_data(ik_config, force = nzchar(Sys.getenv("IK_REBUILD")))
