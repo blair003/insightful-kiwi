@@ -116,7 +116,7 @@ ui <- page_navbar(
     if (ik_feature_enabled(ik_data, "duplicates"))
       nav_panel("Duplicate window", value = "duplicates", icon = icon("clone"),
                 duplicates_ui("duplicates")),
-    records_ui("mon_records", label = "Records", value = "monitoring-records")
+    records_ui("mon_records", label = "Records", value = "monitoring-records", heading = "Monitoring records")
   ),
   if (.has_trap) nav_menu(
     "Trapping", icon = icon("location-crosshairs"),
@@ -128,7 +128,7 @@ ui <- page_navbar(
     if (ik_feature_enabled(ik_data, "trapping_effectiveness")) trapping_effectiveness_ui("trapping_eff", ik_data),   # catch rate vs cadence, by season
     if (ik_feature_enabled(ik_data, "top_traps")) trap_hero_ui("trap_hero", ik_data),   # best-performing traps on a map
     if (.has_trappers && ik_feature_enabled(ik_data, "top_trappers")) top_trappers_ui("top_trappers", ik_data),   # gamified per-season volunteer leaderboard
-    records_ui("control_records", label = "Records", value = "trapping-records")
+    records_ui("control_records", label = "Records", value = "trapping-records", heading = "Trapping records")
   ),
 
   # Species — one dashboard page per species GROUP (+ split sub-species), generated from the data.

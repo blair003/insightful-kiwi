@@ -102,6 +102,8 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
   norm <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100   # rate normalisation (config)
   div(
     class = "ik-maps",
+    if (!fixed) .ik_titlebar(tags$h3(                            # page heading (the embedded species maps skip it)
+      if (identical(device, "trap")) "Trapping map" else if (identical(device, "camera")) "Monitoring map" else "Map")),
     if (!fixed) div(
       class = "ik-maps-controls",
       if (is.null(device))                                      # device-locked instances drop the toggle

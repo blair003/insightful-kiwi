@@ -61,12 +61,13 @@ format_records_datetime <- function(x) {
 #'
 #' @param id Module id.
 #' @return A bslib nav_panel for page_navbar().
-records_ui <- function(id, label = "Records", value = "records") {
+records_ui <- function(id, label = "Records", value = "records", heading = NULL) {
   ns <- NS(id)
   nav_panel(
     label, value = value, icon = icon("table"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/observation.css")),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/records.css")),
+    .ik_titlebar(tags$h3(heading %||% label)),
     DT::DTOutput(ns("table"))
   )
 }
@@ -135,8 +136,10 @@ records_server <- function(id, ik_data, prefer_scientific, selection) {
         class      = "stripe hover row-border ik-row-click",
         extensions = "Buttons",
         options = list(
-          dom          = "Bfrtip",
-          buttons      = list(list(extend = "colvis", text = "Columns")),
+          # Columns button + global search share one toolbar row (button left, search right); the
+          # button is styled quiet via .ik-colvis-btn (records.css) so it doesn't shout.
+          dom          = "<'records-toolbar'Bf>rtip",
+          buttons      = list(list(extend = "colvis", text = "Columns", className = "ik-colvis-btn")),
           columnDefs   = list(
             list(visible = FALSE, targets = hidden),
             list(className = "ik-nowrap",                          # datetime cells stay one line
