@@ -3,6 +3,16 @@
 # its traps are checked (mean interval); click a line for its per-trap breakdown (the same
 # per-trap data that will feed the map). Driven by ik_trap_review() / ik_trap_review_lines().
 
+#' A compact left→right graphic of the servicing cadence path (Good → Watch → Neglected → Inactive),
+#' so it reads as an ORDER a trap slips down over time as it's checked less often. @keywords internal
+.trap_status_progression <- function() {
+  step <- function(cls, lab) tags$div(class = paste0("trap-prog-step trap-", cls), lab)
+  arr  <- tags$span(class = "trap-prog-arrow", "›")
+  tags$div(class = "trap-progression",
+    step("good", "Good"), arr, step("watch", "Watch"), arr,
+    step("neglected", "Neglected"), arr, step("inactive", "Inactive"))
+}
+
 #' Per-TAB "how to read this" help body for Trap review (the (?) now lives in each tab, not the page
 #' heading, so a tab's help is only reachable when that tab is open). `tr_meta` = ik_data$meta$trapping
 #' (servicing-health + rate config), so cutoffs/norm match what's used. `which` selects the tab:
@@ -20,15 +30,22 @@ trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overt
   mc   <- tr_meta$min_checks_for_cadence %||% 2
   norm <- (tr_meta$rate %||% list())$norm_trap_days %||% 100
   ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
-  # The servicing grades — shared by the By-trapline and Map help (both colour by status).
+  # The servicing grades — shared by the By-trapline and Map help (both colour by status). Leads with
+  # the cadence PROGRESSION graphic, then the off-path New / Insufficient distinction.
   grades <- tagList(
+    .trap_status_progression(),
+    P("That's an ", tags$b("order, over time"), ": as a trap is checked less often it slips ",
+      tags$b("Good → Watch → Neglected"), ", then to ", tags$b("Inactive"), " once long-untouched (",
+      tags$b("dormant"), " ~", dorm, " mo+ / ", tags$b("historic"), " ~", hist, " mo+ — likely paused or retired)."),
     tags$ul(
       tags$li(tags$b("Good"), " — checked at least as often as the reserve's typical (≤ its ", pg, "th percentile)."),
       tags$li(tags$b("Watch"), " — slower than typical (≤ the ", pw, "th percentile)."),
-      tags$li(tags$b("Neglected"), " — slower than the ", pw, "th percentile, or unchecked all period (the worst-serviced tail)."),
-      tags$li(tags$b("Insufficient data"), " — fewer than ", mc, " checks this period: too little to judge a cadence."),
-      tags$li(tags$b("Inactive"), " — ", tags$b("dormant"), " (~", dorm, " mo+ since a check) or ", tags$b("historic"),
-              " (~", hist, " mo+); likely paused or retired, not neglected.")),
+      tags$li(tags$b("Neglected"), " — slower than the ", pw, "th percentile, or unchecked all period (the worst-serviced tail).")),
+    P(tags$b("Off the path"), " — too few checks (under ", mc, " this period) to judge a cadence at all, so watch for these:"),
+    tags$ul(
+      tags$li(tags$b("New"), " — its ", tags$b("first-ever"), " check is within this period: just deployed, not enough history yet (fine)."),
+      tags$li(tags$b("Insufficient data"), " — an ", tags$b("established"), " trap (first checked before this period) with too few checks now — ",
+              tags$b("treat as needs-attention"), " (effectively under-serviced, just not gradeable by cadence).")),
     P("Grades are ", tags$b("relative to this project's own"), " checking pattern, calibrated ", tags$b("per reserve"),
       " (a remote block and a roadside block have different normal cadences). Two ", tags$b("guardrails"), ": a trap ",
       "checked every ", tags$b(paste0(fl, " d")), " or better is always good; a gap over ", tags$b(paste0(ce, " d")),
@@ -47,8 +64,9 @@ trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overt
       P("Where the traps are, coloured by servicing status — ", tags$b(tags$span(style = "color:#2e7d32", "Good")),
         " green, ", tags$b(tags$span(style = "color:#f9a825", "Watch")), " amber, ",
         tags$b(tags$span(style = "color:#c62828", "Neglected")), " red, ",
-        tags$b(tags$span(style = "color:#7e57c2", "Insufficient data")), " purple, ",
-        tags$b(tags$span(style = "color:#8a8a8a", "Inactive")), " (dormant/historic) grey. Each status is a ",
+        tags$b(tags$span(style = "color:#8a8a8a", "Inactive")), " grey, ",
+        tags$b(tags$span(style = "color:#1e88e5", "New")), " blue, ",
+        tags$b(tags$span(style = "color:#7e57c2", "Insufficient data")), " purple. Each status is a ",
         tags$b("selectable layer"), " (top-right) — turn off the ones you don't need."),
       P(tags$b("High pressure"), " — a bold ", tags$b("black ring"), " marks a ", tags$b("productive but under-checked"),
         " trap: catching on at least half its checks, yet on a watch/neglected cadence, so you're likely missing ",
@@ -99,8 +117,7 @@ trapping_ui <- function(id, ik_data = NULL) {
             "Map", icon = icon("map-location-dot"),
             div(class = "trap-tab-help",
               tags$span(class = "trap-lead",
-                "Traps coloured by servicing status; a ", tags$b("black ring"), " flags high pressure. Toggle each ",
-                "status layer top-right; ", tags$b("click a trap"), " for its check history."),
+                "Traps coloured by servicing status; a ", tags$b("black ring"), " flags high pressure."),
               .ik_info(ns("map_help"), "The servicing map — how to read this",
                        trapping_help_body(ik_data$meta$trapping, "map"))),
             leaflet::leafletOutput(ns("map"), height = "55vh"),
@@ -140,6 +157,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     .iv <- function(status, mean, n) {
       if (is.na(status))                        "—"
       else if (status %in% c("dormant", "historic")) tools::toTitleCase(status)
+      else if (status == "new")                 "New"
       else if (status == "insufficient_data")   sprintf("%d check%s", n, if (identical(n, 1L) || identical(n, 1)) "" else "s")
       else if (is.finite(mean))                 sprintf("%.0f d", mean) else "—"
     }
@@ -189,7 +207,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     output$intro <- renderUI({
       per <- review()$all                       # counts over ALL traps (so hidden tiers still show a count)
       if (is.null(per)) return(tags$p("No trap checks in this period."))
-      st <- table(factor(per$status, c("good", "watch", "neglected", "insufficient_data", "dormant", "historic")))
+      st <- table(factor(per$status, c("good", "watch", "neglected", "new", "insufficient_data", "dormant", "historic")))
       # Legend cutoffs scoped to the RESERVE(s) in view — each reserve is calibrated against its own
       # cadence spread, so filtering to a reserve shows that reserve's exact cutoff (falls back to the
       # in-view dataset blend when a reserve has no own calibration).
@@ -202,6 +220,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         leg("good", sprintf("Checked ≤%dd", gm), st[["good"]]),
         leg("watch", sprintf("%d–%dd", gm, wm), st[["watch"]]),
         leg("neglected", sprintf("Neglected >%dd", wm), st[["neglected"]]))
+      if (st[["new"]] > 0)               legs <- c(legs, list(leg("new", "New", st[["new"]])))
       if (st[["insufficient_data"]] > 0) legs <- c(legs, list(leg("insufficient_data", "Insufficient data", st[["insufficient_data"]])))
       if (st[["dormant"]]  > 0)          legs <- c(legs, list(leg("dormant",  "Dormant 6 mo+",  st[["dormant"]])))
       if (st[["historic"]] > 0)          legs <- c(legs, list(leg("historic", "Historic 12 mo+", st[["historic"]])))
@@ -338,12 +357,14 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       per$high_pressure <- per$status %in% c("watch", "neglected") & per$catch_pct >= PRESSURE_PCT & per$n_checks >= 2
       per$pressure_score <- ifelse(per$high_pressure, (per$catch_pct / 100) *
                                    ifelse(is.na(per$mean_interval_days), 0, per$mean_interval_days), 0)
-      # one selectable layer per status — Good (green) · Watch (amber) · Neglected (red) · Insufficient
-      # data (purple) · Inactive (grey: dormant/historic, + any unknown). Colours = central .MAPS_STATUS.
+      # one selectable layer per status. The cadence progression — Good (green) · Watch (amber) ·
+      # Neglected (red) · Inactive (grey: dormant/historic) — plus the off-path pair: New (blue, just
+      # deployed) and Insufficient data (purple, established but too sparse). Colours = central .MAPS_STATUS.
       per$grp <- ifelse(per$status == "neglected",         "Neglected",
                  ifelse(per$status == "watch",             "Watch",
                  ifelse(per$status == "good",              "Good",
-                 ifelse(per$status == "insufficient_data", "Insufficient data", "Inactive"))))
+                 ifelse(per$status == "new",               "New",
+                 ifelse(per$status == "insufficient_data", "Insufficient data", "Inactive")))))
       per
     })
 
@@ -358,7 +379,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       m <- leaflet::addMapPane(m, "traps", zIndex = 410)
       m <- leaflet::addMapPane(m, "highlight", zIndex = 450)
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-             overlayGroups = c("Good", "Watch", "Neglected", "Insufficient data", "Inactive"),  # each status a selectable layer
+             overlayGroups = c("Good", "Watch", "Neglected", "Inactive", "New", "Insufficient data"),  # status = selectable layer
              options = leaflet::layersControlOptions(collapsed = FALSE))
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
@@ -372,15 +393,15 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     observe({                                                  # draw the selectable status layers
       req(identical(input$trap_view, "Map"))                   # only when the Map tab is visible, so the
       p <- mproxy()                                            # fit/redraw happen at real size (not 0×0 while
-      for (g in c("Good", "Watch", "Neglected", "Insufficient data", "Inactive", "PressHighlight"))
+      for (g in c("Good", "Watch", "Neglected", "Inactive", "New", "Insufficient data", "PressHighlight"))
         leaflet::clearGroup(p, g)                              # on another tab — which left it stale + wrong-zoomed)
       leaflet::clearControls(p)
       d <- map_traps(); req(!is.null(d))
       d <- d[is.finite(d$latitude) & is.finite(d$longitude), , drop = FALSE]; if (!nrow(d)) return()
       scol <- if (is_dark()) .MAPS_STATUS$dark else .MAPS_STATUS$light   # central servicing palette (maps.R)
       grp_col <- c("Good" = unname(scol["good"]), "Watch" = unname(scol["watch"]),
-                   "Neglected" = unname(scol["neglected"]), "Insufficient data" = unname(scol["insufficient_data"]),
-                   "Inactive" = "#8a8a8a")
+                   "Neglected" = unname(scol["neglected"]), "Inactive" = "#8a8a8a",
+                   "New" = unname(scol["new"]), "Insufficient data" = unname(scol["insufficient_data"]))
       for (g in names(grp_col)) {
         dd <- d[d$grp == g, , drop = FALSE]; if (!nrow(dd)) next
         leaflet::addCircleMarkers(p, data = dd, lng = ~longitude, lat = ~latitude, group = g,
@@ -393,17 +414,18 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
             ifelse(is.finite(dd$mean_interval_days), sprintf("~%.0f d gap", dd$mean_interval_days), ""),
             ifelse(dd$high_pressure, sprintf(" &middot; %d%% catch — high pressure", round(dd$catch_pct)), "")), htmltools::HTML),
           options = leaflet::pathOptions(pane = "traps"))
-        # high-pressure traps (productive but under-checked): a bold halo ring drawn LARGER than the dot,
-        # non-interactive so the dot beneath stays clickable. Same group, so it toggles with its status.
+        # high-pressure traps (productive but under-checked): a thin black ring just outside the dot
+        # (small padding), non-interactive so the dot beneath stays clickable. Same group → toggles with it.
         hp <- dd[dd$high_pressure, , drop = FALSE]
         if (nrow(hp)) leaflet::addCircleMarkers(p, data = hp, lng = ~longitude, lat = ~latitude, group = g,
-          radius = TRAP_RAD + 6, fill = FALSE, stroke = TRUE, color = .PRESS_RING, weight = 3, opacity = 0.95,
+          radius = TRAP_RAD + 2, fill = FALSE, stroke = TRUE, color = .PRESS_RING, weight = 2.5, opacity = 0.95,
           options = leaflet::pathOptions(pane = "traps", interactive = FALSE))
       }
       leaflet::addLegend(p, "bottomright",
-        colors = c(unname(scol["good"]), unname(scol["watch"]), unname(scol["neglected"]),
-                   unname(scol["insufficient_data"]), "#8a8a8a", .PRESS_RING),
-        labels = c("Good", "Watch", "Neglected", "Insufficient data", "Inactive (dormant/historic)", "High pressure (ring)"),
+        colors = c(unname(scol["good"]), unname(scol["watch"]), unname(scol["neglected"]), "#8a8a8a",
+                   unname(scol["new"]), unname(scol["insufficient_data"]), .PRESS_RING),
+        labels = c("Good", "Watch", "Neglected", "Inactive (dormant/historic)", "New (just deployed)",
+                   "Insufficient data", "High pressure (ring)"),
         title = "Servicing", opacity = 0.9)
       leaflet::fitBounds(p, min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude), options = list(padding = c(25, 25)))
     })

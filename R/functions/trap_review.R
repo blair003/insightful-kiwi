@@ -169,7 +169,8 @@ ik_trap_health_cutoffs <- function(ik_data, reserves = NULL, datasets = NULL) {
 #' past period is never reclassified by later data. The whole dataset is used only to calibrate the
 #' good/watch cadence yardstick (`ik_trap_health`). Status, from `gap = t_end − last check ≤ t_end`:
 #'   - checked in the period, ≥ `min_checks_for_cadence` checks → good / watch / neglected (cadence);
-#'   - checked but fewer → "insufficient_data" (sparse — can't judge a cadence);
+#'   - checked but fewer → "new" if first-EVER check is within the period (just deployed), else
+#'     "insufficient_data" (established but too sparse to grade — needs attention);
 #'   - not checked in the period (but existed by `t_end`) → "neglected";
 #'   - then a UNIFORM override: gap ≥ `dormant_after_days` → "dormant"; ≥ `historic_after_days` →
 #'     "historic". So a decommissioned trap walks neglected → dormant → historic over later periods,
@@ -245,6 +246,18 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   gap <- as.numeric(difftime(t_end, per$last_check, units = "days"))
   per$status <- ifelse(!is.na(gap) & gap >= historic_d, "historic",
                 ifelse(!is.na(gap) & gap >= dormant_d, "dormant", per$status))
+  # NEW vs established for the ungradeable ones: an "insufficient_data" trap whose FIRST-EVER check
+  # (across all of time) falls INSIDE this period is simply newly deployed — too little history yet →
+  # "new" (not a problem). One whose first check predates the period is an ESTABLISHED trap we still
+  # can't grade (too few checks this period) → keep "insufficient_data" (treat as needs-attention). The
+  # distinction only makes sense for a bounded period; for all-data is_new is FALSE.
+  if (!is.null(seasons)) {
+    p_start    <- as.numeric(.trap_period_bounds(seasons)[1])
+    first_ever <- tapply(dptrap$deploymentEnd, dptrap$locationID, function(x) suppressWarnings(min(as.numeric(x), na.rm = TRUE)))
+    fe         <- first_ever[as.character(per$location)]
+    per$is_new <- !is.na(fe) & is.finite(fe) & fe >= p_start
+    per$status[per$status == "insufficient_data" & per$is_new] <- "new"
+  } else per$is_new <- FALSE
   per
 }
 
