@@ -651,8 +651,12 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
       m
     }) |> bindCache(key, selection()$period, selection()$compare, selection()$season,
                     selection()$reserve, selection()$line, selection()$location, ik_active_datasets())
-    rai_r  <- metric_react(ik_rai, mon_targets, "rai")
-    rate_r <- metric_react(ik_trap_rate, ctl_targets, "rate")
+    rai_r  <- metric_react(ik_rai, mon_targets, "rai")          # full set (target + interesting) — device pages
+    rate_r <- metric_react(ik_trap_rate, ctl_targets, "rate")   # full set (every caught species) — device pages
+    # The slim main page shows only TARGET cards, so it computes only those — not the interesting tier
+    # / every-caught-species the full device sections need. Halves the landing's metric work.
+    rai_compact  <- metric_react(ik_rai, mon_t, "rai_compact")
+    rate_compact <- metric_react(ik_trap_rate, ctl_t, "rate_compact")
 
     output$header <- renderUI({
       # the instance ORGANISATION (project.R) leads; the data sources (dataset names) sit smaller on a
@@ -755,14 +759,14 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
         if (net) .ov_net_obs(o, ik_data) else o }
       blocks <- list()
       if (has_camera && !is.null(cam()$deployments) && nrow(cam()$deployments)) {
-        o <- animals(cam(), TRUE); m <- rai_r()
+        o <- animals(cam(), TRUE); m <- rai_compact()          # targets only — the slim landing
         cards <- if (length(mon_t)) .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
           names(mon_t), "camera", mon_dir, session$ns("drill"), headline = "rai", sg = sg, sort_by = sort_by)
         blocks[["camera"]] <- .ov_compact_block("Camera monitoring", "camera",
           "Detections", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"))
       }
       if (has_trap && !is.null(trp()$deployments) && nrow(trp()$deployments)) {
-        o <- animals(trp(), FALSE); m <- rate_r()
+        o <- animals(trp(), FALSE); m <- rate_compact()        # control targets only — the slim landing
         unit  <- sprintf(" /%s TN", ik_data$meta$trapping$rate$norm_trap_days %||% 100)
         cards <- if (length(ctl_t)) .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
           names(ctl_t), "trap", ctl_t_dir, session$ns("drill"), headline = "count",

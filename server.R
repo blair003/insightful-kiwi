@@ -50,19 +50,30 @@ server <- function(input, output, session) {
     show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "trapping-overview")))
   overview_server("trapping_overview", ik_data, prefer_scientific, trapping_overview_selection)
 
+  # Start a feature module on its FIRST visit, not at session connect — so the landing page never waits
+  # on another feature's base map/plot pre-rendering. The leaflet features use suspendWhenHidden = FALSE
+  # (so proxy layers land), which would otherwise render every base map eagerly at startup; deferring
+  # instantiation keeps them off the initial load. Mirrors the species pages' lazy maps.
+  .lazy_once <- function(active, init) {
+    started <- reactiveVal(FALSE)
+    observeEvent(active(), if (isTRUE(active()) && !started()) { started(TRUE); init() }, ignoreNULL = FALSE)
+  }
+
   # Maps — one device-locked instance per menu: a camera "Monitoring map" and a trap "Trapping map"
   # (the device toggle is gone; each lives under its device menu). Period/geography from the sidebar,
   # Measure/Species in-panel. color_mode (navbar dark/light) drives the themed basemap.
   mon_map_selection <- selection_server("mon_map_selection", ik_data, prefer_scientific,
     show = c("period", "reserve", "line", "location"), active = reactive(identical(input$nav, "monitoring-map")))
-  maps_server("monitoring_map", ik_data, prefer_scientific, mon_map_selection,
-              color_mode = reactive(input$color_mode), device = "camera",
-              active = reactive(identical(input$nav, "monitoring-map")))
+  .lazy_once(reactive(identical(input$nav, "monitoring-map")), function()
+    maps_server("monitoring_map", ik_data, prefer_scientific, mon_map_selection,
+                color_mode = reactive(input$color_mode), device = "camera",
+                active = reactive(identical(input$nav, "monitoring-map"))))
   trap_map_selection <- selection_server("trap_map_selection", ik_data, prefer_scientific,
     show = c("period", "reserve", "line", "location"), active = reactive(identical(input$nav, "trapping-map")))
-  maps_server("trapping_map", ik_data, prefer_scientific, trap_map_selection,
-              color_mode = reactive(input$color_mode), device = "trap",
-              active = reactive(identical(input$nav, "trapping-map")))
+  .lazy_once(reactive(identical(input$nav, "trapping-map")), function()
+    maps_server("trapping_map", ik_data, prefer_scientific, trap_map_selection,
+                color_mode = reactive(input$color_mode), device = "trap",
+                active = reactive(identical(input$nav, "trapping-map"))))
 
   # Records — one per device menu, each with the Device filter DEFAULTED to that device (still
   # changeable). Each gets a Dataset axis (independent of the global toggle) when >1 dataset.
@@ -82,27 +93,31 @@ server <- function(input, output, session) {
   duplicates_server("duplicates", ik_data, color_mode = reactive(input$color_mode))
   trap_selection <- selection_server("trap_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "trap-review")))
-  trapping_server("trapping", ik_data, trap_selection, color_mode = reactive(input$color_mode),
-                  prefer_scientific = prefer_scientific)
+  .lazy_once(reactive(identical(input$nav, "trap-review")), function()
+    trapping_server("trapping", ik_data, trap_selection, color_mode = reactive(input$color_mode),
+                    prefer_scientific = prefer_scientific))
 
   # Outcomes — "are we winning?" seasonal trend + bait effectiveness (bait Period from the sidebar).
   cm <- reactive(input$color_mode)                       # navbar dark/light → themed plots
   outcomes_server("overview_trends", ik_data, prefer_scientific, color_mode = cm)   # Overview → Trends tab
   cooccurrence_server("cooccurrence", ik_data, prefer_scientific, color_mode = cm)
-  neighbourhood_server("neighbourhood", ik_data, prefer_scientific, color_mode = cm)
+  .lazy_once(reactive(identical(input$nav, "neighbourhood")), function()
+    neighbourhood_server("neighbourhood", ik_data, prefer_scientific, color_mode = cm))
   reserve_report_server("reserve_report", ik_data, prefer_scientific, color_mode = cm)
   coverage_selection <- selection_server("coverage_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "coverage")))
-  coverage_server("coverage", ik_data, prefer_scientific, coverage_selection, color_mode = cm,
-                  active = reactive(identical(input$nav, "coverage")))
+  .lazy_once(reactive(identical(input$nav, "coverage")), function()
+    coverage_server("coverage", ik_data, prefer_scientific, coverage_selection, color_mode = cm,
+                    active = reactive(identical(input$nav, "coverage"))))
   bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific,
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
   trapping_effectiveness_server("trapping_eff", ik_data, prefer_scientific, color_mode = cm)
   trap_hero_selection <- selection_server("trap_hero_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "trap-hero")))
-  trap_hero_server("trap_hero", ik_data, prefer_scientific, trap_hero_selection, color_mode = cm,
-                   active = reactive(identical(input$nav, "trap-hero")))
+  .lazy_once(reactive(identical(input$nav, "trap-hero")), function()
+    trap_hero_server("trap_hero", ik_data, prefer_scientific, trap_hero_selection, color_mode = cm,
+                     active = reactive(identical(input$nav, "trap-hero"))))
   top_trappers_server("top_trappers", ik_data, prefer_scientific,
                       active = reactive(identical(input$nav, "top-trappers")))
 
