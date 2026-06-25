@@ -15,8 +15,8 @@
 #   • Trap / "Captures" (default) — raw catch COUNT per trap (robust to effort/sparsity; "where are
 #     catches"). Trap captures are sparse, so count beats rate as the activity signal.
 #   • Trap / "Capture rate" — captures / trap-days × norm_trap_days (default 100; noisy at low effort — robust colour helps).
-#   • Trap / "Servicing health" — per-trap glyph: size = trap-nights, fill/ring = check-frequency
-#     status (good/watch/neglected) from ik_trap_review(). Two honest channels.
+#   (Servicing health — check-frequency status — now lives on Trap review → Map; the serv_* code below
+#   is inert, kept pending a separate strip.)
 # Robust colour/size: per-location colour + radius are clamped at the 95th percentile so a single
 # low-effort outlier (e.g. 1 capture in 7 trap-days → 14.29/100td) can't flatten the rest.
 # Rendering: one base render (panes + preferCanvas + theme basemap), then per-layer leafletProxy
@@ -35,7 +35,9 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 .MAPS_MEASURES <- list(
   camera = c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority",
              "Timing (predator ↔ protected)" = "timing"),
-  trap   = c("Captures" = "captures", "Capture rate" = "rate", "Servicing health" = "servicing"))
+  # "Servicing health" lives on its own page now (Trap review → Map, the richer status map), so it's
+  # no longer a measure here; the serv_* code below is inert (kept for now, to be stripped separately).
+  trap   = c("Captures" = "captures", "Capture rate" = "rate"))
 
 #' The "Measure" help body, written for the map's OWN device (each map is device-locked, so the
 #' camera map shouldn't explain trap measures or vice versa). NULL device → both (combined map).
@@ -61,12 +63,8 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
     tags$p(tags$b("Capture rate"), " — captures per ", tags$b(ntn), " (effort-adjusted), so heavily- ",
       "and lightly-checked traps compare fairly. Colour and size are clamped at the 95th percentile so one ",
       "low-effort outlier (e.g. 1 catch in a few trap-nights) can't flatten the rest."),
-    tags$p(tags$b("Servicing health"), " — each trap judged ", tags$b("as of the period end"), " by its gap ",
-      "since last check — ", tags$b("good"), " / ", tags$b("watch"), " / ", tags$b("neglected"), " (including ",
-      "never checked); too few checks to judge a cadence → ", tags$b("insufficient data."), " The buckets are ",
-      "calibrated to ", tags$b("each reserve's own"), " typical check cadence, not one global yardstick. Sized ",
-      "by days since checked (bigger = staler); ", tags$b("dormant"), " (6 mo+) and ", tags$b("historic"),
-      " (12 mo+) traps have no current status, so they show as bare grey dots in the ", tags$b("Device"), " layer."))
+    tags$p(tags$em("Servicing health — how often each trap is checked — has its own map on the ",
+      tags$b("Trap review"), " page (the Map tab).")))
   if (identical(device, "camera"))    do.call(tagList, cam)
   else if (identical(device, "trap")) do.call(tagList, trp)
   else tagList(tags$h6("Camera"), do.call(tagList, cam), tags$h6("Traps"), do.call(tagList, trp))
@@ -176,7 +174,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
 
     observeEvent(input$source, {
       ch  <- if (identical(input$source, "trap"))
-               c("Captures" = "captures", "Capture rate" = "rate", "Servicing health" = "servicing")
+               c("Captures" = "captures", "Capture rate" = "rate")
              else c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority",
                     "Timing (predator ↔ protected)" = "timing")
       sel <- if (isTRUE(isolate(input$measure) %in% ch)) isolate(input$measure) else ch[[1]]
