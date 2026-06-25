@@ -36,13 +36,13 @@ ik_outcome_taxa <- function(ik_data) {
   list(cam = cam$taxa, trap = trap$taxa, role = cam$role)
 }
 
-ik_outcome_series <- function(ik_data) {
+ik_outcome_series <- function(ik_data, reserve = NULL) {
   otx <- ik_outcome_taxa(ik_data)
   role_of <- otx$role
   seasons <- ik_season_levels(ik_deployment_period(ik_data))
   if (!length(seasons)) return(NULL)
   periods <- lapply(seq_along(seasons), function(i) list(label = seasons[i], order = i, seasons = seasons[i]))
-  out <- .ik_metric_series(ik_data, periods, otx$cam, otx$trap)   # shared engine (see species.R)
+  out <- .ik_metric_series(ik_data, periods, otx$cam, otx$trap, reserve)   # shared engine; reserve = NULL → network
   if (is.null(out) || !nrow(out)) return(NULL)
   # role: protected/predator from the camera taxa map; trap captures are always predators
   out$role <- ifelse(out$metric_type == "trap_rate", "predator", unname(role_of[out$taxon]))

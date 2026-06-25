@@ -85,13 +85,15 @@ outcomes_ui <- function(id) {
 
 #' Outcomes server. @param id Module id. @param ik_data The ik_data container.
 #' @param prefer_scientific A reactive TRUE to show scientific names (drill records/viewer).
-outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactive("light")) {
+outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactive("light"),
+                            selection = reactive(NULL)) {
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
     norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100   # trap-nights normalisation (config)
     OP   <- outcome_panels(norm)                                 # panel titles (catches title uses norm)
-    series <- reactive(ik_outcome_series(ik_data)) |>  # slow (~15-20s, per-season scan) → cache it
-      bindCache("outcome_series", ik_active_datasets())   # once per active-dataset set, across sessions
+    rsv    <- reactive(.ik_nz((selection() %||% list())$reserve))   # sidebar Reserve (NULL = whole network)
+    series <- reactive(ik_outcome_series(ik_data, reserve = rsv())) |>  # slow per-season scan → cache it
+      bindCache("outcome_series", rsv(), ik_active_datasets())   # once per (reserve, active datasets), across sessions
 
     # Predator / Protected pickers — same unified grouped control as the Map (group whole or split
     # into sub-species per the project `split` flag). Default to the core Mustelids-vs-Kiwi story so
@@ -128,7 +130,8 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
           tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
             "We ", tags$b("trap predators"), " → predator detections on camera should ",
             tags$b("fall"), " → protected detections should ", tags$b("rise."), " ",
-            "Lines are the network mean across reserves; bands are ± 1 SE. ",
+            if (is.null(rsv())) "Lines are the network mean across reserves; bands are ± 1 SE. "
+            else sprintf("Scoped to %s (from the sidebar Reserve). ", paste(rsv(), collapse = ", ")),
             tags$b("Click a point"), " for its per-reserve breakdown."))
       )
     })
@@ -195,7 +198,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
       is_cam <- identical(cand$metric_type, "camera_rai")
       sci    <- if (is_cam) otx$cam[[cand$taxon]] else otx$trap[[cand$taxon]]   # superset map (covers sub-species)
       taxa   <- stats::setNames(list(sci), cand$taxon)
-      sp     <- list(season = ik_expand_period(paste0("season:", cand$season), ik_data))
+      sp     <- list(season = ik_expand_period(paste0("season:", cand$season), ik_data), reserve = rsv())
       res <- if (is_cam) ik_rai(ik_data, sp, taxa) else ik_trap_rate(ik_data, sp, taxa)
       R    <- res$summary[res$summary$taxon == cand$taxon & !is.na(res$summary$metric), , drop = FALSE]
       R    <- R[order(R$reserve), , drop = FALSE]
