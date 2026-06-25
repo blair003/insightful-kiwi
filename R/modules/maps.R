@@ -16,13 +16,16 @@
 #     catches"). Trap captures are sparse, so count beats rate as the activity signal.
 #   • Trap / "Capture rate" — captures / trap-days × norm_trap_days (default 100; noisy at low effort — robust colour helps).
 #   (Servicing health — check-frequency status — lives on its own page: Trap review → Map.)
-# Robust colour/size: per-location colour + radius are clamped at the 95th percentile so a single
-# low-effort outlier (e.g. 1 capture in 7 trap-days → 14.29/100td) can't flatten the rest.
+# Robust sizing: marker radius is clamped at a high percentile (.MAPS_CAP_PCTL) so a single
+# low-effort outlier (e.g. 1 capture in 7 trap-days → 14.29/100td) can't shrink the rest — but high
+# enough that genuine high-activity sites still differ in size. Colour uses the TRUE max (legend matches).
 # Rendering: one base render (panes + preferCanvas + theme basemap), then per-layer leafletProxy
 # observers. Spatial maths in R/functions/spatial.R; per-location/line values in metrics.R.
 
 MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; below, per-line
-.MAPS_CAP_PCTL <- 0.95 # colour/size clamp percentile (robust to low-effort outliers)
+.MAPS_CAP_PCTL <- 0.98 # marker-SIZE clamp percentile — high enough that genuine high-activity sites
+                       # still differ in size (only a true extreme outlier is clamped). Was 0.95, which
+                       # flattened everything above ~the top 5% to one max radius.
 
 .MAPS_STATUS <- list(
   light = c(good = "#2e7d32", watch = "#f9a825", neglected = "#c62828"),
@@ -32,8 +35,8 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 # Measures per device — the map is instantiated device-locked (a camera "Monitoring map" + a trap
 # "Trapping map"), so the device toggle is dropped and the measures come from here.
 .MAPS_MEASURES <- list(
-  camera = c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority",
-             "Timing (predator ↔ protected)" = "timing"),
+  camera = c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority"),
+  # "Timing (predator ↔ protected)" moved to its own page — Co-occurrence → Map.
   # "Servicing health" lives on its own page (Trap review → Map, the richer status map), not a measure here.
   trap   = c("Captures" = "captures", "Capture rate" = "rate"))
 
@@ -50,17 +53,14 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
     tags$p(tags$b("Priority (predator vs protected)"), " — a composite ", tags$em("where to act"), " score: ",
       "high (red) where the chosen ", tags$b("predator"), " is active ", tags$b("and"), " the chosen ",
       tags$b("protected"), " species is scarce (predator RAI high × protected RAI low). Exploratory — click a ",
-      "row in the table for the detections behind it."),
-    tags$p(tags$b("Timing (predator ↔ protected)"), " — per camera, the ", tags$b("median time"), " between a ",
-      "protected-species detection and the nearest ", tags$b("predator"), " detection. Red = they use the same ",
-      "ground close in time; the popup shows the real median gap. Exploratory."))
+      "row in the table for the detections behind it."))
   trp <- list(
     tags$p("How each trap is coloured and sized — switch with the ", tags$b("Measure"), " buttons."),
     tags$p(tags$b("Captures"), " — total predators of the chosen group caught per trap in the selected period. ",
       "Raw counts: catches are sparse, so a count reads more honestly than a rate at low effort."),
     tags$p(tags$b("Capture rate"), " — captures per ", tags$b(ntn), " (effort-adjusted), so heavily- ",
-      "and lightly-checked traps compare fairly. Colour and size are clamped at the 95th percentile so one ",
-      "low-effort outlier (e.g. 1 catch in a few trap-nights) can't flatten the rest."),
+      "and lightly-checked traps compare fairly. Marker size is clamped near the top of the range so one ",
+      "low-effort outlier (e.g. 1 catch in a few trap-nights) can't shrink the rest."),
     tags$p(tags$em("Servicing health — how often each trap is checked — has its own map on the ",
       tags$b("Trap review"), " page (the Map tab).")))
   if (identical(device, "camera"))    do.call(tagList, cam)
@@ -117,18 +117,13 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
           .maps_measure_help(device, norm))),
           choices = meas, selected = unname(meas)[1], inline = TRUE)),
       # Species sits with the other map controls (it's a GROUPING choice, like Device/Measure) and only
-      # for the measures that group by it (camera RAI, trap captures/rate); priority & timing instead
-      # use their own predator/protected pickers — so the Species picker is hidden for those.
+      # for the measures that group by it (camera RAI, trap captures/rate); priority instead uses its own
+      # predator/protected pickers — so the Species picker is hidden for that.
       conditionalPanel("input.measure == 'rate' || input.measure == 'captures'", ns = ns,
         selectInput(ns("species"), "Species", choices = pk$species, selected = pk$group_default, multiple = TRUE)),
-      conditionalPanel("input.measure == 'priority' || input.measure == 'timing'", ns = ns,
+      conditionalPanel("input.measure == 'priority'", ns = ns,
         selectInput(ns("predators"), "Predator(s)", choices = pk$predators, selected = pk$pred_default, multiple = TRUE),
-        selectInput(ns("protected"), "Protected",   choices = pk$protected, selected = pk$prot_default, multiple = TRUE)),
-      conditionalPanel("input.measure == 'timing'", ns = ns,
-        div(class = "ik-maps-measure",
-          checkboxInput(ns("after_only"),
-            tagList("Predator ", tags$b("after"), " only ", tags$span(class = "ik-maps-hint", "(stalking)")),
-            value = FALSE)))
+        selectInput(ns("protected"), "Protected",   choices = pk$protected, selected = pk$prot_default, multiple = TRUE))
     ),
     leaflet::leafletOutput(ns("map"), height = height),
     div(
@@ -179,8 +174,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     observeEvent(input$source, {
       ch  <- if (identical(input$source, "trap"))
                c("Captures" = "captures", "Capture rate" = "rate")
-             else c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority",
-                    "Timing (predator ↔ protected)" = "timing")
+             else c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority")
       sel <- if (isTRUE(isolate(input$measure) %in% ch)) isolate(input$measure) else ch[[1]]
       updateRadioButtons(session, "measure", choices = ch, selected = sel, inline = TRUE)
     }, ignoreInit = TRUE)
@@ -315,7 +309,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     .robust_cap  <- function(v) { m <- suppressWarnings(max(v, na.rm = TRUE)); if (is.finite(m) && m > 0) m else 1 }
     # Marker AREA scaled from 0 (area-fair: a 2 is ~twice the ink of a 1), not the data range — the old
     # range-rescale forced the smallest value to the floor and the largest to the ceiling, so 1 vs 2 blew
-    # out to ~16x the area. Capped at the 95th pctl so one big outlier can't shrink everyone. (Size only;
+    # out to ~16x the area. Capped at .MAPS_CAP_PCTL so one big outlier can't shrink everyone. (Size only;
     # the colour key uses the true max — they're independent.)
     .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi, cap_pctl = .MAPS_CAP_PCTL)
     .prio_ramp <- c("#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c")   # yellow→red — priority/danger

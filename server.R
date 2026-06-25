@@ -104,7 +104,10 @@ server <- function(input, output, session) {
   cm <- reactive(input$color_mode)                       # navbar dark/light → themed plots
   outcomes_server("overview_trends", ik_data, prefer_scientific, color_mode = cm,   # Overview → Trends tab
                   selection = overview_selection)   # so the Trends tab honours the sidebar Reserve
-  cooccurrence_server("cooccurrence", ik_data, prefer_scientific, color_mode = cm)
+  cooccurrence_selection <- selection_server("cooccurrence_selection", ik_data, prefer_scientific,
+    show = c("period", "reserve"), active = reactive(identical(input$nav, "cooccurrence")))
+  cooccurrence_server("cooccurrence", ik_data, prefer_scientific, color_mode = cm,
+                      selection = cooccurrence_selection)
   .lazy_once(reactive(identical(input$nav, "neighbourhood")), function()
     neighbourhood_server("neighbourhood", ik_data, prefer_scientific, color_mode = cm))
   reserve_report_server("reserve_report", ik_data, prefer_scientific, color_mode = cm)
@@ -144,7 +147,7 @@ server <- function(input, output, session) {
   # stays visible via that banner. The heavy-filter pages (Maps, Records, Trap review, …) open it.
   # (The collapse toggle stays either way.)
   SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
-                    "trap-review", "bait", "coverage", "trap-hero")
+                    "trap-review", "bait", "coverage", "trap-hero", "cooccurrence")
   observeEvent(input$nav, {
     bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
   })

@@ -166,6 +166,11 @@
      — they snap to a tidy grid. Cards with longer content still grow (no hard width → no truncation). */
   min-width: 10.5rem;
 }
+/* On a narrow phone, lower the floor so two cards still sit side by side (not one per row). */
+@media (max-width: 575.98px) {
+  .ik-metric-card { min-width: 9rem; }
+  .ik-metric-cards.ik-compact .ik-metric-card { min-width: 8rem; }
+}
 .ik-metric-card.ik-spp-click { cursor: pointer; }
 .ik-metric-card.ik-spp-click:hover { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.08); }
 .ik-card-name  { font-size: 0.92rem; font-weight: 600; color: var(--bs-body-color, #212529); display: flex; align-items: center; gap: 0.36rem; }
@@ -180,11 +185,10 @@
 .ik-card-unit  { font-size: 0.8rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
 .ik-card-na    { color: var(--bs-secondary-color, #adb5bd); }
 
-/* "See the full overview" link card — set apart from the species cards by a dashed border + the accent
-   link (same background as the others). Its width is set by the (nowrap) link; the small lead wraps. */
+/* "See the full overview" link card — same size as the species cards (inherits .ik-metric-card),
+   set apart only by a dashed border + the accent link; the small lead text wraps within it. */
 .ik-card-more {
   border-style: dashed; cursor: pointer;
-  min-width: 0; width: min-content;
   display: flex; flex-direction: column; justify-content: center; gap: 0.25rem;
 }
 .ik-card-more:hover { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.08); }
