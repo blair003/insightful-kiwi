@@ -25,8 +25,8 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 .MAPS_CAP_PCTL <- 0.95 # colour/size clamp percentile (robust to low-effort outliers)
 
 .MAPS_STATUS <- list(
-  light = c(good = "#2e7d32", watch = "#f9a825", neglected = "#c62828", insufficient_data = "#7e57c2", new = "#1e88e5"),
-  dark  = c(good = "#66bb6a", watch = "#fdd835", neglected = "#ef5350", insufficient_data = "#b39ddb", new = "#64b5f6"))
+  light = c(good = "#2e7d32", watch = "#f9a825", neglected = "#c62828", first_check = "#1e88e5"),
+  dark  = c(good = "#66bb6a", watch = "#fdd835", neglected = "#ef5350", first_check = "#64b5f6"))
 .MAPS_STATUS_LEVELS <- c("good", "watch", "neglected")
 
 # Measures per device — the map is instantiated device-locked (a camera "Monitoring map" + a trap

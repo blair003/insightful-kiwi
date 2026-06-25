@@ -168,9 +168,9 @@ ik_trap_health_cutoffs <- function(ik_data, reserves = NULL, datasets = NULL) {
 #' an in-progress season; "all data" uses today), and WITHOUT peeking at checks after `t_end` — so a
 #' past period is never reclassified by later data. The whole dataset is used only to calibrate the
 #' good/watch cadence yardstick (`ik_trap_health`). Status, from `gap = t_end − last check ≤ t_end`:
-#'   - checked in the period, ≥ `min_checks_for_cadence` checks → good / watch / neglected (cadence);
-#'   - checked but fewer → "new" if first-EVER check is within the period (just deployed), else
-#'     "insufficient_data" (established but too sparse to grade — needs attention);
+#'   - checked in the period → good / watch / neglected by mean gap (a single check is graded by its
+#'     gap to the period end, so a lone stale check is neglected — no min-checks bail);
+#'   - a first-EVER check this period, seen once and still good → "first_check" (just deployed);
 #'   - not checked in the period (but existed by `t_end`) → "neglected";
 #'   - then a UNIFORM override: gap ≥ `dormant_after_days` → "dormant"; ≥ `historic_after_days` →
 #'     "historic". So a decommissioned trap walks neglected → dormant → historic over later periods,
@@ -190,7 +190,6 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   locs <- ik_data$app$geography$locations
   t_end <- if (is.null(seasons)) min(max(dptrap$deploymentEnd, na.rm = TRUE), Sys.time())
            else min(.trap_period_bounds(seasons)[2], Sys.time())
-  min_checks <- ik_data$meta$trapping$min_checks_for_cadence %||% 2
   dormant_d  <- ik_data$meta$trapping$dormant_after_days  %||% 182
   historic_d <- ik_data$meta$trapping$historic_after_days %||% 365
 
@@ -219,10 +218,11 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   per$latitude  <- locs$latitude[gi]
   per$longitude <- locs$longitude[gi]
   names(per)[names(per) == "locationID"] <- "location"
-  # cadence health, or "insufficient_data" when too few checks in the period to judge a cadence
-  per$status <- ifelse(per$n_checks >= min_checks,
-                       as.character(ik_trap_health(per$mean_interval_days, ik_data, dataset = per$dataset, reserve = per$reserve)),
-                       "insufficient_data")
+  # Grade EVERY checked trap by its mean gap between checks (for a single check that's the gap since it,
+  # to the period end). No min-checks bail: a lone stale check must still hit the neglected ceiling — the
+  # old "insufficient_data" bucket was masking real neglect over a full season. (Genuinely just-deployed
+  # traps are split out as "first_check" below, so newness doesn't read as neglect.)
+  per$status <- as.character(ik_trap_health(per$mean_interval_days, ik_data, dataset = per$dataset, reserve = per$reserve))
 
   # existed-but-unchecked-this-period traps → start as neglected (tiered to dormant/historic below)
   if (!is.null(seasons)) {
@@ -246,17 +246,16 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   gap <- as.numeric(difftime(t_end, per$last_check, units = "days"))
   per$status <- ifelse(!is.na(gap) & gap >= historic_d, "historic",
                 ifelse(!is.na(gap) & gap >= dormant_d, "dormant", per$status))
-  # NEW vs established for the ungradeable ones: an "insufficient_data" trap whose FIRST-EVER check
-  # (across all of time) falls INSIDE this period is simply newly deployed — too little history yet →
-  # "new" (not a problem). One whose first check predates the period is an ESTABLISHED trap we still
-  # can't grade (too few checks this period) → keep "insufficient_data" (treat as needs-attention). The
-  # distinction only makes sense for a bounded period; for all-data is_new is FALSE.
+  # FIRST CHECK: a trap whose FIRST-EVER check (across all time) falls inside this period, seen exactly
+  # once and still well-serviced (graded good) — just deployed, can't judge a cadence yet, but no
+  # problem. A single check that's already stale keeps its gap status (watch/neglected/dormant/historic),
+  # so newness NEVER masks neglect. Only meaningful for a bounded period; for all-data is_new is FALSE.
   if (!is.null(seasons)) {
     p_start    <- as.numeric(.trap_period_bounds(seasons)[1])
     first_ever <- tapply(dptrap$deploymentEnd, dptrap$locationID, function(x) suppressWarnings(min(as.numeric(x), na.rm = TRUE)))
     fe         <- first_ever[as.character(per$location)]
     per$is_new <- !is.na(fe) & is.finite(fe) & fe >= p_start
-    per$status[per$status == "insufficient_data" & per$is_new] <- "new"
+    per$status[per$is_new & per$n_checks == 1 & per$status == "good"] <- "first_check"
   } else per$is_new <- FALSE
   per
 }
