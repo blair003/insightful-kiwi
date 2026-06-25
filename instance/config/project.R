@@ -32,18 +32,21 @@ organisation <- "Whakatane Kiwi Trust"
 # Species matching no group are unclassified ("other").
 #   split           TRUE → the Species picker lists the group's members individually (Mustelids →
 #                   Stoat / Weasel / Ferret) AS WELL AS the group; FALSE/absent → group only.
+# Order = priority (concern ranking, drives match-priority + display/menu order): Stoat/Ferret >
+# Weasel (within Mustelids) > Cat > Rats/Possums > Hedgehogs > Mice > Rabbits; then the non-pest /
+# interest taxa. See the wkt-species-priority note.
 species_groups <- list(
   mustelid = list(label = "Mustelids", role = "predator", monitor = "target", control = "target",
                   genus = "Mustela", family = "Mustelidae", split = TRUE),
-  rat      = list(label = "Rats",      role = "predator", monitor = "target", control = "target", genus = "Rattus"),
   cat      = list(label = "Cats",      role = "predator", monitor = "target", control = "target", genus = "Felis"),
-  hedgehog = list(label = "Hedgehogs", role = "other",    monitor = "interesting", control = "target", sentiment = "bad", scientificName = "Erinaceus europaeus"),
+  rat      = list(label = "Rats",      role = "predator", monitor = "target", control = "target", genus = "Rattus"),
   possum   = list(label = "Possums",   role = "other",    monitor = "interesting", control = "target", sentiment = "bad", scientificName = "Trichosurus vulpecula"),
+  hedgehog = list(label = "Hedgehogs", role = "other",    monitor = "interesting", control = "target", sentiment = "bad", scientificName = "Erinaceus europaeus"),
+  mouse    = list(label = "Mice",      role = "other",    monitor = "interesting", sentiment = "bad", scientificName = "Mus musculus"),
   rabbit   = list(label = "Rabbits",   role = "other",    monitor = "interesting", control = "target", sentiment = "bad", scientificName = "Oryctolagus cuniculus"),
   dog      = list(label = "Dogs",      role = "predator", monitor = "interesting", family = "Canidae"),
   kiwi     = list(label = "Kiwi",      role = "protected", monitor = "interesting", genus = "Apteryx"),
   pig      = list(label = "Pigs",      role = "other", monitor = "interesting", sentiment = "bad", scientificName = "Sus scrofa"),
-  mouse    = list(label = "Mice",      role = "other", monitor = "interesting", sentiment = "bad", scientificName = "Mus musculus"),
   weka     = list(label = "Weka",      role = "other", monitor = "interesting", scientificName = "Gallirallus australis")
 )
 
