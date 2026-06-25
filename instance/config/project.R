@@ -157,3 +157,26 @@ proximity <- list(
 media <- list(
   keep_originals = TRUE
 )
+
+# Feature toggles — turn OFF a menu item / page for THIS deployment. Any name omitted (or set TRUE)
+# is shown; set FALSE to hide. This is the project-level "do we WANT this feature" switch; it's the
+# SECOND gate, applied on top of data capability — a feature still auto-hides when the data can't
+# feed it (e.g. Top trappers needs volunteer tags; Highlights needs favourite images), regardless of
+# the flag. The core spine (Overview, Map, Records, Camera review, Trap review) can't be toggled.
+# Changing a flag takes effect after the next app start (it rebuilds the cache, like any change here).
+features <- list(
+  # --- Monitoring menu ---
+  # highlights             = FALSE,   # favourite-image hero slider (also needs favourite images)
+  # cooccurrence           = FALSE,   # predator <-> protected timing
+  # duplicates             = FALSE,   # Duplicate window review
+  # --- Trapping menu ---
+  # bait                   = FALSE,   # Bait effectiveness
+  # trapping_effectiveness = FALSE,   # catch rate vs check cadence, by season
+  # top_traps              = FALSE,   # best-performing traps on a map
+  # top_trappers           = FALSE,   # gamified per-season volunteer leaderboard (also needs volunteer tags)
+  # --- Species + Insights ---
+  # species_pages          = FALSE,   # the whole per-species Species menu
+  # reserve_report         = FALSE,   # the over-time effort->outcome chain (also needs camera + trap data)
+  # neighbourhood          = FALSE,   # camera-anchored neighbourhood analysis (also needs camera data)
+  # coverage               = FALSE    # trap/camera coverage gaps + map
+)
