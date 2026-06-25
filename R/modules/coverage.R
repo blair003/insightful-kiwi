@@ -443,8 +443,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     output$gaps_drill_table <- DT::renderDT({
       d <- gaps_drill(); req(!is.null(d) && nrow(d))
       st_lab <- c(good = "Good", watch = "Watch", neglected = "Neglected",
-                  first_check = "First check", dormant = "Dormant", historic = "Historic")
-      d <- d[order(match(d$status, c("neglected", "watch", "good", "first_check", "dormant", "historic"))), , drop = FALSE]
+                  dormant = "Dormant", historic = "Historic")
+      d <- d[order(match(d$status, c("neglected", "watch", "good", "dormant", "historic"))), , drop = FALSE]
       tbl <- data.frame(Trap = d$name, Line = ifelse(is.na(d$line), "—", d$line),
         Status = ifelse(is.na(d$status), "—", unname(st_lab[d$status])),
         Checks = ifelse(is.na(d$n_checks), 0L, as.integer(d$n_checks)),

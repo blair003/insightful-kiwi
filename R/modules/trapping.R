@@ -29,8 +29,8 @@ trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overt
   hist <- round((tr_meta$historic_after_days %||% 365) / 30.4)
   norm <- (tr_meta$rate %||% list())$norm_trap_days %||% 100
   ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
-  # The servicing grades — shared by the By-trapline and Map help (both colour by status). Leads with
-  # the cadence PROGRESSION graphic, then the single off-path case (First check).
+  # The servicing grades — shared by the By-trapline and Map help (both colour by status), led by the
+  # cadence PROGRESSION graphic.
   grades <- tagList(
     .trap_status_progression(),
     P("That's an ", tags$b("order, over time"), ": as a trap is checked less often it slips ",
@@ -40,12 +40,9 @@ trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overt
       tags$li(tags$b("Good"), " — checked at least as often as the reserve's typical (≤ its ", pg, "th percentile)."),
       tags$li(tags$b("Watch"), " — slower than typical (≤ the ", pw, "th percentile)."),
       tags$li(tags$b("Neglected"), " — slower than the ", pw, "th percentile, or unchecked all period (the worst-serviced tail).")),
-    P("A trap checked just ", tags$b("once"), " is graded the same way — by its gap to the period end — so a lone ",
-      "stale check is ", tags$b("Neglected"), ", never hidden. The one exception:"),
-    tags$ul(
-      tags$li(tags$b("First check"), " — a trap's ", tags$b("first-ever"), " check is in this period and it's been seen ",
-              "once, recently (still good): just deployed, so there's no cadence to judge yet — not a problem. (A first ",
-              "check that's already stale shows as Watch / Neglected instead.)")),
+    P("A trap checked just ", tags$b("once"), " is graded the same way — by its gap to the period end — so a ",
+      "lone stale check is ", tags$b("Neglected"), " and a recent one reads ", tags$b("Good"),
+      " (we just can't judge a cadence from one check yet)."),
     P("Grades are ", tags$b("relative to this project's own"), " checking pattern, calibrated ", tags$b("per reserve"),
       " (a remote block and a roadside block have different normal cadences). Two ", tags$b("guardrails"), ": a trap ",
       "checked every ", tags$b(paste0(fl, " d")), " or better is always good; a gap over ", tags$b(paste0(ce, " d")),
@@ -64,9 +61,8 @@ trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overt
       P("Where the traps are, coloured by servicing status — ", tags$b(tags$span(style = "color:#2e7d32", "Good")),
         " green, ", tags$b(tags$span(style = "color:#f9a825", "Watch")), " amber, ",
         tags$b(tags$span(style = "color:#c62828", "Neglected")), " red, ",
-        tags$b(tags$span(style = "color:#e09595", "Inactive")), " pale red, and ",
-        tags$b(tags$span(style = "color:#1e88e5", "First check")), " blue. Each status is a ",
-        tags$b("selectable layer"), " (top-right) — turn off the ones you don't need."),
+        tags$b(tags$span(style = "color:#e09595", "Inactive")), " pale red (dormant/historic). Each status ",
+        "is a ", tags$b("selectable layer"), " (top-right) — turn off the ones you don't need."),
       P(tags$b("High pressure"), " — a bold ", tags$b("black ring"), " marks a ", tags$b("productive but under-checked"),
         " trap: catching on at least half its checks, yet on a watch/neglected cadence, so you're likely missing ",
         "catches between visits. The table below lists them worst-first."),
@@ -155,7 +151,6 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     .iv <- function(status, mean, n) {
       if (is.na(status))                        "—"
       else if (status %in% c("dormant", "historic")) tools::toTitleCase(status)
-      else if (status == "first_check")         "First check"
       else if (is.finite(mean))                 sprintf("%.0f d", mean) else "—"
     }
     review <- reactive({
@@ -204,7 +199,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     output$intro <- renderUI({
       per <- review()$all                       # counts over ALL traps (so hidden tiers still show a count)
       if (is.null(per)) return(tags$p("No trap checks in this period."))
-      st <- table(factor(per$status, c("good", "watch", "neglected", "first_check", "dormant", "historic")))
+      st <- table(factor(per$status, c("good", "watch", "neglected", "dormant", "historic")))
       # Legend cutoffs scoped to the RESERVE(s) in view — each reserve is calibrated against its own
       # cadence spread, so filtering to a reserve shows that reserve's exact cutoff (falls back to the
       # in-view dataset blend when a reserve has no own calibration).
@@ -219,7 +214,6 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         leg("good", sprintf("Checked ≤%dd", gm), st[["good"]]),
         leg("watch", sprintf("%d–%dd", gm, wm), st[["watch"]]),
         leg("neglected", sprintf("Neglected >%dd", wm), st[["neglected"]]))
-      if (st[["first_check"]] > 0)       legs <- c(legs, list(leg("first_check", "First check", st[["first_check"]])))
       if (st[["dormant"]]  > 0)          legs <- c(legs, list(leg("dormant",  sprintf("Dormant %d mo+",  dm), st[["dormant"]])))
       if (st[["historic"]] > 0)          legs <- c(legs, list(leg("historic", sprintf("Historic %d mo+", hm), st[["historic"]])))
       # Just the key now — a one-line count + the colour codes. The grading explanation moved to the
@@ -356,13 +350,11 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       per$high_pressure <- per$status %in% c("watch", "neglected") & per$catch_pct >= PRESSURE_PCT & per$n_checks >= 2
       per$pressure_score <- ifelse(per$high_pressure, (per$catch_pct / 100) *
                                    ifelse(is.na(per$mean_interval_days), 0, per$mean_interval_days), 0)
-      # one selectable layer per status. The cadence progression — Good (green) · Watch (amber) ·
-      # Neglected (red) · Inactive (pale red: dormant/historic) — plus the one off-path case: First check
-      # (blue, just deployed). Colours = central .MAPS_STATUS.
-      per$grp <- ifelse(per$status == "neglected",   "Neglected",
-                 ifelse(per$status == "watch",       "Watch",
-                 ifelse(per$status == "good",        "Good",
-                 ifelse(per$status == "first_check", "First check", "Inactive"))))
+      # one selectable layer per status — the cadence progression: Good (green) · Watch (amber) ·
+      # Neglected (red) · Inactive (pale red: dormant/historic). Colours = central .MAPS_STATUS.
+      per$grp <- ifelse(per$status == "neglected", "Neglected",
+                 ifelse(per$status == "watch",     "Watch",
+                 ifelse(per$status == "good",      "Good", "Inactive")))
       per
     })
 
@@ -377,7 +369,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       m <- leaflet::addMapPane(m, "traps", zIndex = 410)
       m <- leaflet::addMapPane(m, "highlight", zIndex = 450)
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-             overlayGroups = c("Good", "Watch", "Neglected", "Inactive", "First check"),  # status = selectable layer
+             overlayGroups = c("Good", "Watch", "Neglected", "Inactive"),  # status = selectable layer
              options = leaflet::layersControlOptions(collapsed = FALSE))
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
@@ -391,15 +383,14 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     observe({                                                  # draw the selectable status layers
       req(identical(input$trap_view, "Map"))                   # only when the Map tab is visible, so the
       p <- mproxy()                                            # fit/redraw happen at real size (not 0×0 while
-      for (g in c("Good", "Watch", "Neglected", "Inactive", "First check", "PressHighlight"))
+      for (g in c("Good", "Watch", "Neglected", "Inactive", "PressHighlight"))
         leaflet::clearGroup(p, g)                              # on another tab — which left it stale + wrong-zoomed)
       leaflet::clearControls(p)
       d <- map_traps(); req(!is.null(d))
       d <- d[is.finite(d$latitude) & is.finite(d$longitude), , drop = FALSE]; if (!nrow(d)) return()
       scol <- if (is_dark()) .MAPS_STATUS$dark else .MAPS_STATUS$light   # central servicing palette (maps.R)
       grp_col <- c("Good" = unname(scol["good"]), "Watch" = unname(scol["watch"]),
-                   "Neglected" = unname(scol["neglected"]), "Inactive" = INACTIVE_COL,
-                   "First check" = unname(scol["first_check"]))
+                   "Neglected" = unname(scol["neglected"]), "Inactive" = INACTIVE_COL)
       for (g in names(grp_col)) {
         dd <- d[d$grp == g, , drop = FALSE]; if (!nrow(dd)) next
         leaflet::addCircleMarkers(p, data = dd, lng = ~longitude, lat = ~latitude, group = g,
@@ -421,9 +412,8 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       }
       leaflet::addLegend(p, "bottomright",
         colors = c(unname(scol["good"]), unname(scol["watch"]), unname(scol["neglected"]), INACTIVE_COL,
-                   unname(scol["first_check"]), .PRESS_RING),
-        labels = c("Good", "Watch", "Neglected", "Inactive (dormant/historic)", "First check",
-                   "High pressure (ring)"),
+                   .PRESS_RING),
+        labels = c("Good", "Watch", "Neglected", "Inactive (dormant/historic)", "High pressure (ring)"),
         title = "Servicing", opacity = 0.9)
       leaflet::fitBounds(p, min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude), options = list(padding = c(25, 25)))
     })

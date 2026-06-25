@@ -170,7 +170,6 @@ ik_trap_health_cutoffs <- function(ik_data, reserves = NULL, datasets = NULL) {
 #' good/watch cadence yardstick (`ik_trap_health`). Status, from `gap = t_end − last check ≤ t_end`:
 #'   - checked in the period → good / watch / neglected by mean gap (a single check is graded by its
 #'     gap to the period end, so a lone stale check is neglected — no min-checks bail);
-#'   - a first-EVER check this period, seen once and still good → "first_check" (just deployed);
 #'   - not checked in the period (but existed by `t_end`) → "neglected";
 #'   - then a UNIFORM override: gap ≥ `dormant_after_days` → "dormant"; ≥ `historic_after_days` →
 #'     "historic". So a decommissioned trap walks neglected → dormant → historic over later periods,
@@ -219,9 +218,9 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   per$longitude <- locs$longitude[gi]
   names(per)[names(per) == "locationID"] <- "location"
   # Grade EVERY checked trap by its mean gap between checks (for a single check that's the gap since it,
-  # to the period end). No min-checks bail: a lone stale check must still hit the neglected ceiling — the
-  # old "insufficient_data" bucket was masking real neglect over a full season. (Genuinely just-deployed
-  # traps are split out as "first_check" below, so newness doesn't read as neglect.)
+  # to the period end). No min-checks bail: a lone stale check still hits the neglected ceiling, a recent
+  # one reads good — so a single check is never hidden, and there's no separate "insufficient data" or
+  # "first check" tier (both masked or over-flagged single checks; the gap says it all).
   per$status <- as.character(ik_trap_health(per$mean_interval_days, ik_data, dataset = per$dataset, reserve = per$reserve))
 
   # existed-but-unchecked-this-period traps → start as neglected (tiered to dormant/historic below)
@@ -246,17 +245,6 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   gap <- as.numeric(difftime(t_end, per$last_check, units = "days"))
   per$status <- ifelse(!is.na(gap) & gap >= historic_d, "historic",
                 ifelse(!is.na(gap) & gap >= dormant_d, "dormant", per$status))
-  # FIRST CHECK: a trap whose FIRST-EVER check (across all time) falls inside this period, seen exactly
-  # once and still well-serviced (graded good) — just deployed, can't judge a cadence yet, but no
-  # problem. A single check that's already stale keeps its gap status (watch/neglected/dormant/historic),
-  # so newness NEVER masks neglect. Only meaningful for a bounded period; for all-data is_new is FALSE.
-  if (!is.null(seasons)) {
-    p_start    <- as.numeric(.trap_period_bounds(seasons)[1])
-    first_ever <- tapply(dptrap$deploymentEnd, dptrap$locationID, function(x) suppressWarnings(min(as.numeric(x), na.rm = TRUE)))
-    fe         <- first_ever[as.character(per$location)]
-    per$is_new <- !is.na(fe) & is.finite(fe) & fe >= p_start
-    per$status[per$is_new & per$n_checks == 1 & per$status == "good"] <- "first_check"
-  } else per$is_new <- FALSE
   per
 }
 
