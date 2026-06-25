@@ -151,7 +151,8 @@ ik_species_taxa <- function(ik_data) {
 #' taxa — the Species-dashboard landing chart. Mirrors ik_outcome_series but for arbitrary taxa and
 #' supports a By-year roll-up. @param taxa Named list label→scientificNames. @param by "season"
 #' (each season-year point) or "year" (austral cycle). @return long df: period (ordered factor) ·
-#' order · metric_type (camera_rai/trap_rate) · taxon · value · se; NULL when no seasons. @keywords internal
+#' order · metric_type (camera_rai / trap_rate intensity + camera_occ / trap_occ extent) · taxon ·
+#' value · se; NULL when no seasons. @keywords internal
 ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = NULL) {
   by <- match.arg(by)
   dp <- ik_deployment_period(ik_data)
@@ -168,9 +169,11 @@ ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = 
     periods <- periods[order(vapply(periods, `[[`, numeric(1), "order"))]
     for (k in seq_along(periods)) periods[[k]]$order <- k
   }
-  out <- .ik_metric_series(ik_data, periods, taxa, taxa, reserve)
+  ms  <- .ik_metric_series(ik_data, periods, taxa, taxa, reserve)   # intensity: RAI + catch-rate
+  if (!is.null(ms)) ms$n_reserves <- NULL                     # species trend doesn't surface it
+  occ <- .ik_occupancy_series(ik_data, periods, taxa, reserve)      # extent: % of sites occupied
+  out <- dplyr::bind_rows(ms, occ)
   if (is.null(out) || !nrow(out)) return(NULL)
-  out$n_reserves <- NULL                                      # species trend doesn't surface it
   out$period <- factor(out$period, levels = unique(out$period[order(out$order)]))
   out
 }
@@ -196,6 +199,33 @@ ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = 
     rate <- if (length(trap_taxa)) tryCatch(ik_trap_rate(ik_data, sp, trap_taxa, level = "reserve")$summary, error = function(e) NULL) else NULL
     dplyr::bind_rows(net(rai, "camera_rai", p), net(rate, "trap_rate", p))
   })
+  out <- dplyr::bind_rows(rows); if (!nrow(out)) return(NULL)
+  out
+}
+
+#' Per-period NAIVE OCCUPANCY series — the Species Trend's EXTENT complement to RAI/catch-rate: for
+#' each period and taxon, the share of DEPLOYED sites holding >=1 record (camera detections / trap
+#' catches), as a percentage with a binomial SE. Effort-sensitive (more monitoring -> higher naive
+#' occupancy), so exploratory — read the shape over seasons (range contraction/expansion), not the
+#' absolute level. Computed for BOTH devices per taxon; the Trend renderer drops the device a taxon
+#' has no data on (same as the RAI/rate facets). `value` is a percent 0-100. @param periods list of
+#' list(label, order, seasons). @param taxa named list label->sci. @return long df (period · order ·
+#' metric_type camera_occ/trap_occ · taxon · value · se); NULL when empty. @keywords internal
+.ik_occupancy_series <- function(ik_data, periods, taxa, reserve = NULL) {
+  one <- function(p, lab, sci, src, mtype) {
+    sp <- list(season = unlist(lapply(p$seasons, function(s) ik_expand_period(paste0("season:", s), ik_data))),
+               reserve = reserve)
+    m  <- tryCatch(ik_location_metric(ik_data, sp, stats::setNames(list(sci), lab), src), error = function(e) NULL)
+    if (is.null(m) || !nrow(m)) return(NULL)
+    cc  <- if ("individuals" %in% names(m)) "individuals" else "captures"   # >0 = occupied that period
+    tot <- nrow(m); if (!tot) return(NULL); n <- sum(m[[cc]] > 0, na.rm = TRUE); pr <- n / tot
+    data.frame(period = p$label, order = p$order, metric_type = mtype, taxon = lab,
+               value = 100 * pr, se = 100 * sqrt(pr * (1 - pr) / tot), stringsAsFactors = FALSE)
+  }
+  rows <- lapply(periods, function(p)
+    dplyr::bind_rows(unlist(lapply(seq_along(taxa), function(i) list(
+      one(p, names(taxa)[i], taxa[[i]], "camera", "camera_occ"),
+      one(p, names(taxa)[i], taxa[[i]], "trap",   "trap_occ"))), recursive = FALSE)))
   out <- dplyr::bind_rows(rows); if (!nrow(out)) return(NULL)
   out
 }

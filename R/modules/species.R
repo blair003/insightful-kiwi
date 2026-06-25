@@ -21,7 +21,12 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
         " camera-hours); ", tags$b("Catch rate"), " is captures per ", format(norm_trap, big.mark = ","),
         " trap-nights — each its own panel (different units, don't compare heights between them). Lines are ",
         "the network mean across reserves; toggle ", tags$b("By season / By year."), " Add a ",
-        tags$b("compare"), " species to overlay a second line on the matching panel.")),
+        tags$b("compare"), " species to overlay a second line on the matching panel."),
+      P(tags$b("Occupancy"), " panels show the species' ", tags$b("extent"), " — the share of deployed sites where ",
+        "it was seen (camera) or caught (trap) that season, with a binomial band. A different axis from activity ",
+        "(how ", tags$em("widespread"), " vs how ", tags$em("active"), "): falling predator occupancy means whole ",
+        "sites going quiet, rising protected occupancy means it's spreading. It climbs with monitoring effort, so ",
+        "it's ", tags$b("exploratory"), " — read the shape, not the absolute level.")),
     tabPanel("How it's calculated", icon = icon("calculator"),
       tags$ul(tags$br(),
         tags$li(tags$b("RAI / catch-rate"), " — the same effort-adjusted metrics as the Overview, computed ",
@@ -30,6 +35,9 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
                 "counts only its own. Ambiguous IDs (e.g. weasel/stoat) stay in the group total."),
         tags$li(tags$b("Summary presence"), " — the share of camera locations with at least one detection, ",
                 "and trap sites with at least one catch, all-time within the selected reserve(s)."),
+        tags$li(tags$b("Occupancy (Trend)"), " — the same share, but per season: the % of deployed sites with ",
+                "≥1 record. Naive occupancy (effort-sensitive, no detection-probability correction), with a ",
+                "binomial SE band."),
         tags$li(tags$b("Map"), " — per-location RAI (camera) and catches (trap) for the selected period."))))
 }
 
@@ -152,11 +160,15 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             if (spec$camera)  plotOutput(ns("where_cam"),  height = "300px", click = ns("where_cam_click")),
             if (spec$trapped) plotOutput(ns("where_trap"), height = "300px", click = ns("where_trap_click"))),
           tabPanel("Trend", icon = icon("chart-line"),
+            tags$p(class = "ik-species-hint",
+                   "Over time: ", tags$b("activity"), " (camera RAI / catch rate — how ", tags$em("active"),
+                   ") and ", tags$b("occupancy"), " (the % of sites where it turns up — how ", tags$em("widespread"),
+                   "). Occupancy is exploratory and effort-sensitive — read the shape over seasons, not the level."),
             div(class = "ik-species-controls",
                 radioButtons(ns("by"), NULL, inline = TRUE,
                              choices = c("By season" = "season", "By year" = "year"), selected = "season"),
                 selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__", width = "220px")),
-            plotOutput(ns("trend"), height = "460px")),
+            plotOutput(ns("trend"), height = "auto")),
           tabPanel("Map", icon = icon("map-location-dot"),
             tags$p(class = "ik-species-hint",
                    "Where this species is detected and caught — an activity surface, per-site points, the boundary, ",
@@ -305,17 +317,26 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                        reserve = .ik_nz(selection()$reserve))
     }) |> bindCache(spec$key, input$by, input$overlay, .ik_nz(selection()$reserve), ik_active_datasets())
 
+    # The facets to actually draw — drop the device a taxon has no data on (a flat zero line), for BOTH
+    # its activity panel (RAI/rate) and its occupancy panel. Shared by the plot and its dynamic height.
+    trend_shown <- reactive({
+      d <- trend(); if (is.null(d) || !nrow(d)) return(NULL)
+      d <- d[!(d$metric_type %in% c("trap_rate",  "trap_occ")   & !d$taxon %in% trapped_labels()), , drop = FALSE]
+      d <- d[!(d$metric_type %in% c("camera_rai", "camera_occ") & !d$taxon %in% camera_labels()),  , drop = FALSE]
+      if (nrow(d)) d else NULL
+    })
+
     output$trend <- renderPlot({
-      d <- trend()
+      d <- trend_shown()
       validate(need(!is.null(d) && nrow(d), "No detections or captures to chart for this species."))
-      # drop a panel that would be a flat zero line for a species never seen on that device, so an
-      # untrapped (or camera-less) species shows a single, full-height panel.
-      d <- d[!(d$metric_type == "trap_rate"  & !d$taxon %in% trapped_labels()), , drop = FALSE]
-      d <- d[!(d$metric_type == "camera_rai" & !d$taxon %in% camera_labels()),  , drop = FALSE]
-      validate(need(nrow(d), "No detections or captures to chart for this species."))
+      # Intensity (RAI / catch-rate) then extent (occupancy), per device — read activity and spread
+      # together. Occupancy is exploratory & effort-sensitive (see help); its band is a binomial SE.
       flab <- c(camera_rai = sprintf("Camera activity (RAI / %s ch)", format(nh, big.mark = ",")),
-                trap_rate   = sprintf("Catch rate (/ %s trap-nights)", format(nt, big.mark = ",")))
-      d$facet <- factor(flab[d$metric_type], levels = unname(flab[c("camera_rai", "trap_rate")]))
+                camera_occ = "Camera occupancy (% of sites seen)",
+                trap_rate  = sprintf("Catch rate (/ %s trap-nights)", format(nt, big.mark = ",")),
+                trap_occ   = "Trap occupancy (% of sites with a catch)")
+      d$facet <- factor(flab[d$metric_type],
+                        levels = unname(flab[c("camera_rai", "camera_occ", "trap_rate", "trap_occ")]))
       d <- d[!is.na(d$facet), , drop = FALSE]
       ggplot2::ggplot(d, ggplot2::aes(.data$period, .data$value, colour = .data$taxon, group = .data$taxon)) +
         ggplot2::geom_ribbon(ggplot2::aes(ymin = pmax(.data$value - .data$se, 0), ymax = .data$value + .data$se,
@@ -329,7 +350,9 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
           legend.position = if (is.null(overlay_taxa())) "none" else "bottom",
           strip.text = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())),
           panel.spacing = ggplot2::unit(1, "lines"))
-    }, bg = "transparent")
+    }, bg = "transparent",
+    height = function() { d <- trend_shown()                   # grow with the panel count (incl. occupancy)
+      n <- if (is.null(d)) 1L else length(unique(d$metric_type)); max(1L, n) * 185 + 30 })
 
     # ---- Records (camera + trap combined) ----
     records <- reactive({
