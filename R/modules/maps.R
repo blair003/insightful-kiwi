@@ -15,8 +15,7 @@
 #   • Trap / "Captures" (default) — raw catch COUNT per trap (robust to effort/sparsity; "where are
 #     catches"). Trap captures are sparse, so count beats rate as the activity signal.
 #   • Trap / "Capture rate" — captures / trap-days × norm_trap_days (default 100; noisy at low effort — robust colour helps).
-#   (Servicing health — check-frequency status — now lives on Trap review → Map; the serv_* code below
-#   is inert, kept pending a separate strip.)
+#   (Servicing health — check-frequency status — lives on its own page: Trap review → Map.)
 # Robust colour/size: per-location colour + radius are clamped at the 95th percentile so a single
 # low-effort outlier (e.g. 1 capture in 7 trap-days → 14.29/100td) can't flatten the rest.
 # Rendering: one base render (panes + preferCanvas + theme basemap), then per-layer leafletProxy
@@ -35,8 +34,7 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 .MAPS_MEASURES <- list(
   camera = c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority",
              "Timing (predator ↔ protected)" = "timing"),
-  # "Servicing health" lives on its own page now (Trap review → Map, the richer status map), so it's
-  # no longer a measure here; the serv_* code below is inert (kept for now, to be stripped separately).
+  # "Servicing health" lives on its own page (Trap review → Map, the richer status map), not a measure here.
   trap   = c("Captures" = "captures", "Capture rate" = "rate"))
 
 #' The "Measure" help body, written for the map's OWN device (each map is device-locked, so the
@@ -117,7 +115,7 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
           choices = meas, selected = unname(meas)[1], inline = TRUE)),
       # Species sits with the other map controls (it's a GROUPING choice, like Device/Measure) and only
       # for the measures that group by it (camera RAI, trap captures/rate); priority & timing instead
-      # use their own predator/protected pickers, servicing ignores species — so it's hidden for those.
+      # use their own predator/protected pickers — so the Species picker is hidden for those.
       conditionalPanel("input.measure == 'rate' || input.measure == 'captures'", ns = ns,
         selectInput(ns("species"), "Species", choices = pk$species, selected = pk$group_default, multiple = TRUE)),
       conditionalPanel("input.measure == 'priority' || input.measure == 'timing'", ns = ns,
@@ -192,10 +190,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     is_timing   <- reactive(src() == "camera" && measure() == "timing")
     has_pred <- reactive(length(input$predators) > 0)   # predator/protected pickers actually populated?
     has_prot <- reactive(length(input$protected) > 0)   # (unselecting all → empty state, not stale default)
-    # all trap locations that exist in the active datasets (across ALL seasons) — the denominator the
-    # servicing caption cites so the per-period count isn't mistaken for the whole network.
-    n_trap_total <- reactive({ dp <- ik_deployment_period(ik_data)
-      length(unique(dp$locationID[!is.na(dp$source_type) & dp$source_type == "trap"])) })
     # Composite = predator-role vs protected-role groups (split-aware), with Mustelids/Kiwi defaults.
     # Same picker defs the UI bakes in; the observe below only RELABELS on the name preference.
     pk <- .maps_picker_defs(ik_data)
@@ -303,31 +297,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     trap_pts      <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     trap_unplaced <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
 
-    serv_all <- reactive({ req(active(), src() == "trap", measure() == "servicing")
-      spec <- selection()
-      tr <- ik_trap_review(ik_data, seasons = .ik_nz(spec$season))
-      if (is.null(tr) || !nrow(tr)) return(NULL)
-      locs <- ik_data$app$geography$locations
-      tr$dataset <- locs$dataset[match(tr$location, locs$location_id)]
-      active_ds <- ik_active_datasets()
-      if (!is.null(active_ds))             tr <- tr[tr$dataset %in% active_ds, , drop = FALSE]
-      if (!is.null(.ik_nz(spec$reserve)))  tr <- tr[tr$reserve  %in% spec$reserve,  , drop = FALSE]
-      if (!is.null(.ik_nz(spec$line)))     tr <- tr[tr$line     %in% spec$line,     , drop = FALSE]
-      if (!is.null(.ik_nz(spec$location))) tr <- tr[tr$location %in% spec$location, , drop = FALSE]
-      if (nrow(tr)) tr else NULL })
-    .SERV_FAINT <- c("dormant", "historic")               # not in service this period → faint layer
-    serv_pts      <- reactive({ tr <- serv_all(); if (is.null(tr)) return(NULL)    # active, mapped
-      d <- tr[!tr$status %in% .SERV_FAINT & is.finite(tr$latitude) & is.finite(tr$longitude), , drop = FALSE]; if (nrow(d)) d else NULL })
-    serv_unplaced <- reactive({ tr <- serv_all(); if (is.null(tr)) return(NULL)    # active, no coords
-      d <- tr[!tr$status %in% .SERV_FAINT & !(is.finite(tr$latitude) & is.finite(tr$longitude)), , drop = FALSE]; if (nrow(d)) d else NULL })
-    # Faint "not in service" layer = DORMANT/historic traps for this period (gap since last check ≥
-    # the dormancy/historic windows — see ik_trap_review). Skipped-but-active traps are red in serv_pts.
-    serv_absent <- reactive({ tr <- serv_all(); if (is.null(tr)) return(NULL)
-      d <- tr[tr$status %in% .SERV_FAINT & is.finite(tr$latitude) & is.finite(tr$longitude), , drop = FALSE]; if (nrow(d)) d else NULL })
-
     rate_loc_pts <- reactive(if (is_priority()) prio_pts() else if (is_timing()) timing_pts()
                              else if (src() == "trap") trap_pts() else cam_pts())
-    frame_pts    <- reactive(if (src() == "trap" && measure() == "servicing") serv_pts() else rate_loc_pts())
+    frame_pts    <- reactive(rate_loc_pts())
 
     # ---- helpers ----
     # Colour/size scale: the TRUE max, so the legend always matches the markers. (A 95th-pctl robust cap
@@ -369,13 +341,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     }
     line_popup <- function(d) sprintf(
       "<b>Line %s</b> &middot; %s<br/>RAI: %.2f (per 2000 CH)<br/>%d cameras &middot; %d detections", d$line, d$reserve, d$metric, as.integer(d$n), as.integer(d$individuals))
-    serv_popup <- function(d) {
-      overdue <- as.integer(difftime(max(d$last_check, na.rm = TRUE), d$last_check, units = "days"))
-      sprintf(paste0("<b>%s</b><br/>Line %s &middot; %s<br/><b>Servicing: %s</b><br/>Checks: %d &middot; mean interval %.0f d<br/>",
-                     "Trap-days: %s<br/>Last check %s (%d d ago)<br/>Captures: %d"),
-              d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, toupper(as.character(d$status)),
-              d$n_checks, d$mean_interval_days, format(round(d$trap_days), big.mark = ","), format(d$last_check, "%Y-%m-%d"), overdue, as.integer(d$captures))
-    }
     proxy <- function() leaflet::leafletProxy("map", session)
 
     # ---- drill state (map ↔ table) ----
@@ -464,7 +429,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       if (!identical(v, surface_on())) surface_on(v)
     })
     surface_compute <- reactive({
-      if (src() == "trap" && measure() == "servicing") return(NULL)
       d <- rate_loc_pts(); if (is.null(d) || !nrow(d)) return(NULL)
       ik_idw_surface(d, valcol(), "reserve")
     }) |> bindCache(rate_loc_pts(), valcol())
@@ -478,23 +442,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         options = leaflet::pathOptions(pane = "surface"))
     })
 
-    # ---- Points (line RAI · per-camera rate · trap count/rate · servicing) ----
+    # ---- Points (line RAI · per-camera rate · trap count/rate) ----
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Points")
-      if (src() == "trap" && measure() == "servicing") {
-        d <- serv_pts(); if (is.null(d) || !nrow(d)) return()
-        cols <- if (is_dark()) .MAPS_STATUS$dark else .MAPS_STATUS$light; stc <- as.character(d$status)
-        sz  <- pmin(d$mean_interval_days, .robust_cap(d$mean_interval_days))   # size by STALENESS, capped
-        lbl <- c(good = "GOOD", watch = "WATCH", neglected = "NEGLECTED", insufficient_data = "INSUFFICIENT DATA")[stc]
-        leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Points", layerId = d$location,
-          radius = .area_radius(sz, 6, 20), fillColor = unname(cols[stc]),
-          fillOpacity = unname(c(good = 0.5, watch = 0.72, neglected = 0.92, insufficient_data = 0.6)[stc]),  # worst = boldest
-          stroke = TRUE, color = unname(cols[stc]), weight = unname(c(good = 1, watch = 2, neglected = 3, insufficient_data = 1.5)[stc]),
-          label = ifelse(d$n_checks == 0, sprintf("%s — NEGLECTED · no check this period", d$name),
-                         sprintf("%s — %s · %.0f d since checked", d$name, lbl, d$mean_interval_days)),
-          popup = serv_popup(d), popupOptions = leaflet::popupOptions(autoPan = FALSE),
-          options = leaflet::pathOptions(pane = "points"))
-      } else if (src() == "camera" && !is_priority() && !is_timing() && grain_rv() == "line") {
+      if (src() == "camera" && !is_priority() && !is_timing() && grain_rv() == "line") {
         d <- line_metric(); if (is.null(d) || !nrow(d)) return()
         cap <- .robust_cap(d$metric); v <- pmin(d$metric, cap); pf <- leaflet::colorNumeric("viridis", c(0, cap))
         leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Points",
@@ -559,29 +510,21 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
 
     observe({                                                   # Legend
       p <- proxy(); leaflet::clearControls(p)
-      if (src() == "trap" && measure() == "servicing") {
-        d <- serv_pts(); if (is.null(d) || !nrow(d)) return()
-        cols <- if (is_dark()) .MAPS_STATUS$dark else .MAPS_STATUS$light
-        leaflet::addLegend(p, "bottomright", colors = unname(cols),
-          labels = c("Good", "Watch", "Neglected", "Insufficient data"),
-          title = "Servicing &middot; size = days since checked", opacity = 0.9)
-      } else {
-        line_grain <- src() == "camera" && !is_priority() && !is_timing() && grain_rv() == "line"
-        d <- if (line_grain) line_metric() else rate_loc_pts()
-        vc <- if (line_grain) "metric" else valcol()
-        if (is.null(d) || !nrow(d)) return()
-        cap <- .robust_cap(d[[vc]]); pf <- surf_pal(cap)
-        ttl <- if (is_priority()) sprintf("Priority &middot; %s high, %s low", pred_label(), prot_label())
-               else if (is_timing()) sprintf("Predator proximity &middot; red = %s close to %s in time", pred_label(), prot_label())
-               else if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
-               else sprintf("%s &middot; %s", vallabel(), group_lab())
-        leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl, opacity = 0.9)
-      }
+      line_grain <- src() == "camera" && !is_priority() && !is_timing() && grain_rv() == "line"
+      d <- if (line_grain) line_metric() else rate_loc_pts()
+      vc <- if (line_grain) "metric" else valcol()
+      if (is.null(d) || !nrow(d)) return()
+      cap <- .robust_cap(d[[vc]]); pf <- surf_pal(cap)
+      ttl <- if (is_priority()) sprintf("Priority &middot; %s high, %s low", pred_label(), prot_label())
+             else if (is_timing()) sprintf("Predator proximity &middot; red = %s close to %s in time", pred_label(), prot_label())
+             else if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
+             else sprintf("%s &middot; %s", vallabel(), group_lab())
+      leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl, opacity = 0.9)
     })
 
     observeEvent(input$map_marker_click, {                      # marker → filter table
       cid <- input$map_marker_click$id
-      if (is.null(cid) || (src() == "trap" && measure() == "servicing")) return()
+      if (is.null(cid)) return()
       if (startsWith(cid, "L|")) {
         pr <- strsplit(cid, "|", fixed = TRUE)[[1]]
         selected(list(kind = "line", reserve = pr[2], line = pr[3], label = sprintf("Line %s · %s", pr[3], pr[2])))
@@ -594,7 +537,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       session$sendCustomMessage("ik-maps-scroll", session$ns("map"))
     })
 
-    # ---- records / servicing table + CSV ----
+    # ---- records table + CSV ----
     records_base <- reactive({ req(measure() %in% c("rate", "captures"), has_group())
       ik_metric_obs(ik_data, sel(), group_taxa(), group_lab(), source_type = src()) })
     records <- reactive({
@@ -626,23 +569,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         return(tags$small(sprintf("%s camera sites · %s (exploratory). Click a row for the detections behind it.",
                                   format(n, big.mark = ","), gap_phrase)))
       }
-      if (src() == "trap" && measure() == "servicing") {
-        d <- serv_pts(); n <- if (is.null(d)) 0L else nrow(d)
-        nneg  <- if (is.null(d)) 0L else sum(d$status == "neglected", na.rm = TRUE)
-        nskip <- if (is.null(d)) 0L else sum(d$n_checks == 0, na.rm = TRUE)
-        nins  <- if (is.null(d)) 0L else sum(d$status == "insufficient_data", na.rm = TRUE)
-        u <- serv_unplaced(); nu <- if (is.null(u)) 0L else nrow(u)
-        a <- serv_absent(); na <- if (is.null(a)) 0L else nrow(a)
-        seas <- .ik_nz(selection()$season); per_lab <- if (is.null(seas)) "all seasons" else paste(seas, collapse = ", ")
-        tags$small(sprintf(
-          "%s traps assessed in %s · %s neglected%s%s%s%s. %s trap locations exist overall.",
-          format(n, big.mark = ","), per_lab, format(nneg, big.mark = ","),
-          if (nskip) sprintf(" (incl. %s never checked)", format(nskip, big.mark = ",")) else "",
-          if (nins) sprintf(" · %s insufficient data", format(nins, big.mark = ",")) else "",
-          if (nu) sprintf(" · %s unmapped (no coords)", format(nu, big.mark = ",")) else "",
-          if (na) sprintf(" · %s dormant/historic (grey in the Device layer)", format(na, big.mark = ",")) else "",
-          format(n_trap_total(), big.mark = ",")))
-      } else if (show_lines()) {
+      if (show_lines()) {
         d <- line_metric(); n <- if (is.null(d)) 0L else nrow(d)
         tags$small(sprintf("%s camera line%s · RAI per line of %s. Click a line for its records (or zoom in for per-camera).",
                            format(n, big.mark = ","), if (n == 1L) "" else "s", group_lab()))
@@ -684,14 +611,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           class = "stripe hover row-border ik-row-click",
           options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", order = list(list(4, "asc")),
             columnDefs = list(list(visible = FALSE, targets = 4)))))   # hide the numeric sort helper
-      }
-      if (src() == "trap" && measure() == "servicing") {
-        d <- serv_pts(); validate(need(!is.null(d) && nrow(d), "No traps in the current selection."))
-        df <- data.frame(Trap = d$name, Line = d$line, Reserve = d$reserve, Checks = d$n_checks,
-          `Trap-days` = round(d$trap_days), `Mean interval (d)` = round(d$mean_interval_days, 1),
-          Status = tools::toTitleCase(as.character(d$status)), Captures = d$captures, check.names = FALSE, stringsAsFactors = FALSE)
-        return(DT::datatable(df, rownames = FALSE, class = "stripe hover row-border",
-          options = list(pageLength = 10, scrollX = TRUE, dom = "tip", order = list(list(5, "desc")))))
       }
       if (show_lines()) {                                     # zoomed out → per-LINE RAI; click a line to drill
         d <- line_metric(); validate(need(!is.null(d) && nrow(d), "No camera lines in the current selection."))
@@ -816,7 +735,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # A clicked record row opens that modal on its detail tab (no map pan/zoom — that was
     # disorienting; hovering a row previews the location instead). Line-grain rows still drill.
     observeEvent(input$table_rows_selected, {
-      if (is_priority() || is_timing() || (src() == "trap" && measure() == "servicing")) return()
+      if (is_priority() || is_timing()) return()
       i <- input$table_rows_selected
       if (show_lines()) {                                       # line-grain table: row → drill into that line
         d <- lines_tbl()
@@ -855,8 +774,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     observeEvent(hover_loc(), {
       p <- proxy(); leaflet::clearGroup(p, "Hover")
       loc <- hover_loc()
-      if (is.null(loc) || !nzchar(loc) || is_priority() || is_timing() ||
-          (src() == "trap" && measure() == "servicing") || show_lines()) return()
+      if (is.null(loc) || !nzchar(loc) || is_priority() || is_timing() || show_lines()) return()
       d <- rate_loc_pts(); if (is.null(d)) return()
       r <- d[d$location_id == loc, , drop = FALSE]
       if (!nrow(r) || !is.finite(r$longitude[1])) return()
@@ -865,7 +783,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     }, ignoreNULL = FALSE)
 
     output$unplaced <- renderUI({
-      u <- if (is_priority()) prio_unplaced() else if (is_timing()) timing_unplaced() else if (src() == "trap" && measure() == "servicing") serv_unplaced() else if (src() == "trap") trap_unplaced() else cam_unplaced()
+      u <- if (is_priority()) prio_unplaced() else if (is_timing()) timing_unplaced() else if (src() == "trap") trap_unplaced() else cam_unplaced()
       if (is.null(u) || !nrow(u)) return(NULL)
       div(class = "ik-maps-unplaced", icon("triangle-exclamation"),
           sprintf(" %s coordless %s not shown on the map (no location fix).", format(nrow(u), big.mark = ","), if (src() == "trap") "traps" else "sites"))
@@ -875,12 +793,11 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       filename = function() {
         tag <- if (is_priority()) "camera-priority"
                else if (is_timing()) "camera-timing"
-               else if (src() == "trap" && measure() == "servicing") "trap-servicing"
                else paste0(src(), "-", measure(), "-", gsub("[^A-Za-z0-9]+", "-", tolower(group_lab())))
         sprintf("maps-%s-%s.csv", tag, Sys.Date())
       },
       content = function(file) {
-        d <- if (is_priority()) prio_pts() else if (is_timing()) timing_pts() else if (src() == "trap" && measure() == "servicing") serv_pts() else records()
+        d <- if (is_priority()) prio_pts() else if (is_timing()) timing_pts() else records()
         if (is.null(d)) d <- data.frame(); utils::write.csv(d, file, row.names = FALSE)
       }
     )
