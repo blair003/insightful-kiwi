@@ -178,6 +178,19 @@ ik_species_trend <- function(ik_data, taxa, by = c("season", "year"), reserve = 
   out
 }
 
+#' The calendar season(s) behind a Species-Trend x-axis label — for the click-drill, which needs to
+#' scope a clicked point back to its data. `by = "season"` → the label is itself a calendar season;
+#' `by = "year"` → the austral cycle's constituent seasons (mirrors ik_species_trend's year roll-up).
+#' @return character vector of calendar seasons (possibly length 0). @keywords internal
+ik_trend_period_seasons <- function(ik_data, by = c("season", "year"), label) {
+  by <- match.arg(by); dp <- ik_deployment_period(ik_data); levels <- ik_season_levels(dp)
+  if (by == "season") return(intersect(label, levels))
+  info <- unique(dp[!is.na(dp$calendar_season), c("calendar_season", "season", "season_year")])
+  info$ylab <- .ik_cycle_label(info$season, info$season_year)
+  lvl_y <- info$ylab[match(levels, info$calendar_season)]
+  levels[!is.na(lvl_y) & lvl_y == label]
+}
+
 #' Per-period network metric series — the shared engine behind `ik_species_trend()` and
 #' `ik_outcome_series()`. For each period (a `label` + `order` + its constituent calendar `seasons`)
 #' compute camera RAI (for `cam_taxa`) and trap catch-rate (for `trap_taxa`), each combined across

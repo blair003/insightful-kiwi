@@ -163,12 +163,13 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             tags$p(class = "ik-species-hint",
                    "Over time: ", tags$b("activity"), " (camera RAI / catch rate — how ", tags$em("active"),
                    ") and ", tags$b("occupancy"), " (the % of sites where it turns up — how ", tags$em("widespread"),
-                   "). Occupancy is exploratory and effort-sensitive — read the shape over seasons, not the level."),
+                   "). Occupancy is exploratory and effort-sensitive — read the shape over seasons, not the level. ",
+                   tags$b("Click a point"), " for that season's breakdown."),
             div(class = "ik-species-controls",
                 radioButtons(ns("by"), NULL, inline = TRUE,
                              choices = c("By season" = "season", "By year" = "year"), selected = "season"),
                 selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__", width = "220px")),
-            plotOutput(ns("trend"), height = "auto")),
+            plotOutput(ns("trend"), height = "auto", click = ns("trend_click"))),
           tabPanel("Map", icon = icon("map-location-dot"),
             tags$p(class = "ik-species-hint",
                    "Where this species is detected and caught — an activity surface, per-site points, the boundary, ",
@@ -240,6 +241,12 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     nh <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000
     nt <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100
     per_cam <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500
+    # Facet (panel heading) labels — shared by the Trend plot AND its click-drill (which maps the
+    # clicked panel back to its metric via these strings). Order = the facet order top→bottom.
+    trend_flab <- c(camera_rai = sprintf("Camera activity (RAI / %s ch)", format(nh, big.mark = ",")),
+                    camera_occ = "Camera occupancy (% of sites seen)",
+                    trap_rate  = sprintf("Catch rate (/ %s trap-nights)", format(nt, big.mark = ",")),
+                    trap_occ   = "Trap occupancy (% of sites with a catch)")
 
     # Bridge this page's active tab to one shared top-level input the sidebar reads, so the Period
     # control can hide on Trend (which spans all time). Only the visible page reports (active()-gated),
@@ -331,28 +338,83 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       validate(need(!is.null(d) && nrow(d), "No detections or captures to chart for this species."))
       # Intensity (RAI / catch-rate) then extent (occupancy), per device — read activity and spread
       # together. Occupancy is exploratory & effort-sensitive (see help); its band is a binomial SE.
-      flab <- c(camera_rai = sprintf("Camera activity (RAI / %s ch)", format(nh, big.mark = ",")),
-                camera_occ = "Camera occupancy (% of sites seen)",
-                trap_rate  = sprintf("Catch rate (/ %s trap-nights)", format(nt, big.mark = ",")),
-                trap_occ   = "Trap occupancy (% of sites with a catch)")
-      d$facet <- factor(flab[d$metric_type],
-                        levels = unname(flab[c("camera_rai", "camera_occ", "trap_rate", "trap_occ")]))
+      d$facet <- factor(trend_flab[d$metric_type],
+                        levels = unname(trend_flab[c("camera_rai", "camera_occ", "trap_rate", "trap_occ")]))
       d <- d[!is.na(d$facet), , drop = FALSE]
       ggplot2::ggplot(d, ggplot2::aes(.data$period, .data$value, colour = .data$taxon, group = .data$taxon)) +
         ggplot2::geom_ribbon(ggplot2::aes(ymin = pmax(.data$value - .data$se, 0), ymax = .data$value + .data$se,
                              fill = .data$taxon), alpha = 0.15, colour = NA, na.rm = TRUE) +
         ggplot2::geom_line(linewidth = 0.8, na.rm = TRUE) + ggplot2::geom_point(size = 1.6, na.rm = TRUE) +
-        ggplot2::facet_wrap(ggplot2::vars(.data$facet), ncol = 1, scales = "free_y") +
+        ggplot2::facet_wrap(ggplot2::vars(.data$facet), ncol = 1, scales = "free_y", strip.position = "top") +
         ggplot2::scale_y_continuous(limits = c(0, NA), expand = ggplot2::expansion(mult = c(0, 0.08))) +
         ggplot2::labs(x = NULL, y = NULL, colour = NULL, fill = NULL) +
         ik_ggtheme(is_dark()) +
+        # Tie each heading to its panel: a left-aligned bold strip on a subtle filled band that caps the
+        # panel below it (instead of a centred floating label), with generous spacing between panels.
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
           legend.position = if (is.null(overlay_taxa())) "none" else "bottom",
-          strip.text = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())),
-          panel.spacing = ggplot2::unit(1, "lines"))
+          strip.text = ggplot2::element_text(face = "bold", hjust = 0, size = ggplot2::rel(1.02),
+                         colour = ik_plot_ink(is_dark()), margin = ggplot2::margin(t = 3, b = 4, l = 6)),
+          strip.background = ggplot2::element_rect(fill = if (is_dark()) "#2b2b2b" else "#eef1f4", colour = NA),
+          panel.spacing = ggplot2::unit(1.4, "lines"))
     }, bg = "transparent",
     height = function() { d <- trend_shown()                   # grow with the panel count (incl. occupancy)
       n <- if (is.null(d)) 1L else length(unique(d$metric_type)); max(1L, n) * 185 + 30 })
+
+    # ---- Trend click → drill for the clicked season + panel. The clicked facet (panelvar1) maps back
+    #      to a metric via trend_flab; x rounds to the season; y picks the nearest taxon line (so an
+    #      overlay is drillable too). INTENSITY (RAI/catch-rate) → the records behind the point (the
+    #      shared 2-tab Records→Record modal); EXTENT (occupancy) → a per-site "how it's made up" table
+    #      (every deployed site that season, occupied or not). ----
+    trend_rec_rows <- reactiveVal(NULL)
+    trend_open <- .make_drill("trend", trend_rec_rows, function(o)
+      data.frame(When = .ik_when_label(o$when), Species = ik_species_label(o$scientificName, ik_data, prefer()),
+                 Count = o$count, Reserve = o$reserve, Line = ifelse(is.na(o$line), "—", o$line),
+                 Location = o$locationName, .when_sort = as.numeric(o$when),
+                 check.names = FALSE, stringsAsFactors = FALSE))
+    trend_occ_df <- reactiveVal(NULL)
+    output$trend_occ_table <- DT::renderDT({
+      df <- trend_occ_df(); validate(need(!is.null(df) && nrow(df), "No deployed sites that season."))
+      DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border",
+        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", order = list(list(3, "desc"))))
+    })
+    observeEvent(input$trend_click, {
+      cl <- input$trend_click; d <- trend_shown()
+      if (is.null(d) || is.null(cl) || is.null(cl$x) || is.null(cl$panelvar1)) return()
+      mt <- names(trend_flab)[match(cl$panelvar1, trend_flab)]; if (is.na(mt)) return()
+      pl <- levels(d$period); pidx <- round(cl$x); if (pidx < 1 || pidx > length(pl)) return()
+      per  <- pl[pidx]
+      rows <- d[d$metric_type == mt & as.integer(d$period) == pidx, , drop = FALSE]; if (!nrow(rows)) return()
+      taxon <- if (!is.null(cl$y)) rows$taxon[which.min(abs(rows$value - cl$y))] else rows$taxon[1]
+      sci   <- c(taxa, overlay_taxa())[[taxon]]; if (is.null(sci)) return()
+      seasons <- ik_trend_period_seasons(ik_data, input$by %||% "season", per)
+      sp  <- list(season = unlist(lapply(seasons, function(s) ik_expand_period(paste0("season:", s), ik_data))),
+                  reserve = .ik_nz(selection()$reserve))
+      src <- if (mt %in% c("camera_rai", "camera_occ")) "camera" else "trap"
+      if (mt %in% c("camera_occ", "trap_occ")) {               # extent → which sites were occupied
+        m  <- tryCatch(ik_location_metric(ik_data, sp, stats::setNames(list(sci), taxon), src), error = function(e) NULL)
+        cc <- if (!is.null(m) && "individuals" %in% names(m)) "individuals" else "captures"
+        if (is.null(m) || !nrow(m)) { trend_occ_df(NULL); nocc <- 0L; tot <- 0L }
+        else {
+          m <- m[order(-m[[cc]]), , drop = FALSE]; nocc <- sum(m[[cc]] > 0, na.rm = TRUE); tot <- nrow(m)
+          trend_occ_df(data.frame(Site = m$name, Reserve = m$reserve, Line = ifelse(is.na(m$line), "—", m$line),
+            Records = as.integer(m[[cc]]), Occupied = ifelse(m[[cc]] > 0, "Yes", "—"),
+            check.names = FALSE, stringsAsFactors = FALSE))
+        }
+        showModal(modalDialog(
+          title = .ik_modal_title(sprintf("%s — %s occupancy · %s", taxon, src, per),
+            sprintf("%d of %d %s site%s occupied (%.0f%%) — every deployed site this season, busiest first.",
+                    nocc, tot, src, if (tot == 1) "" else "s", if (tot) 100 * nocc / tot else 0)),
+          size = "l", easyClose = TRUE, footer = modalButton("Close"),
+          DT::DTOutput(session$ns("trend_occ_table"))))
+      } else {                                                  # intensity → the records behind the point
+        o <- tryCatch(ik_metric_obs(ik_data, sp, stats::setNames(list(sci), taxon), taxon, source_type = src), error = function(e) NULL)
+        trend_rec_rows(if (is.null(o) || !nrow(o)) NULL else o[order(o$when, decreasing = TRUE), , drop = FALSE])
+        trend_open(sprintf("%s — %s · %s", taxon, if (src == "camera") "detections" else "catches", per),
+          sprintf("Every %s of %s in %s.", if (src == "camera") "detection" else "catch", taxon, per),
+          tagList("The records behind this point. ", tags$b("Click a row"), " for the full record."))
+      }
+    })
 
     # ---- Records (camera + trap combined) ----
     records <- reactive({
