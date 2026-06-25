@@ -28,7 +28,15 @@ ui <- page_navbar(
     tags$link(rel = "icon", href = "images/insightful-kiwi.logo.svg", type = "image/svg+xml"),
     tags$link(rel = "icon", href = "images/icons/favicon.png", type = "image/png", sizes = "32x32"),
     # full-screen sequence viewer for the observation Photos burst (delegated clicks → works in modals)
-    tags$script(src = .ik_asset("js/ovw-lightbox.js"))
+    tags$script(src = .ik_asset("js/ovw-lightbox.js")),
+    # When a tab is shown — including programmatically via nav_select (the Overview "Monitoring Detail
+    # →" link cards) — collapse any navbar dropdown left open, so jumping to a menu page doesn't leave
+    # its dropdown hanging open.
+    tags$script(HTML(paste(
+      "document.addEventListener('shown.bs.tab', function(){",
+      "document.querySelectorAll('.navbar .dropdown-menu.show, .navbar .nav-item.dropdown.show, .navbar .dropdown-toggle.show')",
+      ".forEach(function(e){ e.classList.remove('show'); e.setAttribute('aria-expanded','false'); }); });",
+      sep = "\n")))
   ),
 
   # Global sidebar — filters/controls for the active view.

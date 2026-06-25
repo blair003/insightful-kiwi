@@ -78,12 +78,12 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
   rt <- function(role) { l <- unique(sg$label[sg$role == role & !is.na(sg$monitor)])
     stats::setNames(lapply(l, function(x) sg$scientificName[sg$label == x & !is.na(sg$scientificName)]), l) }
   pred_taxa <- rt("predator"); prot_taxa <- rt("protected"); splits <- unique(sg$label[which(sg$split)])
-  gf <- function(t, w) paste0("grp:", if (w %in% names(t)) w else names(t)[1])
+  gf <- function(t) paste0("grp:", names(t)[1])   # default = highest-concern group (species_groups order)
   list(species = ik_species_choices_full(ik_data, prefer),
        predators = ik_species_choices(pred_taxa, ik_data, prefer, splits),
        protected = ik_species_choices(prot_taxa, ik_data, prefer, splits),
-       group_default = gf(groups, "Mustelids"), pred_default = gf(pred_taxa, "Mustelids"),
-       prot_default = gf(prot_taxa, "Kiwi"),
+       group_default = gf(groups), pred_default = gf(pred_taxa),
+       prot_default = gf(prot_taxa),
        pred_taxa = pred_taxa, prot_taxa = prot_taxa, groups = groups, splits = splits)
 }
 
@@ -196,7 +196,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     is_timing   <- reactive(src() == "camera" && measure() == "timing")
     has_pred <- reactive(length(input$predators) > 0)   # predator/protected pickers actually populated?
     has_prot <- reactive(length(input$protected) > 0)   # (unselecting all → empty state, not stale default)
-    # Composite = predator-role vs protected-role groups (split-aware), with Mustelids/Kiwi defaults.
+    # Composite = predator-role vs protected-role groups (split-aware); defaults = each role's
+    # highest-concern group (species_groups order).
     # Same picker defs the UI bakes in; the observe below only RELABELS on the name preference.
     pk <- .maps_picker_defs(ik_data)
     pred_taxa <- pk$pred_taxa; prot_taxa <- pk$prot_taxa; splits <- pk$splits
@@ -204,7 +205,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     if (is.null(fixed_species)) observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       # All three taxa pickers live in-panel (Species is a grouping choice, like Device/Measure).
       # Species offers the full set (groups, split per project flag, + every ungrouped species);
-      # predator/protected stay role-scoped. Defaults: Species/predator = Mustelids, protected = Kiwi.
+      # predator/protected stay role-scoped. Defaults: each picker's highest-concern group (config order).
       updateSelectInput(session, "species",   choices = ik_species_choices_full(ik_data, p),                 selected = keep(isolate(input$species), .group_default))
       updateSelectInput(session, "predators", choices = ik_species_choices(pred_taxa, ik_data, p, splits),    selected = keep(isolate(input$predators), .pred_default))
       updateSelectInput(session, "protected", choices = ik_species_choices(prot_taxa, ik_data, p, splits),    selected = keep(isolate(input$protected), .prot_default))

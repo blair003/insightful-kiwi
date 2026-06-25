@@ -134,7 +134,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
   opp_splits  <- if (.cooc_ok) unique(ik_species_groups(ik_data)$label[which(ik_species_groups(ik_data)$split)]) else character(0)
   opp_choices <- if (.cooc_ok) ik_species_choices(opp_taxa, ik_data, "vernacular", opp_splits) else NULL
   opp_default <- if (.cooc_ok && length(opp_taxa))
-    (if (identical(opp_role, "predator") && "Mustelids" %in% names(opp_taxa)) "grp:Mustelids" else paste0("grp:", names(opp_taxa)[1])) else NULL
+    paste0("grp:", names(opp_taxa)[1]) else NULL   # default opp = highest-concern group of that role (config order)
   .cooc_hint <- if (.cooc_ok) sprintf(
     "Time on camera between this %s and the nearest %s — at the same camera, or within a chosen radius. Shorter gaps mean they share ground close in time.",
     spec$role, opp_role) else ""
@@ -860,7 +860,7 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     opp_taxa    <- .opp_taxa(ik_data, opp_role)
     opp_splits  <- unique(ik_species_groups(ik_data)$label[which(ik_species_groups(ik_data)$split)])
     opp_default <- if (length(opp_taxa))
-      (if (identical(opp_role, "predator") && "Mustelids" %in% names(opp_taxa)) "grp:Mustelids" else paste0("grp:", names(opp_taxa)[1])) else NULL
+      paste0("grp:", names(opp_taxa)[1]) else NULL   # default opp = highest-concern group of that role (config order)
     if (!is.na(opp_role)) observe({ p <- prefer()       # relabel the opposing picker on name-preference change
       sel <- if (length(input$cooc_opp)) input$cooc_opp else opp_default
       updateSelectInput(session, "cooc_opp", choices = ik_species_choices(opp_taxa, ik_data, p, opp_splits), selected = sel)

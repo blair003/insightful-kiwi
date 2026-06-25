@@ -71,8 +71,8 @@ reserve_report_ui <- function(id, ik_data) {
   pred_taxa <- rt("predator"); prot_taxa <- rt("protected")
   pred_ch <- ik_species_choices(pred_taxa, ik_data, "vernacular", splits)
   prot_ch <- ik_species_choices(prot_taxa, ik_data, "vernacular", splits)
-  pred_def <- paste0("grp:", if ("Mustelids" %in% names(pred_taxa)) "Mustelids" else names(pred_taxa)[1])
-  prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_taxa)) "Kiwi" else names(prot_taxa)[1])
+  pred_def <- paste0("grp:", names(pred_taxa)[1])
+  prot_def <- paste0("grp:", names(prot_taxa)[1])
   res <- sort(unique(ik_data$app$geography$locations$reserve[!is.na(ik_data$app$geography$locations$reserve)]))
   nav_panel(
     "Reserve report", value = "reserve-report", icon = icon("layer-group"),

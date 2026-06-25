@@ -180,16 +180,16 @@
 .ik-card-unit  { font-size: 0.8rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
 .ik-card-na    { color: var(--bs-secondary-color, #adb5bd); }
 
-/* "See the full overview" link card — set apart from the species cards by a dashed border + a subtle
-   tinted background + the accent link. */
+/* "See the full overview" link card — set apart from the species cards by a dashed border + the accent
+   link (same background as the others). Its width is set by the (nowrap) link; the small lead wraps. */
 .ik-card-more {
   border-style: dashed; cursor: pointer;
-  background: var(--bs-tertiary-bg, #f6f7f8);
+  min-width: 0; width: min-content;
   display: flex; flex-direction: column; justify-content: center; gap: 0.25rem;
 }
 .ik-card-more:hover { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.08); }
 .ik-card-more-lead { font-size: 0.7rem; line-height: 1.25; color: var(--bs-secondary-color, #6c757d); }
-.ik-card-more-link { font-size: 0.9rem; font-weight: 600; color: var(--ik-accent, #cf6819); }
+.ik-card-more-link { font-size: 0.9rem; font-weight: 600; color: var(--ik-accent, #cf6819); white-space: nowrap; }
 .ik-card-more-link > svg, .ik-card-more-link > .fa { margin-left: 0.3rem; }
 
 /* Secondary "of interest" tier: denser cards beneath the protocol targets, set off only by the

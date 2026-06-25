@@ -3,8 +3,8 @@
 # bar → the detections behind it → the record viewer) plus a seasonal trend of the median gap
 # (rising = they're separating in time, e.g. trapping working). A deeper analysis than the
 # everyone-can-read "Are we winning?", so it sits on its own page under the Outcomes menu.
-# Camera-only; both sides selectable from species_groups roles (rats are everywhere → default
-# predator = Mustelids). Data from ik_predator_protected_gaps().
+# Camera-only; both sides selectable from species_groups roles, defaulting to the highest-concern
+# group of each role (species_groups order). Data from ik_predator_protected_gaps().
 
 GAP_BREAKS <- c(0, 1, 6, 24, 168, 720, Inf)                                  # hours
 GAP_LABELS <- c("< 1 h", "1–6 h", "6–24 h", "1–7 d", "1–4 wk", "> 1 mo")
@@ -26,7 +26,7 @@ cooccurrence_help_body <- function() {
       P("Two views: a ", tags$b("distribution"), " of those gaps (how often predator and protected are close ",
         "in time vs far apart) and a ", tags$b("seasonal trend"), " of the median gap. Click a distribution ",
         "bar to see the detections behind it, down to the record."),
-      P("Rats are nearly everywhere, so the default predator is ", tags$b("Mustelids"), " — switch to the ",
+      P("The default predator is your project's ", tags$b("highest-concern"), " one — switch to the ",
         "predator that matters to you.")),
     tabPanel(
       "Reading it", icon = icon("chart-column"),
@@ -179,8 +179,8 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       stats::setNames(lapply(l, function(x) sg$scientificName[sg$label == x & !is.na(sg$scientificName)]), l) }
     pred_taxa <- .role_taxa("predator"); prot_taxa <- .role_taxa("protected")
     splits <- unique(sg$label[which(sg$split)])
-    .pred_def <- paste0("grp:", if ("Mustelids" %in% names(pred_taxa)) "Mustelids" else names(pred_taxa)[1])
-    .prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_taxa)) "Kiwi" else names(prot_taxa)[1])
+    .pred_def <- paste0("grp:", names(pred_taxa)[1])
+    .prot_def <- paste0("grp:", names(prot_taxa)[1])
     .fmt_gap <- function(h) if (h < 1) sprintf("%d min", round(h * 60)) else
       if (h < 48) sprintf("%.1f h", h) else sprintf("%.1f d", h / 24)
     radius_m <- reactive(as.numeric(input$radius %||% 0))

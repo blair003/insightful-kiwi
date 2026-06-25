@@ -90,9 +90,8 @@ duplicates_server <- function(id, ik_data, color_mode = reactive("light")) {
       req(gaps)
       dup_by_cam <- tapply(gaps$gap, gaps$camera, function(g) sum(g <= 30, na.rm = TRUE))
       updateSelectInput(session, "camera",  choices = names(sort(dup_by_cam, decreasing = TRUE)))  # worst first
-      spp <- names(sort(table(gaps$species), decreasing = TRUE))
-      updateSelectInput(session, "species", choices = spp,
-                        selected = if ("Weka" %in% spp) "Weka" else spp[1])
+      spp <- names(sort(table(gaps$species), decreasing = TRUE))   # most possible-duplicates first
+      updateSelectInput(session, "species", choices = spp, selected = spp[1])
     })
 
     output$intro <- renderUI({

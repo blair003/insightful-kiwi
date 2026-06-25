@@ -195,8 +195,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     pred_taxa <- .role_taxa("predator"); prot_taxa <- .role_taxa("protected")
     splits <- unique(sg$label[which(sg$split)])
     prefer <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
-    .pred_def <- paste0("grp:", if ("Mustelids" %in% names(pred_taxa)) "Mustelids" else names(pred_taxa)[1])
-    .prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_taxa)) "Kiwi" else names(prot_taxa)[1])
+    .pred_def <- paste0("grp:", names(pred_taxa)[1])
+    .prot_def <- paste0("grp:", names(prot_taxa)[1])
     per_cam   <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500    # per-camera (map markers)
     line_norm <- (ik_data$meta$camera$rai %||% list())$norm_hours   %||% 2000   # per-line (gaps table header)
 

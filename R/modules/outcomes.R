@@ -3,10 +3,24 @@
 # (want DOWN), kiwi camera RAI (want UP). Network level (mean over reserves ± SE). Data from
 # ik_outcome_series(); plotted as ggplot2 small multiples.
 
-# Thematic palette: predators warm, kiwi green.
-OUTCOME_PALETTE <- c(Mustelids = "#c62828", Rats = "#ef6c00", Cats = "#8e24aa",
-                     Dogs = "#6d4c41", Hedgehogs = "#5d4037", Possums = "#795548",
-                     Kiwi = "#2e7d32")
+# Chart colours by ROLE / sentiment — no hard-coded species. Protected → greens, predators → warm,
+# anything else → neutral; distinct within each family, assigned in the series' concern order (so the
+# top predator leads with the strongest colour). `.outcome_palette(keys, roles)` → a label→colour map.
+.OUTCOME_FAMILY <- list(
+  protected = c("#2e7d32", "#1b5e20", "#43a047", "#00897b", "#558b2f", "#66bb6a"),
+  predator  = c("#c62828", "#ef6c00", "#8e24aa", "#6d4c41", "#ad1457", "#d84315", "#795548"),
+  other     = c("#4a7fb5", "#5c6bc0", "#6c757d", "#0097a7"))
+.outcome_palette <- function(keys, roles) {
+  out  <- stats::setNames(character(length(keys)), keys); done <- logical(length(keys))
+  for (r in c("protected", "predator", "other")) {
+    sel <- !is.na(roles) & roles == r; if (!any(sel)) next
+    cols <- .OUTCOME_FAMILY[[r]]; out[keys[sel]] <- cols[((seq_len(sum(sel)) - 1) %% length(cols)) + 1]
+    done <- done | sel
+  }
+  if (any(!done)) { cols <- .OUTCOME_FAMILY$other                    # unknown/NA role → neutral family
+    out[keys[!done]] <- cols[((seq_len(sum(!done)) - 1) %% length(cols)) + 1] }
+  out
+}
 
 #' Stacked-panel titles. `norm` (trap-nights normalisation, from project config) is woven into the
 #' catches title so it never disagrees with the actual rate. @keywords internal
@@ -32,7 +46,7 @@ outcomes_help_body <- function(norm_trap = 100, norm_hours = 2000) {
         tags$li(tags$b("Predators on camera"), " — should ", tags$b("fall"), " as trapping bites (want ↓)."),
         tags$li(tags$b("Protected on camera"), " — should ", tags$b("rise"), " as predators thin (want ↑).")),
       P("Read it top→bottom: effort in, predators down, protected up. Pick which predators and protected ",
-        "species to chart up top (the default is the core Mustelids-vs-Kiwi story).")),
+        "species to chart up top (the default is your highest-concern predator vs protected).")),
     tabPanel(
       "Reading it", icon = icon("chart-line"),
       P(tags$br(), "“Winning” looks like ", tags$b("catches sustained"), ", then ", tags$b("predator activity "),
@@ -96,7 +110,7 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
       bindCache("outcome_series", rsv(), ik_active_datasets())   # once per (reserve, active datasets), across sessions
 
     # Predator / Protected pickers — same unified grouped control as the Map (group whole or split
-    # into sub-species per the project `split` flag). Default to the core Mustelids-vs-Kiwi story so
+    # into sub-species per the project `split` flag). Default to the highest-concern predator vs protected so
     # the chart reads cleanly (rats otherwise dominate the predator scale); the rest are opt-in.
     sg     <- ik_species_groups(ik_data)
     otx    <- ik_outcome_taxa(ik_data)                          # superset label->sci (for the drill)
@@ -104,8 +118,8 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
     .role_groups <- function(role) { s <- sg[sg$role == role & !is.na(sg$monitor), , drop = FALSE]
       s <- s[order(s$priority), , drop = FALSE]; split(s$scientificName, factor(s$label, levels = unique(s$label))) }
     pred_groups <- .role_groups("predator"); prot_groups <- .role_groups("protected")
-    .pred_def <- paste0("grp:", if ("Mustelids" %in% names(pred_groups)) "Mustelids" else names(pred_groups)[1])
-    .prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_groups)) "Kiwi" else names(prot_groups)[1])
+    .pred_def <- paste0("grp:", names(pred_groups)[1])
+    .prot_def <- paste0("grp:", names(prot_groups)[1])
     observe({ p <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       updateSelectInput(session, "predators", choices = ik_species_choices(pred_groups, ik_data, p, splits), selected = keep(isolate(input$predators), .pred_def))
@@ -149,10 +163,9 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
                         levels = OP)
       s$season <- factor(s$season, levels = unique(s$season[order(s$season_order)]))
       plotted(s)
-      keys <- unique(s$taxon)                                   # known groups keep their semantic colour; sub-species get a generated one
-      pal  <- OUTCOME_PALETTE[intersect(names(OUTCOME_PALETTE), keys)]
-      miss <- setdiff(keys, names(pal))
-      if (length(miss)) pal <- c(pal, stats::setNames(scales::hue_pal()(length(miss)), miss))
+      keys  <- unique(s$taxon)                                  # in concern order (series sorts by priority)
+      roles <- s$role[match(keys, s$taxon)]                     # colour by role/sentiment — no hard-coded species
+      pal   <- .outcome_palette(keys, roles)
 
       ggplot(s, aes(.data$season, .data$value, colour = .data$taxon,
                     fill = .data$taxon, group = .data$taxon)) +
