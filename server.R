@@ -87,7 +87,7 @@ server <- function(input, output, session) {
 
   # Outcomes — "are we winning?" seasonal trend + bait effectiveness (bait Period from the sidebar).
   cm <- reactive(input$color_mode)                       # navbar dark/light → themed plots
-  outcomes_server("outcomes", ik_data, prefer_scientific, color_mode = cm)
+  outcomes_server("overview_trends", ik_data, prefer_scientific, color_mode = cm)   # Overview → Trends tab
   cooccurrence_server("cooccurrence", ik_data, prefer_scientific, color_mode = cm)
   neighbourhood_server("neighbourhood", ik_data, prefer_scientific, color_mode = cm)
   reserve_report_server("reserve_report", ik_data, prefer_scientific, color_mode = cm)

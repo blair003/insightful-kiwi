@@ -39,6 +39,14 @@ ik_dataset_source_types <- function(datasets)
 ik_has_source_type <- function(ik_data, source_type)
   any(ik_dataset_source_types(ik_data$datasets) == source_type, na.rm = TRUE)
 
+#' Is a project FEATURE enabled? Reads `meta$features[[key]]` from project.R, defaulting to TRUE
+#' (an omitted flag = on), so the config block is optional and existing instances are unchanged.
+#' This is the project-level WANT gate; pair it with the data-capability gate (ik_has_*), e.g.
+#' `.has_trappers && ik_feature_enabled(ik_data, "top_trappers")` — a feature shows only when the
+#' data can feed it AND the project wants it. @keywords internal
+ik_feature_enabled <- function(ik_data, key, default = TRUE)
+  isTRUE((ik_data$meta$features %||% list())[[key]] %||% default)
+
 #' The canonical locations table SCOPED to the active datasets — use this (not the raw
 #' `ik_data$app$geography$locations`) anywhere a view ENUMERATES places (reserve/line/location
 #' choices, boundary hulls, density, the project header), so a hidden dataset's reserves/lines/sites

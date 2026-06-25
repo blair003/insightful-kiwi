@@ -19,7 +19,8 @@ load_project_config <- function(config) {
                    overview = list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
                                    default_compare = "none", default_period = "latest_complete"),
                    proximity = list(max_radius_m = 2000),
-                   media    = list(keep_originals = TRUE))
+                   media    = list(keep_originals = TRUE),
+                   features = list())   # per-feature on/off (omitted = on); see ik_feature_enabled()
   if (!file.exists(path)) return(defaults)
   e <- new.env()
   sys.source(path, envir = e)
@@ -35,7 +36,10 @@ load_project_config <- function(config) {
     proximity        = utils::modifyList(defaults$proximity,
                                          get0("proximity", envir = e, ifnotfound = list())),
     media            = utils::modifyList(defaults$media,
-                                         get0("media", envir = e, ifnotfound = list()))
+                                         get0("media", envir = e, ifnotfound = list())),
+    # feature flags: a flat name = TRUE/FALSE list; absent or TRUE = shown (subject to data capability)
+    features         = utils::modifyList(defaults$features,
+                                         get0("features", envir = e, ifnotfound = list()))
   )
 }
 

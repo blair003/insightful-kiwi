@@ -41,6 +41,7 @@ build_ik_data <- function(config, manifest = load_manifest(config),
                                               default_compare = "none", default_period = "latest_complete"),
       proximity  = project$proximity %||% list(max_radius_m = 2000),   # neighbourhood radius (app$proximity)
       media      = project$media    %||% list(keep_originals = TRUE),
+      features   = project$features %||% list(),   # per-feature on/off (omitted = on); see ik_feature_enabled()
       duplicate_window = project$duplicate_window %||% list(default = 5, by_species = list())  # shown on the species Summary
     )
   )

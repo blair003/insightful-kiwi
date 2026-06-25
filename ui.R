@@ -45,7 +45,6 @@ ui <- page_navbar(
     conditionalPanel("input.nav === 'trapping-overview'",
                      selection_ui("trapping_overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
-    conditionalPanel("input.nav === 'outcomes'", tags$small("All seasons · network mean across reserves.")),
     conditionalPanel("input.nav === 'bait'",
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
                                   period_default = .bait_period_def)),
@@ -97,7 +96,9 @@ ui <- page_navbar(
   # Centre the menu: equal flexible space on both sides of the nav.
   nav_spacer(),
 
-  overview_ui("overview", compact = TRUE),   # main page: slim cross-device headline (full detail moved to the device menus)
+  # Main page: slim cross-device headline (Snapshot) + the "are we winning?" seasonal graphs as a
+  # second Trends tab (suspended until opened, so the heavy outcome-series never hits the landing).
+  overview_ui("overview", compact = TRUE, trends = outcomes_panel_body("overview_trends")),
 
   # Menus are organised by DEVICE — Monitoring (camera/observation) and "Trapping" (predator CONTROL:
   # trapping today, poison/etc. later — friendly label now, conceptually Control). Each shown only when
@@ -105,13 +106,14 @@ ui <- page_navbar(
   if (.has_camera) nav_menu(
     "Monitoring", icon = icon("binoculars"),
     overview_ui("monitoring_overview", sections = "camera", label = "Overview", value = "monitoring-overview"),
-    if (.has_favourites) highlights_ui("highlights", ik_data),   # friendly visual entry point
+    if (.has_favourites && ik_feature_enabled(ik_data, "highlights")) highlights_ui("highlights", ik_data),   # friendly visual entry point
     maps_ui("monitoring_map", device = "camera", label = "Map", value = "monitoring-map", ik_data = ik_data),
     nav_panel("Camera review", value = "camera-review", icon = icon("camera"),
               monitoring_ui("monitoring")),
-    cooccurrence_ui("cooccurrence"),                       # predator ↔ protected timing (camera)
-    nav_panel("Duplicate window", value = "duplicates", icon = icon("clone"),
-              duplicates_ui("duplicates")),
+    if (ik_feature_enabled(ik_data, "cooccurrence")) cooccurrence_ui("cooccurrence"),   # predator ↔ protected timing (camera)
+    if (ik_feature_enabled(ik_data, "duplicates"))
+      nav_panel("Duplicate window", value = "duplicates", icon = icon("clone"),
+                duplicates_ui("duplicates")),
     records_ui("mon_records", label = "Records", value = "monitoring-records")
   ),
   if (.has_trap) nav_menu(
@@ -120,29 +122,30 @@ ui <- page_navbar(
     maps_ui("trapping_map", device = "trap", label = "Map", value = "trapping-map", ik_data = ik_data),
     nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"),
               trapping_ui("trapping", ik_data)),
-    bait_ui("bait", ik_data),                              # bait effectiveness (trap)
-    trapping_effectiveness_ui("trapping_eff", ik_data),    # catch rate vs cadence, by season
-    trap_hero_ui("trap_hero", ik_data),                    # best-performing traps on a map
-    if (.has_trappers) top_trappers_ui("top_trappers", ik_data),   # gamified per-season volunteer leaderboard
+    if (ik_feature_enabled(ik_data, "bait")) bait_ui("bait", ik_data),   # bait effectiveness (trap)
+    if (ik_feature_enabled(ik_data, "trapping_effectiveness")) trapping_effectiveness_ui("trapping_eff", ik_data),   # catch rate vs cadence, by season
+    if (ik_feature_enabled(ik_data, "top_traps")) trap_hero_ui("trap_hero", ik_data),   # best-performing traps on a map
+    if (.has_trappers && ik_feature_enabled(ik_data, "top_trappers")) top_trappers_ui("top_trappers", ik_data),   # gamified per-season volunteer leaderboard
     records_ui("control_records", label = "Records", value = "trapping-records")
   ),
 
   # Species — one dashboard page per species GROUP (+ split sub-species), generated from the data.
-  do.call(nav_menu, c(
+  if (ik_feature_enabled(ik_data, "species_pages")) do.call(nav_menu, c(
     list("Species", icon = icon("paw")),
     lapply(.species_specs, function(s) species_dashboard_ui(gsub("-", "_", s$key), s, ik_data)))),
 
-  # Insights — cross-device synthesis, or features that work on whichever data you have.
+  # Insights — cross-device synthesis, or features that work on whichever data you have. ("Are we
+  # winning?" moved to the Overview page's Trends tab; Reserve report is the deeper over-time chain.)
   nav_menu(
     "Insights", icon = icon("chart-line"),
-    outcomes_ui("outcomes"),                              # "Are we winning?" — the snapshot
-    if (.has_camera && .has_trap) reserve_report_ui("reserve_report", ik_data),   # the over-time chain (cross-device)
+    if (.has_camera && .has_trap && ik_feature_enabled(ik_data, "reserve_report"))
+      reserve_report_ui("reserve_report", ik_data),       # the over-time chain (cross-device)
     "Deeper analysis",                                    # section header within the dropdown
     # Neighbourhood is camera-ANCHORED (pick a camera site/line/reserve) — useless without camera
     # data, so hide it then, the same way the Monitoring menu auto-hides. Coverage still degrades
     # gracefully on trap-only data, so it stays.
-    if (.has_camera) neighbourhood_ui("neighbourhood", ik_data),
-    coverage_ui("coverage", ik_data)
+    if (.has_camera && ik_feature_enabled(ik_data, "neighbourhood")) neighbourhood_ui("neighbourhood", ik_data),
+    if (ik_feature_enabled(ik_data, "coverage")) coverage_ui("coverage", ik_data)
   ),
 
   nav_spacer(),

@@ -100,21 +100,31 @@ overview_trap_help_body <- function(norm = 100) {
 #' @param compact When TRUE, render the slim cross-device HEADLINE (one panel: Detections/Catches +
 #'   Species boxes + target-species cards) instead of the full sections — the main Overview page. The
 #'   full effort/by-reserve/other-species detail now lives on each device's own Overview page.
+#' @param trends Optional content (the outcomes "are we winning?" body) — when given, the page becomes
+#'   a tabset: Snapshot (the headline) + Trends (the seasonal graphs). The Trends tab is suspended
+#'   until opened, so the heavy outcome-series compute never touches the landing render.
 overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
-                        label = "Overview", value = "overview") {
+                        label = "Overview", value = "overview", trends = NULL) {
   ns <- NS(id)
+  body <- div(
+    class = "ik-overview",
+    uiOutput(ns("header")),
+    if (isTRUE(compact)) uiOutput(ns("compact"))
+    else tagList(
+      if ("camera" %in% sections) uiOutput(ns("camera")),
+      if ("trap"   %in% sections) uiOutput(ns("trapping"))
+    )
+  )
+  inner <- if (!is.null(trends))
+    tabsetPanel(
+      id = ns("ov_tabs"), type = "tabs",
+      tabPanel("Snapshot", icon = icon("gauge"),      body),
+      tabPanel("Trends",   icon = icon("chart-line"), trends))
+  else body
   nav_panel(
     label, value = value, icon = icon("gauge"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/overview.css")),
-    div(
-      class = "ik-overview",
-      uiOutput(ns("header")),
-      if (isTRUE(compact)) uiOutput(ns("compact"))
-      else tagList(
-        if ("camera" %in% sections) uiOutput(ns("camera")),
-        if ("trap"   %in% sections) uiOutput(ns("trapping"))
-      )
-    )
+    inner
   )
 }
 

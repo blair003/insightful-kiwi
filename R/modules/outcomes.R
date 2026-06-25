@@ -60,11 +60,12 @@ outcomes_help_body <- function(norm_trap = 100, norm_hours = 2000) {
   )
 }
 
-#' Outcomes nav panel UI. @param id Module id.
-outcomes_ui <- function(id) {
+#' The outcomes content (intro + predator/protected pickers + the seasonal plot) — split out of
+#' outcomes_ui so it can be embedded as the "Trends" TAB on the Overview page (the are-we-winning
+#' view) as well as stand alone. @keywords internal
+outcomes_panel_body <- function(id) {
   ns <- NS(id)
-  nav_panel(
-    "Are we winning?", value = "outcomes", icon = icon("chart-line"),
+  tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/outcomes.css")),
     div(class = "ik-outcomes",
         uiOutput(ns("intro")),
@@ -73,6 +74,13 @@ outcomes_ui <- function(id) {
             selectInput(ns("protected"), "Protected", choices = NULL, multiple = TRUE, width = "240px")),
         plotOutput(ns("plot"), height = "660px", click = ns("plot_click")))
   )
+}
+
+#' Outcomes nav panel UI (standalone). @param id Module id.
+outcomes_ui <- function(id) {
+  nav_panel(
+    "Are we winning?", value = "outcomes", icon = icon("chart-line"),
+    outcomes_panel_body(id))
 }
 
 #' Outcomes server. @param id Module id. @param ik_data The ik_data container.
