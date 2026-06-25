@@ -92,6 +92,78 @@ cooccurrence_ui <- function(id) {
   )
 }
 
+#' Wire the co-occurrence "click a bar → co-detections" drill, SHARED by the standalone Co-occurrence
+#' page and each Species page's Co-occurrence tab so they behave identically: a 2-tab modal
+#' (Detections → Record details) whose Detections table links BOTH species — protected AND predator —
+#' separately to their own record, shows the gap WITH direction (predator earlier / later / same time),
+#' and — in a proximity (Within radius) view — which camera the predator was at and how far. Registers
+#' its outputs/observers once on the module; returns an opener `function(rows, title, subtitle)` to
+#' call from the bar-click handler. `rows` is the ik_predator_protected_gaps() subset for the clicked
+#' bucket (always protected-anchored: observationID/when = protected, pred_id/pred_when = predator).
+#' @param prefer reactive name-preference. @param radius_m reactive metres (drives the proximity cols).
+#' @keywords internal
+ik_cooc_drill <- function(input, output, session, ik_data, prefer, radius_m = reactive(0)) {
+  locs    <- ik_data$app$geography$locations
+  rows_rv <- reactiveVal(NULL)
+  rec_obs <- reactiveVal(NULL)
+  .fmt_gap <- function(h) if (h < 1) sprintf("%d min", round(h * 60)) else
+    if (h < 48) sprintf("%.1f h", h) else sprintf("%.1f d", h / 24)
+  .fmt_m   <- function(m) if (is.na(m)) "—" else if (m >= 1000) sprintf("%.1f km", m / 1000) else sprintf("%.0f m", m)
+
+  output$cooc_bucket_table <- DT::renderDT({
+    rows <- rows_rv(); validate(need(!is.null(rows) && nrow(rows), "No detections."))
+    .lnk <- function(label, id) sprintf(                              # species cell → open that record
+      "<a class='ik-link' onclick=\"Shiny.setInputValue('%s',{id:'%s'},{priority:'event'})\">%s</a>",
+      session$ns("cooc_view_obs"), id, htmltools::htmlEscape(label))
+    dir <- ifelse(rows$signed_h > 0, "later", ifelse(rows$signed_h < 0, "earlier", "same time"))
+    df <- data.frame(
+      Camera = locs$name[match(rows$location_id, locs$location_id)],
+      Protected = mapply(.lnk, ik_species_label(rows$scientificName, ik_data, prefer()), rows$observationID),
+      `Protected seen` = format(rows$when, "%d %b %Y · %H:%M"),
+      Predator = mapply(.lnk, ik_species_label(rows$pred_sci, ik_data, prefer()), rows$pred_id),
+      `Predator seen` = format(rows$pred_when, "%d %b %Y · %H:%M"),
+      check.names = FALSE, stringsAsFactors = FALSE)
+    if (isTRUE(radius_m() > 0) && "pred_dist_m" %in% names(rows)) {    # proximity view: where the predator was
+      df$`Predator camera` <- locs$name[match(rows$pred_loc, locs$location_id)]
+      df$Apart <- ifelse(rows$pred_dist_m <= 0, "same camera", vapply(rows$pred_dist_m, .fmt_m, character(1)))
+    }
+    df$Gap <- paste0("predator ", vapply(rows$gap_h, .fmt_gap, character(1)), " ", dir)
+    esc <- -which(names(df) %in% c("Protected", "Predator"))         # leave the link cells un-escaped
+    DT::datatable(df, rownames = FALSE, selection = "none", escape = esc,
+      class = "stripe hover row-border",
+      options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE))
+  })
+
+  # Click either species → load it in the Record-details tab and switch (no nested modal, so the
+  # Detections list is still there to come back to).
+  observeEvent(input$cooc_view_obs, {
+    id <- input$cooc_view_obs$id
+    if (length(id) && nzchar(id)) {
+      rec_obs(id); showTab(session = session, inputId = "cooc_tabs", target = "Record details", select = TRUE)
+    }
+  })
+  observeEvent(input$cooc_tab_back, updateTabsetPanel(session, input$cooc_tab_back$tabset, selected = input$cooc_tab_back$to))
+
+  output$cooc_record <- renderUI({
+    if (is.null(rec_obs()))
+      return(tags$p(class = "ik-cooc-lead", "Click a species in the Detections tab to see its record here."))
+    ob <- ik_observation(ik_data, rec_obs()); if (is.null(ob)) return(tags$p("Record not found."))
+    tagList(.ik_tab_back(session$ns("cooc_tab_back"), "cooc_tabs", "Detections", "Back to detections"),
+            .ovw_title(ik_data, ob, prefer()),
+            .ovw_tabs(ik_data, ob, prefer(), tabset_id = session$ns("cooc_rec_subtabs")))
+  })
+
+  function(rows, title, subtitle = NULL) {
+    rows_rv(rows[order(rows$gap_h), , drop = FALSE]); rec_obs(NULL)
+    showModal(modalDialog(
+      title = .ik_modal_title(title, subtitle), size = "l", easyClose = TRUE, footer = modalButton("Close"),
+      tabsetPanel(id = session$ns("cooc_tabs"),
+        tabPanel("Detections",     icon = icon("list"),        DT::dataTableOutput(session$ns("cooc_bucket_table"))),
+        tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("cooc_record"))))))
+    hideTab(session = session, inputId = "cooc_tabs", target = "Record details")   # appears on first drill
+  }
+}
+
 #' Co-occurrence server.
 #' @param id Module id. @param ik_data The container.
 #' @param prefer_scientific reactive name preference (for the record viewer).
@@ -108,19 +180,16 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     .prot_def <- paste0("grp:", if ("Kiwi" %in% names(prot_taxa)) "Kiwi" else names(prot_taxa)[1])
     .fmt_gap <- function(h) if (h < 1) sprintf("%d min", round(h * 60)) else
       if (h < 48) sprintf("%.1f h", h) else sprintf("%.1f d", h / 24)
-    .fmt_m   <- function(m) if (is.na(m)) "—" else if (m >= 1000) sprintf("%.1f km", m / 1000) else sprintf("%.0f m", m)
     radius_m <- reactive(as.numeric(input$radius %||% 0))
     prox     <- reactive({ r <- radius_m()                      # the "where" phrase, woven into the copy
       if (r <= 0) "at the same camera" else sprintf("within %s", if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r)) })
-    locs <- ik_data$app$geography$locations
-    bucket_rows <- reactiveVal(NULL)                                          # detections behind a clicked bar
-    rec_obs     <- reactiveVal(NULL)                                          # the record open in the Details tab
     prefer      <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
     # split-aware grouped pickers (group whole, or sub-species per the project flag) — same as the Map.
     observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       updateSelectInput(session, "pred", choices = ik_species_choices(pred_taxa, ik_data, p, splits), selected = keep(isolate(input$pred), .pred_def))
       updateSelectInput(session, "prot", choices = ik_species_choices(prot_taxa, ik_data, p, splits), selected = keep(isolate(input$prot), .prot_def))
     })
+    cooc_open <- ik_cooc_drill(input, output, session, ik_data, prefer, radius_m = radius_m)   # the shared drill
 
     gaps <- reactive({
       preds <- input$pred; if (!length(preds)) preds <- .pred_def
@@ -179,67 +248,19 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
         theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.grid.minor = element_blank())
     }, bg = "transparent")
 
-    # Click a distribution bar → a two-tab modal: the bucket's detections, and a Record-details tab
-    # the species links open into (with a back link) — so you never lose your place in the list.
+    # Click a distribution bar → the shared co-occurrence drill (the bucket's co-detections, each with
+    # both species linked to their record + the gap direction). See ik_cooc_drill().
     observeEvent(input$dist_click, {
       g <- gaps(); cl <- input$dist_click; if (is.null(g) || is.null(cl$x)) return()
       xi <- round(cl$x); if (xi < 1 || xi > length(GAP_LABELS)) return()
       bk <- GAP_LABELS[xi]; rows <- g[as.character(g$bucket) == bk, , drop = FALSE]
       if (!nrow(rows)) return()
-      bucket_rows(rows[order(rows$gap_h), , drop = FALSE]); rec_obs(NULL)
-      showModal(modalDialog(
-        title = .ik_modal_title(sprintf("Detections %s from a predator", bk),
-          sprintf("%s %s detection%s paired with the nearest predator — click either species for its record",
-                  format(nrow(rows), big.mark = ","),
-                  paste(ik_choice_labels(input$prot %||% .prot_def, ik_data, prefer()), collapse = " + "), if (nrow(rows) == 1) "" else "s")),
-        size = "l", easyClose = TRUE, footer = modalButton("Close"),
-        tabsetPanel(id = session$ns("cooc_tabs"),
-          tabPanel("Detections",     icon = icon("list"),        DT::dataTableOutput(session$ns("bucket_table"))),
-          tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("cooc_record"))))))
-      hideTab(session = session, inputId = "cooc_tabs", target = "Record details")   # appears on first drill
-    })
-
-    output$bucket_table <- DT::renderDT({
-      rows <- bucket_rows(); validate(need(!is.null(rows) && nrow(rows), "No detections."))
-      .lnk <- function(label, id) sprintf(                              # species cell → open that record
-        "<a class='ik-link' onclick=\"Shiny.setInputValue('%s',{id:'%s'},{priority:'event'})\">%s</a>",
-        session$ns("view_obs"), id, htmltools::htmlEscape(label))
-      dir <- ifelse(rows$signed_h > 0, "later", ifelse(rows$signed_h < 0, "earlier", "same time"))
-      df <- data.frame(
-        Camera = locs$name[match(rows$location_id, locs$location_id)],
-        Protected = mapply(.lnk, ik_species_label(rows$scientificName, ik_data, prefer()), rows$observationID),
-        `Protected seen` = format(rows$when, "%d %b %Y · %H:%M"),
-        Predator = mapply(.lnk, ik_species_label(rows$pred_sci, ik_data, prefer()), rows$pred_id),
-        `Predator seen` = format(rows$pred_when, "%d %b %Y · %H:%M"),
-        check.names = FALSE, stringsAsFactors = FALSE)
-      if (isTRUE(radius_m() > 0) && "pred_dist_m" %in% names(rows)) {    # proximity view: where the predator was
-        df$`Predator camera` <- locs$name[match(rows$pred_loc, locs$location_id)]
-        df$Apart <- ifelse(rows$pred_dist_m <= 0, "same camera", vapply(rows$pred_dist_m, .fmt_m, character(1)))
-      }
-      df$Gap <- paste0("predator ", vapply(rows$gap_h, .fmt_gap, character(1)), " ", dir)
-      esc <- -which(names(df) %in% c("Protected", "Predator"))         # leave the link cells un-escaped
-      DT::datatable(df, rownames = FALSE, selection = "none", escape = esc,
-        class = "stripe hover row-border",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE))
-    })
-
-    # Click either species → load it in the Record-details tab and switch to it (no nested modal,
-    # so the Detections list is still there to come back to).
-    observeEvent(input$view_obs, {
-      id <- input$view_obs$id
-      if (length(id) && nzchar(id)) {
-        rec_obs(id); showTab(session = session, inputId = "cooc_tabs", target = "Record details", select = TRUE)
-      }
-    })
-    observeEvent(input$tab_back, updateTabsetPanel(session, input$tab_back$tabset, selected = input$tab_back$to))
-
-    output$cooc_record <- renderUI({
-      if (is.null(rec_obs()))
-        return(tags$p(class = "ik-cooc-lead", "Click a species in the Detections tab to see its record here."))
-      ob <- ik_observation(ik_data, rec_obs()); if (is.null(ob)) return(tags$p("Record not found."))
-      tagList(.ik_tab_back(session$ns("tab_back"), "cooc_tabs", "Detections", "Back to detections"),
-              .ovw_title(ik_data, ob, prefer()),
-              .ovw_tabs(ik_data, ob, prefer(), tabset_id = session$ns("cooc_rec_subtabs")))
+      cooc_open(rows,
+        sprintf("Detections %s from a predator", bk),
+        sprintf("%s %s detection%s paired with the nearest predator — click either species for its record",
+                format(nrow(rows), big.mark = ","),
+                paste(ik_choice_labels(input$prot %||% .prot_def, ik_data, prefer()), collapse = " + "),
+                if (nrow(rows) == 1) "" else "s"))
     })
   })
 }

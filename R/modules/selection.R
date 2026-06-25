@@ -23,7 +23,7 @@ nat_sort <- function(x) {
 #'   The other axes' choices are still populated server-side. If `NULL`, Period renders empty.
 #' @return A tagList of controls.
 selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL, device_default = NULL,
-                         period_show_js = NULL, period_note = NULL) {
+                         period_show_js = NULL, period_note = NULL, device_show_js = NULL) {
   ns <- NS(id)
   dev_choices <- if (!is.null(ik_data))                         # device = source_type; baked here so the
     stats::setNames(sort(unique(vapply(ik_data$datasets,        # default survives while the sidebar panel
@@ -63,6 +63,10 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
       conditionalPanel(paste0("!(", period_show_js, ")"), tags$div(class = "ik-period-note", period_note)) else NULL
     ctrls$period <- tagList(conditionalPanel(period_show_js, ctrls$period), note)
   }
+  # Same trick for Device: gate it on a top-level JS condition (e.g. show only on a Records tab where
+  # the camera/trap split is meaningful). Baked choices survive while the conditionalPanel is hidden.
+  if (!is.null(device_show_js) && !is.null(ctrls$device))
+    ctrls$device <- conditionalPanel(device_show_js, ctrls$device)
   # default shows the six axis controls; `compare` and `net` are opt-in (request via `show`).
   ctrls <- ctrls[show %||% c("period", "reserve", "line", "location", "device", "species")]
   tagList(

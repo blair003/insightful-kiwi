@@ -81,12 +81,14 @@ ui <- page_navbar(
     # defaults to All data so every tab starts on the same footing; Summary & Trend always span all
     # data (Period hidden, a note in its place), the rest honour whatever Period the user sets.
     conditionalPanel("input.nav && (input.nav.indexOf('grp-') === 0 || input.nav.indexOf('sp-') === 0)",
-                     selection_ui("species_selection", show = c("period", "reserve"), ik_data = ik_data,
+                     selection_ui("species_selection", show = c("period", "reserve", "device"), ik_data = ik_data,
                                   period_default = "all",
                                   period_show_js = "input.ik_species_tab !== 'Trend' && input.ik_species_tab !== 'Summary'",
                                   period_note = tagList(
                                     tags$span(class = "ik-period-note-h", "Period · All data"),
-                                    "Summary & Trend always span all data — set a Period from the Map tab on."))),
+                                    "Summary & Trend always span all data — set a Period from the Map tab on."),
+                                  # Device (camera/trap) split only matters for the Records list, so show it just there.
+                                  device_show_js = "input.ik_species_tab === 'Records'")),
     tags$div(class = "ik-sidebar-foot",
              tags$em("Insightful Kiwi"), tags$br(),
              tags$a(href = "mailto:blair@aketechnology.co.nz?subject=Insightful%20Kiwi%20Query",
