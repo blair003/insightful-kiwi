@@ -5,12 +5,14 @@
 # TROPHIES and threshold BADGES so most active trappers earn something. One completed season at a time
 # (a single season spreads the trophies far better than an all-time tally). By volunteer ID for now.
 
-# Default catch weights by scientificName — stoat first; bycatch (birds, Animalia) weight 0. Override
-# in project.R as `trapping$target_weights` (flows to meta$trapping$target_weights at build).
+# Default catch weights by scientificName — bycatch (birds, Animalia) weight 0. Ordering = the WKT
+# concern ranking: Stoat/Ferret > Weasel > Cat > Rats/Possums > Hedgehog > Mouse > Rabbit (ambiguous
+# "Mustelidae" scores as a weasel — the lowest mustelid, conservative). Override per project in
+# project.R as `trapping$target_weights`. See the wkt-species-priority memory + docs/dev/wkt-notes.md.
 IK_DEFAULT_TRAP_WEIGHTS <- c(
   "Mustela erminea" = 6, "Mustela putorius furo" = 5, "Mustela nivalis" = 4, "Mustelidae" = 4,
-  "Felis catus" = 4, "Trichosurus vulpecula" = 3, "Erinaceus europaeus" = 2,
-  "Rattus" = 1, "Oryctolagus cuniculus" = 1, "Mus musculus" = 0.5)
+  "Felis catus" = 3, "Rattus" = 2, "Trichosurus vulpecula" = 2, "Erinaceus europaeus" = 1.5,
+  "Mus musculus" = 1, "Oryctolagus cuniculus" = 0.5)
 .TT_MUSTELIDS <- c("Mustela erminea", "Mustela nivalis", "Mustela putorius furo", "Mustelidae")
 
 #' Cheap check: does any trap data carry volunteer tags? (For conditionally showing the nav.)
