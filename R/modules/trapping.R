@@ -3,9 +3,12 @@
 # its traps are checked (mean interval); click a line for its per-trap breakdown (the same
 # per-trap data that will feed the map). Driven by ik_trap_review() / ik_trap_review_lines().
 
-#' "How to read this" help body for Trap review — tabbed. `tr_meta` = ik_data$meta$trapping (the
-#' servicing-health + rate config), so the cutoffs and norm match what's actually used. @keywords internal
-trapping_help_body <- function(tr_meta = NULL) {
+#' Per-TAB "how to read this" help body for Trap review (the (?) now lives in each tab, not the page
+#' heading, so a tab's help is only reachable when that tab is open). `tr_meta` = ik_data$meta$trapping
+#' (servicing-health + rate config), so cutoffs/norm match what's used. `which` selects the tab:
+#' "byline" (the grading), "map" (the servicing map), "overtime" (the trend). @keywords internal
+trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overtime")) {
+  which <- match.arg(which)
   P  <- function(...) tags$p(...)
   h  <- tr_meta$health %||% list()
   pc <- h$percentiles %||% c(good = 0.5, watch = 0.9)
@@ -17,53 +20,50 @@ trapping_help_body <- function(tr_meta = NULL) {
   mc   <- tr_meta$min_checks_for_cadence %||% 2
   norm <- (tr_meta$rate %||% list())$norm_trap_days %||% 100
   ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
-  tabsetPanel(
-    type = "tabs",
-    tabPanel(
-      "What it shows", icon = icon("circle-question"),
-      P(tags$br(), "Is the trapping actually being ", tags$b("run"), "? Two views:"),
-      tags$ul(
-        tags$li(tags$b("By trapline"), " — each trap graded on how often it's been checked this period: ",
-                tags$b("good"), " / ", tags$b("watch"), " / ", tags$b("neglected"), ", so you can see at a ",
-                "glance which lines are slipping. The management view."),
-        tags$li(tags$b("Over time"), " — the mix of good/watch/neglected ", tags$b("and"), " the catch rate ",
-                "(per ", ntn, ") across seasons or years: is servicing improving, and is catching following it?")),
-      P("The By-trapline table is driven by the sidebar ", tags$b("Period"), "; the Over-time trend deliberately ",
-        "ignores Period (it spans all of time). Click through for the traps behind a line.")),
-    tabPanel(
-      "Servicing health", icon = icon("heart-pulse"),
-      P(tags$br(), "Each trap's grade comes from its ", tags$b("mean gap between checks"), " — but “good” isn't a ",
-        "fixed number of days. It's ", tags$b("relative to this project's own"), " checking pattern, ",
-        "calibrated separately ", tags$b("per reserve"), " (a remote block and a roadside block have different ",
-        "normal cadences):"),
-      tags$ul(
-        tags$li(tags$b("Good"), " — checked at least as often as the reserve's typical (≤ its ", pg, "th percentile)."),
-        tags$li(tags$b("Watch"), " — slower than typical (≤ the ", pw, "th percentile)."),
-        tags$li(tags$b("Neglected"), " — slower than the ", pw, "th percentile (the worst-serviced tail).")),
-      P("Two ", tags$b("guardrails"), " stop the percentiles branding someone unfairly when everyone's fine ",
-        "(or letting everyone off when they're not): a trap checked every ", tags$b(paste0(fl, " days")),
-        " or better is ", tags$b("always good"), "; a gap longer than ", tags$b(paste0(ce, " days")),
-        " is ", tags$b("always neglected.")),
-      P(tags$b("Insufficient data"), " — fewer than ", mc, " checks in the period is too little to judge a cadence. ",
-        tags$b("Dormant"), " (~", dorm, " mo+ since a check) and ", tags$b("historic"), " (~", hist, " mo+) traps ",
-        "are shown faint — likely paused or retired, not neglected.")),
-    tabPanel(
-      "How it's calculated", icon = icon("calculator"),
-      tags$ul(
-        tags$br(),
-        tags$li(tags$b("Cutoffs"), " = percentiles (", pg, "th / ", pw, "th) of each reserve's own per-trap ",
-                "mean-interval distribution, computed at import and ", tags$b("frozen on the cache"), " — so they ",
-                "recalibrate when data is re-imported, not as you change the period. The resolved day values show ",
-                "in the table legend."),
-        tags$li(tags$b("Guardrails"), " — floor ", fl, " d (always good) and ceiling ", ce, " d (always neglected) ",
-                "override the percentiles."),
-        tags$li(tags$b("Period-relative"), " — a trap's gap is days since its last check up to the ", tags$b("period "),
-                tags$b("end"), " (no peek at later checks); the same trap ages to dormant then historic in later periods."),
-        tags$li(tags$b("Catch rate"), " (Over time) = catches ÷ trap-nights × ", format(norm, big.mark = ","),
-                ", so the trend is comparable across periods regardless of how much trapping was done.")),
-      P(tags$em("Servicing buckets are per-reserve and frozen on import; the catch rate is computed live for the ",
-                "trend's seasons/years.")))
-  )
+  # The servicing grades — shared by the By-trapline and Map help (both colour by status).
+  grades <- tagList(
+    tags$ul(
+      tags$li(tags$b("Good"), " — checked at least as often as the reserve's typical (≤ its ", pg, "th percentile)."),
+      tags$li(tags$b("Watch"), " — slower than typical (≤ the ", pw, "th percentile)."),
+      tags$li(tags$b("Neglected"), " — slower than the ", pw, "th percentile, or unchecked all period (the worst-serviced tail)."),
+      tags$li(tags$b("Insufficient data"), " — fewer than ", mc, " checks this period: too little to judge a cadence."),
+      tags$li(tags$b("Inactive"), " — ", tags$b("dormant"), " (~", dorm, " mo+ since a check) or ", tags$b("historic"),
+              " (~", hist, " mo+); likely paused or retired, not neglected.")),
+    P("Grades are ", tags$b("relative to this project's own"), " checking pattern, calibrated ", tags$b("per reserve"),
+      " (a remote block and a roadside block have different normal cadences). Two ", tags$b("guardrails"), ": a trap ",
+      "checked every ", tags$b(paste0(fl, " d")), " or better is always good; a gap over ", tags$b(paste0(ce, " d")),
+      " is always neglected."))
+  if (which == "byline")
+    tagList(
+      P("Each trap graded on ", tags$b("how often it's been checked"), " this period (its mean gap between checks), ",
+        "judged ", tags$b("as of the period end"), " — the day-to-day management view. ", tags$b("Click a line"),
+        " for the traps behind it."),
+      grades,
+      P(tags$em("Cutoffs are percentiles (", pg, "th / ", pw, "th) of each reserve's own mean-interval spread, frozen ",
+        "on the cache — they recalibrate on re-import, not as you change the Period. The resolved day values show in ",
+        "the legend above. A trap's gap is measured to the period end (no peek at later checks).")))
+  else if (which == "map")
+    tagList(
+      P("Where the traps are, coloured by servicing status — ", tags$b(tags$span(style = "color:#2e7d32", "Good")),
+        " green, ", tags$b(tags$span(style = "color:#f9a825", "Watch")), " amber, ",
+        tags$b(tags$span(style = "color:#c62828", "Neglected")), " red, ",
+        tags$b(tags$span(style = "color:#7e57c2", "Insufficient data")), " purple, ",
+        tags$b(tags$span(style = "color:#8a8a8a", "Inactive")), " (dormant/historic) grey. Each status is a ",
+        tags$b("selectable layer"), " (top-right) — turn off the ones you don't need."),
+      P(tags$b("High pressure"), " — a bold ", tags$b("black ring"), " marks a ", tags$b("productive but under-checked"),
+        " trap: catching on at least half its checks, yet on a watch/neglected cadence, so you're likely missing ",
+        "catches between visits. The table below lists them worst-first."),
+      grades,
+      P(tags$em("Click any trap for its full check history.")))
+  else
+    tagList(
+      P("Is servicing improving over time — and is catching following it? Three stacked panels across ",
+        tags$b("seasons or years"), ": the ", tags$b("mix"), " of good/watch/neglected, the mean ",
+        tags$b("check interval"), ", and the ", tags$b("catch rate"), " (per ", ntn, ")."),
+      P("This trend deliberately ", tags$b("ignores the sidebar Period"), " — it spans all of time. Completed ",
+        "periods only; an in-progress current period is omitted."),
+      P(tags$em("Catch rate = catches ÷ trap-nights × ", format(norm, big.mark = ","), ", so it's comparable across ",
+        "periods regardless of how much trapping was done.")))
 }
 
 #' Trapping review tab content (lives inside the Quality nav_panel). @param id Module id.
@@ -76,8 +76,7 @@ trapping_ui <- function(id, ik_data = NULL) {
     tags$script(src = .ik_asset("js/maps.js")),                            # leaflet resize-on-tab-show
     div(class = "ik-trapping",
         div(class = "ik-review-headrow",
-            tags$h5("Trap check-frequency review", class = "ik-review-head"),
-            .ik_info(ns("trap_help"), "Trap review — how to read this", trapping_help_body(ik_data$meta$trapping))),
+            tags$h5("Trap check-frequency review", class = "ik-review-head")),
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
         # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
         # "By trapline" leads (default): it's the day-to-day management view and the quicker to load;
@@ -86,6 +85,10 @@ trapping_ui <- function(id, ik_data = NULL) {
           id = ns("trap_view"),
           tabPanel(
             "By trapline", icon = icon("table-list"),
+            div(class = "trap-tab-help",
+                tags$span(class = "trap-tab-help-label", "Each trap graded by how often it's checked."),
+                .ik_info(ns("byline_help"), "Trap grading — how to read this",
+                         trapping_help_body(ik_data$meta$trapping, "byline"))),
             div(class = "trap-controls",
                 checkboxGroupInput(ns("show_extra"), "Also show (otherwise active traps only)", inline = TRUE,
                   choices = c("Dormant (6 mo+)" = "dormant", "Historic (12 mo+)" = "historic"),
@@ -94,13 +97,12 @@ trapping_ui <- function(id, ik_data = NULL) {
             div(class = "ik-trapping-scroll", uiOutput(ns("table")))),
           tabPanel(
             "Map", icon = icon("map-location-dot"),
-            tags$p(class = "trap-lead",
-              "Where the traps are and how they're being serviced this period. Most stay ",
-              tags$span(style = "color:#8a8a8a", "grey"), "; only ",
-              tags$b(tags$span(style = "color:#f9a825", "Watch")), " and ",
-              tags$b(tags$span(style = "color:#c62828", "Neglected")), " get colour — toggle each status ",
-              "layer top-right. High-pressure traps (productive but under-checked) carry a ",
-              tags$b("black ring"), ". ", tags$b("Click any trap"), " for its check history."),
+            div(class = "trap-tab-help",
+              tags$span(class = "trap-lead",
+                "Traps coloured by servicing status; a ", tags$b("black ring"), " flags high pressure. Toggle each ",
+                "status layer top-right; ", tags$b("click a trap"), " for its check history."),
+              .ik_info(ns("map_help"), "The servicing map — how to read this",
+                       trapping_help_body(ik_data$meta$trapping, "map"))),
             leaflet::leafletOutput(ns("map"), height = "55vh"),
             uiOutput(ns("pressure_note")),
             tags$h6(class = "trap-pressure-title", "Trap pressure — productive traps checked too rarely"),
@@ -116,7 +118,9 @@ trapping_ui <- function(id, ik_data = NULL) {
                 div(class = "trap-timeline-head",
                     tags$span(class = "trap-timeline-title", "Servicing over time"),
                     radioButtons(ns("grain"), NULL, inline = TRUE,
-                                 choices = c("By season" = "season", "By year" = "year"), selected = "season")),
+                                 choices = c("By season" = "season", "By year" = "year"), selected = "season"),
+                    .ik_info(ns("overtime_help"), "Servicing over time — how to read this",
+                             trapping_help_body(ik_data$meta$trapping, "overtime"))),
                 uiOutput(ns("timeline_note")),
                 plotOutput(ns("timeline"), height = "620px")))))
   )
@@ -201,16 +205,13 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       if (st[["insufficient_data"]] > 0) legs <- c(legs, list(leg("insufficient_data", "Insufficient data", st[["insufficient_data"]])))
       if (st[["dormant"]]  > 0)          legs <- c(legs, list(leg("dormant",  "Dormant 6 mo+",  st[["dormant"]])))
       if (st[["historic"]] > 0)          legs <- c(legs, list(leg("historic", "Historic 12 mo+", st[["historic"]])))
+      # Just the key now — a one-line count + the colour codes. The grading explanation moved to the
+      # tab's (?) help so the top of the table stays lean.
       tagList(
         tags$p(class = "trap-lead", sprintf(
-          "Servicing by trapline, judged as of the period end — %s traps, %s checks, %s captures this period. ",
-          .ov_num(nrow(per)), .ov_num(sum(per$n_checks)), .ov_num(sum(per$captures))),
-          "A trap unchecked all period reads neglected; too few checks to judge a cadence → insufficient data; ",
-          "long-unchecked traps fall to dormant/historic. Click a line for its traps."),
-        tags$div(class = "trap-legend", legs),
-        tags$p(class = "trap-thresholds", sprintf(
-          "Good ≤ the project's median check interval (%d d), capped so any gap over %d d is neglected; dormant ≥ 6 months and historic ≥ 12 months since last check (relative to the period end). Toggle dormant/historic above; the cadence buckets recalibrate only on re-import.",
-          gm, wm))
+          "%s traps · %s checks · %s captures this period — graded as of the period end. Click a line for its traps.",
+          .ov_num(nrow(per)), .ov_num(sum(per$n_checks)), .ov_num(sum(per$captures)))),
+        tags$div(class = "trap-legend", legs)
       )
     })
 
@@ -328,16 +329,21 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     # (watch/neglected cadence) — carries a purple ring: you're likely missing catches, so check it more.
     PRESSURE_PCT <- 50
     .PRESS_RING  <- "#000000"                                  # black ring — reads clearly over the status colours
+    TRAP_RAD     <- 6                                          # trap dot radius (bigger than the old 4, easier to see/click)
     map_traps <- reactive({
-      per <- review()$per; if (is.null(per) || !nrow(per)) return(NULL)
+      per <- review()$all; if (is.null(per) || !nrow(per)) return(NULL)   # ALL traps — the map has its own layer toggles
       locs <- ik_data$app$geography$locations; gi <- match(per$location, locs$location_id)
       per$latitude  <- locs$latitude[gi]; per$longitude <- locs$longitude[gi]
       per$catch_pct <- ifelse(is.na(per$n_checks) | per$n_checks == 0, 0, 100 * per$captures / per$n_checks)
       per$high_pressure <- per$status %in% c("watch", "neglected") & per$catch_pct >= PRESSURE_PCT & per$n_checks >= 2
       per$pressure_score <- ifelse(per$high_pressure, (per$catch_pct / 100) *
                                    ifelse(is.na(per$mean_interval_days), 0, per$mean_interval_days), 0)
-      per$grp <- ifelse(per$status == "neglected", "Neglected",
-                 ifelse(per$status == "watch",     "Watch", "Good & inactive"))   # everything else stays grey
+      # one selectable layer per status — Good (green) · Watch (amber) · Neglected (red) · Insufficient
+      # data (purple) · Inactive (grey: dormant/historic, + any unknown). Colours = central .MAPS_STATUS.
+      per$grp <- ifelse(per$status == "neglected",         "Neglected",
+                 ifelse(per$status == "watch",             "Watch",
+                 ifelse(per$status == "good",              "Good",
+                 ifelse(per$status == "insufficient_data", "Insufficient data", "Inactive"))))
       per
     })
 
@@ -352,7 +358,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       m <- leaflet::addMapPane(m, "traps", zIndex = 410)
       m <- leaflet::addMapPane(m, "highlight", zIndex = 450)
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-             overlayGroups = c("Good & inactive", "Watch", "Neglected"),   # each status a selectable layer
+             overlayGroups = c("Good", "Watch", "Neglected", "Insufficient data", "Inactive"),  # each status a selectable layer
              options = leaflet::layersControlOptions(collapsed = FALSE))
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
@@ -363,34 +369,42 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
     }, ignoreInit = TRUE)
 
-    observe({                                                  # draw the three selectable status layers
+    observe({                                                  # draw the selectable status layers
       req(identical(input$trap_view, "Map"))                   # only when the Map tab is visible, so the
       p <- mproxy()                                            # fit/redraw happen at real size (not 0×0 while
-      for (g in c("Good & inactive", "Watch", "Neglected", "PressHighlight")) leaflet::clearGroup(p, g)  # on another tab — which left it stale + wrong-zoomed)
+      for (g in c("Good", "Watch", "Neglected", "Insufficient data", "Inactive", "PressHighlight"))
+        leaflet::clearGroup(p, g)                              # on another tab — which left it stale + wrong-zoomed)
       leaflet::clearControls(p)
       d <- map_traps(); req(!is.null(d))
       d <- d[is.finite(d$latitude) & is.finite(d$longitude), , drop = FALSE]; if (!nrow(d)) return()
       scol <- if (is_dark()) .MAPS_STATUS$dark else .MAPS_STATUS$light   # central servicing palette (maps.R)
-      grp_col <- c("Good & inactive" = "#8a8a8a", "Watch" = unname(scol["watch"]), "Neglected" = unname(scol["neglected"]))
+      grp_col <- c("Good" = unname(scol["good"]), "Watch" = unname(scol["watch"]),
+                   "Neglected" = unname(scol["neglected"]), "Insufficient data" = unname(scol["insufficient_data"]),
+                   "Inactive" = "#8a8a8a")
       for (g in names(grp_col)) {
         dd <- d[d$grp == g, , drop = FALSE]; if (!nrow(dd)) next
-        # high-pressure traps get a bold purple ring drawn as the marker's OWN stroke — no separate layer,
-        # so the marker stays clickable and nothing intercepts the click.
         leaflet::addCircleMarkers(p, data = dd, lng = ~longitude, lat = ~latitude, group = g,
-          layerId = paste0("T|", dd$location), radius = 4, fillColor = grp_col[[g]],
-          fillOpacity = if (g == "Good & inactive") 0.55 else 0.85,
-          stroke = TRUE, color = ifelse(dd$high_pressure, .PRESS_RING, "#ffffff"),
-          weight = ifelse(dd$high_pressure, 3, 0.4),
+          layerId = paste0("T|", dd$location), radius = TRAP_RAD, fillColor = grp_col[[g]],
+          fillOpacity = if (g %in% c("Good", "Inactive")) 0.6 else 0.9,
+          stroke = TRUE, color = "#ffffff", weight = 1,
           label = lapply(sprintf("<b>%s</b><br>%s &middot; %s checks &middot; %s caught<br>%s%s · click for history",
             dd$name, tools::toTitleCase(ifelse(is.na(dd$status), "—", dd$status)),
             as.integer(ifelse(is.na(dd$n_checks), 0L, dd$n_checks)), as.integer(dd$captures),
             ifelse(is.finite(dd$mean_interval_days), sprintf("~%.0f d gap", dd$mean_interval_days), ""),
             ifelse(dd$high_pressure, sprintf(" &middot; %d%% catch — high pressure", round(dd$catch_pct)), "")), htmltools::HTML),
           options = leaflet::pathOptions(pane = "traps"))
+        # high-pressure traps (productive but under-checked): a bold halo ring drawn LARGER than the dot,
+        # non-interactive so the dot beneath stays clickable. Same group, so it toggles with its status.
+        hp <- dd[dd$high_pressure, , drop = FALSE]
+        if (nrow(hp)) leaflet::addCircleMarkers(p, data = hp, lng = ~longitude, lat = ~latitude, group = g,
+          radius = TRAP_RAD + 6, fill = FALSE, stroke = TRUE, color = .PRESS_RING, weight = 3, opacity = 0.95,
+          options = leaflet::pathOptions(pane = "traps", interactive = FALSE))
       }
       leaflet::addLegend(p, "bottomright",
-        colors = c("#8a8a8a", unname(scol["watch"]), unname(scol["neglected"]), .PRESS_RING),
-        labels = c("Good / inactive", "Watch", "Neglected", "High pressure (ring)"), title = "Servicing", opacity = 0.9)
+        colors = c(unname(scol["good"]), unname(scol["watch"]), unname(scol["neglected"]),
+                   unname(scol["insufficient_data"]), "#8a8a8a", .PRESS_RING),
+        labels = c("Good", "Watch", "Neglected", "Insufficient data", "Inactive (dormant/historic)", "High pressure (ring)"),
+        title = "Servicing", opacity = 0.9)
       leaflet::fitBounds(p, min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude), options = list(padding = c(25, 25)))
     })
 
@@ -433,7 +447,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       r <- t[t$location == loc, , drop = FALSE]
       if (!nrow(r) || !is.finite(r$latitude[1]) || !is.finite(r$longitude[1])) return()
       leaflet::addCircleMarkers(p, data = r[1, , drop = FALSE], lng = ~longitude, lat = ~latitude, group = "PressHighlight",
-        radius = 13, fill = FALSE, stroke = TRUE, color = "#1565c0", weight = 3,
+        radius = TRAP_RAD + 10, fill = FALSE, stroke = TRUE, color = "#1565c0", weight = 3,
         options = leaflet::pathOptions(pane = "highlight"))
     })
     observeEvent(input$pressure_table_rows_selected, {
