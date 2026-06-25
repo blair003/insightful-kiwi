@@ -20,12 +20,13 @@ IK_DIEL_PERIODS <- c("Matutinal", "Diurnal", "Vespertine", "Nocturnal")
 IK_DIEL_COLORS <- c(Matutinal = "#e8a33d", Diurnal = "#2b7bba",
                     Vespertine = "#e0701f", Nocturnal = "#44505e")
 
-# Overall diel-CLASS rules — turn the four per-period effort-normalised rate SHARES (each period's
-# rate ÷ total rate) into one activity class. Global (same for every species); a project can override
-# via instance/config/project.R `diel <- list(...)` → ik_data$meta$diel (ik_diel_class reads that,
-# falling back here). Shares use rates, not raw counts, so unequal period lengths (a long winter
-# night) don't masquerade as more activity.
-IK_DIEL_CLASS_RULES <- list(
+# Default overall diel-CLASS rules — turn the four per-period effort-normalised rate SHARES (each
+# period's rate ÷ total rate) into one activity class. A FUNCTION (not a loose global constant) so
+# these defaults stay encapsulated; they're baked into ik_data$meta$diel at build (config-overridable
+# via instance/config/project.R `diel <- list(...)`), and consumers read meta$diel, falling back here.
+# Shares use rates, not raw counts, so unequal period lengths (a long winter night) don't masquerade
+# as more activity.
+ik_diel_class_rules <- function() list(
   min_obs     = 30,    # fewer net detections than this → "Insufficient data" (no class)
   low_obs     = 60,    # min_obs .. (low_obs-1) → class shown, but flagged "low confidence"
   dominant    = 0.60,  # Diurnal / Nocturnal: that single period's share ≥ this

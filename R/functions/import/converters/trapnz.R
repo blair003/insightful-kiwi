@@ -16,10 +16,11 @@
 
 TRAPNZ_FILE <- "trapnz_trap_records.csv"   # the standard trap.NZ "trap records" export name
 
-# trap.NZ common name → scientificName + curated vernacular. Anything not "None"/NA and not here
-# (e.g. "Unspecified", "Other", a new label) becomes an animal catch with NO species (unidentified),
-# and is listed in the conversion log so it can be added.
-TRAPNZ_SPECIES <- data.frame(stringsAsFactors = FALSE, check.names = FALSE,
+# trap.NZ common name → scientificName + curated vernacular. A FUNCTION (not a loose global data
+# constant), used only by this converter. Anything not "None"/NA and not here (e.g. "Unspecified",
+# "Other", a new label) becomes an animal catch with NO species (unidentified), and is listed in the
+# conversion log so it can be added.
+trapnz_species <- function() data.frame(stringsAsFactors = FALSE, check.names = FALSE,
   caught = c("Possum", "Rat", "Rat - Ship", "Rat - Norway", "Rat - Kiore", "Mouse", "Stoat",
              "Weasel", "Ferret", "Cat", "Hedgehog", "Rabbit", "Hare", "Goat", "Pig", "Bird",
              "Pūkeko", "Pukeko"),
@@ -66,7 +67,7 @@ convert_trapnz <- function(raw_dir, out_dir, meta = list(), dataset_id = "trapnz
   # --- catch / species --------------------------------------------------------------------
   caught   <- d[["species caught"]]
   is_none  <- is.na(caught) | caught == "None"
-  sci      <- TRAPNZ_SPECIES$scientificName[match(caught, TRAPNZ_SPECIES$caught)]
+  sci      <- trapnz_species()$scientificName[match(caught, trapnz_species()$caught)]
   is_animal <- !is_none                                              # a catch (even if species unknown)
   unmapped_caught <- sort(unique(caught[is_animal & is.na(sci)]))    # e.g. "Unspecified", "Other"
   scientificName  <- ifelse(is_animal, sci, NA_character_)           # NA → unidentified animal
@@ -78,7 +79,7 @@ convert_trapnz <- function(raw_dir, out_dir, meta = list(), dataset_id = "trapnz
   spp      <- unique(stats::na.omit(scientificName))
   resolved <- ik_resolve_taxa(spp, cache_path = taxonomy_cache)
   taxa_lookup <- dplyr::left_join(
-    dplyr::distinct(TRAPNZ_SPECIES[, c("scientificName", "vernacular")]),
+    dplyr::distinct(trapnz_species()[, c("scientificName", "vernacular")]),
     resolved, by = "scientificName")
   taxa_lookup <- taxa_lookup[taxa_lookup$scientificName %in% spp, , drop = FALSE]
   taxa_lookup$vernacular_final <- ifelse(
@@ -99,7 +100,7 @@ convert_trapnz <- function(raw_dir, out_dir, meta = list(), dataset_id = "trapnz
 
   # recompute the per-row vectors in the new (sorted) row order
   caught <- d[["species caught"]]; is_none <- is.na(caught) | caught == "None"
-  sci <- TRAPNZ_SPECIES$scientificName[match(caught, TRAPNZ_SPECIES$caught)]
+  sci <- trapnz_species()$scientificName[match(caught, trapnz_species()$caught)]
   is_animal <- !is_none; scientificName <- ifelse(is_animal, sci, NA_character_)
   strikes <- suppressWarnings(as.integer(d$strikes))
   count   <- ifelse(is_animal, ifelse(is.na(strikes) | strikes < 1L, 1L, strikes), NA_integer_)
@@ -211,7 +212,7 @@ convert_trapnz <- function(raw_dir, out_dir, meta = list(), dataset_id = "trapnz
     sprintf("Deployments written:  %d", nrow(deployments)),
     sprintf("Observations written: %d  (animal: %d, blank: %d)", nrow(observations), n_animal, n_blank),
     "",
-    "== Catches with no species mapping (→ unidentified animal; add to TRAPNZ_SPECIES) ==",
+    "== Catches with no species mapping (→ unidentified animal; add to trapnz_species()) ==",
     ids(unmapped_caught)
   ), file.path(out_dir, "conversion-log.txt"))
 

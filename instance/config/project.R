@@ -142,7 +142,7 @@ overview <- list(
   # Order of the per-species cards within each tier. "value" sorts biggest-first by the headline
   # number (camera RAI / trap catch count) so the row reads by importance and wraps tidily;
   # "config" keeps the order species are listed in `species_groups` above.
-  sort_cards_by = "value"
+  sort_cards_by = "config"
 )
 
 # Spatial neighbour adjacency (app$proximity) — for each camera (monitoring) location, every camera

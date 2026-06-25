@@ -21,7 +21,7 @@ load_project_config <- function(config) {
                    proximity = list(max_radius_m = 2000),
                    media    = list(keep_originals = TRUE),
                    features = list(),   # per-feature on/off (omitted = on); see ik_feature_enabled()
-                   diel     = NULL)     # diel-class rules override; NULL → IK_DIEL_CLASS_RULES default
+                   diel     = NULL)     # diel-class rules override; NULL → ik_diel_class_rules() default
   if (!file.exists(path)) return(defaults)
   e <- new.env()
   sys.source(path, envir = e)
@@ -285,7 +285,7 @@ ik_species_diel <- function(ik_data, taxa, selection = list()) {
 }
 
 #' Overall diel CLASS for a camera species, from its effort-normalised per-period rate SHARES.
-#' Compares the four diel-period rates (each ÷ their total) against IK_DIEL_CLASS_RULES (project-
+#' Compares the four diel-period rates (each ÷ their total) against the diel-class rules (project-
 #' overridable via ik_data$meta$diel) to label the species Diurnal / Nocturnal / Crepuscular /
 #' Cathemeral / Arrhythmic — or "Insufficient data" under the minimum-observation floor. Confidence
 #' ("none"/"low"/"ok") comes from the net-detection count. @param taxa Named list label→sci.
@@ -295,7 +295,7 @@ ik_species_diel <- function(ik_data, taxa, selection = list()) {
 ik_diel_class <- function(ik_data, taxa, selection = list()) {
   d <- ik_species_diel(ik_data, taxa, selection)
   if (is.null(d)) return(NULL)
-  rules <- ik_data$meta$diel %||% IK_DIEL_CLASS_RULES
+  rules <- ik_data$meta$diel %||% ik_diel_class_rules()
   n <- sum(d$detections, na.rm = TRUE)
   r <- d$rate; r[!is.finite(r)] <- 0; names(r) <- as.character(d$period)
   tot   <- sum(r)

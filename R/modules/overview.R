@@ -171,6 +171,15 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   if (c > p) "up" else if (c < p) "down" else "flat"
 }
 
+#' Desirability class for a change arrow — "good" (green) / "bad" (red) / "neutral" (uncoloured).
+#' Neutral when we're not colouring (`colour = FALSE`, e.g. trapping), the change is flat, or the
+#' species has NO desired direction (`want == "none"`): a species that's neither a pest nor protected
+#' (e.g. weka) shouldn't read a fall as "good" or a rise as "bad". @keywords internal
+.ov_change_cls <- function(dir, want, colour = TRUE) {
+  if (!isTRUE(colour) || dir == "flat" || is.null(want) || identical(want, "none")) "neutral"
+  else if (identical(dir, want)) "good" else "bad"
+}
+
 #' onclick that fires the species-panel drill: `input$<spp_drill> = {kind, label, sci[]}`.
 #' `sci` is the scientificName(s) the item stands for (a group may be several). @keywords internal
 .ov_spp_onclick <- function(spp_drill, kind, sci, label) {
@@ -314,8 +323,8 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
       return(list(content = tagList(main, " ",
         tags$span(class = "ik-metric-cmp ik-metric-prev", "· –")), drill = TRUE))
     dir   <- .ov_dir(row$metric, pr$metric, dp)         # compare at the cell's precision
-    want  <- desirable[[tx]] %||% "down"                # "up" for protected, "down" for pests
-    cls   <- if (!colour || dir == "flat") "neutral" else if (dir == want) "good" else "bad"
+    want  <- desirable[[tx]] %||% "down"                # up=protected, down=pest, none=neutral
+    cls   <- .ov_change_cls(dir, want, colour)
     arrow <- c(up = "▲", down = "▼", flat = "–")[[dir]]
     # arrow + prior stay together ("▲ 0.35" never splits); the cell can wrap only BETWEEN
     # "value ± se" and the comparison group, so cells wrap uniformly.
@@ -368,7 +377,7 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
 .ov_metric_cards <- function(summary, prev, counts, taxa_order, kind, desirable, drill_id,
                              headline = c("rai", "count"), rate_unit = "",
                              digits = 1, min_digits = digits, colour = TRUE, compact = FALSE,
-                             sg = NULL, sort_by = "value") {
+                             sg = NULL, sort_by = "value", extra = NULL) {
   headline <- match.arg(headline)
   one <- function(tx) {
     s   <- summary[summary$taxon == tx & summary$reserve == "Combined", , drop = FALSE]
@@ -387,7 +396,7 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
                            if (nzchar(rate_unit)) tags$span(class = "ik-card-unit", rate_unit))
       if (!is.na(pm)) {
         dir <- .ov_dir(s$metric, pm, dp); want <- desirable[[tx]] %||% "down"
-        cls <- if (!colour || dir == "flat") "neutral" else if (dir == want) "good" else "bad"
+        cls <- .ov_change_cls(dir, want, colour)
         arrow <- tagList(" ", tags$span(class = paste0("ik-arrow ik-arrow-", cls),
                                         c(up = "▲", down = "▼", flat = "–")[[dir]]))
       }
@@ -428,8 +437,20 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
     }, numeric(1))
     taxa_order <- taxa_order[order(-hv, seq_along(taxa_order))] # -Inf (no data) last; stable on ties
   }
-  tags$div(class = paste("ik-metric-cards", if (isTRUE(compact)) "ik-compact"), lapply(taxa_order, one))
+  # `extra` is an optional trailing card (e.g. the slim main page's "see the full overview" link).
+  tags$div(class = paste("ik-metric-cards", if (isTRUE(compact)) "ik-compact"), lapply(taxa_order, one), extra)
 }
+
+#' Trailing "see more" card for the slim main Overview blocks — a link card that navigates to the
+#' device's own Overview page (where every species + the full breakdown live). Sets the global
+#' `ik_goto_nav` input, handled in server.R via `nav_select`. @param nav target nav value.
+#' @param dest device label ("Monitoring"/"Trapping") for the link text. @keywords internal
+.ov_more_card <- function(nav, dest) tags$div(
+  class = "ik-metric-card ik-card-more",
+  title = sprintf("Open the full %s overview", tolower(dest)),
+  onclick = sprintf("Shiny.setInputValue('ik_goto_nav', %s, {priority:'event'})", .ik_jsq(nav)),
+  tags$div(class = "ik-card-more-lead", sprintf("This %s summary shows top species only.", tolower(dest))),
+  tags$div(class = "ik-card-more-link", sprintf("%s Detail", dest), icon("arrow-right-long")))
 
 #' Drop possible-duplicate observations — the project-defined NET view used across the analytical
 #' surface (cards, value boxes, drill-downs). Camera-only in effect: trap obs carry no duplicate
@@ -666,9 +687,13 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
     mon_targets <- c(mon_t, mon_i)                          # camera metric/drill set = target + interesting
     ctl_targets <- .ov_control_card_taxa(ik_data)   # trap cards: EVERY caught species (minus control="hide")
     ctl_t       <- ik_taxa_groups(sg, "control", "target")  # compact headline shows only control TARGETS
-    # desirable change direction: "up" for protected species, "down" for pests/predators.
-    desire  <- function(taxa) stats::setNames(
-      ifelse(sg$role[match(names(taxa), sg$label)] == "protected", "up", "down"), names(taxa))
+    # Desirable change direction from the card SENTIMENT (not role): "good" (protected) wants UP,
+    # "bad" (pest/predator) wants DOWN, "neutral" wants NEITHER — a species that's neither a pest nor
+    # protected (e.g. weka, role "other" → neutral) gets an uncoloured arrow, not a false green/red.
+    desire  <- function(taxa) {
+      s <- sg$sentiment[match(names(taxa), sg$label)]
+      stats::setNames(ifelse(is.na(s) | s == "neutral", "none", ifelse(s == "good", "up", "down")), names(taxa))
+    }
     mon_dir   <- desire(mon_targets)
     ctl_dir   <- desire(ctl_targets)
     ctl_t_dir <- desire(ctl_t)
@@ -808,8 +833,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
       blocks <- list()
       if (has_camera && !is.null(cam()$deployments) && nrow(cam()$deployments)) {
         o <- animals(cam(), TRUE); m <- rai_compact()          # targets only — the slim landing
-        cards <- if (length(mon_t)) .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
-          names(mon_t), "camera", mon_dir, session$ns("drill"), headline = "rai", sg = sg, sort_by = sort_by)
+        cards <- .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
+          names(mon_t), "camera", mon_dir, session$ns("drill"), headline = "rai", sg = sg, sort_by = sort_by,
+          extra = .ov_more_card("monitoring-overview", "Monitoring"))   # → full overview (every species)
         blocks[["camera"]] <- .ov_compact_block("Camera monitoring", "camera",
           "Detections", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
           help = .ik_info(session$ns("mon_help_brief"), "Camera monitoring",
@@ -818,9 +844,10 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
       if (has_trap && !is.null(trp()$deployments) && nrow(trp()$deployments)) {
         o <- animals(trp(), FALSE); m <- rate_compact()        # control targets only — the slim landing
         unit  <- sprintf(" /%s TN", ik_data$meta$trapping$rate$norm_trap_days %||% 100)
-        cards <- if (length(ctl_t)) .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
+        cards <- .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
           names(ctl_t), "trap", ctl_t_dir, session$ns("drill"), headline = "count",
-          rate_unit = unit, colour = FALSE, digits = 3, min_digits = 2, sg = sg, sort_by = sort_by)
+          rate_unit = unit, colour = FALSE, digits = 3, min_digits = 2, sg = sg, sort_by = sort_by,
+          extra = .ov_more_card("trapping-overview", "Trapping"))   # → full overview (every species caught)
         blocks[["trap"]] <- .ov_compact_block("Trapping", "trap",
           "Catches", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
           help = .ik_info(session$ns("trap_help_brief"), "Trapping",
@@ -842,7 +869,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
     arrow_span <- function(cur, prv, want, digits = 2, colour = TRUE) {  # arrow, NULL if no prior
       if (length(prv) == 0 || is.na(prv)) return(NULL)
       dir <- .ov_dir(cur, prv, digits)                   # at the cell's display precision
-      cls <- if (!colour || dir == "flat") "neutral" else if (dir == want) "good" else "bad"
+      cls <- .ov_change_cls(dir, want, colour)
       tagList(" ", tags$span(class = paste0("ik-arrow ik-arrow-", cls),
                              c(up = "▲", down = "▼", flat = "–")[[dir]]))
     }

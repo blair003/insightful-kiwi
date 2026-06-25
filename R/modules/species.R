@@ -61,7 +61,7 @@ behaviour_tod_help_body <- function() {
 #' Help body for the diel-activity classification card (periods · classes · rules). `rules` defaults to
 #' the global, but callers pass `ik_data$meta$diel` so the help matches the (config-overridable) rules
 #' actually used. @keywords internal
-diel_class_help_body <- function(rules = IK_DIEL_CLASS_RULES) {
+diel_class_help_body <- function(rules = ik_diel_class_rules()) {
   r  <- rules
   pc <- function(p, txt) tags$tr(tags$td(tags$b(p)), tags$td(txt))
   cl <- function(c, txt) tags$tr(tags$td(tags$b(c)), tags$td(txt))
@@ -203,7 +203,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                 div(class = "ik-card-head", div(class = "ik-card-title", icon("clock"),
                     tags$span("Diel Activity")),
                     .ik_info(ns("diel_help"), "Diel activity — classification",
-                             diel_class_help_body(ik_data$meta$diel %||% IK_DIEL_CLASS_RULES))),
+                             diel_class_help_body(ik_data$meta$diel %||% ik_diel_class_rules()))),
                 div(class = "ik-card-body", uiOutput(ns("diel_card")))))),
           if (spec$trapped) tabPanel("Bait", icon = icon("drumstick-bite"),
             tags$p(class = "ik-species-hint",

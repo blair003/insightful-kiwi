@@ -152,5 +152,8 @@ server <- function(input, output, session) {
   # that toggles the filter sidebar — so on pages where the rail is collapsed by default, the banner is
   # the way in to change Period/Compare/Reserve.
   observeEvent(input$ik_toggle_sidebar, bslib::toggle_sidebar("global_sidebar"), ignoreInit = TRUE)
+  # In-page navigation jumps (e.g. the main Overview's "All Monitoring detail →" link card) set this
+  # global input with a target nav value; switch to it.
+  observeEvent(input$ik_goto_nav, bslib::nav_select("nav", input$ik_goto_nav), ignoreInit = TRUE)
 
 }

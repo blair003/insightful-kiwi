@@ -9,7 +9,7 @@
 /* Page header (org — section title) leads; pulled up to sit closer to the top, tight to the period
    banner subtitle below it. */
 .ik-topbar {
-  margin-top: -0.3rem;
+  margin-top: -0.45rem;   /* page title — sit close to the top (matches .ik-titlebar) */
   margin-bottom: 0.1rem;
 }
 
@@ -162,6 +162,9 @@
 .ik-metric-card {
   border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 0.5rem;
   padding: 0.5rem 0.7rem; background: var(--bs-body-bg, #fff);
+  /* A width FLOOR so short numbers (0.8, a 2-dp rate) don't make a card narrower than its neighbours
+     — they snap to a tidy grid. Cards with longer content still grow (no hard width → no truncation). */
+  min-width: 10.5rem;
 }
 .ik-metric-card.ik-spp-click { cursor: pointer; }
 .ik-metric-card.ik-spp-click:hover { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.08); }
@@ -177,10 +180,22 @@
 .ik-card-unit  { font-size: 0.8rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
 .ik-card-na    { color: var(--bs-secondary-color, #adb5bd); }
 
+/* "See the full overview" link card — set apart from the species cards by a dashed border + a subtle
+   tinted background + the accent link. */
+.ik-card-more {
+  border-style: dashed; cursor: pointer;
+  background: var(--bs-tertiary-bg, #f6f7f8);
+  display: flex; flex-direction: column; justify-content: center; gap: 0.25rem;
+}
+.ik-card-more:hover { background: rgba(var(--bs-primary-rgb, 13,110,253), 0.08); }
+.ik-card-more-lead { font-size: 0.7rem; line-height: 1.25; color: var(--bs-secondary-color, #6c757d); }
+.ik-card-more-link { font-size: 0.9rem; font-weight: 600; color: var(--ik-accent, #cf6819); }
+.ik-card-more-link > svg, .ik-card-more-link > .fa { margin-left: 0.3rem; }
+
 /* Secondary "of interest" tier: denser cards beneath the protocol targets, set off only by the
    gap between the two card blocks (no sub-heading — the smaller size carries the distinction). */
 .ik-metric-cards.ik-compact { gap: 0.45rem; }
-.ik-metric-cards.ik-compact .ik-metric-card { padding: 0.4rem 0.55rem; }
+.ik-metric-cards.ik-compact .ik-metric-card { padding: 0.4rem 0.55rem; min-width: 9rem; }
 .ik-metric-cards.ik-compact .ik-card-big { font-size: 1.05rem; }
 .ik-metric-cards.ik-compact .ik-card-name  { font-size: 0.84rem; }
 .ik-metric-cards.ik-compact .ik-card-small { font-size: 0.74rem; }

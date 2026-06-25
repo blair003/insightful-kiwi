@@ -31,8 +31,12 @@
 
 /* Page/section title row: heading + inline help (?) button side by side (.ik_titlebar). Replaces the
    per-module .ik-*-titlebar classes, which were all this same flex rule. */
-.ik-titlebar { display: flex; align-items: center; gap: 0.4rem; margin-top: -0.3rem; }  /* sit closer to the top */
+.ik-titlebar { display: flex; align-items: center; gap: 0.4rem; margin-top: -0.45rem; }  /* page title: sit close to the top */
 .ik-titlebar > h3, .ik-titlebar > h5 { margin-bottom: 0.1rem; }
+/* …but a titlebar used as a section heading INSIDE a nested tabset (e.g. the overview Trends tab's
+   "Are we winning?") is NOT a page title — it needs a normal gap below the tab bar, like the other
+   tabs' lead text. Page titles sit under one .tab-content; nested-tab headings under two. */
+.tab-content .tab-content .ik-titlebar { margin-top: 0.5rem; }
 
 /* Read-only period banner (.ik_period_banner) — the selected window + comparison shown at the top of
    a page whose sidebar (Period/Compare) is collapsed by default. Muted so it reads as context, not a
