@@ -1,5 +1,4 @@
 /* top_trappers.css — "Top trappers" season leaderboard: podium, award chips, ranked table. */
-.ik-tt { padding-top: 0.5rem; }
 .ik-tt-title { margin: 0 0 0.1rem; }
 .ik-tt-lead  { color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; margin: 0.2rem 0 0.7rem; max-width: 62rem; }
 .ik-tt-controls { display: flex; align-items: end; gap: 1.2rem; flex-wrap: wrap; margin: 0.2rem 0 0.5rem; }

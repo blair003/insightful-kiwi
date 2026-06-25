@@ -1,5 +1,4 @@
 /* trap_hero.css — "Top traps" view: title, lead, controls row, the map + ranked table. */
-.ik-hero { padding-top: 0.5rem; }
 .ik-hero-title { margin: 0 0 0.1rem; }
 .ik-hero-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; margin: 0.2rem 0 0.7rem; max-width: 60rem; }
 .ik-hero-controls { display: flex; align-items: end; gap: 1.2rem; flex-wrap: wrap; margin: 0.4rem 0 0.6rem; }

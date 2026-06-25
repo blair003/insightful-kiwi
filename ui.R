@@ -36,9 +36,18 @@ ui <- page_navbar(
   sidebar = sidebar(
     id = "global_sidebar",
     title = "Data Selection",
+    # The Overview pages keep their controls HERE but the rail is COLLAPSED by default for them (they're
+    # left out of SIDEBAR_NAVS in server.R) — regular users aren't confronted with filters, power users
+    # open the rail to change them, and the current window stays visible via the in-page period banner.
     conditionalPanel("input.nav === 'overview'",
+                     # Snapshot honours the Period; the Trends tab spans all data, so Period hides there
+                     # (a note in its place), mirroring the in-page banner.
                      selection_ui("overview_selection",
-                                  show = c("period", "compare", "reserve"), ik_data = ik_data)),
+                                  show = c("period", "compare", "reserve"), ik_data = ik_data,
+                                  period_show_js = "input['overview-ov_tabs'] !== 'Trends'",
+                                  period_note = tagList(
+                                    tags$span(class = "ik-period-note-h", "Period · All data"),
+                                    "The Trends tab spans all data — set a Period on the Snapshot tab."))),
     conditionalPanel("input.nav === 'monitoring-overview'",
                      selection_ui("monitoring_overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
@@ -49,11 +58,16 @@ ui <- page_navbar(
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
                                   period_default = .bait_period_def)),
     conditionalPanel("input.nav === 'trap-review'",
-                     # Period drives only the "By trapline" tab; the "Over time" trend ignores it, so the
-                     # Period control hides on that tab. Reserve stays on both (the trend is reserve-scoped).
+                     # Period drives only the "By trapline" tab + Map; the "Over time" trend ignores it, so
+                     # the Period control hides on that tab (a note in its place). Reserve stays on all
+                     # (the trend is reserve-scoped).
                      conditionalPanel("input['trapping-trap_view'] !== 'Over time'",
                        selection_ui("trap_selection", show = c("period"), ik_data = ik_data,
                                     period_default = .trap_period_def)),
+                     conditionalPanel("input['trapping-trap_view'] === 'Over time'",
+                       tags$div(class = "ik-period-note",
+                                tags$span(class = "ik-period-note-h", "Period · All data"),
+                                "The Over-time trend spans all data — set a Period on the By-trapline or Map tab.")),
                      selection_ui("trap_selection", show = c("reserve"), ik_data = ik_data)),
     conditionalPanel("input.nav === 'coverage'",
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,

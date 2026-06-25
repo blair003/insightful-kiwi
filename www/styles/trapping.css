@@ -1,6 +1,5 @@
 /* trapping.css — the Trapping check-frequency review (Data → Quality). */
 
-.ik-trapping { padding-top: 0.5rem; }
 .trap-controls { margin-bottom: 0.6rem; }
 .trap-lead { color: var(--bs-secondary-color, #6c757d); margin-bottom: 0.4rem; }
 .trap-thresholds { color: var(--bs-secondary-color, #6c757d); font-size: 0.78rem; margin: 0.2rem 0 0.8rem; max-width: 60rem; }

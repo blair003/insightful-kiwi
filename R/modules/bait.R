@@ -13,9 +13,10 @@ bait_ui <- function(id, ik_data = NULL) {
     "Bait effectiveness", value = "bait", icon = icon("drumstick-bite"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/bait.css")),
     div(class = "ik-bait",
-        div(class = "ik-bait-head",
+        .ik_titlebar(
             tags$h3(class = "ik-bait-title", "Bait effectiveness"),
             .ik_info(ns("help"), "Bait effectiveness — how to read this", bait_help_body(norm))),
+        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
         tags$p(class = "ik-bait-lead",
           "Captures by bait — attributed to the bait that was in the trap during the catching ",
           "interval (the ", tags$b("prior check's"), " bait). ", tags$b("Click a bar"),
@@ -76,6 +77,7 @@ bait_help_body <- function(norm = 100) {
 bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                         color_mode = reactive("light"), selection = reactive(list())) {
   moduleServer(id, function(input, output, session) {
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
     is_dark <- reactive(identical(color_mode(), "dark"))
     norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100   # rate normalisation (config)
     ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")

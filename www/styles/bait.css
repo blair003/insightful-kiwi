@@ -1,6 +1,4 @@
-/* bait.css — the Bait effectiveness view. */
-.ik-bait { padding-top: 0.5rem; }
-.ik-bait-head { display: flex; align-items: center; gap: 0.3rem; }
+/* bait.css — the Bait effectiveness view. (Heading uses the shared .ik_titlebar now.) */
 .ik-bait-title { margin: 0 0 0.2rem; }
 .ik-bait-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
 .bait-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.4rem; }

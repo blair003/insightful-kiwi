@@ -1,6 +1,5 @@
 /* monitoring.css — the camera deployment-review grid. */
 
-.ik-monitoring { padding-top: 0.5rem; }
 .mon-lead { color: var(--bs-secondary-color, #6c757d); margin-bottom: 0.4rem; }
 
 /* Legend */

@@ -57,6 +57,55 @@
 #' tag (e.g. `tags$h3(class=…, "…")`). @param help an `.ik_info(...)` tagList (or NULL). @keywords internal
 .ik_titlebar <- function(title, help = NULL) tags$div(class = "ik-titlebar", title, help)
 
+#' Human label for the SELECTED period — what the user picked from the Period dropdown ("Latest full
+#' season", "Winter 2026", "All data", …), looked up from `ik_period_choices`. The banner pairs this
+#' with the resolved dates, so the reader sees their choice first, the window second. NULL if the code
+#' isn't found; "All data" for the catch-all / unset. @keywords internal
+.ik_period_label <- function(ik_data, sel) {
+  p <- sel$period
+  if (is.null(p) || identical(p, "all")) return("All data")
+  flat <- unlist(ik_period_choices(ik_data))                    # "<group>.<label>" => code
+  i <- match(p, flat); if (is.na(i)) return(NULL)
+  sub("^[^.]*\\.", "", names(flat)[i])                          # strip the optgroup prefix
+}
+
+#' Read-only PERIOD banner for the top of a VIEW: WHAT the user selected followed by the resolved
+#' window in brackets — "Winter 2026 (01 Jun – 31 Aug 2026)", "All data (01 Dec 2022 – 31 Aug 2026)" —
+#' with the comparison window appended when one is set. Reads better than dates alone (you see your
+#' choice) and than a label alone (you see the actual span). Period/Compare live in the sidebar, which
+#' is collapsed by default on the light-control pages — this keeps the window visible regardless. On a
+#' tab/view that spans ALL data (e.g. a multi-season trend) pass `all_data = TRUE`: it reads "All data
+#' (full range)" regardless of the underlying selection — an honest signal the period filter doesn't
+#' apply there. The leading calendar glyph is a BUTTON: clicking it toggles the filter sidebar, so the
+#' banner doubles as the way in to change the period. `toggle = FALSE` for pages with NO sidebar
+#' controls (nothing to open). `sel` = a selection spec; NULL-safe unless `all_data`. Reuses
+#' `.ov_period_span` (the shared date-span formatter) + `.ik_period_label`. @keywords internal
+.ik_period_banner <- function(ik_data, sel, all_data = FALSE, toggle = TRUE) {
+  if (!isTRUE(all_data) && is.null(sel)) return(NULL)
+  if (isTRUE(all_data)) {
+    label <- "All data"; cmp_lab <- NULL; seasonall <- FALSE
+    span  <- if (is.null(ik_data)) NULL else .ov_period_span(ik_data, list())   # the full data range
+  } else {
+    label   <- .ik_period_label(ik_data, sel)
+    span    <- .ov_period_span(ik_data, sel)
+    cmp     <- ik_comparison_spec(ik_data, sel)
+    cmp_lab <- if (!is.null(cmp)) .ov_period_span(ik_data, cmp) else NULL
+    seasonall <- !is.null(sel$period) && startsWith(sel$period, "seasonall:")   # span is self-describing
+  }
+  text <- if (seasonall || is.null(label) || !nzchar(label)) span                        # span only
+          else if (is.null(span) || !nzchar(span) || identical(span, "—")) label          # label only
+          else sprintf("%s (%s)", label, span)                                            # label (span)
+  date <- tagList(icon("calendar-days"), tags$span(class = "ik-period-span", text))
+  head <- if (isTRUE(toggle))
+    tags$a(href = "#", class = "ik-period-toggle", title = "Show or hide the filters",
+           onclick = "event.preventDefault();Shiny.setInputValue('ik_toggle_sidebar', 1, {priority:'event'});",
+           date)
+  else date
+  tags$span(class = "ik-period-banner",
+    head,
+    if (!is.null(cmp_lab)) tags$span(class = "ik-period-compare", sprintf("(vs %s)", cmp_lab)))
+}
+
 #' DT `columnDefs` that make a formatted date column (shown as a nice string like "15 Mar 2026 ·
 #' 14:30") sort CHRONOLOGICALLY, plus hide any helper columns. Append a numeric sort key to the data
 #' first (`df$.when_sort <- as.numeric(<POSIXct>)`), then pass the df here. Mirrors the Deployments

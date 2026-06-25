@@ -68,6 +68,7 @@ records_ui <- function(id, label = "Records", value = "records", heading = NULL)
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/observation.css")),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/records.css")),
     .ik_titlebar(tags$h3(heading %||% label)),
+    div(class = "ik-page-period", uiOutput(ns("period_banner"))),
     DT::DTOutput(ns("table"))
   )
 }
@@ -81,6 +82,9 @@ records_ui <- function(id, label = "Records", value = "records", heading = NULL)
 #'   here via `ik_resolve()` — its `$observations` drive the table.
 records_server <- function(id, ik_data, prefer_scientific, selection) {
   moduleServer(id, function(input, output, session) {
+
+    # Read-only period banner under the title (the sidebar holding Period/Compare can be collapsed).
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
 
     # The selected observations + location, with the Species display column applied,
     # then narrowed/renamed to the offered columns. Reactive on selection + name pref.

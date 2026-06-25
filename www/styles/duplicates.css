@@ -1,10 +1,7 @@
-/* duplicates.css — the "Duplicate window" tuner (R/modules/duplicates.R), Quality > Cameras tab. */
+/* duplicates.css — the "Duplicate window" tuner (R/modules/duplicates.R), now its own nav page. */
 
-.ik-dups {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--bs-border-color, #dee2e6);
-}
+/* (No top border/spacing — it used to be a section under a shared tab; as a standalone page that line
+   read as a stray rule above the heading.) */
 .ik-dups-head {
   font-weight: 700;
   margin: 0 0 0.25rem;

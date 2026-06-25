@@ -148,6 +148,9 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             tags$h3(class = "ik-species-title", spec$label),
             .ik_info(ns("help"), paste(spec$label, "— how to read this"), species_help_body(nh, nt))),
         tags$p(class = "ik-species-sub", tags$em(sci_lab)),
+        # Period banner (subtitle, under the title block) tracks the active tab: Summary + Trend are
+        # all-time ("All data"); the rest (Map / Behaviour / Bait / Co-occurrence / Records) honour the window.
+        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
         tabsetPanel(
           id = ns("tabs"),
           tabPanel("Summary", icon = icon("circle-info"),
@@ -240,6 +243,10 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
     prefer  <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
+    # Tab-aware period banner: Summary + Trend are all-time (and are the default tab), so they read
+    # "All data"; the other tabs honour the selected window.
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, selection(),
+      all_data = is.null(input$tabs) || input$tabs %in% c("Summary", "Trend")))
     taxa    <- stats::setNames(list(spec$sci), spec$label)        # this page's taxon (constant)
     nh <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000
     nt <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100

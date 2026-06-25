@@ -42,13 +42,16 @@ server <- function(input, output, session) {
   # module (own selection each); the metric reactives are bindCache'd, so identical selections share.
   overview_selection <- selection_server("overview_selection", ik_data, prefer_scientific,
     show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "overview")))
-  overview_server("overview", ik_data, prefer_scientific, overview_selection)
+  overview_server("overview", ik_data, prefer_scientific, overview_selection,
+                  sections = c("camera", "trap"), landing = TRUE)
   monitoring_overview_selection <- selection_server("monitoring_overview_selection", ik_data, prefer_scientific,
     show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "monitoring-overview")))
-  overview_server("monitoring_overview", ik_data, prefer_scientific, monitoring_overview_selection)
+  overview_server("monitoring_overview", ik_data, prefer_scientific, monitoring_overview_selection,
+                  sections = "camera")
   trapping_overview_selection <- selection_server("trapping_overview_selection", ik_data, prefer_scientific,
     show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "trapping-overview")))
-  overview_server("trapping_overview", ik_data, prefer_scientific, trapping_overview_selection)
+  overview_server("trapping_overview", ik_data, prefer_scientific, trapping_overview_selection,
+                  sections = "trap")
 
   # Start a feature module on its FIRST visit, not at session connect — so the landing page never waits
   # on another feature's base map/plot pre-rendering. The leaflet features use suspendWhenHidden = FALSE
@@ -134,15 +137,20 @@ server <- function(input, output, session) {
       prefer_scientific, color_mode = cm, active = reactive(identical(input$nav, spec$key)))
   })
 
-  # Auto-hide the sidebar on views that have no sidebar controls — only Overview and Records
-  # populate it; every other view keeps its controls in-page, so an empty rail is just clutter.
-  # (The collapse toggle stays, so a curious user can still open it and see the note.)
-  SIDEBAR_NAVS <- c("overview", "monitoring-overview", "trapping-overview",
-                    "monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
-                    "trap-review", "bait", "coverage", "trap-hero",
-                    vapply(species_specs, `[[`, character(1), "key"))   # species pages have period+reserve
+  # Sidebar OPEN state per view. The light-control Overviews and the Species pages are deliberately
+  # LEFT OUT, so the rail collapses for them by default — regular users aren't confronted with filters,
+  # while their controls still live in the sidebar (power users open the rail to change
+  # Period/Compare/Reserve, or click the in-page period banner's calendar), and the current window
+  # stays visible via that banner. The heavy-filter pages (Maps, Records, Trap review, …) open it.
+  # (The collapse toggle stays either way.)
+  SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
+                    "trap-review", "bait", "coverage", "trap-hero")
   observeEvent(input$nav, {
     bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
   })
+  # The in-page period banner's calendar/date is a button (one global input, set from .ik_period_banner)
+  # that toggles the filter sidebar — so on pages where the rail is collapsed by default, the banner is
+  # the way in to change Period/Compare/Reserve.
+  observeEvent(input$ik_toggle_sidebar, bslib::toggle_sidebar("global_sidebar"), ignoreInit = TRUE)
 
 }

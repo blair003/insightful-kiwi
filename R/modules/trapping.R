@@ -89,6 +89,9 @@ trapping_ui <- function(id, ik_data = NULL) {
     tags$script(src = .ik_asset("js/maps.js")),                            # leaflet resize-on-tab-show
     div(class = "ik-trapping",
         .ik_titlebar(tags$h3("Trap check-frequency review")),
+        # Period banner (subtitle under the title) tracks the active tab: the By-trapline table + Map
+        # honour the window, the Over-time trend spans everything (reads "All data").
+        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
         # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
         # "By trapline" leads (default): it's the day-to-day management view and the quicker to load;
@@ -146,6 +149,9 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     ns <- session$ns
     is_dark <- reactive(identical(color_mode(), "dark"))
     prefer  <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
+    # Tab-aware period banner: the Over-time trend ignores the window, so it reads "All data".
+    output$period_banner <- renderUI(
+      .ik_period_banner(ik_data, selection(), all_data = identical(input$trap_view, "Over time")))
 
     # Status cell text: cadence "X d" for good/watch/neglected; sparse → check count; else the tier name.
     .iv <- function(status, mean, n) {

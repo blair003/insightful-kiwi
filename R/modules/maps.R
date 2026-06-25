@@ -104,6 +104,7 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
     class = "ik-maps",
     if (!fixed) .ik_titlebar(tags$h3(                            # page heading (the embedded species maps skip it)
       if (identical(device, "trap")) "Trapping map" else if (identical(device, "camera")) "Monitoring map" else "Map")),
+    if (!fixed) div(class = "ik-page-period", uiOutput(ns("period_banner"))),   # period subtitle under the title
     if (!fixed) div(
       class = "ik-maps-controls",
       if (is.null(device))                                      # device-locked instances drop the toggle
@@ -169,6 +170,9 @@ maps_ui <- function(id, device = NULL, label = "Map", value = "map", ik_data = N
 maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = reactive("light"),
                         device = NULL, active = reactive(TRUE), fixed_species = NULL) {
   moduleServer(id, function(input, output, session) {
+
+    # Read-only period banner under the title (the sidebar holding Period/Compare can be collapsed).
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
 
     prefer <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
 

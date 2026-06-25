@@ -57,6 +57,7 @@ trap_hero_ui <- function(id, ik_data) {
         .ik_titlebar(
             tags$h3(class = "ik-hero-title", "Top traps — your best performers"),
             .ik_info(ns("hero_help"), "Top traps — how to read this", trap_hero_help_body(norm))),
+        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
         tags$p(class = "ik-hero-lead",
           "The traps catching the most per night of effort — ranked by catch rate (captures per ",
           tags$b(ntn), "), not raw totals. The map highlights them; the rest are faint for context."),
@@ -78,6 +79,7 @@ trap_hero_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                              selection = reactive(list()), color_mode = reactive("light"),
                              active = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
     is_dark <- reactive(identical(color_mode(), "dark"))
     sg      <- ik_species_groups(ik_data)
     ctl     <- ik_taxa_groups(sg, "control", "target")

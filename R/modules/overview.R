@@ -92,6 +92,35 @@ overview_trap_help_body <- function(norm = 100) {
   )
 }
 
+#' BRIEF "key concepts" help for the SLIM main Overview blocks — a single panel (not the multi-tab
+#' explainer, which stays on each device's own Overview page where there's room). Covers the one idea
+#' a reader needs at a glance + points to the full page. @keywords internal
+overview_monitor_help_brief <- function(norm_hours = 2000) {
+  tagList(
+    tags$p("What your ", tags$b("cameras"), " recorded in the current selection — animal ",
+           tags$b("detections"), ", the number of distinct ", tags$b("species"), ", and a card per key species."),
+    tags$p("Each card's headline is its ", tags$b("RAI"), " (relative activity index): detections per ",
+           format(norm_hours, big.mark = ","), " camera-hours, so it's comparable across lines and periods ",
+           "however long each camera ran."),
+    tags$p(tags$em("Full effort, every species, by-reserve and drill-downs are on the Monitoring → Overview page.")))
+}
+
+#' BRIEF "key concepts" help for the slim main Overview trapping block. @keywords internal
+overview_trap_help_brief <- function(norm = 100) {
+  tagList(
+    tags$p("What your ", tags$b("traps"), " caught in the current selection — ", tags$b("catches"),
+           ", the number of distinct ", tags$b("species"), ", and a card per target species."),
+    tags$p("Each card's headline is the ", tags$b("catch count"), ", with the ", tags$b("catch rate"),
+           " (per ", format(norm, big.mark = ","), " trap-nights) beneath — catch-per-unit-effort, so areas ",
+           "worked at different intensities compare fairly."),
+    tags$p(tags$em("Full effort, every species caught, by-reserve and drill-downs are on the Trapping → Overview page.")))
+}
+
+#' The device (`source_type`) icon — ties the main page's section blocks to their navbar menus
+#' (Monitoring = binoculars, Trapping = crosshairs). @keywords internal
+.ov_device_icon <- function(kind)
+  switch(kind, camera = "binoculars", trap = "location-crosshairs", "layer-group")
+
 #' Overview nav panel UI.
 #' @param id Module id.
 #' @return A bslib nav_panel for page_navbar().
@@ -108,7 +137,6 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   ns <- NS(id)
   body <- div(
     class = "ik-overview",
-    uiOutput(ns("header")),
     if (isTRUE(compact)) uiOutput(ns("compact"))
     else tagList(
       if ("camera" %in% sections) uiOutput(ns("camera")),
@@ -121,10 +149,14 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
       tabPanel("Snapshot", icon = icon("gauge"),      body),
       tabPanel("Trends",   icon = icon("chart-line"), trends))
   else body
+  # The page title ("{org} — Monitoring/Trapping") leads; the read-only PERIOD banner sits as a subtitle
+  # directly under it (tab-aware — on the Trends tab, a series the period doesn't constrain, it reads
+  # "All data"). Datasets live on each device's section header, not here.
   nav_panel(
     label, value = value, icon = icon("gauge"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/overview.css")),
-    inner
+    div(class = "ik-topbar", uiOutput(ns("header"))),
+    div(class = "ik-page-period", uiOutput(ns("period_banner"))), inner
   )
 }
 
@@ -410,6 +442,23 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   obs[is.na(d) | !d, , drop = FALSE]                          # keep non-duplicates
 }
 
+#' Map a device (`source_type`) to its ACTIVITY label — the same word the navbar menu uses, so the
+#' page heading reads "{org} — Monitoring/Trapping". Trapping is predator CONTROL (trapping today,
+#' poison/etc. later); when a non-trap control device arrives, map it here too and the join below
+#' collapses {Trapping, …} → "Control". Falls back to a title-cased device for unknown types so a new
+#' dataset is never label-less. @keywords internal
+.OV_DEVICE_LABEL <- c(camera = "Monitoring", trap = "Trapping")
+
+#' Header activity label for a set of devices present on the page: each device's activity word,
+#' de-duplicated and joined with " & " (so the main page across camera+trap reads "Monitoring &
+#' Trapping"; a single-device page reads just "Monitoring" / "Trapping"). NULL for no devices.
+#' @keywords internal
+.ov_section_label <- function(source_types) {
+  st <- unique(stats::na.omit(source_types)); if (!length(st)) return(NULL)
+  labs <- unname(ifelse(st %in% names(.OV_DEVICE_LABEL), .OV_DEVICE_LABEL[st], tools::toTitleCase(st)))
+  paste(unique(labs), collapse = " & ")
+}
+
 #' Display string for a selection's PERIOD span (the header date line). A contiguous selection
 #' (one season / a year / rolling-12 / latest / all data) shows its window `start – end`; a
 #' "seasonall" selection (All summers/…) is non-contiguous, so instead of a misleading single range
@@ -428,12 +477,11 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   sprintf("%s – %s", fmt(min(sub$start)), fmt(max(sub$end) - 1))   # end is exclusive → show last day
 }
 
-#' Per-device header sub-line: a date describing when this device's data falls WITHIN the selection,
-#' plus its own reserve / line / location counts. For a contiguous selection that's the record-date
-#' envelope (scoped, so a continuous trap that began two years ago still reads in-season); for a
-#' non-contiguous "seasonall" selection (All summers/…) a single range would mislead, so it shows the
-#' count of those seasons this device actually has data in. NULL when nothing resolved. @param period
-#' The selection's encoded period value (for the seasonall case). @keywords internal
+#' Per-device header sub-line: how many distinct DAYS this device has records on in the selection,
+#' plus its own reserve / line / location counts. The monitoring-window DATE is deliberately NOT shown
+#' here — once a selection spans more than a season a single range misleads, and the actual window now
+#' lives in the page-header period banner. NULL when nothing resolved. (`period` is unused — retained
+#' for call-site compatibility.) @keywords internal
 .ov_section_meta <- function(res, ik_data, period = NULL) {
   dep <- res$deployments; if (is.null(dep) || !nrow(dep)) return(NULL)
   obs  <- res$observations
@@ -444,16 +492,8 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   locs  <- ik_data$app$geography$locations
   gl    <- locs[locs$location_id %in% unique(dep$locationID), , drop = FALSE]
   lines <- length(unique(paste(gl$reserve, gl$line)[!is.na(gl$line)]))   # distinct reserve×line (real lines)
-  when_str <- if (!is.null(period) && startsWith(period, "seasonall:")) {
-    op   <- ik_observation_period(ik_data)                               # this device's seasons-with-data
-    seas <- unique(op$calendar_season[match(obs$observationID, op$observationID)])
-    sprintf("%d %ss", length(seas[!is.na(seas)]), tolower(sub("^seasonall:", "", period)))
-  } else {
-    fmt  <- function(x) if (!is.finite(as.numeric(x))) "—" else format(x, "%d %b %Y")
-    sprintf("%s – %s", fmt(suppressWarnings(min(when, na.rm = TRUE))), fmt(suppressWarnings(max(when, na.rm = TRUE))))
-  }
   dot <- function() tags$span(class = "ik-ov-dot", "·")
-  tags$div(class = "ik-device-meta", when_str, dot(),
+  tags$div(class = "ik-device-meta",
     sprintf("%d day%s with records", ndays, if (ndays == 1) "" else "s"), dot(),
     sprintf("%d reserves · %d lines · %d locations",
             length(unique(gl$reserve[!is.na(gl$reserve)])), lines, length(unique(gl$location_id))))
@@ -482,7 +522,7 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
         vb)
   }
   card(
-    card_header(tags$span(class = "ik-device-title", title), help,
+    card_header(tags$span(class = "ik-device-title", icon(.ov_device_icon(kind)), " ", title), help,
                 .ov_section_meta(res, ik_data, period),
                 class = paste0("ik-device-head ik-device-", kind)),
     card_body(
@@ -506,7 +546,7 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
 #' OWN Overview page now. Boxes/cards reuse the same `box_drill`/`drill` modals as the full section.
 #' @keywords internal
 .ov_compact_block <- function(title, kind, record_label, record_value, species_value, cards,
-                              box_drill = NULL) {
+                              box_drill = NULL, help = NULL) {
   box <- function(metric_key, label, value, icon_name) {
     vb <- value_box(label, value, showcase = icon(icon_name))
     if (is.null(box_drill)) return(vb)
@@ -517,7 +557,10 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   }
   tags$div(
     class = paste0("ik-ov-compact-block ik-device-", kind),
-    tags$div(class = "ik-device-title ik-ov-compact-title", title),
+    tags$div(class = "ik-ov-compact-head",
+             tags$span(class = "ik-device-title ik-ov-compact-title",
+                       icon(.ov_device_icon(kind)), " ", title),
+             help),
     layout_column_wrap(
       width = 1/2,
       box("records", record_label, record_value, "paw"),
@@ -607,7 +650,12 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
 #' @param prefer_scientific A reactive returning TRUE to show scientific names (used for
 #'   non-registry caught species in the trap panel).
 #' @param selection         A reactive returning the selection SPEC (period/geography).
-overview_server <- function(id, ik_data, prefer_scientific, selection) {
+#' @param sections          Which device(s) this instance covers ("camera"/"trap") — drives the header
+#'   activity label (Monitoring/Trapping) on the device pages.
+#' @param landing           TRUE for the main cross-device landing page — its header is just the
+#'   organisation name (no "— Monitoring & Trapping" suffix, which reads too technical for a landing).
+overview_server <- function(id, ik_data, prefer_scientific, selection, sections = c("camera", "trap"),
+                            landing = FALSE) {
   moduleServer(id, function(input, output, session) {
     sg       <- ik_species_groups(ik_data)
     locs     <- ik_data$app$geography$locations
@@ -659,28 +707,28 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
     rate_compact <- metric_react(ik_trap_rate, ctl_t, "rate_compact")
 
     output$header <- renderUI({
-      # the instance ORGANISATION (project.R) leads; the data sources (dataset names) sit smaller on a
-      # second line. The third line is the SELECTION period window (per-device data spans + place counts
-      # now live under each section header), with the comparison period in brackets when one is set.
-      org    <- ik_data$meta$organisation
-      active <- ik_active_datasets()                            # reactive → header re-runs when the toggle is saved
-      ds     <- if (is.null(active)) ik_data$datasets else ik_data$datasets[intersect(names(ik_data$datasets), active)]
-      dnames <- unique(vapply(ds, function(d) d$meta$name %||% "", character(1)))
-      dnames <- dnames[nzchar(dnames)]
-      cmp     <- ik_comparison_spec(ik_data, selection())
-      cmp_lab <- if (!is.null(cmp)) .ov_period_span(ik_data, cmp) else NULL
-      tags$div(
-        class = "ik-ov-header",
-        tags$h3(org %||% paste(if (length(dnames)) dnames else projects, collapse = " · ")),
-        if (!is.null(org) && length(dnames))
-          tags$div(class = "ik-ov-datasets", paste(dnames, collapse = " · ")),
-        tags$div(
-          class = "ik-ov-sub",
-          .ov_period_span(ik_data, selection()),
-          if (!is.null(cmp_lab)) tags$span(class = "ik-ov-compare", sprintf("(vs %s)", cmp_lab))
-        )
-      )
+      # The instance ORGANISATION (project.R) leads, with the page's ACTIVITY appended so one header
+      # serves all three Overviews: "{org} — Monitoring" (camera page) / "— Trapping" (trap page) /
+      # "— Monitoring & Trapping" (the main page across both). Datasets now sit on each device's
+      # section header (not here); the period banner sits inside the view it filters (not here).
+      org     <- ik_data$meta$organisation
+      active  <- ik_active_datasets()                           # reactive → re-runs when the dataset toggle is saved
+      st      <- ik_dataset_source_types(if (is.null(active)) ik_data$datasets
+                                         else ik_data$datasets[intersect(names(ik_data$datasets), active)])
+      present <- sort(unique(stats::na.omit(st[st %in% sections])))
+      seclab  <- .ov_section_label(present)
+      title   <- if (isTRUE(landing)) {
+        org %||% "Overview"                                    # landing: just the organisation
+      } else if (!is.null(org)) {
+        if (!is.null(seclab)) paste0(org, " — ", seclab) else org   # device page: "{org} — Monitoring"
+      } else seclab %||% "Overview"
+      tags$div(class = "ik-ov-header", tags$h3(title))
     })
+
+    # Tab-aware period banner above the title: the Trends tab spans every season (period doesn't apply)
+    # so it reads "All data"; Snapshot and the single-view device pages honour the selected window.
+    output$period_banner <- renderUI(
+      .ik_period_banner(ik_data, selection(), all_data = identical(input$ov_tabs, "Trends")))
 
     output$camera <- renderUI({
       if (is.null(cam()$deployments) || !nrow(cam()$deployments))
@@ -763,7 +811,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
         cards <- if (length(mon_t)) .ov_metric_cards(m$summary, m$prev, .ov_counts(m$lines),
           names(mon_t), "camera", mon_dir, session$ns("drill"), headline = "rai", sg = sg, sort_by = sort_by)
         blocks[["camera"]] <- .ov_compact_block("Camera monitoring", "camera",
-          "Detections", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"))
+          "Detections", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
+          help = .ik_info(session$ns("mon_help_brief"), "Camera monitoring",
+                          overview_monitor_help_brief(ik_data$meta$camera$rai$norm_hours %||% 2000)))
       }
       if (has_trap && !is.null(trp()$deployments) && nrow(trp()$deployments)) {
         o <- animals(trp(), FALSE); m <- rate_compact()        # control targets only — the slim landing
@@ -772,7 +822,9 @@ overview_server <- function(id, ik_data, prefer_scientific, selection) {
           names(ctl_t), "trap", ctl_t_dir, session$ns("drill"), headline = "count",
           rate_unit = unit, colour = FALSE, digits = 3, min_digits = 2, sg = sg, sort_by = sort_by)
         blocks[["trap"]] <- .ov_compact_block("Trapping", "trap",
-          "Catches", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"))
+          "Catches", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
+          help = .ik_info(session$ns("trap_help_brief"), "Trapping",
+                          overview_trap_help_brief(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
       }
       if (!length(blocks))
         return(.ov_empty_section("Overview", "camera",

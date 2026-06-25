@@ -1,5 +1,4 @@
 /* highlights.css — "Highlights" hero slider of favourite camera images. */
-.ik-hero { padding-top: 0.5rem; }
 .ik-hero-title { margin: 0 0 0.1rem; }
 .ik-hero-lead  { color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; margin: 0.2rem 0 0.8rem; max-width: 60rem; }
 .ik-hero-empty { color: var(--bs-secondary-color, #6c757d); font-style: italic; }

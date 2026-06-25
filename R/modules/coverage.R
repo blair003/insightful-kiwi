@@ -159,6 +159,7 @@ coverage_ui <- function(id, ik_data = NULL) {
           tags$b(tags$span(style = "color:#2c7fb8", "blue")), " = camera & ",
           tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap locations (the Device layer). A green hotspot ringed by ",
           "purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
+        div(class = "ik-page-period", uiOutput(ns("period_banner"))),   # this section honours the period (density above is all-data)
         div(class = "ik-cov-controls",
             selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "230px"),
             selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "230px")),
@@ -186,6 +187,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                             selection = reactive(list()), color_mode = reactive("light"),
                             active = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
     is_dark <- reactive(identical(color_mode(), "dark"))
     sg <- ik_species_groups(ik_data)
     .role_taxa <- function(role) { l <- unique(sg$label[sg$role == role & !is.na(sg$monitor)])

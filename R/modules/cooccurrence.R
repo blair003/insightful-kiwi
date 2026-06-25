@@ -70,6 +70,7 @@ cooccurrence_ui <- function(id) {
         .ik_titlebar(
             tags$h3(class = "ik-cooc-title", "Co-occurrence: Protected ↔ predator timing"),
             .ik_info(ns("cooc_help"), "Co-occurrence — how to read this", cooccurrence_help_body())),
+        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
         tags$p(class = "ik-cooc-lead",
           "For every ", tags$b("protected"), "species detection on camera, how long until the nearest ", tags$b("predator"),
           " detection — at the same camera, or anywhere within its ", tags$b("neighbourhood"),
@@ -170,6 +171,8 @@ ik_cooc_drill <- function(input, output, session, ik_data, prefer, radius_m = re
 cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                                 color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
+    # All-data analysis — the banner states that (with the full range); no sidebar here, so no toggle.
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, NULL, all_data = TRUE, toggle = FALSE))
     is_dark <- reactive(identical(color_mode(), "dark"))
     sg <- ik_species_groups(ik_data)
     .role_taxa <- function(role) { l <- unique(sg$label[sg$role == role & !is.na(sg$monitor)])

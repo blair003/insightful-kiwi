@@ -6,27 +6,20 @@
   gap: 1rem;
 }
 
+/* Page header (org — section title) leads; pulled up to sit closer to the top, tight to the period
+   banner subtitle below it. */
+.ik-topbar {
+  margin-top: -0.3rem;
+  margin-bottom: 0.1rem;
+}
+
 .ik-ov-header h3 {
   margin: 0;
   font-weight: 700;
 }
-.ik-ov-datasets {
-  color: var(--bs-secondary-color, #6c757d);
-  font-size: 0.85rem;
-  margin: 0.05rem 0 0.2rem;
-}
-.ik-ov-sub {
-  color: var(--bs-secondary-color, #6c757d);
-  font-size: 0.9rem;
-}
 .ik-ov-dot {
   margin: 0 0.4rem;
   opacity: 0.5;
-}
-.ik-ov-compare {
-  margin-left: 0.5rem;
-  font-size: 0.8rem;
-  opacity: 0.75;
 }
 
 /* Device section headers (Camera monitoring · Trapping) — bolder, with a subtle per-device accent
@@ -197,6 +190,9 @@
    add the padding/rounding that accent needs and space the two blocks apart. */
 .ik-ov-compact { display: flex; flex-direction: column; gap: 1.1rem; }
 .ik-ov-compact-block { padding: 0.75rem 0.85rem; border-radius: var(--bs-border-radius, 0.375rem); }
-.ik-ov-compact-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 0.55rem; }
+.ik-ov-compact-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.55rem; }
+.ik-ov-compact-title { font-weight: 700; font-size: 1.05rem; flex: 1 1 auto; }
+.ik-ov-compact-title > svg, .ik-ov-compact-title > .fa,
+.ik-device-title > svg, .ik-device-title > .fa { opacity: 0.75; margin-right: 0.15rem; }
 .ik-ov-compact-block .ik-metric-cards { margin-bottom: 0; }
 .ik-ov-compact-block .bslib-value-box { min-height: 5.2rem; }   /* the two headline boxes, tidy + even */
