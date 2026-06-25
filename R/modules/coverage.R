@@ -494,7 +494,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       validate(need(!is.null(ch) && nrow(ch), "No checks recorded for this trap."))
       df <- data.frame(
         Date = format(ch$check_date, "%d %b %Y"),
-        Interval = ifelse(ch$is_first, "first record", paste0(ch$interval_days, " d")),
+        Interval = ifelse(ch$is_first, "—", paste0(ch$interval_days, " d")),
         Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait),
         Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer), ObsID = ch$observationID,
         check.names = FALSE, stringsAsFactors = FALSE)

@@ -113,12 +113,12 @@ trapping <- list(
   #   dormant_after_days ≤ gap < hist → DORMANT (faint; likely paused)
   #   gap ≥ historic_after_days       → HISTORIC (faint; likely decommissioned for this period)
   # A trap reviewed in a period when it was active reads as active; the SAME trap in later periods
-  # ages to dormant then historic as the gap grows. Defaults: 6 months / 12 months.
-  dormant_after_days  = 182,
-  historic_after_days = 365,
-  # Sparse data: a trap needs at least this many checks IN the period to get a good/watch/neglected
-  # cadence; with fewer it's flagged "insufficient data" instead of a misleading label.
-  min_checks_for_cadence = 2
+  # ages to dormant then historic as the gap grows. Set generous so a still-relevant trap doesn't drop
+  # to low-key "inactive" too early — a months-unchecked trap is high risk, not benign.
+  dormant_after_days  = 274,   # ~9 months  → DORMANT (likely paused)
+  historic_after_days = 543    # ~18 months → HISTORIC (likely decommissioned for this period)
+  # (A single check is now graded by its gap like any other — no separate "insufficient data" tier —
+  #  so min_checks_for_cadence is no longer used.)
 )
 
 # Overview display — how the per-species cards and the "other species" section behave.

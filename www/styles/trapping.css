@@ -40,7 +40,7 @@
 .trap-prog-step.trap-good { background: #2e7d32; color: #fff; }
 .trap-prog-step.trap-watch { background: #f9a825; color: #3a2f00; }
 .trap-prog-step.trap-neglected { background: #c62828; color: #fff; }
-.trap-prog-step.trap-inactive { background: #8a8a8a; color: #fff; }
+.trap-prog-step.trap-inactive { background: #e09595; color: #5a1414; }
 .trap-prog-arrow { align-self: center; color: var(--bs-secondary-color, #6c757d); font-weight: 700; font-size: 1.1rem; }
 
 /* Per-trap detail modal */

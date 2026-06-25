@@ -64,7 +64,7 @@ trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overt
       P("Where the traps are, coloured by servicing status — ", tags$b(tags$span(style = "color:#2e7d32", "Good")),
         " green, ", tags$b(tags$span(style = "color:#f9a825", "Watch")), " amber, ",
         tags$b(tags$span(style = "color:#c62828", "Neglected")), " red, ",
-        tags$b(tags$span(style = "color:#8a8a8a", "Inactive")), " grey, and ",
+        tags$b(tags$span(style = "color:#e09595", "Inactive")), " pale red, and ",
         tags$b(tags$span(style = "color:#1e88e5", "First check")), " blue. Each status is a ",
         tags$b("selectable layer"), " (top-right) — turn off the ones you don't need."),
       P(tags$b("High pressure"), " — a bold ", tags$b("black ring"), " marks a ", tags$b("productive but under-checked"),
@@ -108,7 +108,7 @@ trapping_ui <- function(id, ik_data = NULL) {
                          trapping_help_body(ik_data$meta$trapping, "byline"))),
             div(class = "trap-controls",
                 checkboxGroupInput(ns("show_extra"), "Also show (otherwise active traps only)", inline = TRUE,
-                  choices = c("Dormant (6 mo+)" = "dormant", "Historic (12 mo+)" = "historic"),
+                  choices = c("Dormant (9 mo+)" = "dormant", "Historic (18 mo+)" = "historic"),
                   selected = "dormant")),
             uiOutput(ns("intro")),
             div(class = "ik-trapping-scroll", uiOutput(ns("table")))),
@@ -212,6 +212,8 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       h  <- ik_trap_health_cutoffs(ik_data, reserves = unique(per$reserve), datasets = unique(per$dataset))
       gm <- round(max(h$good_max  %||% TRAP_GOOD_INTERVAL_DAYS, h$floor   %||% 0))
       wm <- round(min(h$watch_max %||% TRAP_WATCH_INTERVAL_DAYS, h$ceiling %||% Inf))
+      dm <- round((ik_data$meta$trapping$dormant_after_days  %||% 182) / 30.4)   # dormant/historic windows
+      hm <- round((ik_data$meta$trapping$historic_after_days %||% 365) / 30.4)   # (months), from config
       leg <- function(cls, lab, n) tags$span(class = "trap-legend-item",
         tags$span(class = paste0("trap-swatch trap-", cls)), sprintf("%s (%d)", lab, n))
       legs <- list(
@@ -219,8 +221,8 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         leg("watch", sprintf("%d–%dd", gm, wm), st[["watch"]]),
         leg("neglected", sprintf("Neglected >%dd", wm), st[["neglected"]]))
       if (st[["first_check"]] > 0)       legs <- c(legs, list(leg("first_check", "First check", st[["first_check"]])))
-      if (st[["dormant"]]  > 0)          legs <- c(legs, list(leg("dormant",  "Dormant 6 mo+",  st[["dormant"]])))
-      if (st[["historic"]] > 0)          legs <- c(legs, list(leg("historic", "Historic 12 mo+", st[["historic"]])))
+      if (st[["dormant"]]  > 0)          legs <- c(legs, list(leg("dormant",  sprintf("Dormant %d mo+",  dm), st[["dormant"]])))
+      if (st[["historic"]] > 0)          legs <- c(legs, list(leg("historic", sprintf("Historic %d mo+", hm), st[["historic"]])))
       # Just the key now — a one-line count + the colour codes. The grading explanation moved to the
       # tab's (?) help so the top of the table stays lean.
       tagList(
@@ -323,7 +325,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
             onclick = sprintf("Shiny.setInputValue('%s',{obs:'%s'},{priority:'event'})",
                               ns("check"), ch$observationID[i]),
             tags$td(format(ch$check_date[i], "%d %b %Y")),
-            tags$td(if (isTRUE(ch$is_first[i])) tags$em("first record") else sprintf("%d d", ch$interval_days[i])),
+            tags$td(if (isTRUE(ch$is_first[i])) tags$em("—") else sprintf("%d d", ch$interval_days[i])),
             tags$td(ch$outcome[i]),
             tags$td(dash(ch$bait[i])),
             tags$td(dash(ch$volunteer[i])))))))
@@ -346,6 +348,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     PRESSURE_PCT <- 50
     .PRESS_RING  <- "#000000"                                  # black ring — reads clearly over the status colours
     TRAP_RAD     <- 6                                          # trap dot radius (bigger than the old 4, easier to see/click)
+    INACTIVE_COL <- "#e09595"                                  # pale red: dormant/historic = faded from neglected, still flagged (not benign grey)
     map_traps <- reactive({
       per <- review()$all; if (is.null(per) || !nrow(per)) return(NULL)   # ALL traps — the map has its own layer toggles
       locs <- ik_data$app$geography$locations; gi <- match(per$location, locs$location_id)
@@ -355,7 +358,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       per$pressure_score <- ifelse(per$high_pressure, (per$catch_pct / 100) *
                                    ifelse(is.na(per$mean_interval_days), 0, per$mean_interval_days), 0)
       # one selectable layer per status. The cadence progression — Good (green) · Watch (amber) ·
-      # Neglected (red) · Inactive (grey: dormant/historic) — plus the one off-path case: First check
+      # Neglected (red) · Inactive (pale red: dormant/historic) — plus the one off-path case: First check
       # (blue, just deployed). Colours = central .MAPS_STATUS.
       per$grp <- ifelse(per$status == "neglected",   "Neglected",
                  ifelse(per$status == "watch",       "Watch",
@@ -396,13 +399,13 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       d <- d[is.finite(d$latitude) & is.finite(d$longitude), , drop = FALSE]; if (!nrow(d)) return()
       scol <- if (is_dark()) .MAPS_STATUS$dark else .MAPS_STATUS$light   # central servicing palette (maps.R)
       grp_col <- c("Good" = unname(scol["good"]), "Watch" = unname(scol["watch"]),
-                   "Neglected" = unname(scol["neglected"]), "Inactive" = "#8a8a8a",
+                   "Neglected" = unname(scol["neglected"]), "Inactive" = INACTIVE_COL,
                    "First check" = unname(scol["first_check"]))
       for (g in names(grp_col)) {
         dd <- d[d$grp == g, , drop = FALSE]; if (!nrow(dd)) next
         leaflet::addCircleMarkers(p, data = dd, lng = ~longitude, lat = ~latitude, group = g,
           layerId = paste0("T|", dd$location), radius = TRAP_RAD, fillColor = grp_col[[g]],
-          fillOpacity = if (g %in% c("Good", "Inactive")) 0.6 else 0.9,
+          fillOpacity = if (g == "Good") 0.6 else if (g == "Inactive") 0.8 else 0.9,
           stroke = TRUE, color = "#ffffff", weight = 1,
           label = lapply(sprintf("<b>%s</b><br>%s &middot; %s checks &middot; %s caught<br>%s%s · click for history",
             dd$name, tools::toTitleCase(gsub("_", " ", ifelse(is.na(dd$status), "—", dd$status))),
@@ -418,7 +421,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
           options = leaflet::pathOptions(pane = "traps", interactive = FALSE))
       }
       leaflet::addLegend(p, "bottomright",
-        colors = c(unname(scol["good"]), unname(scol["watch"]), unname(scol["neglected"]), "#8a8a8a",
+        colors = c(unname(scol["good"]), unname(scol["watch"]), unname(scol["neglected"]), INACTIVE_COL,
                    unname(scol["first_check"]), .PRESS_RING),
         labels = c("Good", "Watch", "Neglected", "Inactive (dormant/historic)", "First check",
                    "High pressure (ring)"),
@@ -498,7 +501,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       validate(need(!is.null(ch) && nrow(ch), "No checks recorded for this trap."))
       df <- data.frame(
         Date = format(ch$check_date, "%d %b %Y"),
-        Interval = ifelse(ch$is_first, "first record", paste0(ch$interval_days, " d")),
+        Interval = ifelse(ch$is_first, "—", paste0(ch$interval_days, " d")),
         Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait),
         Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer), ObsID = ch$observationID,
         check.names = FALSE, stringsAsFactors = FALSE)

@@ -279,7 +279,7 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         ifelse(reb == "yes", "Yes",
         ifelse(reb == "no",  "<span style='color:#adb5bd'>No</span>",
                              "<span style='color:#adb5bd'>—</span>")))
-      interval <- ifelse(ch$is_first, "first record", paste0(ch$interval_days, " d"))
+      interval <- ifelse(ch$is_first, "—", paste0(ch$interval_days, " d"))
       df <- data.frame(
         Date = format(ch$check_date, "%d %b %Y"),
         Interval = interval, Outcome = ch$outcome, Bait = ch$bait,
