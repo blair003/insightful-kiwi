@@ -38,9 +38,13 @@ cooccurrence_help_body <- function() {
                 "their behaviour."),
         tags$li(tags$b("Falling / flat"), " ⇒ predator and protected are overlapping as much as ever."),
         tags$li(tags$b("Predator after only"), " restricts to gaps where the predator arrives ", tags$em("after"),
-                " the protected animal — the “stalking” direction (following), rather than either order.")),
+                " the protected animal — the “stalking” direction (following), rather than either order."),
+        tags$li(tags$b("Ground it against RAI"), " — a rising gap can simply mean fewer detections of one ",
+                "species, not real separation. Overlay each species' RAI on the Trend (right axis) to read ",
+                "the gap against how much they're actually being seen.")),
       P("It's ", tags$b("exploratory"), ": sharing a camera close in time is suggestive of risk, not proof of ",
-        "a kill or even a meeting.")),
+        "a kill or even a meeting. And once the median gap reaches ", tags$b("weeks or more"), ", the two barely ",
+        "share ground at all — treat the trend as a weak signal there.")),
     tabPanel(
       "How it's calculated", icon = icon("calculator"),
       tags$ul(
@@ -50,6 +54,10 @@ cooccurrence_help_body <- function() {
                 "within it; the gap is the hours between them, and the modal shows how far apart the cameras were."),
         tags$li(tags$b("Direction"), " — by default the nearest predator detection either side counts; ",
                 tags$b("Predator after only"), " keeps just those where the predator came later."),
+        tags$li(tags$b("Beyond the reserve"), " — with a reserve selected, ",
+                tags$b("Include nearby cameras beyond the reserve"), " (on by default, needs a Within radius) lets a ",
+                "protected detection pair with a predator on a camera in a neighbouring reserve within that radius ",
+                "(a boundary buffer); off = strict to the reserve."),
         tags$li(tags$b("Buckets"), " — gaps are grouped < 1 h · 1–6 h · 6–24 h · 1–7 d · 1–4 wk · > 1 mo."),
         tags$li(tags$b("Seasonal median"), " — within each season, the median gap (robust to a few extreme ",
                 "values), plotted over time."),
@@ -76,6 +84,7 @@ cooccurrence_controls <- function(id) {
     selectInput(ns("radius"), "Within",
                 choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000),
                 selected = 0),
+    .ik_cross_boundary_input(ns("cross_boundary"), "cameras"),
     checkboxInput(ns("after_only"),
       tagList("Predator ", tags$b("after"), " only ",
               .ik_hint("Stalking — count only predators that arrive AFTER the protected animal (predator follows).")),
@@ -93,10 +102,10 @@ cooccurrence_ui <- function(id) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
     tags$script(src = .ik_asset("js/maps.js")),                       # leaflet resize-on-tab-show
     div(class = "ik-cooc",
-        .ik_titlebar(
-            tags$h3(class = "ik-cooc-title", "Co-occurrence: Protected ↔ predator timing"),
-            .ik_info(ns("cooc_help"), "Co-occurrence — how to read this", cooccurrence_help_body())),
-        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
+        .ik_page_header("Co-occurrence",
+            description = "The time gap between protected species and predators sharing the same ground.",
+            help = .ik_info(ns("cooc_help"), "Co-occurrence — how to read this", cooccurrence_help_body()),
+            banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         tabsetPanel(
           id = ns("cooc_view"), type = "tabs",
           tabPanel("Distribution", icon = icon("chart-column"),
@@ -112,7 +121,15 @@ cooccurrence_ui <- function(id) {
             DT::DTOutput(ns("map_table"))),
           tabPanel("Trend", icon = icon("chart-line"),
             tags$p(class = "ik-cooc-hint", "Median gap by season across ", tags$b("all data"),
-                   " — rising = protected & predators separating in time."),
+                   ". Large gaps (weeks+) mean the two rarely share ground, so read trends cautiously; ",
+                   "overlay RAI to tell a real timing shift from simply changing detection rates."),
+            div(class = "ik-cooc-trend-ctrl",
+                checkboxGroupInput(ns("trend_rai"), inline = TRUE,
+                  label = tagList("Overlay RAI ",
+                    .ik_hint(paste0("Ground the gap trend against how much each species is actually being seen. A gap can ",
+                      "rise simply because the protected species is thinning out (or the predator is) — not because they're ",
+                      "truly separating. RAI shares one right-hand axis; ± SE shown as a shadow."))),
+                  choices = c("Protected" = "prot", "Predator" = "pred"), selected = "prot")),
             plotOutput(ns("trend"), height = "360px"))))
   )
 }
@@ -229,7 +246,7 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       g <- ik_predator_protected_gaps(ik_data, ik_resolve_species_choice(preds, pred_taxa),
                                       ik_resolve_species_choice(prots, prot_taxa),
                                       seasons = seasons, reserve = .ik_nz(selection()$reserve),
-                                      radius_m = radius_m())
+                                      radius_m = radius_m(), cross_boundary = isTRUE(input$cross_boundary))
       if (is.null(g)) return(NULL)
       if (isTRUE(input$after_only)) {                  # stalking: predator detected AFTER the protected animal
         g <- g[g$signed_h > 0, , drop = FALSE]
@@ -243,12 +260,14 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
 
     output$intro <- renderUI({
       g <- gaps(); after <- isTRUE(input$after_only); px <- prox()
-      if (is.null(g)) return(tags$p(class = "ik-cooc-lead",
+      # The dynamic results summary — hint-styled to match the Map/Trend tab hints (size + top spacing);
+      # the static feature intro above the tabs carries the headline.
+      if (is.null(g)) return(tags$p(class = "ik-cooc-hint",
         if (after) sprintf("No protected-species detections were followed by a predator %s.", px)
         else sprintf("No protected-species and predator detections were found %s.", px)))
       prot_l <- paste(ik_choice_labels(input$prot %||% .prot_def, ik_data, prefer()), collapse = " + ")
       pred_l <- paste(ik_choice_labels(input$pred %||% .pred_def, ik_data, prefer()), collapse = " + ")
-      tags$p(class = "ik-cooc-lead", if (after) sprintf(
+      tags$p(class = "ik-cooc-hint", if (after) sprintf(
         "%s %s detections followed by a %s %s · median %s until the predator arrives · %d%% within 24 h.",
         format(nrow(g), big.mark = ","), prot_l, pred_l, px, .fmt_gap(stats::median(g$gap_h)), round(100 * mean(g$gap_h <= 24)))
       else sprintf(
@@ -279,12 +298,68 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       ag <- ag[order(ag$t), ]; ag$season <- factor(ag$season, levels = ag$season)
       use_days <- max(ag$med, na.rm = TRUE) >= 48                 # auto hours↔days by the data's scale
       ag$y <- if (use_days) ag$med / 24 else ag$med
-      ggplot(ag, aes(.data$season, .data$y, group = 1)) +
-        geom_line(colour = "#6a3d9a", linewidth = 0.9) + geom_point(colour = "#6a3d9a", size = 2.4) +
-        labs(x = NULL, y = sprintf("Median gap (%s)", if (use_days) "days" else "hours"),
-             subtitle = "rising = protected & predators separating in time") +
+      gap_col <- "#6a3d9a"                                        # purple = gap (predator timing)
+      ser_col <- c("Protected RAI" = "#2e7d32", "Predator RAI" = "#c62828")  # green / red, per the map conventions
+
+      # Grounding: overlay the PROTECTED and/or PREDATOR RAI per season (canonical species RAI, ± SE) on
+      # a shared second axis (both share RAI units), so a rising gap can be read against whether the
+      # detections actually hold up — a gap that rises only because a species is thinning out is not real
+      # separation. Reserve applies (RAI = in-reserve detections); cross-boundary doesn't (camera anchors).
+      want  <- intersect(input$trend_rai %||% character(0), c("prot", "pred"))
+      specs <- list(prot = list(sel = input$prot %||% .prot_def, taxa = prot_taxa, lab = "Protected RAI"),
+                    pred = list(sel = input$pred %||% .pred_def, taxa = pred_taxa, lab = "Predator RAI"))
+      rai_rows <- lapply(want, function(key) {
+        sp  <- specs[[key]]
+        sci <- ik_resolve_species_choice(sp$sel, sp$taxa); if (!length(sci)) return(NULL)
+        lab <- paste(ik_choice_labels(sp$sel, ik_data, prefer()), collapse = " + ")
+        tr  <- tryCatch(ik_species_trend(ik_data, stats::setNames(list(sci), lab),
+                                         by = "season", reserve = .ik_nz(selection()$reserve)), error = function(e) NULL)
+        if (is.null(tr)) return(NULL)
+        tr <- tr[tr$metric_type == "camera_rai", , drop = FALSE]; if (!nrow(tr)) return(NULL)
+        mi <- match(as.character(ag$season), as.character(tr$period))
+        val <- tr$value[mi]; se <- tr$se[mi]; if (!any(is.finite(val))) return(NULL)
+        data.frame(season = ag$season, series = sp$lab, value = val,
+                   lo = pmax(0, val - ifelse(is.na(se), 0, se)), hi = val + ifelse(is.na(se), 0, se),
+                   stringsAsFactors = FALSE)
+      })
+      rai_df <- do.call(rbind, Filter(Negate(is.null), rai_rows))
+
+      p <- ggplot(ag, aes(.data$season, group = 1))
+      if (!is.null(rai_df) && nrow(rai_df)) {
+        # scale RAI into the gap (primary) coordinate by a pure factor k (shared by both series), so the
+        # right-axis transform is exactly linear (rai = y / k). Ribbon = RAI ± SE, clamped at 0.
+        rai_top <- max(rai_df$hi, na.rm = TRUE)
+        k <- if (is.finite(rai_top) && rai_top > 0) max(ag$y, na.rm = TRUE) / rai_top else NA_real_
+      } else k <- NA_real_
+      rai_on <- is.finite(k) && k > 0
+      if (rai_on) {
+        rai_df$series  <- factor(rai_df$series, levels = names(ser_col))
+        rai_df$season  <- factor(rai_df$season, levels = levels(ag$season))
+        rai_df$val_s   <- rai_df$value * k; rai_df$lo_s <- rai_df$lo * k; rai_df$hi_s <- rai_df$hi * k
+        p <- p +
+          geom_ribbon(data = rai_df, aes(x = .data$season, ymin = .data$lo_s, ymax = .data$hi_s,
+                      fill = .data$series, group = .data$series), alpha = 0.12, inherit.aes = FALSE, na.rm = TRUE) +
+          geom_line(data = rai_df, aes(x = .data$season, y = .data$val_s, colour = .data$series, group = .data$series),
+                    linewidth = 0.9, inherit.aes = FALSE, na.rm = TRUE) +
+          geom_point(data = rai_df, aes(x = .data$season, y = .data$val_s, colour = .data$series),
+                     size = 2.2, inherit.aes = FALSE, na.rm = TRUE) +
+          scale_fill_manual(values = ser_col, guide = "none")
+      }
+      p <- p +
+        geom_line(aes(y = .data$y, colour = "Median gap"), linewidth = 0.9) +
+        geom_point(aes(y = .data$y, colour = "Median gap"), size = 2.4) +
+        scale_colour_manual(NULL, values = c("Median gap" = gap_col, ser_col)) +
+        labs(x = NULL, subtitle = if (rai_on)
+               "RAI overlaid for context — a gap trend can track detection rates, not just timing"
+             else "exploratory — large gaps mean the two rarely share the same ground") +
         ik_ggtheme(is_dark()) +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.grid.minor = element_blank())
+        theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.grid.minor = element_blank(),
+              legend.position = if (rai_on) "top" else "none",
+              axis.title.y.left = element_text(colour = gap_col))
+      gap_name <- sprintf("Median gap (%s)", if (use_days) "days" else "hours")
+      if (rai_on)
+        p + scale_y_continuous(name = gap_name, sec.axis = sec_axis(~ . / k, name = "RAI (per camera-hrs)"))
+      else p + scale_y_continuous(name = gap_name)
     }, bg = "transparent")
 
     # Click a distribution bar → the shared co-occurrence drill (the bucket's co-detections, each with
@@ -317,53 +392,102 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       agg <- agg[is.finite(agg$latitude) & is.finite(agg$longitude), , drop = FALSE]
       if (nrow(agg)) agg else NULL
     })
+    # ALL camera locations in scope (regardless of co-detections) — the "Cameras" layer underneath the
+    # data, so a camera with no nearby predator still shows. Reserve-scoped like the data; with the
+    # cross-boundary toggle ON + a Within radius, also the neighbouring-reserve cameras within that
+    # radius (the buffer cameras a protected detection can pair with), so the map shows what it pairs.
+    cam_locs <- reactive({
+      cam_ds <- names(ik_data$datasets)[vapply(ik_data$datasets,
+                  function(d) isTRUE(d$meta$source_type == "camera"), logical(1))]
+      al <- ik_active_locations(ik_data)
+      al <- al[al$dataset %in% cam_ds & is.finite(al$latitude) & is.finite(al$longitude), , drop = FALSE]
+      rv <- .ik_nz(selection()$reserve)
+      if (length(rv) && "reserve" %in% names(al)) {
+        keep <- al$reserve %in% rv
+        if (isTRUE(input$cross_boundary) && radius_m() > 0 && any(keep)) {   # reach into the buffer
+          nb <- ik_within_distance(ik_data, al$location_id[keep], radius_m = radius_m(), of = "camera")
+          if (nrow(nb)) keep <- keep | al$location_id %in% nb$to_id
+        }
+        al <- al[keep, , drop = FALSE]
+      }
+      if (nrow(al)) al else NULL
+    })
     output$map <- leaflet::renderLeaflet({
-      d <- timing_loc(); validate(need(!is.null(d) && nrow(d), "No co-detections to map for this selection."))
-      use_days <- max(d$median_gap_h, na.rm = TRUE) >= 48          # legend units follow the data's scale
-      conv <- function(h) if (use_days) h / 24 else h
-      d$gval <- conv(d$median_gap_h); mx <- max(d$gval, na.rm = TRUE)
-      pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
-      surf <- tryCatch(ik_idw_surface(d, "median_gap_h", "reserve"), error = function(e) NULL)
-      has_surf <- !is.null(surf) && nrow(surf)
+      cams <- cam_locs(); validate(need(!is.null(cams) && nrow(cams), "No camera locations to map for this selection."))
+      d <- timing_loc(); has_pairs <- !is.null(d) && nrow(d)
       m <- leaflet::leaflet() |>
         leaflet::addProviderTiles(if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Street") |>
         leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite") |>
-        leaflet::fitBounds(min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude))
-      if (has_surf) {
-        surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
-        m <- m |> leaflet::addPolygons(data = surf, group = "Density", stroke = FALSE,
-          fillColor = ~pal(gval), fillOpacity = if (is_dark()) 0.45 else 0.35)
+        leaflet::fitBounds(min(cams$longitude), min(cams$latitude), max(cams$longitude), max(cams$latitude))
+      # Boundary — the monitored footprint (convex hull of the cameras) per reserve; below the markers.
+      hulls <- tryCatch(ik_selection_hulls(cams, "reserve"), error = function(e) NULL)
+      has_bound <- !is.null(hulls) && nrow(hulls)
+      if (has_bound) m <- m |> leaflet::addPolygons(data = hulls, group = "Boundary",
+        fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve)
+      has_surf <- FALSE; pal <- NULL
+      if (has_pairs) {
+        use_days <- max(d$median_gap_h, na.rm = TRUE) >= 48        # legend units follow the data's scale
+        conv <- function(h) if (use_days) h / 24 else h
+        d$gval <- conv(d$median_gap_h); mx <- max(d$gval, na.rm = TRUE)
+        pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
+        surf <- tryCatch(ik_idw_surface(d, "median_gap_h", "reserve"), error = function(e) NULL)
+        has_surf <- !is.null(surf) && nrow(surf)
+        if (has_surf) {
+          surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
+          m <- m |> leaflet::addPolygons(data = surf, group = "Density", stroke = FALSE,
+            fillColor = ~pal(gval), fillOpacity = if (is_dark()) 0.45 else 0.35)
+        }
       }
-      m |>
-        leaflet::addCircleMarkers(data = d, lng = ~longitude, lat = ~latitude, layerId = ~location_id, group = "Cameras",
-          radius = ik_marker_radius(d$n, 6, 20, cap_pctl = 0.98),
-          fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
-          label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s"))) |>
-        leaflet::addLayersControl(baseGroups = c("Street", "Satellite"),
-          overlayGroups = c(if (has_surf) "Density", "Cameras"),
-          options = leaflet::layersControlOptions(collapsed = FALSE)) |>
-        leaflet::addLegend("bottomright", pal = pal, values = d$gval,
-          title = sprintf("Median gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
-                          if (use_days) "days" else "hours"), opacity = 0.9)
+      # Cameras (all locations, faint) BELOW; the co-occurrence data ("Pairs") drawn ON TOP.
+      m <- m |> leaflet::addCircleMarkers(data = cams, lng = ~longitude, lat = ~latitude, group = "Cameras",
+        radius = 3, fill = TRUE, fillColor = "#2c7fb8", fillOpacity = 0.55, stroke = FALSE,
+        label = ~sprintf("%s — camera", name))
+      if (has_pairs) m <- m |> leaflet::addCircleMarkers(data = d, lng = ~longitude, lat = ~latitude,
+        layerId = ~location_id, group = "Pairs",
+        radius = ik_marker_radius(d$n, 6, 20, cap_pctl = 0.98),
+        fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
+        label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")))
+      m <- m |> leaflet::addLayersControl(baseGroups = c("Street", "Satellite"),
+        overlayGroups = c(if (has_surf) "Density", if (has_bound) "Boundary", "Cameras", if (has_pairs) "Pairs"),
+        options = leaflet::layersControlOptions(collapsed = FALSE))
+      if (has_pairs) m <- m |> leaflet::addLegend("bottomright", pal = pal, values = d$gval,
+        title = sprintf("Median gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
+                        if (use_days) "days" else "hours"), opacity = 0.9)
+      m
     })
-    # The per-camera table under the map (each row = a map dot), soonest first.
+    # Keep the map rendering even when the Map tab is hidden, so a selection change made on another tab
+    # is drawn into the (off-screen) widget rather than firing a fresh render ON tab-show — that fresh
+    # render raced the resize handler and left the map grey until a manual resize. With this, by the time
+    # the tab is shown the map already exists and maps.js's shown.bs.tab invalidateSize() fixes its size.
+    outputOptions(output, "map", suspendWhenHidden = FALSE)
+    # The per-camera table under the map (each row = a map dot), soonest first. Shares its (sorted)
+    # order with the click handler so a row maps back to its camera. DT returns selections as indices
+    # into the data AS PASSED, so this is robust to the user re-sorting the columns.
+    map_tab <- reactive({ d <- timing_loc(); if (is.null(d)) return(NULL); d[order(d$median_gap_h), , drop = FALSE] })
     output$map_table <- DT::renderDT({
-      d <- timing_loc(); validate(need(!is.null(d) && nrow(d), "No co-detections for this selection."))
-      tab <- data.frame(Camera = d$name, Reserve = d$reserve,
-                        `Median gap` = .fmt_gap_short(d$median_gap_h), Pairs = d$n,
-                        .ord = d$median_gap_h, check.names = FALSE)
-      tab <- tab[order(tab$.ord), , drop = FALSE]
-      DT::datatable(tab, rownames = FALSE, selection = "none",
-        options = list(dom = "tip", pageLength = 10,
-                       columnDefs = list(list(visible = FALSE, targets = ncol(tab) - 1))))
+      d <- map_tab(); validate(need(!is.null(d) && nrow(d), "No co-detections for this selection."))
+      DT::datatable(
+        data.frame(Camera = d$name, Reserve = d$reserve,
+                   `Median gap` = .fmt_gap_short(d$median_gap_h), Pairs = d$n, check.names = FALSE),
+        rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(dom = "tip", pageLength = 10))
     })
-    observeEvent(input$map_marker_click, {
-      id <- input$map_marker_click$id; g <- gaps(); if (is.null(g) || is.null(id)) return()
+    # Open the same co-detection drill from a marker click OR a table row click.
+    open_cam <- function(id, nm) {
+      g <- gaps(); if (is.null(g) || is.null(id)) return()
       rows <- g[g$location_id == id, , drop = FALSE]; if (!nrow(rows)) return()
-      nm <- ik_data$app$geography$locations$name[match(id, ik_data$app$geography$locations$location_id)]
       cooc_open(rows, sprintf("Co-detections at %s", nm),
         sprintf("%s protected detection%s with the nearest predator — click either species for its record",
                 format(nrow(rows), big.mark = ","), if (nrow(rows) == 1) "" else "s"))
+    }
+    observeEvent(input$map_marker_click, {
+      id <- input$map_marker_click$id
+      nm <- ik_data$app$geography$locations$name[match(id, ik_data$app$geography$locations$location_id)]
+      open_cam(id, nm)
+    })
+    observeEvent(input$map_table_rows_selected, {
+      i <- input$map_table_rows_selected; d <- map_tab(); if (is.null(d) || !length(i)) return()
+      open_cam(d$location_id[i], d$name[i])
     })
   })
 }

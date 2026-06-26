@@ -51,8 +51,8 @@ duplicates_ui <- function(id) {
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/duplicates.css")),
     div(class = "ik-dups",
-        .ik_titlebar(tags$h3("Duplicate window"),
-                     .ik_info(ns("dups_help"), "Duplicate window — how to read this", duplicates_help_body())),
+        .ik_page_header("Duplicate window",
+            help = .ik_info(ns("dups_help"), "Duplicate window — how to read this", duplicates_help_body())),
         uiOutput(ns("intro")),
         sliderInput(ns("window"), "Possible-duplicate window (minutes)",
                     min = 5, max = 240, value = 30, step = 5, width = "100%"),

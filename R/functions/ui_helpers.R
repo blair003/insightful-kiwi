@@ -57,6 +57,24 @@
 #' tag (e.g. `tags$h3(class=…, "…")`). @param help an `.ik_info(...)` tagList (or NULL). @keywords internal
 .ik_titlebar <- function(title, help = NULL) tags$div(class = "ik-titlebar", title, help)
 
+#' The app-wide page header — one standard structure for every page: a short TITLE (matching the nav),
+#' an optional one-line DESCRIPTION of what the page does (spanning all its tabs), then an optional
+#' period BANNER (the data window; tab-aware). Reads "what · what it does · when". Always title →
+#' description → banner, so headers are consistent everywhere.
+#' @param title Page title — a plain string (wrapped as an `h3.ik-page-title`) or a ready tag.
+#' @param description One-line description: a string or inline `tagList(...)`, or NULL to omit.
+#' @param help An `.ik_info(...)` (?) control beside the title, or NULL.
+#' @param banner The period-banner block (e.g. `div(class="ik-page-period", uiOutput(ns("period_banner")))`),
+#'   or NULL for pages with no period scope. @keywords internal
+.ik_page_header <- function(title, description = NULL, help = NULL, banner = NULL) {
+  title_tag <- if (inherits(title, c("shiny.tag", "shiny.tag.list"))) title
+               else tags$h3(class = "ik-page-title", title)
+  tagList(
+    .ik_titlebar(title_tag, help),
+    if (!is.null(description)) tags$p(class = "ik-page-lead", description),
+    banner)
+}
+
 #' Human label for the SELECTED period — what the user picked from the Period dropdown ("Latest full
 #' season", "Winter 2026", "All data", …), looked up from `ik_period_choices`. The banner pairs this
 #' with the resolved dates, so the reader sees their choice first, the window second. NULL if the code
@@ -156,6 +174,19 @@
 #' table-column label; reach for `.ik_info` when the explanation needs room. @param tip Plain-text
 #' tooltip ("\n" for line breaks). @keywords internal
 .ik_hint <- function(tip) tags$span(class = "ik-hint", title = tip, HTML("&#9432;"))
+
+#' Standard "reach beyond the reserve" toggle, for ANY view that combines a Reserve filter with a
+#' radius (the Coverage gap radius, the Co-occurrence Within radius). ON (default): devices within the
+#' radius count toward the analysis — and show on the map — even when tagged to another reserve (e.g. a
+#' boundary buffer zone). OFF: strict to the selected reserve. No effect when no reserve is selected.
+#' @param id Namespaced input id. @param what Device noun for the wording ("traps", "cameras", …).
+#' @keywords internal
+.ik_cross_boundary_input <- function(id, what = "devices") {
+  checkboxInput(id, value = TRUE, label = tagList(
+    sprintf("Include nearby %s beyond the reserve ", what),
+    .ik_hint(sprintf(paste0("When a reserve is selected, also include %s within the radius that are tagged to ",
+      "another reserve (e.g. a boundary buffer). Off = strict to the selected reserve. No effect with no reserve picked."), what))))
+}
 
 #' Highlight ONE row of a DT by a (usually hidden) id column — the "the row you came from"
 #' marker in our drill modals. Robust where a plain `target = "row"` background is NOT: under

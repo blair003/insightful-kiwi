@@ -254,10 +254,14 @@ ik_neighbourhood_map <- function(ik_data, level, key, radius_m = 500,
 #'   (active within R this period) · traps_per_km2 (n_traps ÷ the line's neighbourhood area at R — a
 #'   per-line density that moves with the radius) · catches · n_neglected · n_active · status, where
 #'   status ∈ no_trapping / predators_uncaught / neglected / covered / no_protected. NULL when none.
-ik_coverage_gaps <- function(ik_data, seasons, predator_sci, protected_sci, radius_m = 500) {
+ik_coverage_gaps <- function(ik_data, seasons, predator_sci, protected_sci, radius_m = 500,
+                             reserve = NULL, cross_boundary = FALSE) {
   lines <- ik_neighbourhood_lines(ik_data); if (!nrow(lines)) return(NULL)
+  if (!is.null(reserve)) lines <- lines[lines$reserve %in% reserve, , drop = FALSE]   # Reserve picked → only its lines
+  if (!nrow(lines)) return(NULL)
   norm <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000   # per-LINE rate (pooled cameras), like the Neighbourhood — not per-camera
   locs <- ik_data$app$geography$locations
+  loc_reserve <- stats::setNames(locs$reserve, locs$location_id)       # trap → reserve, for the optional reserve scope
   # Area within `radius_m` of a line's cameras (union of disks, NZTM), km² — the denominator for the
   # PER-LINE trap density, so it tracks the line AND the gap radius (not a flat reserve average).
   nbhd_area_km2 <- function(anchor_ids) {
@@ -282,9 +286,15 @@ ik_coverage_gaps <- function(ik_data, seasons, predator_sci, protected_sci, radi
   rows <- lapply(seq_len(nrow(lines)), function(i) {
     rl  <- lines[i, ]
     nbr <- .nbhd_resolve(ik_data, "line", paste(rl$reserve, rl$line, sep = "|"), radius_m); if (is.null(nbr)) return(NULL)
+    # When a Reserve is selected with cross_boundary OFF, only that reserve's traps "reach" the line —
+    # the count, markers and rings all stay inside the selection. With cross_boundary ON (the default
+    # UI state), a trap within the radius counts wherever it's tagged (a buffer zone / the next reserve),
+    # since predators don't respect boundaries. No reserve picked → the neighbourhood spans freely.
+    trap_locs <- nbr$trap_locs
+    if (!is.null(reserve) && !cross_boundary) trap_locs <- trap_locs[loc_reserve[trap_locs] %in% reserve]
     pr <- pool_rate(cam_prot, nbr$cam_locs); pd <- pool_rate(cam_pred, nbr$cam_locs)
-    tp <- if (is.null(trap_pred)) NULL else trap_pred[trap_pred$location_id %in% nbr$trap_locs, , drop = FALSE]
-    sv <- if (is.null(serv))      NULL else serv[serv$location %in% nbr$trap_locs, , drop = FALSE]
+    tp <- if (is.null(trap_pred)) NULL else trap_pred[trap_pred$location_id %in% trap_locs, , drop = FALSE]
+    sv <- if (is.null(serv))      NULL else serv[serv$location %in% trap_locs, , drop = FALSE]
     # "Traps reaching the line" = ACTIVE traps in the neighbourhood, counted from the SAME servicing
     # universe as Neglected (one row per trap) so Neglected ⊆ Traps. NB the old count came from
     # ik_location_metric (traps with EFFORT this period), which EXCLUDES neglected traps (unchecked

@@ -52,8 +52,8 @@ monitoring_ui <- function(id) {
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/monitoring.css")),
     div(class = "ik-monitoring",
-        .ik_titlebar(tags$h3("Camera deployment review"),
-                     .ik_info(ns("mon_help"), "Camera review — how to read this", monitoring_help_body())),
+        .ik_page_header("Camera deployment review",
+            help = .ik_info(ns("mon_help"), "Camera review — how to read this", monitoring_help_body())),
         uiOutput(ns("intro")),
         div(class = "mon-range",
             radioButtons(ns("range"), "Seasons shown", inline = TRUE,

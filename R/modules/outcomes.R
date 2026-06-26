@@ -135,18 +135,16 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
     output$intro <- renderUI({
       projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
       tagList(
-        .ik_titlebar(
-            tags$h3(class = "ik-out-title", "Are we winning?"),
-            .ik_info(session$ns("out_help"), "Are we winning? — how to read this",
+        .ik_page_header("Are we winning?",
+            description = tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
+              "We ", tags$b("trap predators"), " → predator detections on camera should ",
+              tags$b("fall"), " → protected detections should ", tags$b("rise."), " ",
+              if (is.null(rsv())) "Lines are the network mean across reserves; bands are ± 1 SE. "
+              else sprintf("Scoped to %s (from the sidebar Reserve). ", paste(rsv(), collapse = ", ")),
+              tags$b("Click a point"), " for its per-reserve breakdown."),
+            help = .ik_info(session$ns("out_help"), "Are we winning? — how to read this",
                      outcomes_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100,
-                                        ik_data$meta$camera$rai$norm_hours %||% 2000))),
-        tags$p(class = "ik-out-lead",
-          tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
-            "We ", tags$b("trap predators"), " → predator detections on camera should ",
-            tags$b("fall"), " → protected detections should ", tags$b("rise."), " ",
-            if (is.null(rsv())) "Lines are the network mean across reserves; bands are ± 1 SE. "
-            else sprintf("Scoped to %s (from the sidebar Reserve). ", paste(rsv(), collapse = ", ")),
-            tags$b("Click a point"), " for its per-reserve breakdown."))
+                                        ik_data$meta$camera$rai$norm_hours %||% 2000)))
       )
     })
 

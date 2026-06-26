@@ -88,10 +88,10 @@ trapping_ui <- function(id, ik_data = NULL) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
     tags$script(src = .ik_asset("js/maps.js")),                            # leaflet resize-on-tab-show
     div(class = "ik-trapping",
-        .ik_titlebar(tags$h3("Trap check-frequency review")),
         # Period banner (subtitle under the title) tracks the active tab: the By-trapline table + Map
         # honour the window, the Over-time trend spans everything (reads "All data").
-        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
+        .ik_page_header("Trap check-frequency review",
+            banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
         # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
         # "By trapline" leads (default): it's the day-to-day management view and the quicker to load;

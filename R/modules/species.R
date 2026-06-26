@@ -144,9 +144,8 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
     tags$script(src = .ik_asset("js/maps.js")),
     div(class = "ik-species",
-        .ik_titlebar(
-            tags$h3(class = "ik-species-title", spec$label),
-            .ik_info(ns("help"), paste(spec$label, "— how to read this"), species_help_body(nh, nt))),
+        .ik_page_header(spec$label,
+            help = .ik_info(ns("help"), paste(spec$label, "— how to read this"), species_help_body(nh, nt))),
         tags$p(class = "ik-species-sub", tags$em(sci_lab)),
         # Period banner (subtitle, under the title block) tracks the active tab: Summary + Trend are
         # all-time ("All data"); the rest (Map / Behaviour / Bait / Co-occurrence / Records) honour the window.
@@ -221,6 +220,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                             choices = opp_choices, selected = opp_default, multiple = TRUE, width = "240px"),
                 radioButtons(ns("cooc_radius"), "Within", inline = TRUE,
                              choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 0),
+                .ik_cross_boundary_input(ns("cooc_cross"), "cameras"),
                 checkboxInput(ns("cooc_after"),
                   tagList("Predator ", tags$b("after"), " only ",
                           tags$span(class = "ik-species-hint", "(stalking — predator follows)")), value = FALSE)),
@@ -874,11 +874,12 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       pp <- if (identical(spec$role, "predator")) list(pred = spec$sci, prot = osel) else list(pred = osel, prot = spec$sci)
       g <- tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot, seasons = .ik_nz(selection()$season),
                                           reserve = .ik_nz(selection()$reserve),
-                                          radius_m = as.numeric(input$cooc_radius %||% 0)), error = function(e) NULL)
+                                          radius_m = as.numeric(input$cooc_radius %||% 0),
+                                          cross_boundary = isTRUE(input$cooc_cross)), error = function(e) NULL)
       if (is.null(g)) return(NULL)
       if (isTRUE(input$cooc_after)) { g <- g[g$signed_h > 0, , drop = FALSE]; if (!nrow(g)) return(NULL) }   # stalking
       g
-    }) |> bindCache(spec$key, selection()$season, selection()$reserve, input$cooc_radius, input$cooc_opp, input$cooc_after, ik_active_datasets())
+    }) |> bindCache(spec$key, selection()$season, selection()$reserve, input$cooc_radius, input$cooc_opp, input$cooc_after, isTRUE(input$cooc_cross), ik_active_datasets())
 
     output$cooc <- renderPlot({
       g <- cooc_gaps()

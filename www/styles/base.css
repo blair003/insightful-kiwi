@@ -44,8 +44,12 @@
 .ik-period-banner { color: var(--bs-secondary-color, #6c757d); font-size: 0.8rem; }
 .ik-period-banner svg, .ik-period-banner .fa { margin-right: 0.35rem; opacity: 0.85; }
 .ik-period-banner .ik-period-compare { margin-left: 0.4rem; font-size: 0.74rem; opacity: 0.8; }
-/* Period banner as a SUBTITLE directly under the page title: tight to the title above, a clear gap to
-   the content below. Used on every page that carries a period banner. */
+/* Standard page header (.ik_page_header): short title → one-line description → period banner.
+   Generic classes so every page's header looks identical. */
+.ik-page-title { margin: 0 0 0.2rem; }
+.ik-page-lead  { color: var(--bs-secondary-color, #6c757d); max-width: 64rem; margin: 0 0 0.7rem; }
+/* Period banner as a SUBTITLE directly under the title/description: tight above, a clear gap to the
+   content below. Used on every page that carries a period banner. */
 .ik-page-period { margin: 0.05rem 0 0.7rem; }
 /* When the calendar + date is a button it toggles the filter sidebar. */
 .ik-period-toggle { color: inherit; text-decoration: none; cursor: pointer; }

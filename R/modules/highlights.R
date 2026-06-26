@@ -44,10 +44,9 @@ highlights_ui <- function(id, ik_data = NULL) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/highlights.css")),
     tags$script(src = .ik_asset("js/highlights.js")),
     div(class = "ik-hero",
-        .ik_titlebar(tags$h3(class = "ik-hero-title", "Highlights")),
-        tags$p(class = "ik-hero-lead",
-          "Favourite images from the cameras — the wildlife (and pests) caught on camera, ",
-          "rotating automatically. Hover to pause; use the arrows to step through."),
+        .ik_page_header("Highlights",
+            description = tagList("Favourite images from the cameras — the wildlife (and pests) caught on camera, ",
+              "rotating automatically. Hover to pause; use the arrows to step through.")),
         uiOutput(ns("gallery")))
   )
 }

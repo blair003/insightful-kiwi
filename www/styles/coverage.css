@@ -19,6 +19,10 @@
 .ik-cov-gaps-head { display: flex; gap: 1rem; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
 .ik-cov-gaps-head-l { display: flex; align-items: center; gap: 0.4rem; }
 .ik-cov-gaps-head .shiny-input-container { margin-bottom: 0; }
+/* Gap radius + the cross-boundary toggle group together on the right of the head. */
+.ik-cov-gaps-ctrls { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+.ik-cov-gaps-ctrls .shiny-input-container { margin-bottom: 0; }
+.ik-cov-gaps-ctrls .checkbox { margin: 0 0 0.35rem; }
 .ik-cov-gaps-title { margin-bottom: 0.2rem; }
 .ik-cov-gaps-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; max-width: 64rem; margin-bottom: 0.5rem; }
 .ik-gap-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.7rem; color: #fff;

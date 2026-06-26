@@ -54,13 +54,11 @@ trap_hero_ui <- function(id, ik_data) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trap_hero.css")),
     tags$script(src = .ik_asset("js/maps.js")),                            # resize-on-tab-show fix
     div(class = "ik-hero",
-        .ik_titlebar(
-            tags$h3(class = "ik-hero-title", "Top traps — your best performers"),
-            .ik_info(ns("hero_help"), "Top traps — how to read this", trap_hero_help_body(norm))),
-        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
-        tags$p(class = "ik-hero-lead",
-          "The traps catching the most per night of effort — ranked by catch rate (captures per ",
-          tags$b(ntn), "), not raw totals. The map highlights them; the rest are faint for context."),
+        .ik_page_header("Top traps — your best performers",
+            description = tagList("The traps catching the most per night of effort — ranked by catch rate (captures per ",
+              tags$b(ntn), "), not raw totals. The map highlights them; the rest are faint for context."),
+            help = .ik_info(ns("hero_help"), "Top traps — how to read this", trap_hero_help_body(norm)),
+            banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         div(class = "ik-hero-controls",
             selectInput(ns("species"), "Captures of", choices = sp_choices, selected = "__all__", width = "220px"),
             selectInput(ns("topn"), "Show", width = "120px",

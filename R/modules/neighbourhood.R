@@ -88,15 +88,14 @@ neighbourhood_ui <- function(id, ik_data) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
     tags$script(src = .ik_asset("js/maps.js")),                            # leaflet resize-on-tab-show
     div(class = "ik-nbhd",
-        .ik_titlebar(
-            tags$h3(class = "ik-nbhd-title", "Neighbourhood — protected, predators & nearby trapping"),
-            .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
+        .ik_page_header("Neighbourhood — protected, predators & nearby trapping",
+            description = tagList(
+              "Pick an anchor — a monitoring ", tags$b("line"), " or a whole ", tags$b("reserve"), ". ",
+              "See how ", tags$b("protected"), " and ", tags$b("predator"), " activity on ", tags$b("the line's cameras"),
+              " moves over time, alongside the predators caught in the ", tags$b("traps nearby"),
+              " — those within a radius you set (a reserve uses all its own traps instead)."),
+            help = .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
                      neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000))),
-        tags$p(class = "ik-nbhd-lead",
-          "Pick an anchor — a monitoring ", tags$b("line"), " or a whole ", tags$b("reserve"), ". ",
-          "See how ", tags$b("protected"), " and ", tags$b("predator"), " activity on ", tags$b("the line's cameras"),
-          " moves over time, alongside the predators caught in the ", tags$b("traps nearby"),
-          " — those within a radius you set (a reserve uses all its own traps instead)."),
         div(class = "ik-nbhd-controls",
             radioButtons(ns("level"), "Anchor", inline = TRUE,
                          choices = c("Line" = "line", "Reserve" = "reserve"), selected = "line"),

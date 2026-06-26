@@ -67,8 +67,8 @@ records_ui <- function(id, label = "Records", value = "records", heading = NULL)
     label, value = value, icon = icon("table"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/observation.css")),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/records.css")),
-    .ik_titlebar(tags$h3(heading %||% label)),
-    div(class = "ik-page-period", uiOutput(ns("period_banner"))),
+    .ik_page_header(heading %||% label,
+        banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
     DT::DTOutput(ns("table"))
   )
 }

@@ -102,9 +102,9 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
   norm <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100   # rate normalisation (config)
   div(
     class = "ik-maps",
-    if (!fixed) .ik_titlebar(tags$h3(                            # page heading (the embedded species maps skip it)
-      if (identical(device, "trap")) "Trapping map" else if (identical(device, "camera")) "Monitoring map" else "Map")),
-    if (!fixed) div(class = "ik-page-period", uiOutput(ns("period_banner"))),   # period subtitle under the title
+    if (!fixed) .ik_page_header(                                 # page heading (the embedded species maps skip it)
+      if (identical(device, "trap")) "Trapping map" else if (identical(device, "camera")) "Monitoring map" else "Map",
+      banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
     if (!fixed) div(
       class = "ik-maps-controls",
       if (is.null(device))                                      # device-locked instances drop the toggle
@@ -168,6 +168,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
 
     # Read-only period banner under the title (the sidebar holding Period/Compare can be collapsed).
     output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
+
+    # The all-locations overlay is named for what it actually holds: "Cameras" / "Traps" on a
+    # device-locked map, "Devices" on a combined one. (Future device types extend this.)
+    dev_label <- if (is.null(device)) "Devices" else if (identical(device, "trap")) "Traps" else "Cameras"
 
     prefer <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
 
@@ -383,7 +387,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       pns <- c("surface", "boundary", "device", "points", "selected")
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 400 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Surface", "Points", "Device", "Boundary"),
+        overlayGroups = c("Surface", "Points", dev_label, "Boundary"),
         options = leaflet::layersControlOptions(collapsed = FALSE))
       if (!is.null(fixed_species)) m <- leaflet::hideGroup(m, "Surface")   # species maps: clean by default, surface opt-in
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
@@ -481,10 +485,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       al[al$dataset %in% dev_ds & is.finite(al$latitude) & is.finite(al$longitude), , drop = FALSE]
     })
     observe({
-      p <- proxy(); leaflet::clearGroup(p, "Device")
+      p <- proxy(); leaflet::clearGroup(p, dev_label)
       d <- all_dev_locs(); if (is.null(d) || !nrow(d)) return()
       col <- if (identical(src(), "trap")) "#8a8a8a" else "#2c7fb8"   # grey trap · blue camera
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Device",
+      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = dev_label,
         radius = 3, fill = TRUE, fillColor = col, fillOpacity = 0.55, stroke = FALSE,   # no layerId: Points (same id) must win on top
         label = ~sprintf("%s — %s", name, if (identical(src(), "trap")) "trap" else "camera"),
         options = leaflet::pathOptions(pane = "device"))

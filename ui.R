@@ -88,7 +88,7 @@ ui <- page_navbar(
                      # are the co-occurrence-specific picks (read by the cooccurrence module's namespace).
                      # The Trend tab spans all seasons, so Period hides there (a note in its place).
                      selection_ui("cooccurrence_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "all",
+                                  period_default = "rolling12",
                                   period_show_js = "input['cooccurrence-cooc_view'] !== 'Trend'",
                                   period_note = tagList(
                                     tags$span(class = "ik-period-note-h", "Period · All data"),
