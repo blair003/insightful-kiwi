@@ -89,6 +89,11 @@ source("R/functions/media_cache.R")
 source("R/functions/favourites.R")
 source("R/functions/media_validate.R")
 
+# Self-heal the media-cache dir + its www/ symlink at startup, so cached images serve regardless of how
+# the app was deployed (a checkout that didn't preserve the committed symlink, or a fresh host with no
+# instance/www/media-cache target). Logs a warning rather than erroring if it can't create them.
+ik_ensure_media_cache_link()
+
 # Runtime config (paths/toggles) — the input that builds ik_data. Prefixed `ik_` like the other
 # app globals (ik_data, ik_registry) so the global namespace is consistent and `config` stays free.
 ik_config <- build_config()

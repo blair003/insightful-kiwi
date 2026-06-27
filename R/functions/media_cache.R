@@ -19,6 +19,47 @@ IK_MEDIA_DISPLAY_SUFFIX <- "_display.jpg"   # <mediaID>_display.jpg beside <medi
 #' Filesystem root of the media cache (under instance/www, symlinked into www). @keywords internal
 ik_media_cache_dir <- function() file.path("instance", "www", "media-cache")
 
+#' Ensure the media-cache directory AND its `www/` symlink exist, so cached images serve at the web
+#' path `media-cache/...` regardless of how the app was deployed. The symlink is committed to git, but
+#' a deploy that doesn't preserve symlinks (rsync/tar without `-l`, a Windows / `core.symlinks=false`
+#' checkout) leaves it missing or as a plain file, and a fresh checkout has no `instance/www/media-cache`
+#' target at all — so cached files get written but never served (the viewer silently falls back to the
+#' slow Agouti URLs). Run once at startup (global.R). Idempotent; no-ops when already correct, never
+#' clobbers a real directory, and logs a WARNING (rather than erroring) on any permission failure so a
+#' read-only/locked-down host degrades to live-Agouti instead of crashing the app.
+#' @return invisibly TRUE when the cache is serveable, FALSE otherwise. @keywords internal
+ik_ensure_media_cache_link <- function() {
+  target <- ik_media_cache_dir()                                # "instance/www/media-cache" (rel. to app root)
+  link   <- file.path("www", "media-cache")
+  rel    <- file.path("..", "instance", "www", "media-cache")   # the link's target, relative to www/
+
+  # 1) The real cache directory under instance/ — create it if missing.
+  if (!dir.exists(target) && !dir.create(target, recursive = TRUE, showWarnings = FALSE)) {
+    logger::log_warn("media-cache: could not create '%s' (check permissions) — cached images will not be saved.", target)
+    return(invisible(FALSE))
+  }
+
+  # 2) The www/ symlink that serves it. Sys.readlink: the target for a symlink, "" for a non-symlink,
+  #    NA when the path can't be read — treat the latter two as "not a symlink".
+  cur        <- suppressWarnings(Sys.readlink(link))
+  is_symlink <- !is.na(cur) && nzchar(cur)
+  if (is_symlink) {
+    if (identical(normalizePath(link, mustWork = FALSE), normalizePath(target, mustWork = FALSE)))
+      return(invisible(TRUE))                                   # already points at our target — done
+    unlink(link)                                                # dangling / wrong target — replace it
+  } else if (file.exists(link)) {
+    logger::log_warn(paste0("media-cache: '%s' exists but is NOT a symlink to '%s' — cached images may not ",
+                            "serve. Remove it and run: ln -s %s %s"), link, target, rel, link)
+    return(invisible(FALSE))                                    # a real file/dir — never clobber (may hold data)
+  }
+
+  ok <- tryCatch(file.symlink(rel, link),
+                 error = function(e) { logger::log_warn("media-cache symlink: %s", conditionMessage(e)); FALSE })
+  if (isTRUE(ok)) logger::log_info("media-cache: created symlink '%s' -> '%s'.", link, rel)
+  else logger::log_warn("media-cache: could not create symlink '%s' -> '%s' (check permissions) — cached images will not serve.", link, rel)
+  invisible(isTRUE(ok))
+}
+
 #' Web path for a cached file (relative to the app root Shiny serves). @keywords internal
 .media_web <- function(event_id, file) paste(IK_MEDIA_WEB_BASE, event_id, file, sep = "/")
 
