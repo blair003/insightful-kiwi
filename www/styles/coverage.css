@@ -13,19 +13,27 @@
 .ik-cov-controls .selectize-control.multi .selectize-dropdown { z-index: 1050; }
 .leaflet-container { background: var(--bs-tertiary-bg, #eef0f2); }
 
-/* Coverage-gap table */
-.ik-cov-gaps { margin-top: 1rem; }
-/* heading (+ help) on the left, the gap-radius control pushed to the right, same line */
-.ik-cov-gaps-head { display: flex; gap: 1rem; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
-.ik-cov-gaps-head-l { display: flex; align-items: center; gap: 0.4rem; }
-.ik-cov-gaps-head .shiny-input-container { margin-bottom: 0; }
-/* Gap radius + the cross-boundary toggle group together on the right of the head. */
-.ik-cov-gaps-ctrls { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
-.ik-cov-gaps-ctrls .shiny-input-container { margin-bottom: 0; }
-.ik-cov-gaps-ctrls .checkbox { margin: 0 0 0.35rem; }
-.ik-cov-gaps-title { margin-bottom: 0.2rem; }
-.ik-cov-gaps-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; max-width: 64rem; margin-bottom: 0.5rem; }
-.ik-gap-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.7rem; color: #fff;
-  font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+/* Coverage-gap table — starts at the top of the map column (no heading, no top gap). */
+.ik-cov-gaps { margin-top: 0; }
+.ik-cov-gaps-lead { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; max-width: 64rem; margin: 0 0 0.4rem; }
+
+/* Colour KEY for the status row-tints (replaces the Status column). */
+.ik-cov-gaps-key { display: flex; flex-wrap: wrap; gap: 0.15rem 0.8rem; margin: 0 0 0.5rem; font-size: 0.76rem;
+  color: var(--bs-secondary-color, #6c757d); }
+.ik-gap-key-item { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.ik-gap-key-sw { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 0.2rem; flex: 0 0 auto; }
+
+/* Per-status row tint + a coloured left bar, so the dropped Status column still reads off each row.
+   Light tints in light mode; stronger in dark so they survive the dark table background. */
+.ik-cov-gaps table.dataTable tbody tr.ik-gaprow-no_trapping        { background: rgba(198,40,40,0.10);  box-shadow: inset 4px 0 0 #c62828; }
+.ik-cov-gaps table.dataTable tbody tr.ik-gaprow-predators_uncaught { background: rgba(232,89,12,0.10);  box-shadow: inset 4px 0 0 #e8590c; }
+.ik-cov-gaps table.dataTable tbody tr.ik-gaprow-neglected          { background: rgba(245,159,0,0.13);  box-shadow: inset 4px 0 0 #f59f00; }
+.ik-cov-gaps table.dataTable tbody tr.ik-gaprow-covered            { background: rgba(46,125,50,0.10);  box-shadow: inset 4px 0 0 #2e7d32; }
+.ik-cov-gaps table.dataTable tbody tr.ik-gaprow-no_protected       { background: rgba(134,142,150,0.08); box-shadow: inset 4px 0 0 #868e96; }
+[data-bs-theme="dark"] .ik-cov-gaps table.dataTable tbody tr.ik-gaprow-no_trapping        { background: rgba(198,40,40,0.24); }
+[data-bs-theme="dark"] .ik-cov-gaps table.dataTable tbody tr.ik-gaprow-predators_uncaught { background: rgba(232,89,12,0.24); }
+[data-bs-theme="dark"] .ik-cov-gaps table.dataTable tbody tr.ik-gaprow-neglected          { background: rgba(245,159,0,0.26); }
+[data-bs-theme="dark"] .ik-cov-gaps table.dataTable tbody tr.ik-gaprow-covered            { background: rgba(46,125,50,0.26); }
+[data-bs-theme="dark"] .ik-cov-gaps table.dataTable tbody tr.ik-gaprow-no_protected       { background: rgba(134,142,150,0.20); }
 /* small hover-info (ⓘ) marker on a table header */
 .ik-th-i { color: var(--bs-secondary-color, #888); font-weight: 400; margin-left: 0.25rem; cursor: help; font-size: 0.85em; }

@@ -70,9 +70,10 @@
   title_tag <- if (inherits(title, c("shiny.tag", "shiny.tag.list"))) title
                else tags$h3(class = "ik-page-title", title)
   tagList(
-    .ik_titlebar(title_tag, help),
-    if (!is.null(description)) tags$p(class = "ik-page-lead", description),
-    banner)
+    # Title (+ help) on the left, the period/date banner pushed to the right on the SAME line — the title
+    # row usually has the room. On a narrow / mobile width it simply wraps to its own line below the title.
+    div(class = "ik-page-headrow", .ik_titlebar(title_tag, help), banner),
+    if (!is.null(description)) tags$p(class = "ik-page-lead", description))
 }
 
 #' Human label for the SELECTED period — what the user picked from the Period dropdown ("Latest full

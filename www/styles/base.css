@@ -51,8 +51,12 @@
 .ik-period-banner { color: var(--bs-secondary-color, #6c757d); font-size: 0.8rem; }
 .ik-period-banner svg, .ik-period-banner .fa { margin-right: 0.35rem; opacity: 0.85; }
 .ik-period-banner .ik-period-compare { margin-left: 0.4rem; font-size: 0.74rem; opacity: 0.8; }
-/* Standard page header (.ik_page_header): short title → one-line description → period banner.
-   Generic classes so every page's header looks identical. */
+/* Standard page header (.ik_page_header): a title row (title + help left, period/date banner right) then a
+   one-line description below. The banner wraps under the title on narrow widths. Generic so every page matches. */
+.ik-page-headrow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  column-gap: 1rem; row-gap: 0.1rem; }
+.ik-page-headrow > .ik-titlebar { margin-top: 0; }
+.ik-page-headrow > .ik-page-period { margin: 0; }   /* on the title line: no stacked-banner margins */
 .ik-page-title { margin: 0 0 0.2rem; }
 .ik-page-lead  { color: var(--bs-secondary-color, #6c757d); max-width: 64rem; margin: 0 0 0.7rem; }
 /* Period banner as a SUBTITLE directly under the title/description: tight above, a clear gap to the

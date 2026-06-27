@@ -116,6 +116,21 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
   )
 }
 
+# Coverage-gap status → colour + label. SHARED by the table's per-row tint (a row class ik-gaprow-<status>,
+# styled in coverage.css) and the colour KEY beneath the lead — so the Status column can go (no horizontal
+# room beside the map) while the status still reads off each row.
+.COV_GAP_COL <- c(no_trapping = "#c62828", predators_uncaught = "#e8590c",
+                  neglected = "#f59f00", covered = "#2e7d32", no_protected = "#868e96")
+.COV_GAP_LAB <- c(no_trapping = "No trapping", predators_uncaught = "Predators uncaught",
+                  neglected = "Trapping neglected", covered = "Covered", no_protected = "No protected here")
+
+#' Small colour key for the gap-status row tints — a swatch + label per status. @keywords internal
+.cov_gap_key <- function() div(class = "ik-cov-gaps-key",
+  lapply(names(.COV_GAP_COL), function(s)
+    tags$span(class = "ik-gap-key-item",
+      tags$span(class = "ik-gap-key-sw", style = sprintf("background:%s", .COV_GAP_COL[[s]])),
+      .COV_GAP_LAB[[s]])))
+
 #' DT header container for the gaps table, with a hover-info (ⓘ) tooltip on the metric columns.
 #' @keywords internal
 .cov_gaps_header <- function(norm) {
@@ -130,14 +145,8 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
     thx("Traps", "Traps running within the gap radius of this line's cameras — how much trapping reaches it. Set by the Gap radius control."),
     thx("Caught", "Predators caught in those nearby traps this period."),
     thx("Neglected", "Of the nearby active traps, how many are unserviced (neglected) this period."),
-    thx("Traps/km²", "Per-line trap density: the traps above ÷ the area within the gap radius of this line's cameras (moves with the line and the radius)."),
-    thx("Status", paste0(
-      "No trapping — no traps running nearby.\n",
-      "Predators uncaught — predators on camera but none caught nearby.\n",
-      "Trapping neglected — nearby active traps mostly unserviced.\n",
-      "Covered — protected present and control reaching it.\n",
-      "No protected here — none detected on camera."))
-  )))
+    thx("Traps/km²", "Per-line trap density: the traps above ÷ the area within the gap radius of this line's cameras (moves with the line and the radius).")
+  )))   # Status column dropped — each row is now tinted by its status (see the colour key under the lead)
 }
 
 #' Coverage nav panel. @param id Module id. @param ik_data The container (camera-hour norm for help).
@@ -160,28 +169,27 @@ coverage_ui <- function(id, ik_data = NULL) {
   cam_norm  <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500    # per-camera (map markers)
   line_norm <- (ik_data$meta$camera$rai %||% list())$norm_hours   %||% 2000   # per-line (gaps table, pooled cameras)
   nav_panel(
-    "Coverage", value = "coverage", icon = icon("shield-halved"),
+    "Coverage Gaps", value = "coverage", icon = icon("shield-halved"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/coverage.css")),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),  # .ik-maps-split / -side
     tags$script(src = .ik_asset("js/maps.js")),                            # reuse the resize-on-tab-show fix
     div(class = "ik-cov",
-        .ik_page_header("Coverage",
+        .ik_page_header("Coverage Gaps",
             description = "Where are the protected species, and is predator control reaching them?",
-            help = .ik_info(ns("cov_help"), "Coverage — how to read this", coverage_help_body(cam_norm))),
+            help = .ik_info(ns("cov_help"), "Coverage Gaps — how to read this", coverage_help_body(cam_norm)),
+            banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),   # date on the title line
         # The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
-        # (The structural "network density by reserve" table now lives on the main Overview → Network density.)
-        div(class = "ik-page-period", uiOutput(ns("period_banner"))),   # this section honours the period (density above is all-data)
         uiOutput(ns("caption")),
         layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
           leaflet::leafletOutput(ns("map"), height = "62vh"),
           # Coverage gaps beside the map (they drive its hover/click); the gap-radius control is in the sidebar.
           div(class = "ik-maps-side", style = "max-height:62vh;",
             div(class = "ik-cov-gaps",
-                div(class = "ik-cov-gaps-head",
-                    tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
-                    .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body(line_norm))),
+                # No heading (the page title already says it) — start straight at the lead, help inline.
                 tags$p(class = "ik-cov-gaps-lead",
-                  "Protected hotspots ranked worst-first by how well predator control reaches them, within the gap radius."),
+                  "Protected hotspots ranked worst-first by how well predator control reaches them, within the gap radius. ",
+                  .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body(line_norm))),
+                .cov_gap_key(),
                 DT::DTOutput(ns("gaps"))))))
   )
 }
@@ -432,26 +440,24 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) g <- g[g$reserve %in% rsv, , drop = FALSE]
       validate(need(nrow(g), "No camera lines in this reserve."))
       gaps_shown(g)                                            # remember the displayed order for row hover/click
-      lab <- c(no_trapping = "No trapping", predators_uncaught = "Predators uncaught",
-               neglected = "Trapping neglected", covered = "Covered", no_protected = "No protected here")
-      col <- c(no_trapping = "#c62828", predators_uncaught = "#e8590c",
-               neglected = "#f59f00", covered = "#2e7d32", no_protected = "#868e96")
-      badge <- sprintf("<span class='ik-gap-badge' style='background:%s'>%s</span>", col[g$status], lab[g$status])
       dens <- g$traps_per_km2                                   # PER-LINE density within the gap radius
       df <- data.frame(Line = g$line, Reserve = g$reserve,
         `Protected` = ifelse(is.na(g$prot_rate), "—", sprintf("%.2f", g$prot_rate)),
         `Predator`  = ifelse(is.na(g$pred_rate), "—", sprintf("%.2f", g$pred_rate)),
         `Traps` = g$n_traps, `Caught` = g$catches, `Neglected` = g$n_neglected,
         `Traps/km²` = ifelse(is.na(dens), "—", sprintf("%.0f", dens)),
-        Status = badge, check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, container = .cov_gaps_header(line_norm), rownames = FALSE, escape = -ncol(df),
-        selection = "single", class = "stripe hover row-border ik-row-click",
-        # row index drives the drill (click) + map highlight (hover); ordering/paging off so the
-        # display order matches gaps_shown() one-to-one.
+        .status = g$status, .statuslab = unname(.COV_GAP_LAB[g$status]),   # hidden: drive the row tint + hover title
+        check.names = FALSE, stringsAsFactors = FALSE)
+      si <- ncol(df) - 2L                                      # 0-based index of .status (then .statuslab)
+      DT::datatable(df, container = .cov_gaps_header(line_norm), rownames = FALSE,
+        selection = "single", class = "hover row-border ik-row-click",     # no "stripe" — rows are tinted by status
+        # row index drives the drill (click) + map highlight (hover); ordering/paging off so the display
+        # order matches gaps_shown() one-to-one. createdRow tints the row by status + shows it on hover.
         options = list(dom = "t", ordering = FALSE, paging = FALSE,
+          columnDefs = list(list(visible = FALSE, targets = c(si, si + 1L))),
           createdRow = DT::JS(sprintf(
-            "function(row,data,i){row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',i+1,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s',0,{priority:'event'});});}",
-            session$ns("gaps_hover"), session$ns("gaps_hover")))))
+            "function(row,data,i){ if(data[%d]) row.classList.add('ik-gaprow-'+data[%d]); row.title=data[%d]||''; row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',i+1,{priority:'event'});}); row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s',0,{priority:'event'});}); }",
+            si, si, si + 1L, session$ns("gaps_hover"), session$ns("gaps_hover")))))
     })
     gaps_dt_proxy <- DT::dataTableProxy("gaps")
 
