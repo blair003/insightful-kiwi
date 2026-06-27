@@ -121,13 +121,7 @@ trapping_ui <- function(id, ik_data = NULL) {
             layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
               leaflet::leafletOutput(ns("map"), height = "72vh"),
               div(class = "ik-maps-side", style = "max-height:72vh;",
-                uiOutput(ns("pressure_note")),
-                tags$h6(class = "trap-pressure-title", "Traps shown on the map"),
-                tags$p(class = "trap-lead",
-                  "Every trap in the map layers you've ticked — hover a row to find it, click for its history. ",
-                  "Tick ", tags$b("High pressure"), " to keep only the ", tags$b("black-ringed"), " traps: catching ",
-                  "on ", tags$b("≥ half their checks"), " yet on a watch / neglected cadence (likely missing catches between visits)."),
-                checkboxInput(ns("pressure_only"), "High pressure only", value = FALSE),
+                uiOutput(ns("pressure_controls")),     # short summary + High-pressure toggle — only when a watch/neglected layer is shown
                 DT::DTOutput(ns("pressure_table"))))),
           tabPanel(
             "Over time", icon = icon("chart-line"),
@@ -437,23 +431,33 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
 
     # ---- "trap pressure" flag table — hover to locate, click for history ----
     pressure_shown <- reactiveVal(NULL)
-    output$pressure_note <- renderUI({
+    # Short summary + the High-pressure toggle, shown ONLY when a Watch/Neglected layer is on (high pressure
+    # is a watch/neglected concept) AND such traps exist; otherwise the table stands alone. The wordy detail
+    # that used to be a paragraph now lives in the (i) hint.
+    output$pressure_controls <- renderUI({
       d <- map_traps(); if (is.null(d)) return(NULL)
+      vis <- input$map_groups
+      layer_on <- is.null(vis) || any(c("Watch", "Neglected") %in% vis)
       wn <- sum(d$status %in% c("watch", "neglected")); hp <- sum(d$high_pressure)
-      nomap <- sum(d$high_pressure & (!is.finite(d$latitude) | !is.finite(d$longitude)))
-      tags$p(class = "trap-pressure-note",
-        if (hp == 0) sprintf("Of %d watch/neglected trap%s, none are high-pressure — the productive traps are being checked often enough.",
-                             wn, if (wn == 1) "" else "s")
-        else sprintf("Of %d watch/neglected trap%s, %s high-pressure (productive — catching on ≥%d%% of checks): the priority for more frequent checks%s.",
-                     wn, if (wn == 1) "" else "s", if (hp == 1) "1 is" else paste(hp, "are"), PRESSURE_PCT,
-                     if (nomap > 0) sprintf("; %d have no coordinates (table only)", nomap) else ""))
+      if (!layer_on || wn == 0) return(NULL)
+      tip <- sprintf(paste0("Catching on ≥%d%% of its checks yet on a watch / neglected cadence — productive ",
+                            "but under-checked, so likely missing catches between visits. Marked with a black ring on the map."), PRESSURE_PCT)
+      tagList(
+        tags$p(class = "trap-pressure-note",
+          sprintf("Of %d watch/neglected trap%s, %s high-pressure", wn, if (wn == 1) "" else "s",
+                  if (hp == 0) "none are" else if (hp == 1) "1 is" else paste(hp, "are")),
+          " ", .ik_hint(tip)),
+        checkboxInput(session$ns("pressure_only"), "High pressure only", value = isTRUE(isolate(input$pressure_only))))
     })
     output$pressure_table <- DT::renderDT({
       d <- map_traps(); validate(need(!is.null(d), "No traps in this period."))
       vis <- input$map_groups                                    # the status layers ticked on in the map's layer control
       if (!is.null(vis)) d <- d[d$grp %in% vis, , drop = FALSE]   # mirror the map: only the shown status layers
-      if (isTRUE(input$pressure_only)) d <- d[d$high_pressure, , drop = FALSE]
-      validate(need(nrow(d), if (isTRUE(input$pressure_only)) "No high-pressure traps in the shown layers."
+      # The High-pressure toggle only bites while its control is shown (a Watch/Neglected layer is on); else
+      # its possibly-stale value is ignored so a Good/Inactive-only view isn't wrongly emptied.
+      pressure_on <- (is.null(vis) || any(c("Watch", "Neglected") %in% vis)) && isTRUE(input$pressure_only)
+      if (pressure_on) d <- d[d$high_pressure, , drop = FALSE]
+      validate(need(nrow(d), if (pressure_on) "No high-pressure traps in the shown layers."
                              else "No traps in the shown layers."))
       d <- d[order(-d$pressure_score, -d$mean_interval_days), , drop = FALSE]; pressure_shown(d)  # high-pressure, then worst-serviced
       st <- c(good = "Good", watch = "Watch", neglected = "Neglected", dormant = "Dormant", historic = "Historic")
