@@ -10,7 +10,7 @@
 #' Render a row of red→green gauges. @param items list of list(label, frac[0..1], value, tip); NULL items
 #' or non-finite fracs are dropped. @param title optional heading. @return a div, or NULL when empty.
 #' @keywords internal
-ik_health_strip <- function(items, title = NULL) {
+ik_health_strip <- function(items, title = NULL, help = NULL) {
   items <- Filter(function(it) !is.null(it) && length(it$frac) && is.finite(it$frac), items)
   if (!length(items)) return(NULL)
   gauge <- function(it) {
@@ -24,8 +24,37 @@ ik_health_strip <- function(items, title = NULL) {
   }
   div(class = "ik-health-strip",
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/health.css")),
-    if (!is.null(title)) tags$div(class = "ik-health-title", title),
+    if (!is.null(title) || !is.null(help))
+      tags$div(class = "ik-health-title", title, if (!is.null(help)) tagList(" ", help)),
     div(class = "ik-health-row", lapply(items, gauge)))
+}
+
+#' Help-modal body for the Network-health strip — explains each gauge + how the Period shapes it, and links
+#' to the Trap check review for the per-trap detail (so "Network active" doesn't need its own drill).
+#' @keywords internal
+health_help_body <- function(ik_data) {
+  P  <- function(...) tags$p(...)
+  gd <- (ik_data$meta$trapping$health %||% list())$good_max
+  tagList(
+    P(tags$br(), "A quick read on whether the trapping network is ", tags$b("firing"), ". Each gauge sits on a ",
+      tags$b("red → green"), " scale (a marker further right = better), and all of them honour the sidebar ",
+      tags$b("Period"), " and ", tags$b("Reserve"), "."),
+    tags$h6("Network active"),
+    P("The share of the network's traps that were ", tags$b("checked at least once in the selected period"),
+      " — checked traps ÷ all traps in scope. So the window matters: ", tags$b("Latest 12 months"), " asks ",
+      tags$em("“what fraction of traps saw a visit in the last year”"), "; a shorter period asks the same over ",
+      "less time, so fewer traps qualify and the figure is lower. 100% = every trap was visited within the window."),
+    tags$h6("Well serviced"),
+    P("Of those traps, the share on a ", tags$b("Good"), " servicing cadence — the mean gap between checks is tight ",
+      "enough", if (!is.null(gd) && is.finite(gd)) sprintf(" (around %d days or less for this project)", round(gd)),
+      " to read as ", tags$b("good"), " rather than ", tags$b("watch"), " or ", tags$b("neglected"),
+      ", judged over the period's checks."),
+    P(tags$br(), tags$b("Want the per-trap detail?"), " These are network-wide summaries. To see ",
+      tags$b("which"), " traps are active, each one's cadence and status, and its full check history, open the ",
+      tags$a(href = "#", `data-bs-dismiss` = "modal",
+             onclick = "Shiny.setInputValue('ik_goto_nav','trap-review',{priority:'event'})",
+             tags$b("Trap check review")), ".")
+  )
 }
 
 #' Build the TRAPPING network-health metrics for the strip (Trapping overview). All-data-cheap; honours
