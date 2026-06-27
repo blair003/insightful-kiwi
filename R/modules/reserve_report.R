@@ -77,14 +77,14 @@ reserve_report_controls <- function(id, ik_data) {
     selection_all_data(),                                  # DATA PERIOD · All data (the report spans every season)
     div(class = "ik-selection ik-view-controls",
         tags$div(class = "ik-view-controls-h", "View options"),
-        radioButtons(ns("grain"), "Group by",
-                     choices = c("By season" = "season", "By year" = "year"), selected = "season"),
         selectInput(ns("pred"), "Predator",
                     choices = ik_species_choices(pred_taxa, ik_data, "vernacular", splits),
                     selected = paste0("grp:", names(pred_taxa)[1]), multiple = TRUE),
         selectInput(ns("prot"), "Protected",
                     choices = ik_species_choices(prot_taxa, ik_data, "vernacular", splits),
-                    selected = paste0("grp:", names(prot_taxa)[1]), multiple = TRUE)),
+                    selected = paste0("grp:", names(prot_taxa)[1]), multiple = TRUE),
+        radioButtons(ns("grain"), "Group by",
+                     choices = c("By season" = "season", "By year" = "year"), selected = "season")),
     div(class = "ik-selection",
         tags$div(class = "ik-sel-section-h", "Filters"),
         selectInput(ns("reserve"), "Reserve", choices = res, selected = res[1]))

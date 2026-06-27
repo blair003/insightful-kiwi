@@ -179,6 +179,7 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
     spec$label, value = spec$key, icon = icon(if (isTRUE(spec$member)) "paw" else "dna"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/species.css")),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/cooccurrence.css")),  # Co-occurrence tab views
     tags$script(src = .ik_asset("js/maps.js")),
     div(class = "ik-species",
         .ik_page_header(spec$label,
@@ -243,8 +244,30 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                    tags$b("Click a bar"), " for the captures behind it."),
             plotOutput(ns("bait"), height = "440px", click = ns("bait_click"))),
           if (.cooc_ok) tabPanel("Co-occurrence", icon = icon("hourglass-half"),
-            tags$p(class = "ik-species-hint", .cooc_hint, " ", tags$b("Click a bar"), " for the co-detections."),
-            plotOutput(ns("cooc"), height = "340px", click = ns("cooc_click"))),
+            tabsetPanel(
+              id = ns("cooc_view"), type = "tabs",
+              tabPanel("Distribution", icon = icon("chart-column"),
+                tags$p(class = "ik-species-hint", .cooc_hint, " ", tags$b("Click a bar"), " for the co-detections."),
+                plotOutput(ns("cooc"), height = "340px", click = ns("cooc_click"))),
+              tabPanel("Map", icon = icon("map-location-dot"),
+                uiOutput(ns("cooc_map_intro")),
+                layout_columns(
+                  class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+                  leaflet::leafletOutput(ns("cooc_map"), height = "60vh"),
+                  div(class = "ik-maps-side", style = "max-height:60vh;",
+                    div(style = "margin-bottom:0.45rem;",
+                      downloadButton(ns("cooc_dl_pairs"), "Download pairs (CSV)", class = "btn-sm")),
+                    DT::DTOutput(ns("cooc_map_table"))))),
+              tabPanel("Trend", icon = icon("chart-line"),
+                uiOutput(ns("cooc_trend_intro")),
+                div(class = "ik-cooc-trend-ctrl",
+                    checkboxGroupInput(ns("cooc_trend_rai"), inline = TRUE,
+                      label = tagList("Overlay RAI ",
+                        .ik_hint(paste0("Ground the gap trend against how much each species is actually being seen — a gap ",
+                          "can rise simply because a species is thinning out, not because they're truly separating. RAI ",
+                          "shares one right-hand axis; ± SE shown as a shadow."))),
+                      choices = c("Protected" = "prot", "Predator" = "pred"), selected = character(0))),
+                plotOutput(ns("cooc_trend"), height = "360px")))),
           tabPanel("Records", icon = icon("list"),
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",
                    tags$b("Click a row"), " to open the full record."),
@@ -266,7 +289,8 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     # Tab-aware period banner: Summary + Trend are all-time (and are the default tab), so they read
     # "All data"; the other tabs honour the selected window.
     output$period_banner <- renderUI(.ik_period_banner(ik_data, selection(),
-      all_data = is.null(input$tabs) || input$tabs %in% c("Summary", "Trend")))
+      all_data = is.null(input$tabs) || input$tabs %in% c("Summary", "Trend") ||
+                 (identical(input$tabs, "Co-occurrence") && identical(input$cooc_view, "Trend"))))   # cooc Trend spans all seasons
     taxa    <- stats::setNames(list(spec$sci), spec$label)        # this page's taxon (constant)
     nh <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000
     nt <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100
@@ -875,12 +899,16 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
                 " for the full record."))
     })
 
-    # ---- Co-occurrence (predator/protected): time to the nearest opposing-role detection ----
+    # ---- Co-occurrence (predator/protected): protected↔predator timing on camera, as a 3-view tab
+    #      (Distribution · Map · Trend) reusing the standalone Co-occurrence page's shared builders. One
+    #      side is THIS page's species; the other is the opposing-role picker (cooc_opp). ----
     opp_role    <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
     opp_taxa    <- .opp_taxa(ik_data, opp_role)
     opp_splits  <- unique(ik_species_groups(ik_data)$label[which(ik_species_groups(ik_data)$split)])
     opp_default <- if (length(opp_taxa))
       paste0("grp:", names(opp_taxa)[1]) else NULL   # default opp = highest-concern group of that role (config order)
+    max_pd      <- ik_data$meta$cooccurrence$max_pair_days %||% 30                    # pairing window (days) — config
+    gap_labels_capped <- GAP_LABELS[GAP_BREAKS[-length(GAP_BREAKS)] < max_pd * 24]    # drop buckets beyond the window
     if (!is.na(opp_role)) observe({ p <- prefer()       # relabel the opposing picker on name-preference change
       sel <- if (length(input$cooc_opp)) input$cooc_opp else opp_default
       updateSelectInput(session, "cooc_opp", choices = ik_species_choices(opp_taxa, ik_data, p, opp_splits), selected = sel)
@@ -889,29 +917,37 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
       ik_resolve_species_choice(v, ik_group_taxa(ik_data)) })   # picked opposing species → scientificNames
     cooc_prox <- reactive({ r <- as.numeric(input$cooc_radius %||% 0)   # the "where" phrase, woven into the copy
       if (r <= 0) "at the same camera" else sprintf("within %s", if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r)) })
-    cooc_gaps <- reactive({ req(active(), spec$camera, !is.na(opp_role))
-      osel <- opp_sel(); req(length(osel))
+    # Map/Trend copy labels — the page species + the opposing pick, each slotted to its role (the gaps are
+    # always protected-anchored, so prot_l/pred_l must reflect which side is which).
+    opp_l  <- reactive(paste(ik_choice_labels(input$cooc_opp %||% opp_default, ik_data, prefer()), collapse = " + "))
+    prot_l <- reactive(if (identical(spec$role, "protected")) spec$label else opp_l())
+    pred_l <- reactive(if (identical(spec$role, "predator"))  spec$label else opp_l())
+
+    # The gaps, season-scoped (Distribution + Map honour Period) and across all seasons (the Trend); both
+    # share the predator/protected resolution + the bucket cut.
+    .cooc_compute <- function(seasons) {
+      osel <- opp_sel(); if (!length(osel)) return(NULL)
       pp <- if (identical(spec$role, "predator")) list(pred = spec$sci, prot = osel) else list(pred = osel, prot = spec$sci)
-      g <- tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot, seasons = .ik_nz(selection()$season),
+      g <- tryCatch(ik_predator_protected_gaps(ik_data, pp$pred, pp$prot, seasons = seasons,
                                           reserve = .ik_nz(selection()$reserve),
                                           radius_m = as.numeric(input$cooc_radius %||% 0),
                                           cross_boundary = isTRUE(input$cooc_cross)), error = function(e) NULL)
       if (is.null(g)) return(NULL)
       if (isTRUE(input$cooc_after)) { g <- g[g$signed_h > 0, , drop = FALSE]; if (!nrow(g)) return(NULL) }   # stalking
+      g$bucket <- cut(g$gap_h, GAP_BREAKS, GAP_LABELS, right = FALSE)
       g
-    }) |> bindCache(spec$key, selection()$season, selection()$reserve, input$cooc_radius, input$cooc_opp, input$cooc_after, isTRUE(input$cooc_cross), ik_active_datasets())
+    }
+    cooc_gaps <- reactive({ req(active(), spec$camera, !is.na(opp_role)); .cooc_compute(.ik_nz(selection()$season)) }) |>
+      bindCache(spec$key, selection()$season, selection()$reserve, input$cooc_radius, input$cooc_opp, input$cooc_after, isTRUE(input$cooc_cross), ik_active_datasets())
+    cooc_gaps_all <- reactive({ req(active(), spec$camera, !is.na(opp_role)); .cooc_compute(NULL) }) |>
+      bindCache(spec$key, "all", selection()$reserve, input$cooc_radius, input$cooc_opp, input$cooc_after, isTRUE(input$cooc_cross), ik_active_datasets())
 
+    # Distribution — the gap-bucket bar chart (shared builder; species blue, opposing-role x-axis label).
     output$cooc <- renderPlot({
       g <- cooc_gaps()
       validate(need(!is.null(g) && nrow(g), "No camera co-detections of this species with the opposing role yet."))
-      bucket <- cut(g$gap_h, breaks = GAP_BREAKS, labels = GAP_LABELS, right = FALSE, include.lowest = TRUE)
-      h <- as.data.frame(table(factor(bucket, levels = GAP_LABELS))); names(h) <- c("gap", "n")
-      ggplot2::ggplot(h, ggplot2::aes(.data$gap, .data$n)) +
-        ggplot2::geom_col(fill = "#3f6fb0", width = 0.85) +
-        ggplot2::labs(x = sprintf("Time to nearest %s detection %s", opp_role, cooc_prox()), y = "Co-detections",
-                      title = sprintf("How close in time, %s", cooc_prox())) +
-        ik_ggtheme(is_dark()) +
-        ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = ik_plot_ink(is_dark())))
+      ik_cooc_dist_plot(g, sprintf("Time to nearest %s detection %s", opp_role, cooc_prox()),
+                        is_dark(), gap_labels_capped, fill = "#3f6fb0", y_lab = "Co-detections")
     }, bg = "transparent")
 
     # Co-occurrence drill — the SHARED rich drill (both species linked to their record, the gap with
@@ -921,14 +957,50 @@ species_dashboard_server <- function(id, spec, ik_data, selection, prefer_scient
     observeEvent(input$cooc_click, {
       g <- cooc_gaps(); cl <- input$cooc_click
       if (is.null(g) || !nrow(g) || is.null(cl) || is.null(cl$x)) return()
-      k <- round(cl$x); if (k < 1 || k > length(GAP_LABELS)) return()
-      lab    <- GAP_LABELS[k]
-      bucket <- cut(g$gap_h, breaks = GAP_BREAKS, labels = GAP_LABELS, right = FALSE, include.lowest = TRUE)
-      r <- g[!is.na(bucket) & as.character(bucket) == lab, , drop = FALSE]; if (!nrow(r)) return()
+      k <- round(cl$x); if (k < 1 || k > length(gap_labels_capped)) return()
+      lab <- gap_labels_capped[k]
+      r <- g[!is.na(g$bucket) & as.character(g$bucket) == lab, , drop = FALSE]; if (!nrow(r)) return()
       cooc_open(r,
         sprintf("%s — co-detections %s away", spec$label, lab),
         sprintf("%s co-detection%s %s — click either species for its record",
                 format(nrow(r), big.mark = ","), if (nrow(r) == 1) "" else "s", cooc_prox()))
     })
+
+    # Map — the shared leaflet view (surface + per-camera table + CSV + drill). Spun up on FIRST page-view
+    # (like this page's other maps, line ~599) so the species pages don't each instantiate a leaflet at
+    # session load; the proxy draws are further gated on the Co-occurrence / Map sub-tab being live.
+    cooc_map_inited <- reactiveVal(FALSE)
+    if (isTRUE(spec$camera) && !is.na(opp_role) && length(opp_taxa)) observeEvent(active(), {
+      if (!isTRUE(active()) || cooc_map_inited()) return()
+      cooc_map_inited(TRUE)
+      ik_cooc_map(input, output, session, ik_data, prefer,
+                  gaps = cooc_gaps, reserve = reactive(.ik_nz(selection()$reserve)),
+                  radius_m = reactive(as.numeric(input$cooc_radius %||% 0)),
+                  cross_boundary = reactive(isTRUE(input$cooc_cross)), is_dark = is_dark,
+                  on_map = reactive(isTRUE(active()) && identical(input$tabs, "Co-occurrence") && identical(input$cooc_view, "Map")),
+                  cooc_open = cooc_open, prot_l = prot_l, pred_l = pred_l, max_pd = max_pd)
+    })
+
+    # Trend — seasonal median gap (+ optional protected/predator RAI overlay), shared builder; all seasons.
+    output$cooc_trend_intro <- renderUI({
+      r <- as.numeric(input$cooc_radius %||% 0)
+      where <- if (r <= 0) "at the same camera"
+               else sprintf("at the same camera, or any camera within %s", if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r))
+      lead <- if (isTRUE(input$cooc_after))
+        tagList("Median time until a ", tags$b(pred_l()), " arrives after a ", tags$b(prot_l()), " ", where, sprintf(", up to %d days apart, grouped by season.", max_pd))
+      else
+        tagList("Median gap between camera detections of ", tags$b(prot_l()), " and ", tags$b(pred_l()), " ", where, sprintf(", up to %d days apart, grouped by season.", max_pd))
+      tags$p(class = "ik-cooc-hint", lead,
+        " Large gaps (weeks+) indicate the two rarely share ground. Optionally overlay RAI to tell a real timing shift from simply changing detection rates.")
+    })
+    output$cooc_trend <- renderPlot({
+      osel <- opp_sel()
+      rs <- if (identical(spec$role, "protected")) list(prot = list(sci = spec$sci), pred = list(sci = osel))
+            else                                     list(prot = list(sci = osel),     pred = list(sci = spec$sci))
+      p <- ik_cooc_trend_plot(cooc_gaps_all(), ik_data, is_dark(), prefer(), reserve = .ik_nz(selection()$reserve),
+                              rai_specs = rs, rai_want = input$cooc_trend_rai %||% character(0))
+      validate(need(inherits(p, "ggplot"), if (is.character(p)) p else "No co-detections to chart."))
+      p
+    }, bg = "transparent")
   })
 }

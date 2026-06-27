@@ -157,8 +157,10 @@ ik_bait_captures <- function(ik_data, bait, seasons = NULL, species = NULL,
   t <- tr[tr$is_capture & has, , drop = FALSE]
   if (!nrow(t)) return(NULL)
   t <- t[order(t$deploymentEnd, decreasing = TRUE), , drop = FALSE]
+  locs <- ik_data$app$geography$locations
   data.frame(observationID = t$observationID, check_date = t$deploymentEnd, trap = t$name,
              locationID = t$locationID,
+             reserve = locs$reserve[match(t$locationID, locs$location_id)],
              species = ik_species_label(t$scientificName, ik_data, "vernacular"),
              stringsAsFactors = FALSE)
 }

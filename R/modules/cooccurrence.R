@@ -209,6 +209,304 @@ ik_cooc_drill <- function(input, output, session, ik_data, prefer, radius_m = re
   }
 }
 
+# ============================ Shared Co-occurrence view builders ============================
+# Distribution / Map / Trend are shared by the standalone Co-occurrence page AND each Species page's
+# Co-occurrence tab, so both behave identically. The plot builders are PURE (resolved values in → a ggplot
+# or a validation-message string out); the Map registers its own outputs/observers, so it also takes
+# (input, output, session) plus the reactives it needs. ids let a caller pick its own output ids (the
+# standalone uses "map"/…, a species page "cooc_map"/… since "map"/"trend" are taken by its own tabs).
+
+#' Distribution bar chart of predator↔protected gap buckets. @param g gaps df with a $bucket factor.
+#' @param keep bucket levels kept (within the pairing window). @keywords internal
+ik_cooc_dist_plot <- function(g, x_lab, is_dark, keep, fill = "#6a3d9a", y_lab = "Protected detections") {
+  d <- as.data.frame(table(bucket = g$bucket))
+  d <- d[d$bucket %in% keep, , drop = FALSE]
+  d$bucket <- factor(d$bucket, levels = keep)
+  ggplot2::ggplot(d, ggplot2::aes(.data$bucket, .data$Freq)) +
+    ggplot2::geom_col(fill = fill, width = 0.8) +
+    ggplot2::geom_text(ggplot2::aes(label = .data$Freq), vjust = -0.3, size = 3.6, colour = ik_plot_ink(is_dark)) +
+    ggplot2::labs(x = x_lab, y = y_lab) +
+    ik_ggtheme(is_dark) +
+    ggplot2::theme(panel.grid.major.x = ggplot2::element_blank(), panel.grid.minor = ggplot2::element_blank())
+}
+
+#' Seasonal median-gap trend, optionally overlaying protected/predator RAI on a shared right axis. Returns
+#' a ggplot, or a character validation message when there's nothing (or too few seasons) to plot.
+#' @param g all-seasons gaps df. @param reserve reserve scope for the RAI overlay (NULL = all).
+#' @param rai_specs named list keyed "prot"/"pred", each list(sci = <scientificNames>). @param rai_want
+#'   which of those to overlay. @keywords internal
+ik_cooc_trend_plot <- function(g, ik_data, is_dark, prefer, reserve = NULL,
+                               rai_specs = list(), rai_want = character(0)) {
+  if (is.null(g) || !nrow(g)) return("No co-detections to chart.")
+  op <- ik_observation_period(ik_data)                         # deployment-anchored season (camera)
+  g$season <- op$calendar_season[match(g$observationID, op$observationID)]
+  g <- g[!is.na(g$season), , drop = FALSE]
+  if (!nrow(g)) return("No co-detections to chart.")
+  ag <- do.call(rbind, lapply(split(g, g$season), function(s)
+    data.frame(season = s$season[1], med = stats::median(s$gap_h), t = mean(as.numeric(s$when)), n = nrow(s))))
+  if (is.null(ag) || nrow(ag) < 2) return("Need at least two seasons for a trend.")
+  ag <- ag[order(ag$t), ]; ag$season <- factor(ag$season, levels = ag$season)
+  use_days <- max(ag$med, na.rm = TRUE) >= 48                  # auto hours↔days by the data's scale
+  ag$y <- if (use_days) ag$med / 24 else ag$med
+  gap_col <- "#6a3d9a"                                         # purple = gap (predator timing)
+  ser_col <- c("Protected RAI" = "#2e7d32", "Predator RAI" = "#c62828")
+  ser_for <- c(prot = "Protected RAI", pred = "Predator RAI")
+
+  # Grounding: overlay PROTECTED and/or PREDATOR RAI per season (± SE) on a shared second axis, so a
+  # rising gap can be read against whether the detections actually hold up. Reserve applies.
+  want <- intersect(rai_want, names(ser_for))
+  rai_rows <- lapply(want, function(key) {
+    sci <- rai_specs[[key]]$sci; if (!length(sci)) return(NULL)
+    tr  <- tryCatch(ik_species_trend(ik_data, stats::setNames(list(sci), ser_for[[key]]),
+                                     by = "season", reserve = reserve), error = function(e) NULL)
+    if (is.null(tr)) return(NULL)
+    tr <- tr[tr$metric_type == "camera_rai", , drop = FALSE]; if (!nrow(tr)) return(NULL)
+    mi <- match(as.character(ag$season), as.character(tr$period))
+    val <- tr$value[mi]; se <- tr$se[mi]; if (!any(is.finite(val))) return(NULL)
+    data.frame(season = ag$season, series = ser_for[[key]], value = val,
+               lo = pmax(0, val - ifelse(is.na(se), 0, se)), hi = val + ifelse(is.na(se), 0, se),
+               stringsAsFactors = FALSE)
+  })
+  rai_df <- do.call(rbind, Filter(Negate(is.null), rai_rows))
+
+  p <- ggplot2::ggplot(ag, ggplot2::aes(.data$season, group = 1))
+  if (!is.null(rai_df) && nrow(rai_df)) {
+    rai_top <- max(rai_df$hi, na.rm = TRUE)
+    k <- if (is.finite(rai_top) && rai_top > 0) max(ag$y, na.rm = TRUE) / rai_top else NA_real_
+  } else k <- NA_real_
+  rai_on <- is.finite(k) && k > 0
+  if (rai_on) {
+    rai_df$series <- factor(rai_df$series, levels = names(ser_col))
+    rai_df$season <- factor(rai_df$season, levels = levels(ag$season))
+    rai_df$val_s  <- rai_df$value * k; rai_df$lo_s <- rai_df$lo * k; rai_df$hi_s <- rai_df$hi * k
+    p <- p +
+      ggplot2::geom_ribbon(data = rai_df, ggplot2::aes(x = .data$season, ymin = .data$lo_s, ymax = .data$hi_s,
+                  fill = .data$series, group = .data$series), alpha = 0.12, inherit.aes = FALSE, na.rm = TRUE) +
+      ggplot2::geom_line(data = rai_df, ggplot2::aes(x = .data$season, y = .data$val_s, colour = .data$series, group = .data$series),
+                linewidth = 0.9, inherit.aes = FALSE, na.rm = TRUE) +
+      ggplot2::geom_point(data = rai_df, ggplot2::aes(x = .data$season, y = .data$val_s, colour = .data$series),
+                 size = 2.2, inherit.aes = FALSE, na.rm = TRUE) +
+      ggplot2::scale_fill_manual(values = ser_col, guide = "none")
+  }
+  # Median gap is a COLOUR aesthetic ONLY when RAI is overlaid (so the legend tells it apart). With RAI
+  # off, a FIXED colour → no colour aesthetic → no colour legend, so only the "Pairs" size key shows.
+  p <- p + (if (rai_on) list(
+      ggplot2::geom_line(ggplot2::aes(y = .data$y, colour = "Median gap"), linewidth = 0.9),
+      ggplot2::geom_point(ggplot2::aes(y = .data$y, colour = "Median gap", size = .data$n)),
+      ggplot2::scale_colour_manual(NULL, values = c("Median gap" = gap_col, ser_col))
+    ) else list(
+      ggplot2::geom_line(ggplot2::aes(y = .data$y), colour = gap_col, linewidth = 0.9),
+      ggplot2::geom_point(ggplot2::aes(y = .data$y, size = .data$n), colour = gap_col)
+    ))
+  p <- p +
+    # one row always — else many distinct small pair-counts wrap the size key onto two rows (reads as a dup).
+    ggplot2::scale_size_area(name = "Pairs", max_size = 6.5, guide = ggplot2::guide_legend(nrow = 1)) +
+    ggplot2::labs(x = NULL, subtitle = if (rai_on)
+           "RAI overlaid for context — a gap trend can track detection rates, not just timing"
+         else "exploratory — large gaps mean the two rarely share the same ground") +
+    ik_ggtheme(is_dark) +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1), panel.grid.minor = ggplot2::element_blank(),
+          legend.position = "top", axis.title.y.left = ggplot2::element_text(colour = gap_col))
+  gap_name <- sprintf("Median gap (%s)", if (use_days) "days" else "hours")
+  if (rai_on)
+    p + ggplot2::scale_y_continuous(name = gap_name, sec.axis = ggplot2::sec_axis(~ . / k, name = "RAI (per camera-hrs)"))
+  else p + ggplot2::scale_y_continuous(name = gap_name)
+}
+
+#' Wire the Co-occurrence Map view — base leaflet + proxy Surface/Pairs/Cameras/Boundary layers, the
+#' per-camera table, CSV download, row-hover preview and the marker/row drill. Registers outputs
+#' ids$map / ids$table / ids$dl / ids$intro and their observers. @param gaps reactive season-scoped gaps.
+#' @param reserve/radius_m/cross_boundary/is_dark/on_map reactives. @param cooc_open drill opener.
+#' @param prot_l/pred_l reactive labels (intro). @param max_pd pairing window (days). @keywords internal
+ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, radius_m,
+                        cross_boundary, is_dark, on_map, cooc_open, prot_l, pred_l, max_pd,
+                        ids = list(map = "cooc_map", table = "cooc_map_table", dl = "cooc_dl_pairs", intro = "cooc_map_intro")) {
+  locs0     <- ik_data$app$geography$locations
+  in_marker <- paste0(ids$map, "_marker_click")
+  in_rows   <- paste0(ids$table, "_rows_selected")
+  in_hover  <- paste0(ids$table, "_hover")
+  .fmt_gap_short <- function(h) ifelse(h < 48, sprintf("%.0f h", h), sprintf("%.1f d", h / 24))
+
+  # Map tab description — tailored to the selected species (the sidebar is far below on mobile).
+  output[[ids$intro]] <- renderUI({
+    r <- radius_m()
+    phrase <- if (r <= 0) sprintf("on the same camera within %d days", max_pd)
+              else sprintf("on any camera within %s, within %d days",
+                           if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r), max_pd)
+    tags$p(class = "ik-cooc-hint",
+      "Each ", tags$b(prot_l()), " detection, coloured by how soon a ", tags$b(pred_l()),
+      " turns up ", phrase, " ", tags$b("(red = soonest)"),
+      " — dot size = number of pairs; the ", tags$b("Surface"),
+      " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it.")
+  })
+
+  # Download the pair-level temporal data (both cameras, both timestamps, distance, gap + direction) —
+  # honours the current Period / Reserve / Within / species / stalking selection (same gaps() the Map shows).
+  output[[ids$dl]] <- downloadHandler(
+    filename = function() sprintf("cooccurrence-pairs-%s.csv", Sys.Date()),
+    content  = function(file) {
+      g <- gaps()
+      if (is.null(g) || !nrow(g)) { utils::write.csv(data.frame(), file, row.names = FALSE); return() }
+      nm <- function(id) locs0$name[match(id, locs0$location_id)]
+      df <- data.frame(
+        reserve            = locs0$reserve[match(g$location_id, locs0$location_id)],
+        protected_camera   = nm(g$location_id),
+        protected_species  = ik_species_label(g$scientificName, ik_data, "vernacular"),
+        protected_seen     = format(g$when, "%Y-%m-%d %H:%M"),
+        predator_camera    = nm(g$pred_loc),
+        distance_m         = round(g$pred_dist_m),
+        predator_species   = ik_species_label(g$pred_sci, ik_data, "vernacular"),
+        predator_seen      = format(g$pred_when, "%Y-%m-%d %H:%M"),
+        gap_hours          = round(g$gap_h, 2),
+        gap_days           = round(g$gap_h / 24, 2),
+        predator_direction = ifelse(g$signed_h > 0, "after protected", "before protected"),
+        check.names = FALSE, stringsAsFactors = FALSE)
+      utils::write.csv(df[order(df$reserve, df$protected_camera, df$protected_seen), , drop = FALSE],
+                       file, row.names = FALSE)
+    })
+
+  # Per protected camera: median gap to nearest predator + pair count (the map dots + table rows).
+  timing_loc <- reactive({
+    g <- gaps(); if (is.null(g) || !nrow(g)) return(NULL)
+    agg <- do.call(rbind, lapply(split(g, g$location_id), function(s)
+      data.frame(location_id = s$location_id[1], median_gap_h = stats::median(s$gap_h),
+                 n = nrow(s), stringsAsFactors = FALSE)))
+    mi <- match(agg$location_id, locs0$location_id)
+    agg$name <- locs0$name[mi]; agg$reserve <- locs0$reserve[mi]
+    agg$latitude <- locs0$latitude[mi]; agg$longitude <- locs0$longitude[mi]
+    agg <- agg[is.finite(agg$latitude) & is.finite(agg$longitude), , drop = FALSE]
+    if (nrow(agg)) agg else NULL
+  })
+  # All camera locations in scope (the "Cameras" layer) — reserve-scoped like the data; with cross-boundary
+  # ON + a Within radius, also the neighbouring-reserve cameras within that radius (the buffer it pairs with).
+  cam_locs <- reactive({
+    cam_ds <- names(ik_data$datasets)[vapply(ik_data$datasets,
+                function(d) isTRUE(d$meta$source_type == "camera"), logical(1))]
+    al <- ik_active_locations(ik_data)
+    al <- al[al$dataset %in% cam_ds & is.finite(al$latitude) & is.finite(al$longitude), , drop = FALSE]
+    rv <- reserve()
+    if (length(rv) && "reserve" %in% names(al)) {
+      keep <- al$reserve %in% rv
+      if (isTRUE(cross_boundary()) && radius_m() > 0 && any(keep)) {
+        nb <- ik_within_distance(ik_data, al$location_id[keep], radius_m = radius_m(), of = "camera")
+        if (nrow(nb)) keep <- keep | al$location_id %in% nb$to_id
+      }
+      al <- al[keep, , drop = FALSE]
+    }
+    if (nrow(al)) al else NULL
+  })
+
+  # Base map: built ONCE, no volatile deps — data layers pushed via leafletProxy in the observers (the
+  # maps.R pattern), so a setting change never re-renders the widget into a 0-size hidden container.
+  output[[ids$map]] <- leaflet::renderLeaflet({
+    canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
+    m <- leaflet::leaflet() |>
+      leaflet::addProviderTiles(canvas, group = "Street") |>
+      leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite")
+    pns <- c("boundary", "surface", "cameras", "pairs")
+    for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
+    m <- leaflet::addLayersControl(m, baseGroups = c("Street", "Satellite"),
+      overlayGroups = c("Surface", "Pairs", "Cameras", "Boundary"),
+      options = leaflet::layersControlOptions(collapsed = FALSE))
+    cam_ds <- names(ik_data$datasets)[vapply(ik_data$datasets, function(d) isTRUE(d$meta$source_type == "camera"), logical(1))]
+    gl <- locs0[locs0$dataset %in% cam_ds & is.finite(locs0$latitude) & is.finite(locs0$longitude), , drop = FALSE]
+    if (nrow(gl)) m <- leaflet::fitBounds(m, min(gl$longitude), min(gl$latitude), max(gl$longitude), max(gl$latitude))
+    m
+  })
+  outputOptions(output, ids$map, suspendWhenHidden = FALSE)   # eager so proxy layers land before first view
+  cproxy <- function() leaflet::leafletProxy(ids$map, session)
+
+  # All proxy draws gated on the Map tab being LIVE: a proxy op to a hidden tab (uninitialised widget) is
+  # lost. Reading on_map() also re-fires each observer on tab-show, so the layers (re)draw onto the sized widget.
+  observe({
+    if (!on_map()) return()
+    leaflet::addProviderTiles(leaflet::clearGroup(cproxy(), "Street"),
+      if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Street")
+  })
+  observe({                                                   # Boundary + Cameras footprint; re-frame to it
+    if (!on_map()) return()
+    p <- cproxy(); leaflet::clearGroup(p, "Boundary"); leaflet::clearGroup(p, "Cameras")
+    cams <- cam_locs(); if (is.null(cams) || !nrow(cams)) return()
+    hulls <- tryCatch(ik_selection_hulls(cams, "reserve"), error = function(e) NULL)
+    if (!is.null(hulls) && nrow(hulls)) leaflet::addPolygons(p, data = hulls, group = "Boundary",
+      fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve,
+      options = leaflet::pathOptions(pane = "boundary"))
+    leaflet::addCircleMarkers(p, data = cams, lng = ~longitude, lat = ~latitude, group = "Cameras",
+      radius = 3, fill = TRUE, fillColor = "#2c7fb8", fillOpacity = 0.55, stroke = FALSE,
+      label = ~sprintf("%s — camera", name), options = leaflet::pathOptions(pane = "cameras"))
+    leaflet::fitBounds(p, min(cams$longitude), min(cams$latitude), max(cams$longitude), max(cams$latitude))
+  })
+  observe({                                                   # Surface + Pairs + legend (the co-detection data)
+    if (!on_map()) return()
+    p <- cproxy(); leaflet::clearGroup(p, "Surface"); leaflet::clearGroup(p, "Pairs"); leaflet::clearControls(p)
+    d <- timing_loc(); if (is.null(d) || !nrow(d)) return()
+    use_days <- max(d$median_gap_h, na.rm = TRUE) >= 48
+    conv <- function(h) if (use_days) h / 24 else h
+    d$gval <- conv(d$median_gap_h); mx <- max(d$gval, na.rm = TRUE)
+    pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
+    surf <- tryCatch(ik_idw_surface(d, "median_gap_h", "reserve"), error = function(e) NULL)
+    if (!is.null(surf) && nrow(surf)) {
+      surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
+      leaflet::addPolygons(p, data = surf, group = "Surface", stroke = FALSE,
+        fillColor = ~pal(gval), fillOpacity = if (is_dark()) 0.45 else 0.35,
+        options = leaflet::pathOptions(pane = "surface"))
+    }
+    leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, layerId = ~location_id, group = "Pairs",
+      radius = ik_marker_radius(d$n, 6, 20, cap_pctl = 0.98),
+      fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
+      label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")),
+      options = leaflet::pathOptions(pane = "pairs"))
+    leaflet::addLegend(p, "bottomright", pal = pal, values = d$gval,
+      title = sprintf("Median gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
+                      if (use_days) "days" else "hours"), opacity = 0.9)
+  })
+
+  # Per-camera table under the map (each row = a map dot), soonest first; shares its sorted order with the
+  # click handler. DT returns selections as indices into the data AS PASSED (robust to column re-sorting).
+  map_tab <- reactive({ d <- timing_loc(); if (is.null(d)) return(NULL); d[order(d$median_gap_h), , drop = FALSE] })
+  output[[ids$table]] <- DT::renderDT({
+    d <- map_tab(); validate(need(!is.null(d) && nrow(d), "No co-detections for this selection."))
+    df <- data.frame(Camera = d$name, Reserve = d$reserve,
+                     `Median gap` = .fmt_gap_short(d$median_gap_h), Pairs = d$n,
+                     .loc = d$location_id, check.names = FALSE)
+    loc_i <- ncol(df) - 1L                                   # 0-based index of the hidden .loc column
+    DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+      options = list(dom = "tip", pageLength = 7,
+        columnDefs = list(list(visible = FALSE, targets = loc_i)),
+        createdRow = DT::JS(sprintf(                          # hover a row → preview that camera's popup on the map
+          "function(row,data,i){var L=data[%d];row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',L,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
+          loc_i, session$ns(in_hover), session$ns(in_hover)))))
+  })
+  open_cam <- function(id, nm) {                              # marker OR row click → the shared drill
+    g <- gaps(); if (is.null(g) || is.null(id)) return()
+    rows <- g[g$location_id == id, , drop = FALSE]; if (!nrow(rows)) return()
+    cooc_open(rows, sprintf("Co-detections at %s", nm),
+      sprintf("%s protected detection%s with the nearest predator — click either species for its record",
+              format(nrow(rows), big.mark = ","), if (nrow(rows) == 1) "" else "s"))
+  }
+  observeEvent(input[[in_marker]], {
+    id <- input[[in_marker]]$id
+    open_cam(id, locs0$name[match(id, locs0$location_id)])
+  })
+  observeEvent(input[[in_rows]], {
+    i <- input[[in_rows]]; d <- map_tab(); if (is.null(d) || !length(i)) return()
+    open_cam(d$location_id[i], d$name[i])
+  })
+  # Hover a table row → preview that camera's popup on the map (debounced); leaving clears it.
+  hover_loc <- shiny::debounce(reactive(input[[in_hover]]), 120)
+  observeEvent(hover_loc(), {
+    p <- leaflet::leafletProxy(ids$map, session); leaflet::clearGroup(p, "Hover")
+    loc <- hover_loc(); if (is.null(loc) || !nzchar(loc)) return()
+    d <- map_tab(); if (is.null(d)) return()
+    r <- d[d$location_id == loc, , drop = FALSE]
+    if (!nrow(r) || !is.finite(r$longitude[1])) return()
+    leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], group = "Hover",
+      popup = sprintf("<b>%s</b><br/>median gap %s &middot; %d pair%s", r$name[1],
+                      .fmt_gap_short(r$median_gap_h[1]), r$n[1], ifelse(r$n[1] == 1, "", "s")),
+      options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE))
+  }, ignoreNULL = FALSE)
+}
+
 #' Co-occurrence server.
 #' @param id Module id. @param ik_data The container.
 #' @param prefer_scientific reactive name preference (for the record viewer).
@@ -283,45 +581,8 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
         " to the nearest ", tags$b(dl), " ", px, pct)
     })
 
-    # Map tab description — tailored to the selected species (the sidebar is far below on mobile).
-    output$map_intro <- renderUI({
-      r <- radius_m()
-      phrase <- if (r <= 0) sprintf("on the same camera within %d days", max_pd)
-                else sprintf("on any camera within %s, within %d days",
-                             if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r), max_pd)
-      tags$p(class = "ik-cooc-hint",
-        "Each ", tags$b(prot_l()), " detection, coloured by how soon a ", tags$b(pred_l()),
-        " turns up ", phrase, " ", tags$b("(red = soonest)"),
-        " — dot size = number of pairs; the ", tags$b("Surface"),
-        " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it.")
-    })
-
-    # Download the pair-level temporal data — richer than the per-camera table: both cameras, both
-    # timestamps, the camera distance, and the gap + its direction. Exports the same gaps() the Map shows,
-    # so it honours the current Period / Reserve / Within / species / stalking selection.
-    output$dl_pairs <- downloadHandler(
-      filename = function() sprintf("cooccurrence-pairs-%s.csv", Sys.Date()),
-      content  = function(file) {
-        g <- gaps()
-        if (is.null(g) || !nrow(g)) { utils::write.csv(data.frame(), file, row.names = FALSE); return() }
-        locs <- ik_data$app$geography$locations
-        nm   <- function(id) locs$name[match(id, locs$location_id)]
-        df <- data.frame(
-          reserve            = locs$reserve[match(g$location_id, locs$location_id)],
-          protected_camera   = nm(g$location_id),
-          protected_species  = ik_species_label(g$scientificName, ik_data, "vernacular"),
-          protected_seen     = format(g$when, "%Y-%m-%d %H:%M"),
-          predator_camera    = nm(g$pred_loc),
-          distance_m         = round(g$pred_dist_m),
-          predator_species   = ik_species_label(g$pred_sci, ik_data, "vernacular"),
-          predator_seen      = format(g$pred_when, "%Y-%m-%d %H:%M"),
-          gap_hours          = round(g$gap_h, 2),
-          gap_days           = round(g$gap_h / 24, 2),
-          predator_direction = ifelse(g$signed_h > 0, "after protected", "before protected"),
-          check.names = FALSE, stringsAsFactors = FALSE)
-        utils::write.csv(df[order(df$reserve, df$protected_camera, df$protected_seen), , drop = FALSE],
-                         file, row.names = FALSE)
-      })
+    # Map tab — its description, leaflet, per-camera table, CSV download and drill are all wired by the
+    # shared ik_cooc_map() call below (its outputs land on map_intro / dl_pairs / map / map_table).
 
     # Trend tab description — species + Within + stalking aware.
     output$trend_intro <- renderUI({
@@ -339,102 +600,16 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
 
     output$dist <- renderPlot({
       g <- gaps(); validate(need(!is.null(g) && nrow(g), "No co-detections to chart."))
-      d <- as.data.frame(table(bucket = g$bucket))
-      d <- d[d$bucket %in% gap_labels_capped, , drop = FALSE]                   # hide buckets beyond the pairing window
-      d$bucket <- factor(d$bucket, levels = gap_labels_capped)
-      ggplot(d, aes(.data$bucket, .data$Freq)) +
-        geom_col(fill = "#6a3d9a", width = 0.8) +
-        geom_text(aes(label = .data$Freq), vjust = -0.3, size = 3.6, colour = ik_plot_ink(is_dark())) +
-        labs(x = sprintf("Time to nearest predator %s", prox()), y = "Protected detections") +
-        ik_ggtheme(is_dark()) +
-        theme(panel.grid.major.x = element_blank(), panel.grid.minor = element_blank())
+      ik_cooc_dist_plot(g, sprintf("Time to nearest predator %s", prox()), is_dark(), gap_labels_capped)
     }, bg = "transparent")
 
     output$trend <- renderPlot({
-      g <- gaps_all(); validate(need(!is.null(g) && nrow(g), "No co-detections to chart."))   # all seasons
-      op <- ik_observation_period(ik_data)                       # deployment-anchored season (camera)
-      g$season <- op$calendar_season[match(g$observationID, op$observationID)]
-      g <- g[!is.na(g$season), , drop = FALSE]
-      validate(need(nrow(g), "No co-detections to chart."))
-      ag <- do.call(rbind, lapply(split(g, g$season), function(s)
-        data.frame(season = s$season[1], med = stats::median(s$gap_h), t = mean(as.numeric(s$when)), n = nrow(s))))
-      validate(need(!is.null(ag) && nrow(ag) >= 2, "Need at least two seasons for a trend."))
-      ag <- ag[order(ag$t), ]; ag$season <- factor(ag$season, levels = ag$season)
-      use_days <- max(ag$med, na.rm = TRUE) >= 48                 # auto hours↔days by the data's scale
-      ag$y <- if (use_days) ag$med / 24 else ag$med
-      gap_col <- "#6a3d9a"                                        # purple = gap (predator timing)
-      ser_col <- c("Protected RAI" = "#2e7d32", "Predator RAI" = "#c62828")  # green / red, per the map conventions
-
-      # Grounding: overlay the PROTECTED and/or PREDATOR RAI per season (canonical species RAI, ± SE) on
-      # a shared second axis (both share RAI units), so a rising gap can be read against whether the
-      # detections actually hold up — a gap that rises only because a species is thinning out is not real
-      # separation. Reserve applies (RAI = in-reserve detections); cross-boundary doesn't (camera anchors).
-      want  <- intersect(input$trend_rai %||% character(0), c("prot", "pred"))
-      specs <- list(prot = list(sel = input$prot %||% .prot_def, taxa = prot_taxa, lab = "Protected RAI"),
-                    pred = list(sel = input$pred %||% .pred_def, taxa = pred_taxa, lab = "Predator RAI"))
-      rai_rows <- lapply(want, function(key) {
-        sp  <- specs[[key]]
-        sci <- ik_resolve_species_choice(sp$sel, sp$taxa); if (!length(sci)) return(NULL)
-        lab <- paste(ik_choice_labels(sp$sel, ik_data, prefer()), collapse = " + ")
-        tr  <- tryCatch(ik_species_trend(ik_data, stats::setNames(list(sci), lab),
-                                         by = "season", reserve = .ik_nz(selection()$reserve)), error = function(e) NULL)
-        if (is.null(tr)) return(NULL)
-        tr <- tr[tr$metric_type == "camera_rai", , drop = FALSE]; if (!nrow(tr)) return(NULL)
-        mi <- match(as.character(ag$season), as.character(tr$period))
-        val <- tr$value[mi]; se <- tr$se[mi]; if (!any(is.finite(val))) return(NULL)
-        data.frame(season = ag$season, series = sp$lab, value = val,
-                   lo = pmax(0, val - ifelse(is.na(se), 0, se)), hi = val + ifelse(is.na(se), 0, se),
-                   stringsAsFactors = FALSE)
-      })
-      rai_df <- do.call(rbind, Filter(Negate(is.null), rai_rows))
-
-      p <- ggplot(ag, aes(.data$season, group = 1))
-      if (!is.null(rai_df) && nrow(rai_df)) {
-        # scale RAI into the gap (primary) coordinate by a pure factor k (shared by both series), so the
-        # right-axis transform is exactly linear (rai = y / k). Ribbon = RAI ± SE, clamped at 0.
-        rai_top <- max(rai_df$hi, na.rm = TRUE)
-        k <- if (is.finite(rai_top) && rai_top > 0) max(ag$y, na.rm = TRUE) / rai_top else NA_real_
-      } else k <- NA_real_
-      rai_on <- is.finite(k) && k > 0
-      if (rai_on) {
-        rai_df$series  <- factor(rai_df$series, levels = names(ser_col))
-        rai_df$season  <- factor(rai_df$season, levels = levels(ag$season))
-        rai_df$val_s   <- rai_df$value * k; rai_df$lo_s <- rai_df$lo * k; rai_df$hi_s <- rai_df$hi * k
-        p <- p +
-          geom_ribbon(data = rai_df, aes(x = .data$season, ymin = .data$lo_s, ymax = .data$hi_s,
-                      fill = .data$series, group = .data$series), alpha = 0.12, inherit.aes = FALSE, na.rm = TRUE) +
-          geom_line(data = rai_df, aes(x = .data$season, y = .data$val_s, colour = .data$series, group = .data$series),
-                    linewidth = 0.9, inherit.aes = FALSE, na.rm = TRUE) +
-          geom_point(data = rai_df, aes(x = .data$season, y = .data$val_s, colour = .data$series),
-                     size = 2.2, inherit.aes = FALSE, na.rm = TRUE) +
-          scale_fill_manual(values = ser_col, guide = "none")
-      }
-      # Median gap is a COLOUR aesthetic ONLY when RAI is overlaid (so the legend tells it apart from the RAI
-      # lines). With RAI off, draw it with a FIXED colour — no colour aesthetic means no colour legend at all,
-      # so only the "Pairs" size key shows. (A guide="none" on the colour scale didn't reliably suppress it.)
-      p <- p + (if (rai_on) list(
-          geom_line(aes(y = .data$y, colour = "Median gap"), linewidth = 0.9),
-          geom_point(aes(y = .data$y, colour = "Median gap", size = .data$n)),
-          scale_colour_manual(NULL, values = c("Median gap" = gap_col, ser_col))
-        ) else list(
-          geom_line(aes(y = .data$y), colour = gap_col, linewidth = 0.9),
-          geom_point(aes(y = .data$y, size = .data$n), colour = gap_col)
-        ))
-      p <- p +
-        # one row always — else a season set with many distinct small pair-counts (e.g. same-camera 1..6)
-        # wraps the size key onto two rows, which reads like a duplicated legend.
-        scale_size_area(name = "Pairs", max_size = 6.5, guide = guide_legend(nrow = 1)) +
-        labs(x = NULL, subtitle = if (rai_on)
-               "RAI overlaid for context — a gap trend can track detection rates, not just timing"
-             else "exploratory — large gaps mean the two rarely share the same ground") +
-        ik_ggtheme(is_dark()) +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.grid.minor = element_blank(),
-              legend.position = "top",
-              axis.title.y.left = element_text(colour = gap_col))
-      gap_name <- sprintf("Median gap (%s)", if (use_days) "days" else "hours")
-      if (rai_on)
-        p + scale_y_continuous(name = gap_name, sec.axis = sec_axis(~ . / k, name = "RAI (per camera-hrs)"))
-      else p + scale_y_continuous(name = gap_name)
+      rs <- list(prot = list(sci = ik_resolve_species_choice(input$prot %||% .prot_def, prot_taxa)),
+                 pred = list(sci = ik_resolve_species_choice(input$pred %||% .pred_def, pred_taxa)))
+      p <- ik_cooc_trend_plot(gaps_all(), ik_data, is_dark(), prefer(), reserve = .ik_nz(selection()$reserve),
+                              rai_specs = rs, rai_want = input$trend_rai %||% character(0))
+      validate(need(inherits(p, "ggplot"), if (is.character(p)) p else "No co-detections to chart."))
+      p
     }, bg = "transparent")
 
     # Click a distribution bar → the shared co-occurrence drill (the bucket's co-detections, each with
@@ -452,163 +627,14 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
                 if (nrow(rows) == 1) "" else "s"))
     })
 
-    # ---- Map: each protected-species camera, coloured by HOW SOON a predator turns up nearby (median
-    #      gap; red = soonest), with an interpolated density surface, a layer toggle, and the per-camera
-    #      table below. Same data as the Distribution, aggregated to the protected camera. ----
-    .fmt_gap_short <- function(h) ifelse(h < 48, sprintf("%.0f h", h), sprintf("%.1f d", h / 24))
-    timing_loc <- reactive({
-      g <- gaps(); if (is.null(g) || !nrow(g)) return(NULL)
-      agg <- do.call(rbind, lapply(split(g, g$location_id), function(s)
-        data.frame(location_id = s$location_id[1], median_gap_h = stats::median(s$gap_h),
-                   n = nrow(s), stringsAsFactors = FALSE)))
-      locs <- ik_data$app$geography$locations; mi <- match(agg$location_id, locs$location_id)
-      agg$name <- locs$name[mi]; agg$reserve <- locs$reserve[mi]
-      agg$latitude <- locs$latitude[mi]; agg$longitude <- locs$longitude[mi]
-      agg <- agg[is.finite(agg$latitude) & is.finite(agg$longitude), , drop = FALSE]
-      if (nrow(agg)) agg else NULL
-    })
-    # ALL camera locations in scope (regardless of co-detections) — the "Cameras" layer underneath the
-    # data, so a camera with no nearby predator still shows. Reserve-scoped like the data; with the
-    # cross-boundary toggle ON + a Within radius, also the neighbouring-reserve cameras within that
-    # radius (the buffer cameras a protected detection can pair with), so the map shows what it pairs.
-    cam_locs <- reactive({
-      cam_ds <- names(ik_data$datasets)[vapply(ik_data$datasets,
-                  function(d) isTRUE(d$meta$source_type == "camera"), logical(1))]
-      al <- ik_active_locations(ik_data)
-      al <- al[al$dataset %in% cam_ds & is.finite(al$latitude) & is.finite(al$longitude), , drop = FALSE]
-      rv <- .ik_nz(selection()$reserve)
-      if (length(rv) && "reserve" %in% names(al)) {
-        keep <- al$reserve %in% rv
-        if (isTRUE(input$cross_boundary) && radius_m() > 0 && any(keep)) {   # reach into the buffer
-          nb <- ik_within_distance(ik_data, al$location_id[keep], radius_m = radius_m(), of = "camera")
-          if (nrow(nb)) keep <- keep | al$location_id %in% nb$to_id
-        }
-        al <- al[keep, , drop = FALSE]
-      }
-      if (nrow(al)) al else NULL
-    })
-    # Base map: built ONCE, with NO volatile reactive deps — so changing a setting (even on another tab)
-    # never re-renders the whole widget into the 0-size hidden container (the "grey on tab-show" bug). The
-    # data layers are pushed via leafletProxy in the observers below (the maps.R pattern). Panes fix z-order.
-    output$map <- leaflet::renderLeaflet({
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet() |>
-        leaflet::addProviderTiles(canvas, group = "Street") |>
-        leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("boundary", "surface", "cameras", "pairs")
-      for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
-      m <- leaflet::addLayersControl(m, baseGroups = c("Street", "Satellite"),
-        overlayGroups = c("Surface", "Pairs", "Cameras", "Boundary"),
-        options = leaflet::layersControlOptions(collapsed = FALSE))
-      # Initial frame: all camera locations (static); the cameras observer re-fits to the live selection.
-      cam_ds <- names(ik_data$datasets)[vapply(ik_data$datasets, function(d) isTRUE(d$meta$source_type == "camera"), logical(1))]
-      gl <- ik_data$app$geography$locations
-      gl <- gl[gl$dataset %in% cam_ds & is.finite(gl$latitude) & is.finite(gl$longitude), , drop = FALSE]
-      if (nrow(gl)) m <- leaflet::fitBounds(m, min(gl$longitude), min(gl$latitude), max(gl$longitude), max(gl$latitude))
-      m
-    })
-    outputOptions(output, "map", suspendWhenHidden = FALSE)   # eager so proxy layers land before first view
-    cproxy <- function() leaflet::leafletProxy("map", session)
-
-    # All proxy draws are gated on the Map tab being LIVE: a leafletProxy op sent to a hidden tabset tab
-    # (where the widget isn't initialised) is lost — including the tile re-add, which is why the map came
-    # up blank. Reading input$cooc_view also makes each observer re-fire on tab-show, so the layers (re)draw
-    # onto the now-visible, sized widget. (maps.js invalidateSize on shown.bs.tab handles the sizing/fit.)
-    on_map <- function() identical(input$cooc_view, "Map")
-
-    observe({                                                 # tiles follow the theme; applied while live
-      if (!on_map()) return()
-      leaflet::addProviderTiles(leaflet::clearGroup(cproxy(), "Street"),
-        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Street")
-    })
-
-    # Boundary + Cameras (the camera footprint) — redraw on the camera selection and re-frame to it.
-    observe({
-      if (!on_map()) return()
-      p <- cproxy(); leaflet::clearGroup(p, "Boundary"); leaflet::clearGroup(p, "Cameras")
-      cams <- cam_locs(); if (is.null(cams) || !nrow(cams)) return()
-      hulls <- tryCatch(ik_selection_hulls(cams, "reserve"), error = function(e) NULL)
-      if (!is.null(hulls) && nrow(hulls)) leaflet::addPolygons(p, data = hulls, group = "Boundary",
-        fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve,
-        options = leaflet::pathOptions(pane = "boundary"))
-      leaflet::addCircleMarkers(p, data = cams, lng = ~longitude, lat = ~latitude, group = "Cameras",
-        radius = 3, fill = TRUE, fillColor = "#2c7fb8", fillOpacity = 0.55, stroke = FALSE,
-        label = ~sprintf("%s — camera", name), options = leaflet::pathOptions(pane = "cameras"))
-      leaflet::fitBounds(p, min(cams$longitude), min(cams$latitude), max(cams$longitude), max(cams$latitude))
-    })
-
-    # Surface + Pairs + legend (the co-detection data) — redraw on the timing data / Within radius.
-    observe({
-      if (!on_map()) return()
-      p <- cproxy(); leaflet::clearGroup(p, "Surface"); leaflet::clearGroup(p, "Pairs"); leaflet::clearControls(p)
-      d <- timing_loc(); if (is.null(d) || !nrow(d)) return()
-      use_days <- max(d$median_gap_h, na.rm = TRUE) >= 48        # legend units follow the data's scale
-      conv <- function(h) if (use_days) h / 24 else h
-      d$gval <- conv(d$median_gap_h); mx <- max(d$gval, na.rm = TRUE)
-      pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
-      surf <- tryCatch(ik_idw_surface(d, "median_gap_h", "reserve"), error = function(e) NULL)
-      if (!is.null(surf) && nrow(surf)) {
-        surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
-        leaflet::addPolygons(p, data = surf, group = "Surface", stroke = FALSE,
-          fillColor = ~pal(gval), fillOpacity = if (is_dark()) 0.45 else 0.35,
-          options = leaflet::pathOptions(pane = "surface"))
-      }
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, layerId = ~location_id, group = "Pairs",
-        radius = ik_marker_radius(d$n, 6, 20, cap_pctl = 0.98),
-        fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
-        label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")),
-        options = leaflet::pathOptions(pane = "pairs"))
-      leaflet::addLegend(p, "bottomright", pal = pal, values = d$gval,
-        title = sprintf("Median gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
-                        if (use_days) "days" else "hours"), opacity = 0.9)
-    })
-    # The per-camera table under the map (each row = a map dot), soonest first. Shares its (sorted)
-    # order with the click handler so a row maps back to its camera. DT returns selections as indices
-    # into the data AS PASSED, so this is robust to the user re-sorting the columns.
-    map_tab <- reactive({ d <- timing_loc(); if (is.null(d)) return(NULL); d[order(d$median_gap_h), , drop = FALSE] })
-    output$map_table <- DT::renderDT({
-      d <- map_tab(); validate(need(!is.null(d) && nrow(d), "No co-detections for this selection."))
-      df <- data.frame(Camera = d$name, Reserve = d$reserve,
-                       `Median gap` = .fmt_gap_short(d$median_gap_h), Pairs = d$n,
-                       .loc = d$location_id, check.names = FALSE)
-      loc_i <- ncol(df) - 1L                                   # 0-based index of the hidden .loc column
-      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(dom = "tip", pageLength = 7,
-          columnDefs = list(list(visible = FALSE, targets = loc_i)),
-          createdRow = DT::JS(sprintf(                          # hover a row → preview that camera's popup on the map
-            "function(row,data,i){var L=data[%d];row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',L,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
-            loc_i, session$ns("map_table_hover"), session$ns("map_table_hover")))))
-    })
-    # Open the same co-detection drill from a marker click OR a table row click.
-    open_cam <- function(id, nm) {
-      g <- gaps(); if (is.null(g) || is.null(id)) return()
-      rows <- g[g$location_id == id, , drop = FALSE]; if (!nrow(rows)) return()
-      cooc_open(rows, sprintf("Co-detections at %s", nm),
-        sprintf("%s protected detection%s with the nearest predator — click either species for its record",
-                format(nrow(rows), big.mark = ","), if (nrow(rows) == 1) "" else "s"))
-    }
-    observeEvent(input$map_marker_click, {
-      id <- input$map_marker_click$id
-      nm <- ik_data$app$geography$locations$name[match(id, ik_data$app$geography$locations$location_id)]
-      open_cam(id, nm)
-    })
-    observeEvent(input$map_table_rows_selected, {
-      i <- input$map_table_rows_selected; d <- map_tab(); if (is.null(d) || !length(i)) return()
-      open_cam(d$location_id[i], d$name[i])
-    })
-    # Hover a table row → preview that camera's popup on the map (debounced); leaving the row clears it.
-    # Mirrors the Maps page's row-hover behaviour.
-    hover_loc <- shiny::debounce(reactive(input$map_table_hover), 120)
-    observeEvent(hover_loc(), {
-      p <- leaflet::leafletProxy("map", session); leaflet::clearGroup(p, "Hover")
-      loc <- hover_loc(); if (is.null(loc) || !nzchar(loc)) return()
-      d <- map_tab(); if (is.null(d)) return()
-      r <- d[d$location_id == loc, , drop = FALSE]
-      if (!nrow(r) || !is.finite(r$longitude[1])) return()
-      leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], group = "Hover",
-        popup = sprintf("<b>%s</b><br/>median gap %s &middot; %d pair%s", r$name[1],
-                        .fmt_gap_short(r$median_gap_h[1]), r$n[1], ifelse(r$n[1] == 1, "", "s")),
-        options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE))
-    }, ignoreNULL = FALSE)
+    # ---- Map: each protected camera coloured by how soon a predator turns up nearby — leaflet + surface,
+    #      the per-camera table, the CSV download, the row-hover preview and the marker/row drill, all
+    #      shared with each Species page's Co-occurrence Map. See ik_cooc_map(). ----
+    ik_cooc_map(input, output, session, ik_data, prefer,
+                gaps = gaps, reserve = reactive(.ik_nz(selection()$reserve)),
+                radius_m = radius_m, cross_boundary = reactive(isTRUE(input$cross_boundary)),
+                is_dark = is_dark, on_map = reactive(identical(input$cooc_view, "Map")),
+                cooc_open = cooc_open, prot_l = prot_l, pred_l = pred_l, max_pd = max_pd,
+                ids = list(map = "map", table = "map_table", dl = "dl_pairs", intro = "map_intro"))
   })
 }

@@ -230,8 +230,9 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     output$cap_table <- DT::renderDT({
       cap <- caps()
       validate(need(!is.null(cap) && nrow(cap), "No captures found."))
-      df <- data.frame(Date = format(cap$check_date, "%d %b %Y"), Trap = cap$trap,
-                       Species = cap$species, check.names = FALSE, stringsAsFactors = FALSE)
+      df <- data.frame(Date = format(cap$check_date, "%d %b %Y"), Reserve = cap$reserve,
+                       Trap = cap$trap, Species = cap$species,
+                       check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "single",
                     class = "stripe hover row-border ik-row-click",
                     options = list(pageLength = 10, scrollX = TRUE, dom = "ftip"))
