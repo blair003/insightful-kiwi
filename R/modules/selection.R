@@ -36,7 +36,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   ctrls <- list(
     dataset  = selectizeInput(ns("dataset"), "Dataset", choices = NULL, multiple = TRUE,
                               options = list(placeholder = "All available")),
-    period   = selectInput(ns("period"), "Data period",   # the one control that SELECTS the data (vs the filters below)
+    period   = selectInput(ns("period"), NULL,   # label is the "Data period" section heading (rendered at the top)
                            choices  = if (!is.null(ik_data)) ik_period_choices(ik_data),
                            selected = if (!is.null(ik_data)) period_default %||% ik_default_period(ik_data)),
     compare  = selectInput(ns("compare"), "Compare to",
@@ -65,7 +65,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   # here or at the call site; pass `period_note` only to override.
   if (!is.null(period_show_js) && !is.null(ctrls$period)) {
     body <- period_note %||% tagList(
-      tags$span(class = "ik-period-note-h", "Data period · All data"),
+      tags$span(class = "ik-period-note-h", "All data"),   # the "Data period" heading sits above this
       "This view spans all data for all seasons and cannot be changed.")
     note <- conditionalPanel(paste0("!(", period_show_js, ")"), tags$div(class = "ik-period-note", body))
     ctrls$period <- tagList(conditionalPanel(period_show_js, ctrls$period), note)
@@ -96,7 +96,9 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   }
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/selection.css")),
-    if (!is.null(period_ctrl)) div(class = "ik-selection ik-period-top", period_ctrl),
+    if (!is.null(period_ctrl)) div(class = "ik-selection ik-period-top",
+      tags$div(class = "ik-sel-section-h", "Data period"),   # heading replaces the widget label — consistent with Filters
+      period_ctrl),
     view_box,
     # Heading INSIDE the filters group (like View options), so the heading->first-control gap is the heading
     # margin — not an inter-section gap — and matches View options exactly.
