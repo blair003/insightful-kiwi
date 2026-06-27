@@ -235,6 +235,8 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     # the per-tab text under the date banner reflects what's selected (the sidebar is at the very bottom on mobile).
     prot_l <- reactive(paste(ik_choice_labels(input$prot %||% .prot_def, ik_data, prefer()), collapse = " + "))
     pred_l <- reactive(paste(ik_choice_labels(input$pred %||% .pred_def, ik_data, prefer()), collapse = " + "))
+    max_pd <- ik_data$meta$cooccurrence$max_pair_days %||% 30                       # pairing window (days) — config
+    gap_labels_capped <- GAP_LABELS[GAP_BREAKS[-length(GAP_BREAKS)] < max_pd * 24]   # drop buckets beyond the window
     # split-aware grouped pickers (group whole, or sub-species per the project flag) — same as the Map.
     observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       updateSelectizeInput(session, "pred", choices = ik_species_choices(pred_taxa, ik_data, p, splits), selected = keep(isolate(input$pred), .pred_def))
@@ -265,22 +267,24 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
 
     output$intro <- renderUI({
       g <- gaps(); after <- isTRUE(input$after_only); px <- prox(); pl <- prot_l(); dl <- pred_l()
+      win <- sprintf("Pairings within %d days of one another: ", max_pd)   # the pairing window leads the summary
       if (is.null(g)) return(tags$p(class = "ik-cooc-hint",
-        if (after) tagList("No ", tags$b(pl), " detections were followed by a ", tags$b(dl), " ", px, ".")
-        else       tagList("No ", tags$b(pl), " and ", tags$b(dl), " detections were found ", px, ".")))
+        if (after) tagList("No ", tags$b(pl), " detections were followed by a ", tags$b(dl), " ", px, sprintf(" within %d days.", max_pd))
+        else       tagList("No ", tags$b(pl), " and ", tags$b(dl), " detections were found ", px, sprintf(" within %d days.", max_pd))))
       pct <- sprintf(" · %d%% within 24 h.", round(100 * mean(g$gap_h <= 24)))
-      if (after) tags$p(class = "ik-cooc-hint",
+      if (after) tags$p(class = "ik-cooc-hint", win,
         format(nrow(g), big.mark = ","), " ", tags$b(pl), " detections followed by a ", tags$b(dl), " ", px,
         " · median ", .fmt_gap(stats::median(g$gap_h)), " until the predator arrives", pct)
-      else tags$p(class = "ik-cooc-hint",
+      else tags$p(class = "ik-cooc-hint", win,
         format(nrow(g), big.mark = ","), " ", tags$b(pl), " detections · median ", .fmt_gap(stats::median(g$gap_h)),
         " to the nearest ", tags$b(dl), " ", px, pct)
     })
 
     # Map tab description — tailored to the selected species (the sidebar is far below on mobile).
     output$map_intro <- renderUI(tags$p(class = "ik-cooc-hint",
-      "Each ", tags$b(prot_l()), " camera detection, coloured by how soon a ", tags$b(pred_l()),
-      " turns up nearby ", tags$b("(red = soonest)"), " — dot size = number of pairs; the ", tags$b("Surface"),
+      "Each ", tags$b(prot_l()), " detection, coloured by how soon a ", tags$b(pred_l()),
+      sprintf(" turns up on camera nearby within %d days ", max_pd), tags$b("(red = soonest)"),
+      " — dot size = number of pairs; the ", tags$b("Surface"),
       " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it."))
 
     # Trend tab description — species + Within + stalking aware.
@@ -290,16 +294,18 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
                else sprintf("at the same camera, or any camera within %s",
                             if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r))
       lead <- if (isTRUE(input$after_only))
-        tagList("Median time until a ", tags$b(pred_l()), " arrives after a ", tags$b(prot_l()), " ", where, ", grouped by season.")
+        tagList("Median time until a ", tags$b(pred_l()), " arrives after a ", tags$b(prot_l()), " ", where, sprintf(", up to %d days apart, grouped by season.", max_pd))
       else
-        tagList("Median gap between camera detections of ", tags$b(prot_l()), " and ", tags$b(pred_l()), " ", where, ", grouped by season.")
+        tagList("Median gap between camera detections of ", tags$b(prot_l()), " and ", tags$b(pred_l()), " ", where, sprintf(", up to %d days apart, grouped by season.", max_pd))
       tags$p(class = "ik-cooc-hint", lead,
         " Large gaps (weeks+) indicate the two rarely share ground. Optionally overlay RAI to tell a real timing shift from simply changing detection rates.")
     })
 
     output$dist <- renderPlot({
       g <- gaps(); validate(need(!is.null(g) && nrow(g), "No co-detections to chart."))
-      d <- as.data.frame(table(bucket = g$bucket)); d$bucket <- factor(d$bucket, levels = GAP_LABELS)
+      d <- as.data.frame(table(bucket = g$bucket))
+      d <- d[d$bucket %in% gap_labels_capped, , drop = FALSE]                   # hide buckets beyond the pairing window
+      d$bucket <- factor(d$bucket, levels = gap_labels_capped)
       ggplot(d, aes(.data$bucket, .data$Freq)) +
         geom_col(fill = "#6a3d9a", width = 0.8) +
         geom_text(aes(label = .data$Freq), vjust = -0.3, size = 3.6, colour = ik_plot_ink(is_dark())) +
@@ -315,7 +321,7 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       g <- g[!is.na(g$season), , drop = FALSE]
       validate(need(nrow(g), "No co-detections to chart."))
       ag <- do.call(rbind, lapply(split(g, g$season), function(s)
-        data.frame(season = s$season[1], med = stats::median(s$gap_h), t = mean(as.numeric(s$when)))))
+        data.frame(season = s$season[1], med = stats::median(s$gap_h), t = mean(as.numeric(s$when)), n = nrow(s))))
       validate(need(!is.null(ag) && nrow(ag) >= 2, "Need at least two seasons for a trend."))
       ag <- ag[order(ag$t), ]; ag$season <- factor(ag$season, levels = ag$season)
       use_days <- max(ag$med, na.rm = TRUE) >= 48                 # auto hours↔days by the data's scale
@@ -369,14 +375,16 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       }
       p <- p +
         geom_line(aes(y = .data$y, colour = "Median gap"), linewidth = 0.9) +
-        geom_point(aes(y = .data$y, colour = "Median gap"), size = 2.4) +
-        scale_colour_manual(NULL, values = c("Median gap" = gap_col, ser_col)) +
+        geom_point(aes(y = .data$y, colour = "Median gap", size = .data$n)) +           # point size = pairs that season
+        scale_colour_manual(NULL, values = c("Median gap" = gap_col, ser_col),
+                            guide = if (rai_on) "legend" else "none") +
+        scale_size_area(name = "Pairs", max_size = 6.5) +
         labs(x = NULL, subtitle = if (rai_on)
                "RAI overlaid for context — a gap trend can track detection rates, not just timing"
              else "exploratory — large gaps mean the two rarely share the same ground") +
         ik_ggtheme(is_dark()) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.grid.minor = element_blank(),
-              legend.position = if (rai_on) "top" else "none",
+              legend.position = "top",
               axis.title.y.left = element_text(colour = gap_col))
       gap_name <- sprintf("Median gap (%s)", if (use_days) "days" else "hours")
       if (rai_on)
@@ -388,8 +396,8 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     # both species linked to their record + the gap direction). See ik_cooc_drill().
     observeEvent(input$dist_click, {
       g <- gaps(); cl <- input$dist_click; if (is.null(g) || is.null(cl$x)) return()
-      xi <- round(cl$x); if (xi < 1 || xi > length(GAP_LABELS)) return()
-      bk <- GAP_LABELS[xi]; rows <- g[as.character(g$bucket) == bk, , drop = FALSE]
+      xi <- round(cl$x); if (xi < 1 || xi > length(gap_labels_capped)) return()
+      bk <- gap_labels_capped[xi]; rows <- g[as.character(g$bucket) == bk, , drop = FALSE]
       if (!nrow(rows)) return()
       cooc_open(rows,
         sprintf("Detections %s from a predator", bk),

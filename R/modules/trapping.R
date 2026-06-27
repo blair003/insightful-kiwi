@@ -326,13 +326,14 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         tags$p(class = "trap-lead", sprintf("Trap %s — %d checks this period (newest first). Click a check for its full record.",
                                             tr$name, if (is.null(ch)) 0 else nrow(ch))),
         if (is.null(ch)) tags$p("No checks this period.") else tags$table(class = "trap-detail",
-          tags$thead(tags$tr(tags$th("Check date"), tags$th("Interval"), tags$th("Outcome"),
+          tags$thead(tags$tr(tags$th("Check date"), tags$th("Season"), tags$th("Interval"), tags$th("Outcome"),
                              tags$th("Bait"))),
           tags$tbody(lapply(seq_len(nrow(ch)), function(i) tags$tr(
             class = "trap-click",
             onclick = sprintf("Shiny.setInputValue('%s',{obs:'%s'},{priority:'event'})",
                               ns("check"), ch$observationID[i]),
             tags$td(format(ch$check_date[i], "%d %b %Y")),
+            tags$td(dash(ch$season[i])),
             tags$td(if (isTRUE(ch$is_first[i])) tags$em("—") else sprintf("%d d", ch$interval_days[i])),
             tags$td(ch$outcome[i]),
             tags$td(dash(ch$bait[i])))))))
@@ -525,6 +526,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       validate(need(!is.null(ch) && nrow(ch), "No checks recorded for this trap."))
       df <- data.frame(
         Date = format(ch$check_date, "%d %b %Y"),
+        Season = ifelse(is.na(ch$season), "—", ch$season),
         Interval = ifelse(ch$is_first, "—", paste0(ch$interval_days, " d")),
         Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait), ObsID = ch$observationID,
         check.names = FALSE, stringsAsFactors = FALSE)

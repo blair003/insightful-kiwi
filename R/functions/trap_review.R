@@ -378,9 +378,11 @@ ik_trap_checks <- function(ik_data, location, seasons = NULL) {
   lab <- ik_species_label(obs$scientificName[oi], ik_data, "vernacular")
   status <- vapply(obs$observationTags[oi], .ovw_tag, character(1), key = "status")
   is_first <- !is.na(first_ever) & tr$deploymentEnd == first_ever        # fabricated prior interval
+  op <- ik_observation_period(ik_data)                                   # deployment-anchored season (cheap lookup)
   data.frame(
     observationID = obs$observationID[oi],                               # for the record drill
     check_date    = tr$deploymentEnd,
+    season        = op$calendar_season[match(obs$observationID[oi], op$observationID)],
     interval_days = ifelse(is_first, NA_real_, round(tr$effort_hours / 24)),
     is_first      = is_first,
     outcome       = .ik_trap_outcome(lab, obs$scientificName[oi], status, obs$observationType[oi]),
