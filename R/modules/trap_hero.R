@@ -194,8 +194,12 @@ trap_hero_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       r <- ranked(); req(!is.null(r))
       d <- r[is.finite(r$latitude) & is.finite(r$longitude), , drop = FALSE]; if (!nrow(d)) return()
       rad <- 8 + 16 * (d$metric - min(d$metric)) / (max(d$metric) - min(d$metric) + 1e-9)   # size by rate
+      # Hero markers get a DISTINCT layerId prefix ("H|") from the faint AllTraps layer ("T|"). They share
+      # a location, and leaflet's layer manager replaces any existing marker with the same layerId — so with
+      # a shared id the two layers clobbered each other on every redraw (last writer won), which is why a
+      # reserve change left the faint dots but dropped the numbered heroes. Distinct ids → both coexist.
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Top",
-        layerId = paste0("T|", d$location_id), radius = rad, stroke = TRUE, color = "#3d1f6a", weight = 1.5,
+        layerId = paste0("H|", d$location_id), radius = rad, stroke = TRUE, color = "#3d1f6a", weight = 1.5,
         fillColor = "#6a3d9a", fillOpacity = 0.85, options = leaflet::pathOptions(pane = "top"),
         label = ~lapply(as.character(rank), function(x) htmltools::HTML(sprintf("<b>%s</b>", x))),
         labelOptions = leaflet::labelOptions(noHide = TRUE, direction = "center", textOnly = TRUE,
@@ -203,6 +207,17 @@ trap_hero_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       leaflet::addLegend(p, "bottomright", layerId = "leg", title = sprintf("Catch rate / %s TN", format(norm, big.mark = ",")),
         pal = leaflet::colorNumeric("Purples", d$metric), values = d$metric)
     })
+
+    # Re-frame the map to the current selection's traps whenever the sidebar Period / Reserve changes. A
+    # proxy marker redraw alone doesn't move the view (nor, with the canvas renderer on mobile, reliably
+    # repaint it), so after filtering to a reserve the new top markers sat off-screen and looked like they
+    # hadn't redrawn. fitBounds re-centres on the filtered traps AND forces a repaint. (Not tied to the
+    # species/top-N view tweaks — those keep the user's current pan/zoom.)
+    observeEvent(list(selection()$period, selection()$season, selection()$reserve), {
+      m <- metric(); if (is.null(m)) return()
+      d <- m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE]; if (!nrow(d)) return()
+      leaflet::fitBounds(proxy(), min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude))
+    }, ignoreInit = TRUE)
 
     output$table <- DT::renderDT({
       r <- ranked(); validate(need(!is.null(r), "No qualifying traps in this selection."))
@@ -234,9 +249,9 @@ trap_hero_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
           tabPanel("Record details", icon = icon("circle-info"),       uiOutput(session$ns("th_record"))))))
       hideTab(session = session, inputId = "th_tabs", target = "Record details")
     }
-    observeEvent(input$map_marker_click, {                       # trap markers carry layerId "T|<loc>"
+    observeEvent(input$map_marker_click, {                       # markers carry layerId "T|<loc>" (faint) or "H|<loc>" (hero)
       cid <- input$map_marker_click$id
-      if (!is.null(cid) && startsWith(cid, "T|")) .open_history(sub("^T\\|", "", cid))
+      if (!is.null(cid) && grepl("^[TH]\\|", cid)) .open_history(sub("^[TH]\\|", "", cid))
     })
     observeEvent(input$table_rows_selected, {
       i <- input$table_rows_selected; r <- ranked()
