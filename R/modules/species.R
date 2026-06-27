@@ -116,13 +116,50 @@ diel_class_help_body <- function(rules = ik_diel_class_rules()) {
 
 #' Species dashboard nav panel. @param id Module id. @param spec One taxon spec (ik_species_taxa).
 #'   @param ik_data The container (overlay choices + norms baked into the UI).
+#' Species dashboard "View options" sidebar controls — the Bait tab's Group-by and the Co-occurrence tab's
+#' opposing-species / radius / cross-boundary / after-only picks. Each is shown only on its tab (the global
+#' `input.ik_species_tab`, bridged from the active page's tabset). Built in the species module's namespace
+#' so the server reads the same inputs wherever they sit; rendered in the global sidebar (ui.R), per species
+#' (each in a conditionalPanel on its own nav value). Returns NULL for a species with neither tab.
+#' @keywords internal
+species_controls <- function(id, spec, ik_data) {
+  ns <- NS(id)
+  others <- Filter(function(s) s$key != spec$key, ik_species_taxa(ik_data))   # Trend "Compare" overlay choices
+  ov_ch  <- c("None" = "__none__", stats::setNames(vapply(others, `[[`, "", "key"), vapply(others, `[[`, "", "label")))
+  opp_role <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
+  opp_sci  <- if (!is.na(opp_role)) unique(ik_species_groups(ik_data)$scientificName[ik_species_groups(ik_data)$role == opp_role]) else character(0)
+  cooc_ok  <- isTRUE(spec$camera) && !is.na(opp_role) && length(opp_sci) > 0
+  opp_taxa    <- .opp_taxa(ik_data, opp_role)
+  opp_splits  <- if (cooc_ok) unique(ik_species_groups(ik_data)$label[which(ik_species_groups(ik_data)$split)]) else character(0)
+  opp_choices <- if (cooc_ok) ik_species_choices(opp_taxa, ik_data, "vernacular", opp_splits) else NULL
+  opp_default <- if (cooc_ok && length(opp_taxa)) paste0("grp:", names(opp_taxa)[1]) else NULL
+  cond <- "input.ik_species_tab === 'Trend'"                  # Trend always exists, so View options always shows
+  if (isTRUE(spec$trapped)) cond <- c(cond, "input.ik_species_tab === 'Bait'")
+  if (cooc_ok)              cond <- c(cond, "input.ik_species_tab === 'Co-occurrence'")
+  conditionalPanel(paste(cond, collapse = " || "),
+    div(class = "ik-selection ik-view-controls",
+      tags$div(class = "ik-view-controls-h", "View options"),
+      conditionalPanel("input.ik_species_tab === 'Trend'",
+        radioButtons(ns("by"), "Time grain", choices = c("By season" = "season", "By year" = "year"), selected = "season"),
+        selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__")),
+      if (isTRUE(spec$trapped)) conditionalPanel("input.ik_species_tab === 'Bait'",
+        radioButtons(ns("bait_group"), "Group by",
+                     choices = c("Full recipe" = "recipe", "Ingredient" = "ingredient"), selected = "recipe")),
+      if (cooc_ok) conditionalPanel("input.ik_species_tab === 'Co-occurrence'",
+        selectInput(ns("cooc_opp"), if (identical(opp_role, "predator")) "Predator(s)" else "Protected",
+                    choices = opp_choices, selected = opp_default, multiple = TRUE),
+        radioButtons(ns("cooc_radius"), "Within",
+                     choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 0),
+        .ik_cross_boundary_input(ns("cooc_cross"), "cameras"),
+        checkboxInput(ns("cooc_after"),
+          tagList("Predator ", tags$b("after"), " only ",
+                  tags$span(class = "ik-species-hint", "(stalking — predator follows)")), value = FALSE))))
+}
+
 species_dashboard_ui <- function(id, spec, ik_data = NULL) {
   ns <- NS(id)
   nh <- (ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000
   nt <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100
-  # Overlay choices: every OTHER taxon page (compare this species to another). Baked (dropdown-lazy).
-  others <- Filter(function(s) s$key != spec$key, ik_species_taxa(ik_data))
-  ov_ch  <- c("None" = "__none__", stats::setNames(vapply(others, `[[`, "", "key"), vapply(others, `[[`, "", "label")))
   sci_lab <- paste(sort(unique(spec$sci)), collapse = " · ")
   # Co-occurrence applies to a predator/protected species with camera data + an opposing role present.
   opp_role  <- if (identical(spec$role, "predator")) "protected" else if (identical(spec$role, "protected")) "predator" else NA_character_
@@ -169,10 +206,6 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
                    ") and ", tags$b("occupancy"), " (the % of sites where it turns up — how ", tags$em("widespread"),
                    "). Occupancy is exploratory and effort-sensitive — read the shape over seasons, not the level. ",
                    tags$b("Click a point"), " for that season's breakdown."),
-            div(class = "ik-species-controls",
-                radioButtons(ns("by"), NULL, inline = TRUE,
-                             choices = c("By season" = "season", "By year" = "year"), selected = "season"),
-                selectInput(ns("overlay"), "Compare", choices = ov_ch, selected = "__none__", width = "220px")),
             plotOutput(ns("trend"), height = "auto", click = ns("trend_click"))),
           tabPanel("Map", icon = icon("map-location-dot"),
             tags$p(class = "ik-species-hint",
@@ -208,22 +241,9 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
             tags$p(class = "ik-species-hint",
                    "Which baits catch this species best — captures per trap-night. Group by the full recipe (the whole bait set) or by individual ingredient. ",
                    tags$b("Click a bar"), " for the captures behind it."),
-            div(class = "ik-species-controls",
-                radioButtons(ns("bait_group"), NULL, inline = TRUE,
-                             choices = c("Full recipe" = "recipe", "Ingredient" = "ingredient"),
-                             selected = "recipe")),
             plotOutput(ns("bait"), height = "440px", click = ns("bait_click"))),
           if (.cooc_ok) tabPanel("Co-occurrence", icon = icon("hourglass-half"),
             tags$p(class = "ik-species-hint", .cooc_hint, " ", tags$b("Click a bar"), " for the co-detections."),
-            div(class = "ik-species-controls",
-                selectInput(ns("cooc_opp"), if (identical(opp_role, "predator")) "Predator(s)" else "Protected",
-                            choices = opp_choices, selected = opp_default, multiple = TRUE, width = "240px"),
-                radioButtons(ns("cooc_radius"), "Within", inline = TRUE,
-                             choices = c("Same camera" = 0, "250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 0),
-                .ik_cross_boundary_input(ns("cooc_cross"), "cameras"),
-                checkboxInput(ns("cooc_after"),
-                  tagList("Predator ", tags$b("after"), " only ",
-                          tags$span(class = "ik-species-hint", "(stalking — predator follows)")), value = FALSE)),
             plotOutput(ns("cooc"), height = "340px", click = ns("cooc_click"))),
           tabPanel("Records", icon = icon("list"),
             tags$p(class = "ik-species-hint", "Every detection (camera) and capture (trap) of this species in the selection. ",

@@ -1,9 +1,8 @@
 # ui.R
 
-# Per-view Period defaults for the standalone reviews (now sidebar-driven, like every other view):
-# Trap review → the latest 12 months (recency over a single season); Bait → the latest whole YEAR (more data, rarer baits).
+# Trap review's sidebar Period default — the latest 12 months (recency over a single season). (Bait now
+# defaults to "rolling12" inline in its panel; the other reviews use ik_default_period.)
 .trap_period_def <- "rolling12"
-.bait_period_def <- { pc <- ik_period_choices(ik_data); if (length(pc) >= 2) unname(pc[[2]][1]) else "all" }
 
 # Device-organised menus are shown only when the org actually has that kind of data, so a
 # trapping-only (or monitoring-only) group sees just its menu (bslib drops the NULL nav items).
@@ -60,8 +59,9 @@ ui <- page_navbar(
                      selection_ui("trapping_overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
     conditionalPanel("input.nav === 'bait'",
+                     bait_controls("bait", ik_data),
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
-                                  period_default = .bait_period_def)),
+                                  period_default = "rolling12", heading = "Filters")),
     conditionalPanel("input.nav === 'trap-review'",
                      # Period drives the "By trapline" + Map tabs; the "Over time" trend spans all data, so
                      # Period hides there (the generic note in its place). Reserve stays on all tabs.
@@ -90,7 +90,9 @@ ui <- page_navbar(
                                   period_default = "rolling12",
                                   period_show_js = "input['cooccurrence-cooc_view'] !== 'Trend'",
                                   heading = "Filters")),
-    conditionalPanel("input.nav === 'camera-review' || input.nav === 'duplicates'",
+    conditionalPanel("input.nav === 'camera-review'",
+                     monitoring_controls("monitoring")),
+    conditionalPanel("input.nav === 'duplicates'",
                      tags$small("Controls are within the view.")),
     conditionalPanel("input.nav === 'monitoring-map'",
                      maps_controls("monitoring_map", device = "camera", ik_data = ik_data),
@@ -113,12 +115,19 @@ ui <- page_navbar(
     # Species dashboards (one shared selection — every species page's value starts grp-/sp-). Period
     # defaults to All data so every tab starts on the same footing; Summary & Trend always span all
     # data (Period hidden, a note in its place), the rest honour whatever Period the user sets.
+    # Per-species View options (the Bait + Co-occurrence tab controls), each conditional on its OWN nav
+    # value; the Period/Reserve/Device "Filters" below are shared across every species page.
+    lapply(.species_specs, function(s) {
+      ctl <- species_controls(gsub("-", "_", s$key), s, ik_data)
+      if (is.null(ctl)) NULL else conditionalPanel(sprintf("input.nav === '%s'", s$key), ctl)
+    }),
     conditionalPanel("input.nav && (input.nav.indexOf('grp-') === 0 || input.nav.indexOf('sp-') === 0)",
                      selection_ui("species_selection", show = c("period", "reserve", "device"), ik_data = ik_data,
                                   period_default = "all",
                                   period_show_js = "input.ik_species_tab !== 'Trend' && input.ik_species_tab !== 'Summary'",
                                   # Device (camera/trap) split only matters for the Records list, so show it just there.
-                                  device_show_js = "input.ik_species_tab === 'Records'")),
+                                  device_show_js = "input.ik_species_tab === 'Records'",
+                                  heading = "Filters")),
     tags$div(class = "ik-sidebar-foot",
              tags$em("Insightful Kiwi"), tags$br(),
              tags$a(href = "mailto:blair@aketechnology.co.nz?subject=Insightful%20Kiwi%20Query",

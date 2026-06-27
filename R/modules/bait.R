@@ -6,6 +6,21 @@
 
 #' Bait effectiveness nav panel. @param id Module id. @param ik_data The container (for the
 #'   catch-rate normalisation unit woven into the help/labels).
+#' Bait "View options" sidebar controls — Captures-of species, Group-by (recipe/ingredient), Measure
+#' (rate/total) and the min-captures threshold. Built in the module's namespace, rendered in the global
+#' sidebar (ui.R) above the shared Filters; the species choices are populated server-side. @keywords internal
+bait_controls <- function(id, ik_data = NULL) {
+  ns <- NS(id)
+  div(class = "ik-selection ik-view-controls",
+    tags$div(class = "ik-view-controls-h", "View options"),
+    selectInput(ns("species"), "Captures of", choices = NULL),
+    radioButtons(ns("group"), "Group by",
+                 choices = c("Full recipe" = "recipe", "Ingredient" = "ingredient"), selected = "recipe"),
+    radioButtons(ns("measure"), "Measure",
+                 choices = c("Capture rate" = "rate", "Total caught" = "count"), selected = "rate"),
+    numericInput(ns("min_cap"), "Min captures", value = 2, min = 1, step = 1))
+}
+
 bait_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
   norm <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100
@@ -19,19 +34,6 @@ bait_ui <- function(id, ik_data = NULL) {
               " to see the captures behind it, then a trap to see its bait history."),
             help = .ik_info(ns("help"), "Bait effectiveness — how to read this", bait_help_body(norm)),
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
-        div(class = "bait-controls",
-            selectInput(ns("species"), "Captures of", choices = NULL, width = "200px"),
-            radioButtons(ns("group"), "Group by", inline = TRUE,
-                         choices = c("Full recipe" = "recipe", "Ingredient" = "ingredient"),
-                         selected = "recipe"),
-            numericInput(ns("min_cap"), "Min captures", value = 2, min = 1, step = 1,
-                         width = "120px")),
-        # "Measure" only re-ranks the bars (rate vs total), so it sits small + plot-local, not in
-        # the data-selection row above.
-        div(class = "bait-plot-controls",
-            radioButtons(ns("measure"), "Measure", inline = TRUE,
-                         choices = c("Capture rate" = "rate", "Total caught" = "count"),
-                         selected = "rate")),
         plotOutput(ns("plot"), height = "560px", click = ns("plot_click")))
   )
 }

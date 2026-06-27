@@ -47,6 +47,20 @@ monitoring_help_body <- function() {
 
 #' Camera deployment-review tab content (lives inside the Quality nav_panel).
 #' @param id Module id.
+#' Camera review "View options" sidebar controls — Seasons shown + the Highlight grades. Built in the
+#' module's namespace, rendered in the global sidebar (ui.R). @keywords internal
+monitoring_controls <- function(id) {
+  ns <- NS(id)
+  div(class = "ik-selection ik-view-controls",
+    tags$div(class = "ik-view-controls-h", "View options"),
+    radioButtons(ns("range"), "Seasons shown",
+      choices = c("Last 1 year" = 4, "Last 2 years" = 8, "All" = 0), selected = 8),
+    checkboxGroupInput(ns("highlight"), "Highlight",
+      choices  = c("OK" = "ok", "Watch" = "mild", "Concern" = "moderate",
+                   "Problem" = "serious", "No deployment" = "none"),
+      selected = c("ok", "mild", "moderate", "serious", "none")))
+}
+
 monitoring_ui <- function(id) {
   ns <- NS(id)
   tagList(
@@ -55,14 +69,6 @@ monitoring_ui <- function(id) {
         .ik_page_header("Camera deployment review",
             help = .ik_info(ns("mon_help"), "Camera review — how to read this", monitoring_help_body())),
         uiOutput(ns("intro")),
-        div(class = "mon-range",
-            radioButtons(ns("range"), "Seasons shown", inline = TRUE,
-              choices = c("Last 1 year" = 4, "Last 2 years" = 8, "All" = 0), selected = 4)),
-        div(class = "mon-highlight",
-            checkboxGroupInput(ns("highlight"), "Highlight", inline = TRUE,
-              choices  = c("OK" = "ok", "Watch" = "mild", "Concern" = "moderate",
-                           "Problem" = "serious", "No deployment" = "none"),
-              selected = c("ok", "mild", "moderate", "serious", "none"))),
         div(class = "ik-monitoring-scroll", uiOutput(ns("grid"))))
   )
 }
