@@ -9,11 +9,22 @@
 # columns are snake_case; sf geometries are WGS84 (EPSG:4326), ready for Leaflet.
 
 #' Circle-marker radius scaled to a value vector — the single home for the map modules' marker sizing.
-#' Area-fair (`sqrt`), clamped to `[lo, hi]`; a degenerate range collapses to the midpoint. With
-#' `cap_pctl` set, values are first capped at that percentile (so one low-effort outlier can't flatten
-#' the rest, scaling from 0); with `cap_pctl = NULL` it scales over the data range. @keywords internal
-ik_marker_radius <- function(v, lo = 5, hi = 20, cap_pctl = NULL) {
+#' Area-fair (`sqrt`), clamped to `[lo, hi]`. Three modes:
+#'   • `cap` (absolute) — a FIXED scale anchored so a value of 1 → `lo` and `cap` → `hi` (values above
+#'     cap clamp to hi), with the AREA growing linearly with the value in between. Independent of the
+#'     in-view min/max, so the same value draws the same radius in every layer and every selection — pass
+#'     the SAME cap to two layers to make them directly comparable. Best for raw COUNTS.
+#'   • `cap_pctl` — values are first capped at that percentile (so one outlier can't flatten the rest),
+#'     then area-scaled from 0.
+#'   • neither — scales over the data range (self-relative; a degenerate range collapses to the midpoint).
+#' @keywords internal
+ik_marker_radius <- function(v, lo = 5, hi = 20, cap_pctl = NULL, cap = NULL) {
   v <- pmax(as.numeric(v), 0)
+  if (!is.null(cap)) {
+    cap <- max(as.numeric(cap), 1)
+    vv  <- pmin(pmax(v, 1), cap)                                    # clamp into [1, cap]
+    return(unname(sqrt(lo^2 + (hi^2 - lo^2) * (vv - 1) / max(cap - 1, 1e-9))))
+  }
   if (is.null(cap_pctl)) {
     r <- range(v, na.rm = TRUE)
     if (!length(v) || !is.finite(diff(r)) || diff(r) == 0) return(rep((lo + hi) / 2, length(v)))

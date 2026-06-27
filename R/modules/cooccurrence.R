@@ -452,7 +452,7 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
         options = leaflet::pathOptions(pane = "surface"))
     }
     leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, layerId = ~location_id, group = "Pairs",
-      radius = ik_marker_radius(d$n, 6, 20, cap_pctl = 0.98),
+      radius = ik_marker_radius(d$n, 4, 22, cap = 5),   # 1 pair → small, 5+ → large (clipped at 5) so 1–5 are easy to tell apart
       fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
       label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")),
       options = leaflet::pathOptions(pane = "pairs"))

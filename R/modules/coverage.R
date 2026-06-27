@@ -1,9 +1,11 @@
 # coverage.R (module) — "Coverage": the SPATIAL counterpart to the Neighbourhood panel. One leaflet
 # carrying BOTH devices at once as toggleable layers, so you can see where the protected species are
 # and whether predator control is reaching them:
-#   • Protected (camera)  — green circles, size ∝ detection rate (the hotspots)
-#   • Predators (camera)  — red circles, size ∝ detection rate (where predators roam; off by default)
+#   • Protected (camera)  — green circles, size ∝ detections (the hotspots)
+#   • Predators (camera)  — red circles, size ∝ detections (where predators roam; off by default)
 #   • Catches (traps)     — purple circles, size ∝ predators caught (where removal happens)
+# Camera dots share ONE count scale (predator vs protected compare like-for-like; the effort-adjusted
+# rate is in each marker's hover); catches have their own (smaller) count scale.
 #   • Traps (effort)      — small grey dots, every trap deployed (the trapping field / coverage)
 # A green hotspot sitting in purple + grey is covered; a green hotspot with little around it is a gap.
 # Colour encodes WHAT a marker is, size encodes magnitude (so one legend, no clashing colour scales).
@@ -24,8 +26,8 @@ coverage_help_body <- function(cam_norm = 500) {
         tags$b("is; size says how much"), " — one legend, no clashing colour scales."),
       tags$h6("The layers (toggle top-right)"),
       tags$ul(
-        tags$li(tags$b(tags$span(style = "color:#2e7d32", "Protected")), " (camera) — green dots, size ∝ detection rate. The hotspots you're protecting."),
-        tags$li(tags$b(tags$span(style = "color:#c62828", "Predators")), " (camera) — red rings, size ∝ detection rate. Where predators roam. Off by default."),
+        tags$li(tags$b(tags$span(style = "color:#2e7d32", "Protected")), " (camera) — green dots, size ∝ detections. The hotspots you're protecting."),
+        tags$li(tags$b(tags$span(style = "color:#c62828", "Predators")), " (camera) — red rings, size ∝ detections, on the SAME scale as the green dots so the two compare directly. Where predators roam. Off by default."),
         tags$li(tags$b(tags$span(style = "color:#6a3d9a", "Catches")), " (traps) — purple dots, size ∝ predators caught. Where removal is actually happening."),
         tags$li(tags$b("Device"), " — small dots for every device in service this period: ",
                 tags$span(style = "color:#8a8a8a", "grey traps"), " (",
@@ -38,9 +40,12 @@ coverage_help_body <- function(cam_norm = 500) {
       P(tags$br(), "A green hotspot ringed by purple and grey is ", tags$b("covered"), "; a green hotspot ",
         "with little around it is a ", tags$b("gap"), " — somewhere a protected species is active but ",
         "trapping isn't reaching."),
-      P("Camera markers are a detection ", tags$b("rate"), " (per ", ch, " camera-hours), so big vs small ",
-        "is comparable across cameras regardless of how long each ran. Catch markers are a ", tags$b("count"),
-        " of predators removed. Period and reserve come from the sidebar; click any marker for its detail."),
+      P("Camera markers are sized by the ", tags$b("number of detections"), " — a count of 1 is the same small ",
+        "dot everywhere, and the green and red dots share ", tags$b("one scale"), " so predator and protected ",
+        "compare like-for-like (a single hotspot can't shrink the rest — the scale clamps at the busiest 10%). ",
+        "The effort-adjusted ", tags$b("rate"), " (per ", ch, " camera-hours) is in each marker's hover, where the ",
+        "comparison across differently-run cameras matters. Catch markers are a ", tags$b("count"), " of predators ",
+        "removed, on their own scale. Period and reserve come from the sidebar; click any marker for its detail."),
       P("Whether the network is even dense enough to work — footprint, devices per km², spacing — now lives ",
         "on the main ", tags$b("Overview → Network density"), " tab; the ", tags$b("Coverage gaps"),
         " table below ranks the gaps that remain numerically.")),
@@ -263,6 +268,15 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     })
 
     .radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi)        # shared impl in spatial.R
+    # Camera markers are sized by raw DETECTION COUNT on ONE shared, fixed scale across the Protected and
+    # Predator layers — so a marker size means the same number of detections whether it's green or red, and
+    # "1 detection" is the same small dot on every line (rate stays in the hover, where effort matters). The
+    # cap is the 90th-pctl of the combined counts so a single hotspot can't shrink everything else.
+    cam_count_cap <- reactive({
+      vals <- c(cam_prot()$individuals, cam_pred()$individuals)
+      vals <- vals[is.finite(vals) & vals > 0]
+      if (!length(vals)) 1 else ik_robust_cap(vals, 0.9)
+    })
     proxy <- function() leaflet::leafletProxy("map", session)
 
     output$map <- leaflet::renderLeaflet({
@@ -316,7 +330,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       d <- trap_pred(); d <- if (is.null(d)) NULL else d[is.finite(d$captures) & d$captures > 0, , drop = FALSE]
       if (is.null(d) || !nrow(d)) return()
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Catches", layerId = paste0("T|", d$location_id),
-        radius = .radius(d$captures, 6, 22), fillColor = "#6a3d9a", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1,
+        radius = ik_marker_radius(d$captures, 5, 16, cap = ik_robust_cap(d$captures, 0.9)),   # count-based, trap scale (smaller)
+        fillColor = "#6a3d9a", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1,
         label = sprintf("%s — %s caught: %d · click for check history", d$name, pred_lab(), as.integer(d$captures)),
         options = leaflet::pathOptions(pane = "catches"))   # popup dropped: click now opens the trap's check history
     })
@@ -327,7 +342,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       # drawn as a hollow RING on the top pane (+2px), so when toggled on it sits over the protected
       # dots without hiding them — green fill shows through a red ring where both are present.
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Predators",
-        radius = .radius(d$metric, 6, 22) + 2, fill = FALSE, stroke = TRUE, color = "#c62828", weight = 2.5, opacity = 0.95,
+        radius = ik_marker_radius(d$individuals, 6, 22, cap = cam_count_cap()) + 2,   # shared camera count scale (+2 = ring offset)
+        fill = FALSE, stroke = TRUE, color = "#c62828", weight = 2.5, opacity = 0.95,
         label = sprintf("%s — %s %.2f / %s ch · %d detections", d$name, pred_lab(), d$metric,
                         format(per_cam, big.mark = ","), as.integer(d$individuals)),
         popup = ~sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>%s: %.2f</b> / %s ch<br/>%d detections",
@@ -339,7 +355,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       d <- cam_prot(); d <- if (is.null(d)) NULL else d[is.finite(d$metric) & d$metric > 0, , drop = FALSE]
       if (is.null(d) || !nrow(d)) return()
       leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Protected",
-        radius = .radius(d$metric, 7, 24), fillColor = "#2e7d32", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1.5,
+        radius = ik_marker_radius(d$individuals, 6, 22, cap = cam_count_cap()),   # shared camera count scale (same as Predators)
+        fillColor = "#2e7d32", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1.5,
         label = sprintf("%s — %s %.2f / %s ch · %d detections", d$name, prot_lab(), d$metric,
                         format(per_cam, big.mark = ","), as.integer(d$individuals)),
         popup = ~sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>%s: %.2f</b> / %s ch<br/>%d detections",
