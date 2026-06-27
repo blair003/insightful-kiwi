@@ -241,7 +241,7 @@ ui <- page_navbar(
     "Insights", icon = icon("chart-line"),
     if (.has_camera && .has_trap && ik_feature_enabled(ik_data, "reserve_report"))
       reserve_report_ui("reserve_report", ik_data),       # the over-time chain (cross-device)
-    "Deeper analysis",                                    # section header within the dropdown
+    "Combined analysis",                                  # section header: features that synthesise camera + trap data
     # Neighbourhood is camera-ANCHORED (pick a camera site/line/reserve) — useless without camera
     # data, so hide it then, the same way the Monitoring menu auto-hides. Coverage still degrades
     # gracefully on trap-only data, so it stays.
