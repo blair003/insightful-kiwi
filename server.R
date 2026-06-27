@@ -155,11 +155,13 @@ server <- function(input, output, session) {
   SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
                     "trap-review", "bait", "coverage", "trap-hero", "cooccurrence",
                     "neighbourhood", "reserve-report", "trapping-effectiveness")   # their selection/anchor lives in the rail
-  # Auto-collapse the rail on the light pages (everything NOT in SIDEBAR_NAVS), open it on the heavy ones —
-  # on BOTH desktop and mobile (the rail is collapsible everywhere now; on mobile open = an overlay you also
-  # reach via the period-banner date toggle). On desktop the rail is open by default so the heavy pages cost
-  # no toggle; on mobile it's closed by default so the content shows, and this opens it where the rules say.
-  observeEvent(input$nav, {
+  # Auto-collapse the rail on the light pages / open it on the heavy ones — DESKTOP ONLY. On mobile the rail
+  # is an overlay: auto-opening it on every navigation just covered the content (and you'd have to dismiss it
+  # each time), so on a phone we leave it CLOSED and let you open it on demand via the period-banner date.
+  # `ik_desktop` (a matchMedia flag from ui.R) gates it; re-apply on a change of the nav OR that flag, so the
+  # initial state lands once the flag arrives and a resize across the breakpoint re-applies.
+  observeEvent(list(input$nav, input$ik_desktop), {
+    if (!isTRUE(input$ik_desktop)) return()                   # mobile / not-yet-known: leave the rail to the user
     bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
   })
   # The in-page period banner's calendar/date is a button (one global input, set from .ik_period_banner)

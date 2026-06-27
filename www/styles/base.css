@@ -136,4 +136,13 @@ td .ik-link, .ik-link {
 @media (max-width: 575.98px) {
   .bslib-sidebar-layout[data-collapsible-mobile="true"].sidebar-collapsed { grid-template-rows: 0 1fr !important; }
   .bslib-sidebar-layout[data-collapsible-mobile="true"].sidebar-collapsed > .collapse-toggle { display: none !important; }
+  /* When OPEN (not collapsed), force the clean FULL-WIDTH overlay. bslib's JS can mis-read its own
+     breakpoint on init and leave the DESKTOP layout — a ~250px rail squashed beside the (dimmed) content
+     instead of a full-width drawer — and/or leave .sidebar-content at display:none (an empty overlay).
+     These overrides are viewport-based, so they don't depend on that JS state; the closing transition
+     re-adds .sidebar-collapsed, so the rail still hides on close. */
+  .bslib-sidebar-layout[data-collapsible-mobile="true"]:not(.sidebar-collapsed) { grid-template-columns: 100% 0 !important; }
+  .bslib-sidebar-layout[data-collapsible-mobile="true"]:not(.sidebar-collapsed) > .sidebar {
+    display: block !important; background: var(--bs-body-bg, #fff) !important; }
+  .bslib-sidebar-layout[data-collapsible-mobile="true"]:not(.sidebar-collapsed) > .sidebar > .sidebar-content { display: flex !important; }
 }

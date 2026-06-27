@@ -45,8 +45,12 @@ ui <- page_navbar(
     tags$script(HTML(paste(
       "(function(){",
       "  function nudge(){ try { window.dispatchEvent(new Event('resize')); } catch(e){} }",
+      "  var mq = window.matchMedia ? window.matchMedia('(min-width: 576px)') : null;",   # bslib sidebar breakpoint
+      "  function rpt(){ try { if (window.Shiny && Shiny.setInputValue && mq) Shiny.setInputValue('ik_desktop', mq.matches); } catch(e){} }",
       "  function bind(){",
-      "    if (window.jQuery) { window.jQuery(document).on('shiny:connected', function(){ [60, 350, 900].forEach(function(t){ setTimeout(nudge, t); }); }); }",
+      "    if (window.jQuery) { window.jQuery(document).on('shiny:connected', function(){ [60, 350, 900].forEach(function(t){ setTimeout(nudge, t); }); rpt(); }); }",
+      "    if (mq) { if (mq.addEventListener) mq.addEventListener('change', rpt); else if (mq.addListener) mq.addListener(rpt); }",
+      "    [120, 500, 1200].forEach(function(t){ setTimeout(rpt, t); });",   # report desktop/mobile early + on breakpoint change
       "  }",
       "  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', bind); } else { bind(); }",
       "})();",
