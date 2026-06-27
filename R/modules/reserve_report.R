@@ -62,18 +62,37 @@ reserve_report_help_body <- function() {
 
 #' Reserve-report nav panel. @param id Module id. @param ik_data The container (choices baked in — a
 #'   dropdown nav panel renders its selectize lazily and would miss a server-set default).
-reserve_report_ui <- function(id, ik_data) {
-  ns  <- NS(id)
-  sg  <- ik_species_groups(ik_data)
-  rt  <- function(role) { l <- unique(sg$label[sg$role == role & !is.na(sg$monitor)])
+#' Reserve-report sidebar controls — the reserve / grain / predator / protected pickers, moved out of the
+#' page into the rail (DATA PERIOD · View options · Filters). Same input ids, so the server reads
+#' input$reserve / grain / pred / prot unchanged. @keywords internal
+reserve_report_controls <- function(id, ik_data) {
+  ns <- NS(id)
+  sg <- ik_species_groups(ik_data)
+  rt <- function(role) { l <- unique(sg$label[sg$role == role & !is.na(sg$monitor)])
     stats::setNames(lapply(l, function(x) sg$scientificName[sg$label == x & !is.na(sg$scientificName)]), l) }
   splits <- unique(sg$label[which(sg$split)])
   pred_taxa <- rt("predator"); prot_taxa <- rt("protected")
-  pred_ch <- ik_species_choices(pred_taxa, ik_data, "vernacular", splits)
-  prot_ch <- ik_species_choices(prot_taxa, ik_data, "vernacular", splits)
-  pred_def <- paste0("grp:", names(pred_taxa)[1])
-  prot_def <- paste0("grp:", names(prot_taxa)[1])
   res <- sort(unique(ik_data$app$geography$locations$reserve[!is.na(ik_data$app$geography$locations$reserve)]))
+  tagList(
+    selection_all_data(),                                  # DATA PERIOD · All data (the report spans every season)
+    div(class = "ik-selection ik-view-controls",
+        tags$div(class = "ik-view-controls-h", "View options"),
+        radioButtons(ns("grain"), "Group by",
+                     choices = c("By season" = "season", "By year" = "year"), selected = "season"),
+        selectInput(ns("pred"), "Predator",
+                    choices = ik_species_choices(pred_taxa, ik_data, "vernacular", splits),
+                    selected = paste0("grp:", names(pred_taxa)[1]), multiple = TRUE),
+        selectInput(ns("prot"), "Protected",
+                    choices = ik_species_choices(prot_taxa, ik_data, "vernacular", splits),
+                    selected = paste0("grp:", names(prot_taxa)[1]), multiple = TRUE)),
+    div(class = "ik-selection",
+        tags$div(class = "ik-sel-section-h", "Filters"),
+        selectInput(ns("reserve"), "Reserve", choices = res, selected = res[1]))
+  )
+}
+
+reserve_report_ui <- function(id, ik_data) {
+  ns  <- NS(id)
   nav_panel(
     "Reserve report", value = "reserve-report", icon = icon("layer-group"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/reserve_report.css")),
@@ -82,12 +101,6 @@ reserve_report_ui <- function(id, ik_data) {
             description = tagList("One reserve, season by season, as a single chain: effort → servicing → catches → predators on ",
               "camera → protected on camera. Read top-to-bottom — if it all moves the right way, you're winning."),
             help = .ik_info(ns("rr_help"), "Reserve report — how to read this", reserve_report_help_body())),
-        div(class = "ik-rr-controls",
-            selectInput(ns("reserve"), "Reserve", choices = res, selected = res[1], width = "200px"),
-            radioButtons(ns("grain"), NULL, inline = TRUE,
-                         choices = c("By season" = "season", "By year" = "year"), selected = "season"),
-            selectInput(ns("pred"), "Predator",  choices = pred_ch, selected = pred_def, multiple = TRUE, width = "210px"),
-            selectInput(ns("prot"), "Protected", choices = prot_ch, selected = prot_def, multiple = TRUE, width = "210px")),
         uiOutput(ns("note")),
         plotOutput(ns("plot"), height = "780px"))
   )

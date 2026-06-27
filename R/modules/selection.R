@@ -108,6 +108,19 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   )
 }
 
+#' Standalone "DATA PERIOD · All data" section, for pages whose data spans every season and has no Period
+#' control (e.g. Neighbourhood, Reserve report, the review tools). Renders the same heading + note that
+#' selection_ui shows on an all-data tab, so every page's rail leads with DATA PERIOD. @keywords internal
+selection_all_data <- function() {
+  tagList(
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/selection.css")),
+    tags$div(class = "ik-selection ik-period-top",
+      tags$div(class = "ik-sel-section-h", "Data period"),
+      tags$div(class = "ik-period-note",
+        tags$span(class = "ik-period-note-h", "All data"),
+        "This view spans all data for all seasons and cannot be changed.")))
+}
+
 #' Selection sidebar server.
 #'
 #' @param id                Module id.

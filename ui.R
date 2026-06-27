@@ -60,10 +60,12 @@ ui <- page_navbar(
                                   period_show_js = "input['overview-ov_tabs'] !== 'Trends' && input['overview-ov_tabs'] !== 'Network density'")),
     conditionalPanel("input.nav === 'monitoring-overview'",
                      selection_ui("monitoring_overview_selection",
-                                  show = c("period", "compare", "reserve"), ik_data = ik_data)),
+                                  show = c("period", "compare", "reserve"), ik_data = ik_data,
+                                  view = "compare", heading = "Filters")),
     conditionalPanel("input.nav === 'trapping-overview'",
                      selection_ui("trapping_overview_selection",
-                                  show = c("period", "compare", "reserve"), ik_data = ik_data)),
+                                  show = c("period", "compare", "reserve"), ik_data = ik_data,
+                                  view = "compare", heading = "Filters")),
     conditionalPanel("input.nav === 'bait'",
                      bait_controls("bait", ik_data),
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
@@ -83,9 +85,11 @@ ui <- page_navbar(
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = "rolling12", heading = "Filters")),   # spatial view: a full annual cycle
     conditionalPanel("input.nav === 'neighbourhood'",
-                     # Neighbourhood's anchor IS its data selection (no shared Period/Reserve); all of its
-                     # controls go in the tinted "View options" group — see neighbourhood_controls.
+                     # All-time view; the anchor (Reserve/Line) is its data selection, in View options.
+                     selection_all_data(),
                      neighbourhood_controls("neighbourhood", ik_data)),
+    conditionalPanel("input.nav === 'reserve-report'",
+                     reserve_report_controls("reserve_report", ik_data)),
     conditionalPanel("input.nav === 'trap-hero'",
                      trap_hero_controls("trap_hero", ik_data),
                      selection_ui("trap_hero_selection", show = c("period", "reserve"), ik_data = ik_data,
@@ -101,9 +105,11 @@ ui <- page_navbar(
                                   period_show_js = "input['cooccurrence-cooc_view'] !== 'Trend'",
                                   heading = "Filters")),
     conditionalPanel("input.nav === 'camera-review'",
+                     selection_all_data(),
                      monitoring_controls("monitoring")),
     conditionalPanel("input.nav === 'duplicates'",
-                     tags$small("Controls are within the view.")),
+                     selection_all_data(),
+                     tags$small(class = "ik-period-note", "Camera & species selectors are in the view.")),
     conditionalPanel("input.nav === 'monitoring-map'",
                      maps_controls("monitoring_map", device = "camera", ik_data = ik_data),
                      selection_ui("mon_map_selection",
@@ -117,11 +123,13 @@ ui <- page_navbar(
     conditionalPanel("input.nav === 'monitoring-records'",
                      selection_ui("mon_records_selection",
                                   show = c("dataset", "period", "reserve", "line", "location",
-                                           "device", "species", "net"), ik_data = ik_data, device_default = "camera")),
+                                           "device", "species", "net"), ik_data = ik_data,
+                                  device_default = "camera", heading = "Filters")),
     conditionalPanel("input.nav === 'trapping-records'",
                      selection_ui("control_records_selection",
                                   show = c("dataset", "period", "reserve", "line", "location",
-                                           "device", "species", "net"), ik_data = ik_data, device_default = "trap")),
+                                           "device", "species", "net"), ik_data = ik_data,
+                                  device_default = "trap", heading = "Filters")),
     # Species dashboards (one shared selection — every species page's value starts grp-/sp-). Period
     # defaults to All data so every tab starts on the same footing; Summary & Trend always span all
     # data (Period hidden, a note in its place), the rest honour whatever Period the user sets.

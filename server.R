@@ -150,7 +150,8 @@ server <- function(input, output, session) {
   # stays visible via that banner. The heavy-filter pages (Maps, Records, Trap review, …) open it.
   # (The collapse toggle stays either way.)
   SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
-                    "trap-review", "bait", "coverage", "trap-hero", "cooccurrence")
+                    "trap-review", "bait", "coverage", "trap-hero", "cooccurrence",
+                    "neighbourhood", "reserve-report")   # their selection/anchor lives in the rail
   observeEvent(input$nav, {
     bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
   })
