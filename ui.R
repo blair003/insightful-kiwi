@@ -81,7 +81,7 @@ ui <- page_navbar(
     conditionalPanel("input.nav === 'coverage'",
                      coverage_controls("coverage", ik_data),
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "all", heading = "Filters")),
+                                  period_default = "rolling12", heading = "Filters")),   # spatial view: a full annual cycle
     conditionalPanel("input.nav === 'neighbourhood'",
                      # Neighbourhood's anchor IS its data selection (no shared Period/Reserve); all of its
                      # controls go in the tinted "View options" group — see neighbourhood_controls.

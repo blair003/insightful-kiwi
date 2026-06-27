@@ -13,7 +13,7 @@ species_help_body <- function(norm_hours = 2000, norm_trap = 100) {
         "together. ", tags$b("Summary"), " — its footprint across the network, the settings that govern it, ",
         "and where it turns up most; ", tags$b("Trend"), " — how its activity and catches move over time; ",
         tags$b("Map"), " — where it's seen and caught; ", tags$b("Records"), " — every detection/capture."),
-      P("Period & reserve come from the sidebar; ", tags$b("Period"), " defaults to ", tags$b("All data"),
+      P("Data period & reserve come from the sidebar; ", tags$b("Data period"), " defaults to ", tags$b("All data"),
         ". ", tags$b("Summary"), " and ", tags$b("Trend"), " always span all time (a note sits in the ",
         "Period's place there); from the ", tags$b("Map"), " tab on you can set a Period to focus the rest.")),
     tabPanel("Trend", icon = icon("chart-line"),
