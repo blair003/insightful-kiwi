@@ -42,6 +42,11 @@ ui <- page_navbar(
   # Populated per-view as modules are built; conditional on the selected nav.
   sidebar = sidebar(
     id = "global_sidebar",
+    # Desktop: open by default (the server then collapses it per-nav for the light Overview/Species pages,
+    # see SIDEBAR_NAVS). Mobile: ALWAYS shown — on a phone the rail drops below the content, and "closed"
+    # (the bslib default) left it hidden behind a toggle; "always" keeps it open and immune to the server's
+    # per-nav toggle_sidebar() calls, so the data selection is always reachable.
+    open = list(desktop = "open", mobile = "always"),
     title = NULL,                          # no "Data Selection" header + divider — the rail starts straight at View options / Filters
     # The Overview pages keep their controls HERE but the rail is COLLAPSED by default for them (they're
     # left out of SIDEBAR_NAVS in server.R) — regular users aren't confronted with filters, power users
