@@ -585,10 +585,10 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
 #' @keywords internal
 .ov_compact_block <- function(title, kind, record_label, record_value, species_value, cards,
                               box_drill = NULL, help = NULL, count_label = NULL, count_value = NULL) {
-  box <- function(metric_key, label, value, icon_name, drill = TRUE) {
+  box <- function(metric_key, label, value, icon_name, drill = TRUE, tip = "Show the underlying records") {
     vb <- value_box(label, value, showcase = icon(icon_name))
     if (is.null(box_drill) || !drill) return(vb)
-    div(class = "ov-box-click", title = "Show the underlying records",
+    div(class = "ov-box-click", title = tip,
         onclick = sprintf("Shiny.setInputValue('%s',{kind:'%s',metric:'%s'},{priority:'event'})",
                           box_drill, kind, metric_key),
         vb)
@@ -600,10 +600,14 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
                        icon(.ov_device_icon(kind)), " ", title),
              help),
     # A leading device-COUNT box (active cameras / traps in the period) adds a sense of network size and,
-    # with three boxes rather than two, stops them stretching super-wide on a laptop. It doesn't drill.
+    # with three boxes rather than two, stops them stretching super-wide on a laptop. It drills to the SAME
+    # modal as the device's own Overview card: camera Deployments ("deployments") / trap Traps ("effort").
     layout_column_wrap(
       width = if (is.null(count_value)) 1/2 else 1/3,
-      if (!is.null(count_value)) box("devices", count_label, count_value, .ov_device_icon(kind), drill = FALSE),
+      if (!is.null(count_value)) box(
+        if (identical(kind, "trap")) "effort" else "deployments",
+        count_label, count_value, .ov_device_icon(kind),
+        tip = if (identical(kind, "trap")) "Show the traps" else "Show the deployments"),
       box("records", record_label, record_value, "paw"),
       box("species", "Species",    species_value, "dna")),
     cards
