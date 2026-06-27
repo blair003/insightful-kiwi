@@ -105,7 +105,7 @@ cooccurrence_ui <- function(id) {
     tags$script(src = .ik_asset("js/maps.js")),                       # leaflet resize-on-tab-show
     div(class = "ik-cooc",
         .ik_page_header("Co-occurrence",
-            description = "The time gap between protected species and predators sharing the same ground.",
+            description = "How close in time do predators and protected species share the same ground?",
             help = .ik_info(ns("cooc_help"), "Co-occurrence — how to read this", cooccurrence_help_body()),
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         tabsetPanel(
@@ -568,7 +568,7 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
 
     output$intro <- renderUI({
       g <- gaps(); after <- isTRUE(input$after_only); px <- prox(); pl <- prot_l(); dl <- pred_l()
-      win <- sprintf("Pairings within %d days of one another: ", max_pd)   # the pairing window leads the summary
+      win <- sprintf("Selected Predator/Protected pairings within %d days of one another: ", max_pd)   # the pairing window leads the summary
       if (is.null(g)) return(tags$p(class = "ik-cooc-hint",
         if (after) tagList("No ", tags$b(pl), " detections were followed by a ", tags$b(dl), " ", px, sprintf(" within %d days.", max_pd))
         else       tagList("No ", tags$b(pl), " and ", tags$b(dl), " detections were found ", px, sprintf(" within %d days.", max_pd))))
