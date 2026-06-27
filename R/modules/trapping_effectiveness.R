@@ -104,12 +104,12 @@ trapping_effectiveness_ui <- function(id, ik_data) {
   norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100        # catch-rate normalisation unit (trap-nights)
   ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
   nav_panel(
-    "Check frequency vs catch rate", value = "trapping-effectiveness", icon = icon("bullseye"),
+    "Catch efficiency", value = "trapping-effectiveness", icon = icon("bullseye"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping_effectiveness.css")),
     div(class = "ik-teff",
-        .ik_page_header("Checking vs catch rate",
+        .ik_page_header("Catch efficiency",
             description = "Does checking traps more often result in a higher catch rate?",
-            help = .ik_info(ns("teff_help"), "Checking vs catch rate — how to read this",
+            help = .ik_info(ns("teff_help"), "Catch efficiency — how to read this",
                      trapping_effectiveness_help_body(norm)),
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),  # Data period + Reserve are in the sidebar
         div(class = "teff-controls",

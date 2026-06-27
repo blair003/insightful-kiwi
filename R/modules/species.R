@@ -182,12 +182,12 @@ species_dashboard_ui <- function(id, spec, ik_data = NULL) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/cooccurrence.css")),  # Co-occurrence tab views
     tags$script(src = .ik_asset("js/maps.js")),
     div(class = "ik-species",
+        # Period banner on the title line (tab-aware — Summary + Trend read "All data"; the rest honour
+        # the window). The scientific-name subtitle sits below the title.
         .ik_page_header(spec$label,
-            help = .ik_info(ns("help"), paste(spec$label, "— how to read this"), species_help_body(nh, nt))),
+            help = .ik_info(ns("help"), paste(spec$label, "— how to read this"), species_help_body(nh, nt)),
+            banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         tags$p(class = "ik-species-sub", tags$em(sci_lab)),
-        # Period banner (subtitle, under the title block) tracks the active tab: Summary + Trend are
-        # all-time ("All data"); the rest (Map / Behaviour / Bait / Co-occurrence / Records) honour the window.
-        div(class = "ik-page-period", uiOutput(ns("period_banner"))),
         tabsetPanel(
           id = ns("tabs"),
           tabPanel("Summary", icon = icon("circle-info"),

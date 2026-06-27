@@ -172,8 +172,10 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/overview.css")),
     if (isTRUE(network)) tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
     if (isTRUE(network)) tags$script(src = .ik_asset("js/maps.js")),
-    div(class = "ik-topbar", uiOutput(ns("header"))),
-    div(class = "ik-page-period", uiOutput(ns("period_banner"))), inner
+    div(class = "ik-page-headrow",                              # title left, period/date right (wraps on mobile)
+        div(class = "ik-topbar", uiOutput(ns("header"))),
+        div(class = "ik-page-period", uiOutput(ns("period_banner")))),
+    inner
   )
 }
 
