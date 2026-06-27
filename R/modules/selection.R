@@ -41,7 +41,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
                            selected = if (!is.null(ik_data)) period_default %||% ik_default_period(ik_data)),
     compare  = selectInput(ns("compare"), "Compare to",
                            choices = c("No comparison" = "none", "Prior period" = "prior",
-                                       "Same period last year" = "last_year"),
+                                       "Same period prior year" = "last_year"),
                            selected = if (!is.null(ik_data)) ik_data$meta$overview$default_compare %||% "none" else "none"),
     reserve  = selectizeInput(ns("reserve"),  "Reserve",  choices = NULL, multiple = TRUE,
                               options = list(placeholder = "All reserves")),
@@ -83,7 +83,11 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   # Split a tinted "View options" group (the named `view` controls + any module `view_extra`) off the TOP,
   # above the shared "Filters" axes — same pattern the map/species pages use, applied to the selection's own
   # axes (e.g. Overview: Compare/Predators/Protected as view options; Period/Reserve as filters).
-  view_names <- intersect(view, names(ctrls)); filt <- ctrls[setdiff(names(ctrls), view_names)]
+  view_names <- intersect(view, names(ctrls))
+  # Data period LEADS the rail (it selects the data); the tinted View options group next; the rest
+  # (Reserve, Line, …) are the Filters — so the order reads select → view → filter.
+  period_ctrl <- ctrls[["period"]]
+  filt <- ctrls[setdiff(names(ctrls), c(view_names, "period"))]
   view_box <- if (length(view_names) || !is.null(view_extra)) {
     grp <- div(class = "ik-selection ik-view-controls",
                tags$div(class = "ik-view-controls-h", "View options"),
@@ -92,9 +96,10 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   }
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/selection.css")),
+    if (!is.null(period_ctrl)) div(class = "ik-selection ik-period-top", period_ctrl),
     view_box,
-    if (!is.null(heading)) tags$div(class = "ik-sel-section-h", heading),
-    div(class = "ik-selection", filt)
+    if (!is.null(heading) && length(filt)) tags$div(class = "ik-sel-section-h", heading),
+    if (length(filt)) div(class = "ik-selection", filt)
   )
 }
 
