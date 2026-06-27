@@ -35,6 +35,9 @@
    reclaiming vertical space on short screens. Left/right/bottom kept; !important beats the framework's
    `padding` shorthand regardless of stylesheet order. The per-title negative margins below are now 0. */
 .bslib-sidebar-layout > .main { padding-top: 0.4rem !important; }
+/* Modals sit nearer the top (Bootstrap defaults to 1.75rem), so a tall record list starts high and needs
+   less page scroll. !important beats the framework's `.modal-dialog { margin: 1.75rem auto }`. */
+.modal-dialog { margin-top: 0.6rem !important; margin-bottom: 0.6rem !important; }
 .ik-titlebar { display: flex; align-items: center; gap: 0.4rem; margin-top: 0; }  /* page title: sits close to the top */
 .ik-titlebar > h3, .ik-titlebar > h5 { margin-bottom: 0.1rem; }
 /* …but a titlebar used as a section heading INSIDE a nested tabset (e.g. the overview Trends tab's
