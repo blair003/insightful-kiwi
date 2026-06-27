@@ -373,12 +373,21 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
                      size = 2.2, inherit.aes = FALSE, na.rm = TRUE) +
           scale_fill_manual(values = ser_col, guide = "none")
       }
+      # Median gap is a COLOUR aesthetic ONLY when RAI is overlaid (so the legend tells it apart from the RAI
+      # lines). With RAI off, draw it with a FIXED colour — no colour aesthetic means no colour legend at all,
+      # so only the "Pairs" size key shows. (A guide="none" on the colour scale didn't reliably suppress it.)
+      p <- p + (if (rai_on) list(
+          geom_line(aes(y = .data$y, colour = "Median gap"), linewidth = 0.9),
+          geom_point(aes(y = .data$y, colour = "Median gap", size = .data$n)),
+          scale_colour_manual(NULL, values = c("Median gap" = gap_col, ser_col))
+        ) else list(
+          geom_line(aes(y = .data$y), colour = gap_col, linewidth = 0.9),
+          geom_point(aes(y = .data$y, size = .data$n), colour = gap_col)
+        ))
       p <- p +
-        geom_line(aes(y = .data$y, colour = "Median gap"), linewidth = 0.9) +
-        geom_point(aes(y = .data$y, colour = "Median gap", size = .data$n)) +           # point size = pairs that season
-        scale_colour_manual(NULL, values = c("Median gap" = gap_col, ser_col),
-                            guide = if (rai_on) "legend" else "none") +
-        scale_size_area(name = "Pairs", max_size = 6.5) +
+        # one row always — else a season set with many distinct small pair-counts (e.g. same-camera 1..6)
+        # wraps the size key onto two rows, which reads like a duplicated legend.
+        scale_size_area(name = "Pairs", max_size = 6.5, guide = guide_legend(nrow = 1)) +
         labs(x = NULL, subtitle = if (rai_on)
                "RAI overlaid for context — a gap trend can track detection rates, not just timing"
              else "exploratory — large gaps mean the two rarely share the same ground") +
