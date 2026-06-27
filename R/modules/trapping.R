@@ -91,6 +91,14 @@ trapping_byline_controls <- function(id) {
     selected = "dormant")
 }
 
+#' The "Over time" view control — season vs year grain. Sidebar View options; same id, server unchanged.
+#' @keywords internal
+trapping_overtime_controls <- function(id) {
+  ns <- NS(id)
+  radioButtons(ns("grain"), "Group by",
+    choices = c("By season" = "season", "By year" = "year"), selected = "season")
+}
+
 trapping_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
   tagList(
@@ -134,8 +142,6 @@ trapping_ui <- function(id, ik_data = NULL) {
             div(class = "trap-timeline",
                 div(class = "trap-timeline-head",
                     tags$span(class = "trap-timeline-title", "Servicing over time"),
-                    radioButtons(ns("grain"), NULL, inline = TRUE,
-                                 choices = c("By season" = "season", "By year" = "year"), selected = "season"),
                     .ik_info(ns("overtime_help"), "Servicing over time — how to read this",
                              trapping_help_body(ik_data$meta$trapping, "overtime"))),
                 uiOutput(ns("timeline_note")),

@@ -19,6 +19,7 @@ load_project_config <- function(config) {
                    overview = list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
                                    default_compare = "none", default_period = "latest_complete"),
                    proximity = list(max_radius_m = 2000),
+                   cooccurrence = list(max_pair_days = 30),
                    media    = list(keep_originals = TRUE),
                    features = list(),   # per-feature on/off (omitted = on); see ik_feature_enabled()
                    diel     = NULL)     # diel-class rules override; NULL → ik_diel_class_rules() default
@@ -36,6 +37,8 @@ load_project_config <- function(config) {
                                          get0("overview", envir = e, ifnotfound = list())),
     proximity        = utils::modifyList(defaults$proximity,
                                          get0("proximity", envir = e, ifnotfound = list())),
+    cooccurrence     = utils::modifyList(defaults$cooccurrence,
+                                         get0("cooccurrence", envir = e, ifnotfound = list())),
     media            = utils::modifyList(defaults$media,
                                          get0("media", envir = e, ifnotfound = list())),
     # feature flags: a flat name = TRUE/FALSE list; absent or TRUE = shown (subject to data capability)

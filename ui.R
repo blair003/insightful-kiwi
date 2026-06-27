@@ -73,8 +73,10 @@ ui <- page_navbar(
                      # Period hides there (the generic note in its place). Reserve stays on all tabs.
                      selection_ui("trap_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = .trap_period_def, heading = "Filters",
-                                  view_extra = trapping_byline_controls("trapping"),   # Dormant/Historic toggle (By trapline tab)
-                                  view_show_js = "input['trapping-trap_view'] === 'By trapline'",
+                                  view_extra = tagList(   # per-tab view controls: By-trapline Dormant/Historic, Over-time grain
+                                    conditionalPanel("input['trapping-trap_view'] === 'By trapline'", trapping_byline_controls("trapping")),
+                                    conditionalPanel("input['trapping-trap_view'] === 'Over time'", trapping_overtime_controls("trapping"))),
+                                  view_show_js = "input['trapping-trap_view'] !== 'Map'",
                                   period_show_js = "input['trapping-trap_view'] !== 'Over time'")),
     conditionalPanel("input.nav === 'coverage'",
                      coverage_controls("coverage", ik_data),

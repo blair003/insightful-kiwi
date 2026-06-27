@@ -152,6 +152,14 @@ proximity <- list(
   max_radius_m = 2000
 )
 
+# Co-occurrence (predator <-> protected timing). `max_pair_days` caps how far apart a protected detection
+# and its nearest predator may be and still count as a "pair": beyond it they're too far apart in time to
+# read as sharing the same ground (and would distort the median gap). 30 d ≈ one deployment window for this
+# project (21-night pulses, months apart), so it effectively keeps pairs within the same deployment season.
+cooccurrence <- list(
+  max_pair_days = 30
+)
+
 # Image media cache (instance/www/media-cache). Each viewed camera burst caches a resized DISPLAY
 # copy (1200px, what the app serves) and — by default — the full-res ORIGINAL (for the "view
 # original" download). Originals are ~3.5× the size of the display copy, so a disk-constrained

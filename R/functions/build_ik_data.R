@@ -40,6 +40,7 @@ build_ik_data <- function(config, manifest = load_manifest(config),
       overview   = project$overview %||% list(show_rai_matrix_by_reserve = FALSE, list_other_species = TRUE,
                                               default_compare = "none", default_period = "latest_complete"),
       proximity  = project$proximity %||% list(max_radius_m = 2000),   # neighbourhood radius (app$proximity)
+      cooccurrence = project$cooccurrence %||% list(max_pair_days = 30),  # max protected<->predator pairing gap (days)
       media      = project$media    %||% list(keep_originals = TRUE),
       features   = project$features %||% list(),   # per-feature on/off (omitted = on); see ik_feature_enabled()
       diel       = project$diel %||% ik_diel_class_rules(), # diel-class rules (config override or the default)

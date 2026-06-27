@@ -23,7 +23,8 @@
 #'   pairings. Group by `when`'s season for a trend, by `location_id` for a per-camera layer, take
 #'   `gap_h` for the distribution, or use the two ids to drill into either record.
 ik_predator_protected_gaps <- function(ik_data, predator_sci, protected_sci, seasons = NULL,
-                                       reserve = NULL, radius_m = 0, cross_boundary = FALSE) {
+                                       reserve = NULL, radius_m = 0, cross_boundary = FALSE,
+                                       max_gap_days = (ik_data$meta$cooccurrence %||% list())$max_pair_days) {
   if (!length(predator_sci) || !length(protected_sci)) return(NULL)
   obs <- ik_observations(ik_data, with_location = TRUE)
   obs <- obs[!is.na(obs$observationType) & obs$observationType == "animal" &
@@ -69,5 +70,12 @@ ik_predator_protected_gaps <- function(ik_data, predator_sci, protected_sci, sea
                gap_h = abs(signed_h), signed_h = signed_h, stringsAsFactors = FALSE)
   }))
   if (is.null(out) || !nrow(out)) return(NULL)
+  # Pairing window: a protected detection whose nearest predator is further away in time than this isn't a
+  # meaningful co-occurrence (it just inflates the median gap), so drop it. Project config (project.R
+  # cooccurrence$max_pair_days); NULL = no cap.
+  if (!is.null(max_gap_days) && is.finite(max_gap_days)) {
+    out <- out[out$gap_h <= max_gap_days * 24, , drop = FALSE]
+    if (!nrow(out)) return(NULL)
+  }
   out
 }
