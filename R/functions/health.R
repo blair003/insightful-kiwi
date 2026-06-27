@@ -36,24 +36,23 @@ health_help_body <- function(ik_data) {
   P  <- function(...) tags$p(...)
   gd <- (ik_data$meta$trapping$health %||% list())$good_max
   tagList(
-    P(tags$br(), "A quick read on whether the trapping network is ", tags$b("firing"), ". Each gauge sits on a ",
-      tags$b("red → green"), " scale (a marker further right = better), and all of them honour the sidebar ",
-      tags$b("Period"), " and ", tags$b("Reserve"), "."),
+    P(tags$br(), "A quick read on whether the trapping network is firing. Each gauge runs on a red → green ",
+      "scale, and both honour the sidebar Period and Reserve."),
     tags$h6("Network active"),
-    P("The share of the network's traps that were ", tags$b("checked at least once in the selected period"),
-      " — checked traps ÷ all traps in scope. So the window matters: ", tags$b("Latest 12 months"), " asks ",
-      tags$em("“what fraction of traps saw a visit in the last year”"), "; a shorter period asks the same over ",
-      "less time, so fewer traps qualify and the figure is lower. 100% = every trap was visited within the window."),
-    tags$h6("Well serviced"),
-    P("Of those traps, the share on a ", tags$b("Good"), " servicing cadence — the mean gap between checks is tight ",
-      "enough", if (!is.null(gd) && is.finite(gd)) sprintf(" (around %d days or less for this project)", round(gd)),
-      " to read as ", tags$b("good"), " rather than ", tags$b("watch"), " or ", tags$b("neglected"),
-      ", judged over the period's checks."),
-    P(tags$br(), tags$b("Want the per-trap detail?"), " These are network-wide summaries. To see ",
-      tags$b("which"), " traps are active, each one's cadence and status, and its full check history, open the ",
+    P("The share of the network's traps checked at least once in the selected period — checked traps ÷ all ",
+      "traps in scope. The window matters: a longer period (say Latest 12 months) gives more traps a chance ",
+      "to have been visited, so the figure runs higher; a shorter one is stricter. 100% means every trap saw ",
+      "a visit within the window."),
+    tags$h6("Check frequency"),
+    P("Of the traps still in service, the share kept on a good checking cadence — the mean gap between checks ",
+      "is tight enough", if (!is.null(gd) && is.finite(gd)) sprintf(" (about %d days or less here)", round(gd)),
+      " to count as good, rather than watch or neglected. Long-dormant traps count against it; decommissioned ",
+      "(historic) traps are left out."),
+    P(tags$br(), "These are network-wide summaries. For which traps are active, each trap's cadence and status, ",
+      "and its full check history, open the ",
       tags$a(href = "#", `data-bs-dismiss` = "modal",
              onclick = "Shiny.setInputValue('ik_goto_nav','trap-review',{priority:'event'})",
-             tags$b("Trap check review")), ".")
+             "Trap check review"), ".")
   )
 }
 
@@ -73,9 +72,12 @@ ik_trapping_health <- function(ik_data, selection, trp = NULL) {
   total <- length(unique(tl$location_id))
   active_frac <- if (total > 0) active / total else NA_real_
 
-  # 2. Well serviced — of the network's traps, the share on a "Good" servicing cadence (vs watch/neglected).
+  # 2. Check frequency — of the traps still in service, the share on a "Good" checking cadence. Long-dormant
+  #    traps count against it (a lapsed trap is a real servicing concern), but decommissioned (historic)
+  #    traps are EXCLUDED — they're retired, not part of the live network, so they shouldn't drag it down.
   per <- ik_trap_review(ik_data, .ik_nz(selection$season))
   if (!is.null(per) && !is.null(reserve)) per <- per[per$reserve %in% reserve, , drop = FALSE]
+  if (!is.null(per)) per <- per[per$status != "historic", , drop = FALSE]
   good_frac <- if (!is.null(per) && nrow(per)) mean(per$status == "good", na.rm = TRUE) else NA_real_
 
   pctv <- function(f) if (is.finite(f)) sprintf("%.0f%%", 100 * f) else "—"
@@ -83,7 +85,7 @@ ik_trapping_health <- function(ik_data, selection, trp = NULL) {
     list(label = "Network active", frac = active_frac, value = pctv(active_frac),
          tip = sprintf("%s of %s traps in the network were checked this period.",
                        format(active, big.mark = ","), format(total, big.mark = ","))),
-    list(label = "Well serviced", frac = good_frac, value = pctv(good_frac),
-         tip = "Share of the network's traps on a 'Good' servicing cadence (vs watch / neglected).")
+    list(label = "Check frequency", frac = good_frac, value = pctv(good_frac),
+         tip = "Share of in-service traps kept on a 'Good' checking cadence (vs watch / neglected). Dormant traps count against it; decommissioned (historic) traps are excluded.")
   )
 }
