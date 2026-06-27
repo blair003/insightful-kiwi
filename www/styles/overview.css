@@ -224,3 +224,9 @@
   margin: 0.2rem 0 0.8rem;
 }
 .ik-ov-network-lead a { cursor: pointer; }
+
+/* Metric value boxes: tighten the icon↔value gap and centre the number/label, so a narrow card that
+   stacks the icon on top (bslib's responsive showcase-left-center) reads as a clean centred card rather
+   than a big-gap, left-aligned wrap. */
+.ik-overview .bslib-value-box .value-box-grid { gap: 0.3rem; }
+.ik-overview .bslib-value-box .value-box-area { text-align: center; align-items: center; }

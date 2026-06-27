@@ -98,8 +98,11 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/selection.css")),
     if (!is.null(period_ctrl)) div(class = "ik-selection ik-period-top", period_ctrl),
     view_box,
-    if (!is.null(heading) && length(filt)) tags$div(class = "ik-sel-section-h", heading),
-    if (length(filt)) div(class = "ik-selection", filt)
+    # Heading INSIDE the filters group (like View options), so the heading->first-control gap is the heading
+    # margin — not an inter-section gap — and matches View options exactly.
+    if (length(filt)) div(class = "ik-selection",
+      if (!is.null(heading)) tags$div(class = "ik-sel-section-h", heading),
+      filt)
   )
 }
 

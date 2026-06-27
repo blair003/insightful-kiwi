@@ -23,7 +23,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ik-accent, #cf6819);
-  margin: 0 0 0.35rem;         /* match the Filters heading's gap */
+  margin: 0 0 0.5rem;          /* heading -> first control; equal to the Filters heading */
   padding-bottom: 0.12rem;
   border-bottom: 1px solid color-mix(in srgb, var(--ik-accent, #cf6819) 45%, transparent);
 }
@@ -36,7 +36,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--bs-secondary-color, #6c757d);
-  margin: 0 0 0.35rem;         /* moderate gap to the first control below the heading */
+  margin: 0 0 0.5rem;          /* heading -> first control; equal to the View options heading */
   padding-bottom: 0.12rem;
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
 }
