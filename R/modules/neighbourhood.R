@@ -115,23 +115,26 @@ neighbourhood_ui <- function(id, ik_data) {
             help = .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
                      neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000))),
         uiOutput(ns("intro")),
-        tags$p(class = "ik-nbhd-hint", "Click a point to see the records behind it."),
-        plotOutput(ns("panel"), height = "440px", click = ns("panel_click")),
-        # Spatial view of the same neighbourhood (all-time), with hover-to-highlight traps.
-        tags$h5(class = "ik-nbhd-maptitle", "On the map — the cameras and nearby traps"),
-        tags$p(class = "ik-nbhd-hint",
-          tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera · ",
-          tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera · ",
-          tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps · ",
-          tags$b(tags$span(style = "color:#2c7fb8", "blue")), " = camera location · ",
-          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap location (the ", tags$b("Device"),
-          " layer, underneath). All-time. ", tags$b("Hover a trap in the table"), " to highlight it on the map."),
-        # Map beside the nearby-traps table (wraps to stacked on narrow).
-        layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
-          leaflet::leafletOutput(ns("map"), height = "60vh"),
-          div(class = "ik-maps-side", style = "max-height:60vh;",
-            uiOutput(ns("map_note")),
-            DT::DTOutput(ns("traps_table")))))
+        tabsetPanel(
+          id = ns("nbhd_view"), type = "tabs",
+          # Trend — protected/predator activity + nearby catches over time (the headline analysis).
+          tabPanel("Trend", icon = icon("chart-line"),
+            tags$p(class = "ik-nbhd-hint", "Click a point to see the records behind it."),
+            plotOutput(ns("panel"), height = "440px", click = ns("panel_click"))),
+          # Map — the same neighbourhood in space (all-time), with hover-to-highlight traps.
+          tabPanel("Map", icon = icon("map-location-dot"),
+            tags$p(class = "ik-nbhd-hint",
+              tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera · ",
+              tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera · ",
+              tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps · ",
+              tags$b(tags$span(style = "color:#2c7fb8", "blue")), " = camera location · ",
+              tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap location (the ", tags$b("Device"),
+              " layer, underneath). All-time. ", tags$b("Hover a trap in the table"), " to highlight it on the map."),
+            layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+              leaflet::leafletOutput(ns("map"), height = "60vh"),
+              div(class = "ik-maps-side", style = "max-height:60vh;",
+                uiOutput(ns("map_note")),
+                DT::DTOutput(ns("traps_table")))))))
   )
 }
 
@@ -291,6 +294,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
 
     traps_shown <- reactiveVal(NULL)
     mproxy <- function() leaflet::leafletProxy("map", session)
+    on_map <- reactive(identical(input$nbhd_view, "Map"))       # proxy draws only land on the visible Map tab
 
     output$map <- leaflet::renderLeaflet({
       locs <- ik_data$app$geography$locations
@@ -309,18 +313,16 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
     })
     outputOptions(output, "map", suspendWhenHidden = FALSE)   # render from load so proxy layers land
 
-    observeEvent(color_mode(), {
-      leaflet::addProviderTiles(leaflet::clearGroup(mproxy(), "Map"),
-        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
-    }, ignoreInit = TRUE)
-
     plab <- function() {                                        # readable label for the selected predator(s)
       pc <- ik_species_choices(pred_taxa, ik_data, prefer(), splits)
       nm <- names(pc)[match(input$pred, pc)]; nm <- nm[!is.na(nm)]
       if (length(nm)) paste(nm, collapse = ", ") else "predators"
     }
     observe({                                                   # draw the neighbourhood + fit to it
+      if (!isTRUE(on_map())) return()                           # proxy ops are lost to a hidden tab — draw only on the Map tab
       p <- mproxy()
+      leaflet::addProviderTiles(leaflet::clearGroup(p, "Map"),  # (re)apply current-theme tiles (a theme swap while hidden is lost)
+        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
       for (g in c("Protected", "Predators", "Catches", "Device", "TrapHighlight")) leaflet::clearGroup(p, g)
       leaflet::clearControls(p)
       md <- map_data(); req(!is.null(md))
@@ -368,6 +370,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
     })
 
     observe({                                                   # Boundary — the anchor's reserve footprint (hull)
+      if (!isTRUE(on_map())) return()                           # proxy ops are lost to a hidden tab
       p <- mproxy(); leaflet::clearGroup(p, "Boundary")
       k <- akey(); if (is.null(k) || !nzchar(k)) return()
       rn <- if (identical(lvl(), "reserve")) k else strsplit(k, "|", fixed = TRUE)[[1]][1]   # line: its reserve

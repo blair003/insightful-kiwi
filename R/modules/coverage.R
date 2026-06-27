@@ -165,13 +165,7 @@ coverage_ui <- function(id, ik_data = NULL) {
             help = .ik_info(ns("cov_help"), "Coverage — how to read this", coverage_help_body(cam_norm))),
         # The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
         # (The structural "network density by reserve" table now lives on the main Overview → Network density.)
-        tags$p(class = "ik-cov-lead",
-          tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
-          tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera; ",
-          tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps; ",
-          tags$b(tags$span(style = "color:#2c7fb8", "blue")), " = camera & ",
-          tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap locations (the Device layer). A green hotspot ringed by ",
-          "purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
+        uiOutput(ns("cov_lead")),   # dynamic: substitutes the selected protected / predator species
         div(class = "ik-page-period", uiOutput(ns("period_banner"))),   # this section honours the period (density above is all-data)
         uiOutput(ns("caption")),
         layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
@@ -217,6 +211,14 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     pred_sci <- reactive(ik_resolve_species_choice(input$pred, pred_taxa))
     prot_lab <- reactive({ v <- input$prot; if (!length(v)) "protected" else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
     pred_lab <- reactive({ v <- input$pred; if (!length(v)) "predator"  else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
+
+    # Map legend lead — substitutes the selected protected / predator species (the title + help stay generic).
+    output$cov_lead <- renderUI(tags$p(class = "ik-cov-lead",
+      tags$b(tags$span(style = "color:#2e7d32", "Green")), " = ", tags$b(prot_lab()), " detection (camera); ",
+      tags$b(tags$span(style = "color:#c62828", "red")), " = ", tags$b(pred_lab()), " detection (camera); ",
+      tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = ", tags$b(pred_lab()), " caught (trap). ",
+      "A green hotspot ringed by purple/grey is ", tags$b("covered"), "; one with little around it is a ", tags$b("gap"), ". ",
+      "Works best filtered by ", tags$b("Reserve"), "."))
 
     .pts <- function(m) if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE]
     cam_prot <- reactive({ req(active()); if (!length(prot_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = prot_sci()), "camera", norm = per_cam)) })
