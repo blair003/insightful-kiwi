@@ -334,8 +334,8 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
               else sprintf("on any camera within %s, within %d days",
                            if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r), max_pd)
     tags$p(class = "ik-cooc-hint",
-      "Each ", tags$b(prot_l()), " detection, coloured by how soon a ", tags$b(pred_l()),
-      " turns up ", phrase, " ", tags$b("(red = soonest)"),
+      "Each camera, coloured by the ", tags$b("soonest"), " a ", tags$b(pred_l()),
+      " turned up ", phrase, " after a ", tags$b(prot_l()), " ", tags$b("(red = soonest)"),
       " — dot size = number of pairs; the ", tags$b("Surface"),
       " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it.")
   })
@@ -365,11 +365,12 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
                        file, row.names = FALSE)
     })
 
-  # Per protected camera: median gap to nearest predator + pair count (the map dots + table rows).
+  # Per protected camera: the SOONEST (min) and the typical (median) gap to a nearby predator + pair count.
+  # Min leads — the closest a predator came in time is the critical risk signal; median is context.
   timing_loc <- reactive({
     g <- gaps(); if (is.null(g) || !nrow(g)) return(NULL)
     agg <- do.call(rbind, lapply(split(g, g$location_id), function(s)
-      data.frame(location_id = s$location_id[1], median_gap_h = stats::median(s$gap_h),
+      data.frame(location_id = s$location_id[1], min_gap_h = min(s$gap_h), median_gap_h = stats::median(s$gap_h),
                  n = nrow(s), stringsAsFactors = FALSE)))
     mi <- match(agg$location_id, locs0$location_id)
     agg$name <- locs0$name[mi]; agg$reserve <- locs0$reserve[mi]
@@ -440,11 +441,11 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
     if (!on_map()) return()
     p <- cproxy(); leaflet::clearGroup(p, "Surface"); leaflet::clearGroup(p, "Pairs"); leaflet::clearControls(p)
     d <- timing_loc(); if (is.null(d) || !nrow(d)) return()
-    use_days <- max(d$median_gap_h, na.rm = TRUE) >= 48
+    use_days <- max(d$min_gap_h, na.rm = TRUE) >= 48
     conv <- function(h) if (use_days) h / 24 else h
-    d$gval <- conv(d$median_gap_h); mx <- max(d$gval, na.rm = TRUE)
+    d$gval <- conv(d$min_gap_h); mx <- max(d$gval, na.rm = TRUE)
     pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
-    surf <- tryCatch(ik_idw_surface(d, "median_gap_h", "reserve"), error = function(e) NULL)
+    surf <- tryCatch(ik_idw_surface(d, "min_gap_h", "reserve"), error = function(e) NULL)
     if (!is.null(surf) && nrow(surf)) {
       surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
       leaflet::addPolygons(p, data = surf, group = "Surface", stroke = FALSE,
@@ -454,21 +455,21 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
     leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, layerId = ~location_id, group = "Pairs",
       radius = ik_marker_radius(d$n, 4, 22, cap = 5),   # 1 pair → small, 5+ → large (clipped at 5) so 1–5 are easy to tell apart
       fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
-      label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")),
+      label = ~sprintf("%s — soonest %s · median %s (%d pair%s)", name, .fmt_gap_short(min_gap_h), .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")),
       options = leaflet::pathOptions(pane = "pairs"))
     leaflet::addLegend(p, "bottomright", pal = pal, values = d$gval,
-      title = sprintf("Median gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
+      title = sprintf("Min gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
                       if (use_days) "days" else "hours"), opacity = 0.9)
   })
 
   # Per-camera table under the map (each row = a map dot), soonest first; shares its sorted order with the
   # click handler. DT returns selections as indices into the data AS PASSED (robust to column re-sorting).
-  map_tab <- reactive({ d <- timing_loc(); if (is.null(d)) return(NULL); d[order(d$median_gap_h), , drop = FALSE] })
+  map_tab <- reactive({ d <- timing_loc(); if (is.null(d)) return(NULL); d[order(d$min_gap_h), , drop = FALSE] })
   output[[ids$table]] <- DT::renderDT({
     d <- map_tab(); validate(need(!is.null(d) && nrow(d), "No co-detections for this selection."))
     df <- data.frame(Camera = d$name, Reserve = d$reserve,
-                     `Median gap` = .fmt_gap_short(d$median_gap_h), Pairs = d$n,
-                     .loc = d$location_id, check.names = FALSE)
+                     `Min gap` = .fmt_gap_short(d$min_gap_h), `Median gap` = .fmt_gap_short(d$median_gap_h),
+                     Pairs = d$n, .loc = d$location_id, check.names = FALSE)
     loc_i <- ncol(df) - 1L                                   # 0-based index of the hidden .loc column
     DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
       options = list(dom = "tip", pageLength = 7,
@@ -501,8 +502,8 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
     r <- d[d$location_id == loc, , drop = FALSE]
     if (!nrow(r) || !is.finite(r$longitude[1])) return()
     leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], group = "Hover",
-      popup = sprintf("<b>%s</b><br/>median gap %s &middot; %d pair%s", r$name[1],
-                      .fmt_gap_short(r$median_gap_h[1]), r$n[1], ifelse(r$n[1] == 1, "", "s")),
+      popup = sprintf("<b>%s</b><br/>soonest %s &middot; median %s &middot; %d pair%s", r$name[1],
+                      .fmt_gap_short(r$min_gap_h[1]), .fmt_gap_short(r$median_gap_h[1]), r$n[1], ifelse(r$n[1] == 1, "", "s")),
       options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE))
   }, ignoreNULL = FALSE)
 }
