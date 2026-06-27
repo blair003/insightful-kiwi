@@ -104,14 +104,11 @@ trapping_effectiveness_ui <- function(id, ik_data) {
   norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100        # catch-rate normalisation unit (trap-nights)
   ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
   nav_panel(
-    "Checking vs catch rate", value = "trapping-effectiveness", icon = icon("bullseye"),
+    "Check frequency vs catch rate", value = "trapping-effectiveness", icon = icon("bullseye"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping_effectiveness.css")),
     div(class = "ik-teff",
-        .ik_page_header("Checking vs catch rate — does checking more often catch more?",
-            description = tagList("Catch rate (catches per ", tags$b(ntn), ") by how often traps are checked, ",
-              tags$b("within each season"), " — so a seasonal catch peak isn't mistaken for a checking effect. ",
-              "Bars higher on the ", tags$b("left"), " (tighter checking) would mean checking more often catches ",
-              "more per trap-night. ", tags$b("Exploratory"), " — read the shape, not small differences."),
+        .ik_page_header("Checking vs catch rate",
+            description = "Does checking traps more often result in a higher catch rate?",
             help = .ik_info(ns("teff_help"), "Checking vs catch rate — how to read this",
                      trapping_effectiveness_help_body(norm)),
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),  # Data period + Reserve are in the sidebar
