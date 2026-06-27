@@ -67,9 +67,9 @@ ui <- page_navbar(
                                   show = c("period", "compare", "reserve"), ik_data = ik_data,
                                   view = "compare", heading = "Filters")),
     conditionalPanel("input.nav === 'bait'",
-                     bait_controls("bait", ik_data),
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
-                                  period_default = "rolling12", heading = "Filters")),
+                                  period_default = "rolling12",
+                                  controls = bait_controls("bait", ik_data), heading = "Filters")),
     conditionalPanel("input.nav === 'trap-review'",
                      # Period drives the "By trapline" + Map tabs; the "Trend" tab spans all data, so
                      # Period hides there (the generic note in its place). Reserve stays on all tabs.
@@ -81,9 +81,9 @@ ui <- page_navbar(
                                   view_show_js = "input['trapping-trap_view'] !== 'Map'",
                                   period_show_js = "input['trapping-trap_view'] !== 'Trend'")),
     conditionalPanel("input.nav === 'coverage'",
-                     coverage_controls("coverage", ik_data),
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "rolling12", heading = "Filters")),   # spatial view: a full annual cycle
+                                  period_default = "rolling12",
+                                  controls = coverage_controls("coverage", ik_data), heading = "Filters")),   # spatial view: a full annual cycle
     conditionalPanel("input.nav === 'neighbourhood'",
                      # All-time view; the anchor (Reserve/Line) is its data selection, in View options.
                      selection_all_data(),
@@ -91,19 +91,18 @@ ui <- page_navbar(
     conditionalPanel("input.nav === 'reserve-report'",
                      reserve_report_controls("reserve_report", ik_data)),
     conditionalPanel("input.nav === 'trap-hero'",
-                     trap_hero_controls("trap_hero", ik_data),
                      selection_ui("trap_hero_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "rolling12", heading = "Filters")),
+                                  period_default = "rolling12",
+                                  controls = trap_hero_controls("trap_hero", ik_data), heading = "Filters")),
     conditionalPanel("input.nav === 'cooccurrence'",
                      # Predator/Protected/Within/Predator-after are the co-occurrence-specific picks (read by
                      # the cooccurrence module's namespace) — the tinted "View options" group at the TOP.
                      # Period + Reserve are the shared "Filters" below. The Trend tab spans all seasons, so
                      # Period hides there (a note in its place).
-                     cooccurrence_controls("cooccurrence"),
                      selection_ui("cooccurrence_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = "rolling12",
                                   period_show_js = "input['cooccurrence-cooc_view'] !== 'Trend'",
-                                  heading = "Filters")),
+                                  controls = cooccurrence_controls("cooccurrence"), heading = "Filters")),
     conditionalPanel("input.nav === 'camera-review'",
                      selection_all_data(),
                      monitoring_controls("monitoring")),
@@ -111,14 +110,14 @@ ui <- page_navbar(
                      selection_all_data(),
                      tags$small(class = "ik-period-note", "Camera & species selectors are in the view.")),
     conditionalPanel("input.nav === 'monitoring-map'",
-                     maps_controls("monitoring_map", device = "camera", ik_data = ik_data),
                      selection_ui("mon_map_selection",
                                   show = c("period", "reserve", "line"), ik_data = ik_data,
+                                  controls = maps_controls("monitoring_map", device = "camera", ik_data = ik_data),
                                   heading = "Filters")),
     conditionalPanel("input.nav === 'trapping-map'",
-                     maps_controls("trapping_map", device = "trap", ik_data = ik_data),
                      selection_ui("trap_map_selection",
                                   show = c("period", "reserve", "line"), ik_data = ik_data,
+                                  controls = maps_controls("trapping_map", device = "trap", ik_data = ik_data),
                                   heading = "Filters")),
     conditionalPanel("input.nav === 'monitoring-records'",
                      selection_ui("mon_records_selection",
@@ -133,18 +132,18 @@ ui <- page_navbar(
     # Species dashboards (one shared selection — every species page's value starts grp-/sp-). Period
     # defaults to All data so every tab starts on the same footing; Summary & Trend always span all
     # data (Period hidden, a note in its place), the rest honour whatever Period the user sets.
-    # Per-species View options (the Bait + Co-occurrence tab controls), each conditional on its OWN nav
-    # value; the Period/Reserve/Device "Filters" below are shared across every species page.
-    lapply(.species_specs, function(s) {
-      ctl <- species_controls(gsub("-", "_", s$key), s, ik_data)
-      if (is.null(ctl)) NULL else conditionalPanel(sprintf("input.nav === '%s'", s$key), ctl)
-    }),
     conditionalPanel("input.nav && (input.nav.indexOf('grp-') === 0 || input.nav.indexOf('sp-') === 0)",
                      selection_ui("species_selection", show = c("period", "reserve", "device"), ik_data = ik_data,
                                   period_default = "all",
                                   period_show_js = "input.ik_species_tab !== 'Trend' && input.ik_species_tab !== 'Summary'",
                                   # Device (camera/trap) split only matters for the Records list, so show it just there.
                                   device_show_js = "input.ik_species_tab === 'Records'",
+                                  # Per-species View options (the Bait + Co-occurrence tab controls), each gated on its
+                                  # OWN nav value; slotted below Data period, above the shared Period/Reserve/Device "Filters".
+                                  controls = lapply(.species_specs, function(s) {
+                                    ctl <- species_controls(gsub("-", "_", s$key), s, ik_data)
+                                    if (is.null(ctl)) NULL else conditionalPanel(sprintf("input.nav === '%s'", s$key), ctl)
+                                  }),
                                   heading = "Filters")),
     tags$div(class = "ik-sidebar-foot",
              tags$em("Insightful Kiwi"), tags$br(),

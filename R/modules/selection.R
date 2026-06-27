@@ -27,7 +27,8 @@ nat_sort <- function(x) {
 #' @return A tagList of controls.
 selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL, device_default = NULL,
                          period_show_js = NULL, period_note = NULL, device_show_js = NULL, heading = NULL,
-                         view = character(), view_js = NULL, view_extra = NULL, view_show_js = NULL) {
+                         view = character(), view_js = NULL, view_extra = NULL, view_show_js = NULL,
+                         controls = NULL) {   # a page's own View-options group, slotted AFTER Data period, before Filters
   ns <- NS(id)
   dev_choices <- if (!is.null(ik_data))                         # device = source_type; baked here so the
     stats::setNames(sort(unique(vapply(ik_data$datasets,        # default survives while the sidebar panel
@@ -100,6 +101,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
       tags$div(class = "ik-sel-section-h", "Data period"),   # heading replaces the widget label — consistent with Filters
       period_ctrl),
     view_box,
+    controls,   # page-specific View options (maps_controls, species_controls, …) — below Data period, above Filters
     # Heading INSIDE the filters group (like View options), so the heading->first-control gap is the heading
     # margin — not an inter-section gap — and matches View options exactly.
     if (length(filt)) div(class = "ik-selection",
