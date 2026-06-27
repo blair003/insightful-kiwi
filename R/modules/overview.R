@@ -941,7 +941,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
                          ik_data = ik_data, period = selection()$period,
                          help = .ik_info(session$ns("trap_help"), "Trapping — how to read this",
                                          overview_trap_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
-      # Network-health strip on top — a row of red→green gauges (v1: % active, % well-serviced). Modular:
+      # Network-health strip on top — a row of red→green gauges (v1: Network active, Check frequency). Modular:
       # add/redo metrics in ik_trapping_health(); the strip UI is generic (R/functions/health.R).
       tagList(
         ik_health_strip(ik_trapping_health(ik_data, selection(), trp()), "Network health",
