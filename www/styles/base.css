@@ -127,3 +127,13 @@ td .ik-link, .ik-link {
    click-to-open .ik_info (?). ─────────────────────────────────────────────────────────────── */
 .ik-hint { color: var(--bs-secondary-color, #888); font-weight: 400; margin-left: 0.3rem;
            cursor: help; font-size: 0.85em; }
+
+/* ── Mobile sidebar: when the rail is COLLAPSED, drop bslib's collapse-toggle row — that blank line with
+   just an arrow pinned to the very top in portrait. The page's date / period banner is the opener on
+   mobile instead (tap it → the rail slides in as an overlay; a back-chevron inside the rail closes it).
+   Only applies while collapsed + on a phone-width, collapsible rail, so the expanded overlay's chevron and
+   all desktop behaviour are untouched. ─────────────────────────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+  .bslib-sidebar-layout[data-collapsible-mobile="true"].sidebar-collapsed { grid-template-rows: 0 1fr !important; }
+  .bslib-sidebar-layout[data-collapsible-mobile="true"].sidebar-collapsed > .collapse-toggle { display: none !important; }
+}

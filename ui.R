@@ -189,7 +189,7 @@ ui <- page_navbar(
     if (.has_favourites && ik_feature_enabled(ik_data, "highlights")) highlights_ui("highlights", ik_data),   # friendly visual entry point
     maps_ui("monitoring_map", device = "camera", label = "Map", value = "monitoring-map", ik_data = ik_data),
     nav_panel("Camera review", value = "camera-review", icon = icon("camera"),
-              monitoring_ui("monitoring")),
+              monitoring_ui("monitoring", ik_data)),
     if (ik_feature_enabled(ik_data, "cooccurrence")) cooccurrence_ui("cooccurrence"),   # predator ↔ protected timing (camera)
     if (ik_feature_enabled(ik_data, "duplicates"))
       nav_panel("Duplicate window", value = "duplicates", icon = icon("clone"),

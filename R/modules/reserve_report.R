@@ -100,7 +100,8 @@ reserve_report_ui <- function(id, ik_data) {
         .ik_page_header("Reserve report — the whole story over time",
             description = tagList("One reserve, season by season, as a single chain: effort → servicing → catches → predators on ",
               "camera → protected on camera. Read top-to-bottom — if it all moves the right way, you're winning."),
-            help = .ik_info(ns("rr_help"), "Reserve report — how to read this", reserve_report_help_body())),
+            help = .ik_info(ns("rr_help"), "Reserve report — how to read this", reserve_report_help_body()),
+            banner = div(class = "ik-page-period", .ik_period_banner(ik_data, NULL, all_data = TRUE))),  # toggles the rail (esp. on mobile)
         uiOutput(ns("note")),
         plotOutput(ns("plot"), height = "780px"))
   )

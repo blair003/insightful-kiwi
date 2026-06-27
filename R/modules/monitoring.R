@@ -61,13 +61,14 @@ monitoring_controls <- function(id) {
       selected = c("ok", "mild", "moderate", "serious", "none")))
 }
 
-monitoring_ui <- function(id) {
+monitoring_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/monitoring.css")),
     div(class = "ik-monitoring",
         .ik_page_header("Camera deployment review",
-            help = .ik_info(ns("mon_help"), "Camera review — how to read this", monitoring_help_body())),
+            help = .ik_info(ns("mon_help"), "Camera review — how to read this", monitoring_help_body()),
+            banner = div(class = "ik-page-period", .ik_period_banner(ik_data, NULL, all_data = TRUE))),  # toggles the rail (esp. on mobile)
         uiOutput(ns("intro")),
         div(class = "ik-monitoring-scroll", uiOutput(ns("grid"))))
   )

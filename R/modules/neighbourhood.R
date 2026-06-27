@@ -113,7 +113,8 @@ neighbourhood_ui <- function(id, ik_data) {
               "time, alongside the predators caught in the ", tags$b("traps nearby"), " — for a line, those within ",
               "a radius you set; a whole reserve uses all its own traps."),
             help = .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
-                     neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000))),
+                     neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000)),
+            banner = div(class = "ik-page-period", .ik_period_banner(ik_data, NULL, all_data = TRUE))),  # toggles the rail (esp. on mobile)
         uiOutput(ns("intro")),
         tabsetPanel(
           id = ns("nbhd_view"), type = "tabs",
