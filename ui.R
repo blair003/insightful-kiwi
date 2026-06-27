@@ -36,20 +36,6 @@ ui <- page_navbar(
       "document.querySelectorAll('.navbar .dropdown-menu.show, .navbar .nav-item.dropdown.show, .navbar .dropdown-toggle.show')",
       ".forEach(function(e){ e.classList.remove('show'); e.setAttribute('aria-expanded','false'); }); });",
       sep = "\n")))
-    ,
-    # Mobile sidebar fix. bslib decides the sidebar's mobile-vs-desktop layout by reading a CSS variable
-    # (--bslib-sidebar-js-window-size) ONCE when it initialises the sidebar, then only re-reads it on the
-    # window 'resize' event. On some mobile browsers that init runs before the stylesheet/layout has settled,
-    # so it reads "desktop", starts the rail collapsed, and only corrects when the user rotates the phone
-    # (which fires resize). Dispatch a synthetic resize once things settle — same code path, no rotation
-    # needed — so the rail picks up its mobile (always-open) layout on first load.
-    tags$script(HTML(paste(
-      "(function(){",
-      "  function nudge(){ try { window.dispatchEvent(new Event('resize')); } catch(e){} }",
-      "  window.addEventListener('load', function(){ setTimeout(nudge, 150); setTimeout(nudge, 600); });",
-      "  document.addEventListener('shiny:connected', function(){ setTimeout(nudge, 250); setTimeout(nudge, 900); setTimeout(nudge, 1800); });",
-      "})();",
-      sep = "\n")))
   ),
 
   # Global sidebar — filters/controls for the active view.
