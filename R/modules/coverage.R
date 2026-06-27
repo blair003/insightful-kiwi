@@ -170,7 +170,6 @@ coverage_ui <- function(id, ik_data = NULL) {
             help = .ik_info(ns("cov_help"), "Coverage — how to read this", coverage_help_body(cam_norm))),
         # The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
         # (The structural "network density by reserve" table now lives on the main Overview → Network density.)
-        uiOutput(ns("cov_lead")),   # dynamic: substitutes the selected protected / predator species
         div(class = "ik-page-period", uiOutput(ns("period_banner"))),   # this section honours the period (density above is all-data)
         uiOutput(ns("caption")),
         layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
@@ -217,13 +216,8 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     prot_lab <- reactive({ v <- input$prot; if (!length(v)) "protected" else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
     pred_lab <- reactive({ v <- input$pred; if (!length(v)) "predator"  else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
 
-    # Map legend lead — substitutes the selected protected / predator species (the title + help stay generic).
-    output$cov_lead <- renderUI(tags$p(class = "ik-cov-lead",
-      tags$b(tags$span(style = "color:#2e7d32", "Green")), " = ", tags$b(prot_lab()), " detection (camera); ",
-      tags$b(tags$span(style = "color:#c62828", "red")), " = ", tags$b(pred_lab()), " detection (camera); ",
-      tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = ", tags$b(pred_lab()), " caught (trap). ",
-      "A green hotspot ringed by purple/grey is ", tags$b("covered"), "; one with little around it is a ", tags$b("gap"), ". ",
-      "Works best filtered by ", tags$b("Reserve"), "."))
+    # (The inline "Green = … / Works best filtered by Reserve" legend lead was removed to give the map more
+    #  vertical room — the marker key is on the map legend + in the help modal.)
 
     .pts <- function(m) if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE]
     cam_prot <- reactive({ req(active()); if (!length(prot_sci())) return(NULL); .pts(ik_location_metric(ik_data, selection(), list(P = prot_sci()), "camera", norm = per_cam)) })
@@ -401,10 +395,10 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       hot <- cam_prot(); nh <- if (is.null(hot)) 0L else sum(hot$metric > 0, na.rm = TRUE)
       tr  <- trap_active(); nt <- if (is.null(tr)) 0L else nrow(tr)
       cau <- trap_pred(); nc <- if (is.null(cau)) 0L else sum(cau$captures > 0, na.rm = TRUE)
-      seas <- .ik_nz(selection()$season); per <- if (is.null(seas)) "all seasons" else paste(seas, collapse = ", ")
+      # The period is already on the calendar banner above, so don't re-list the seasons here — lead with the count.
       tags$p(class = "ik-cov-meta", sprintf(
-        "%s · %s camera hotspot%s with %s · %s traps (%s caught %s). Toggle layers top-right; click a marker for detail.",
-        per, format(nh, big.mark = ","), if (identical(nh, 1L)) "" else "s", prot_lab(),
+        "%s camera hotspot%s with %s · %s traps (%s caught %s). Toggle layers top-right; click a marker for detail.",
+        format(nh, big.mark = ","), if (identical(nh, 1L)) "" else "s", prot_lab(),
         format(nt, big.mark = ","), format(nc, big.mark = ","), pred_lab()))
     })
 
