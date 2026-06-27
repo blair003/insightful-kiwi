@@ -92,6 +92,9 @@ ui <- page_navbar(
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
                                   period_default = "rolling12",
                                   controls = bait_controls("bait", ik_data), heading = "Filters")),
+    conditionalPanel("input.nav === 'trapping-effectiveness'",
+                     selection_ui("trapping_eff_selection", show = c("period", "reserve"), ik_data = ik_data,
+                                  period_default = "all", heading = "Filters")),   # default all seasons (the cross-season story)
     conditionalPanel("input.nav === 'trap-review'",
                      # Period drives the "By trapline" + Map tabs; the "Trend" tab spans all data, so
                      # Period hides there (the generic note in its place). Reserve stays on all tabs.

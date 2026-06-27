@@ -122,7 +122,10 @@ server <- function(input, output, session) {
   bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific,
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
-  trapping_effectiveness_server("trapping_eff", ik_data, prefer_scientific, color_mode = cm)
+  trapping_eff_selection <- selection_server("trapping_eff_selection", ik_data, prefer_scientific,
+    show = c("period", "reserve"), active = reactive(identical(input$nav, "trapping-effectiveness")))
+  trapping_effectiveness_server("trapping_eff", ik_data, prefer_scientific, color_mode = cm,
+                                selection = trapping_eff_selection)
   trap_hero_selection <- selection_server("trap_hero_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "trap-hero")))
   .lazy_once(reactive(identical(input$nav, "trap-hero")), function()
@@ -151,7 +154,7 @@ server <- function(input, output, session) {
   # (The collapse toggle stays either way.)
   SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
                     "trap-review", "bait", "coverage", "trap-hero", "cooccurrence",
-                    "neighbourhood", "reserve-report")   # their selection/anchor lives in the rail
+                    "neighbourhood", "reserve-report", "trapping-effectiveness")   # their selection/anchor lives in the rail
   # Auto-collapse the rail on the light pages (everything NOT in SIDEBAR_NAVS), open it on the heavy ones —
   # on BOTH desktop and mobile (the rail is collapsible everywhere now; on mobile open = an overlay you also
   # reach via the period-banner date toggle). On desktop the rail is open by default so the heavy pages cost

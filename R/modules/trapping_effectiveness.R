@@ -101,24 +101,22 @@ trapping_effectiveness_ui <- function(id, ik_data) {
   splits <- unique(sg$label[which(sg$split)])
   sp_choices  <- ik_species_choices(ctl, ik_data, "vernacular", splits,
                                      all_label = "All predators", all_value = "__all__")
-  res  <- sort(unique(ik_data$app$geography$locations$reserve[!is.na(ik_data$app$geography$locations$reserve)]))
-  res_choices <- c("All reserves" = "__all__", stats::setNames(res, res))
   norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100        # catch-rate normalisation unit (trap-nights)
   ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
   nav_panel(
-    "Trapping effectiveness", value = "trapping-effectiveness", icon = icon("bullseye"),
+    "Checking vs catch rate", value = "trapping-effectiveness", icon = icon("bullseye"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping_effectiveness.css")),
     div(class = "ik-teff",
-        .ik_page_header("Trapping effectiveness — does checking more often catch more?",
+        .ik_page_header("Checking vs catch rate — does checking more often catch more?",
             description = tagList("Catch rate (catches per ", tags$b(ntn), ") by how often traps are checked, ",
               tags$b("within each season"), " — so a seasonal catch peak isn't mistaken for a checking effect. ",
               "Bars higher on the ", tags$b("left"), " (tighter checking) would mean checking more often catches ",
-              "more per trap-night."),
-            help = .ik_info(ns("teff_help"), "Trapping effectiveness — how to read this",
-                     trapping_effectiveness_help_body(norm))),
+              "more per trap-night. ", tags$b("Exploratory"), " — read the shape, not small differences."),
+            help = .ik_info(ns("teff_help"), "Checking vs catch rate — how to read this",
+                     trapping_effectiveness_help_body(norm)),
+            banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),  # Data period + Reserve are in the sidebar
         div(class = "teff-controls",
-            selectInput(ns("species"), "Captures of", choices = sp_choices, selected = "__all__", width = "200px"),
-            selectInput(ns("reserve"), "Reserve", choices = res_choices, selected = "__all__", width = "180px")),
+            selectInput(ns("species"), "Captures of", choices = sp_choices, selected = "__all__", width = "200px")),
         uiOutput(ns("note")),
         plotOutput(ns("plot"), height = "440px"))
   )
@@ -129,22 +127,17 @@ trapping_effectiveness_ui <- function(id, ik_data) {
 #' @param prefer_scientific reactive name preference (reserved; labels here are predators).
 #' @param color_mode reactive theme ("light"/"dark").
 trapping_effectiveness_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
-                                          color_mode = reactive("light")) {
+                                          color_mode = reactive("light"), selection = reactive(list())) {
   moduleServer(id, function(input, output, session) {
     is_dark <- reactive(identical(color_mode(), "dark"))
     sg  <- ik_species_groups(ik_data)
     ctl <- ik_taxa_groups(sg, "control", "target")
     taxa_r    <- reactive({ v <- input$species %||% "__all__"; if (identical(v, "__all__")) NULL else ik_resolve_species_choice(v, ctl) })
-    reserve_r <- reactive({ v <- input$reserve %||% "__all__"; if (identical(v, "__all__")) NULL else v })
-    observe({                                                  # Reserve choices follow the active datasets
-      ar <- sort(unique(ik_active_locations(ik_data)$reserve[!is.na(ik_active_locations(ik_data)$reserve)]))
-      ch <- c("All reserves" = "__all__", stats::setNames(ar, ar))
-      updateSelectInput(session, "reserve", choices = ch,
-        selected = if ((isolate(input$reserve) %||% "__all__") %in% ch) isolate(input$reserve) else "__all__")
-    })
+    reserve_r <- reactive(.ik_nz(selection()$reserve))        # Reserve now comes from the shared sidebar selection
+    output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
 
-    data <- reactive(ik_trap_effectiveness(ik_data, taxa_r(), reserve_r())) |>
-      bindCache(input$species, input$reserve, ik_active_datasets())
+    data <- reactive(ik_trap_effectiveness(ik_data, taxa_r(), reserve_r(), seasons = .ik_nz(selection()$season))) |>
+      bindCache(input$species, selection()$reserve, selection()$season, ik_active_datasets())
 
     output$note <- renderUI({
       d <- data(); if (is.null(d) || !nrow(d)) return(NULL)

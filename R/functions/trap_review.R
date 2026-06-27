@@ -416,11 +416,15 @@ ik_trap_checks <- function(ik_data, location, seasons = NULL) {
 #' @return tidy data.frame in LONG form — a Nominal AND an Operational row per cell (so both can be
 #'   drawn together): season (ordered factor) · band (ordered factor) · n_traps · basis (factor
 #'   Nominal/Operational) · rate. With attr "norm". NULL when there are no trap checks in scope.
-ik_trap_effectiveness <- function(ik_data, taxa = NULL, reserve = NULL, bands = c(7, 14, 30)) {
+ik_trap_effectiveness <- function(ik_data, taxa = NULL, reserve = NULL, seasons = NULL, bands = c(7, 14, 30)) {
   norm  <- ik_data$meta$trapping$rate$norm_trap_days %||% 100
   dp <- ik_deployment_period(ik_data)
   dp <- dp[!is.na(dp$source_type) & dp$source_type == "trap" & !is.na(dp$deploymentEnd), , drop = FALSE]
   if (!is.null(reserve)) dp <- dp[dp$reserve %in% reserve, , drop = FALSE]
+  if (!is.null(seasons)) {                                   # Data period (sidebar): keep checks whose season is in scope
+    cs <- dp$check_calendar_season %||% dp$calendar_season
+    dp <- dp[!is.na(cs) & cs %in% seasons, , drop = FALSE]
+  }
   if (!nrow(dp)) return(NULL)
 
   obs    <- ik_observations(ik_data, with_location = FALSE)
