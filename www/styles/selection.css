@@ -10,6 +10,40 @@
   margin-bottom: 0.15rem;
 }
 
+/* "View controls" — page-specific controls (e.g. a map's Measure/Species) relocated into the sidebar,
+   set off from the global Period/Reserve selection as a tinted, bordered group. Sits at the TOP of the
+   rail, above the global axes. The accent tint is kept faint so it reads as a highlighted group, not an
+   alert; it follows --ik-accent into dark mode. */
+.ik-view-controls {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.75rem 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--ik-accent, #cf6819) 35%, transparent);
+  border-left: 3px solid var(--ik-accent, #cf6819);
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--ik-accent, #cf6819) 7%, transparent);
+}
+.ik-view-controls-h {
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ik-accent, #cf6819);
+  margin-bottom: 0.5rem;
+}
+/* Plain section heading for the COMMON/shared axes (e.g. "Filters") — same weight as the feature
+   group's heading but muted + a divider instead of the accent tint, so the shared controls read as a
+   labelled section without competing with the highlighted feature box above them. */
+.ik-sel-section-h {
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bs-secondary-color, #6c757d);
+  margin: 0 0 0.55rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
 /* Stands in for the Period control on tabs that always span all data (e.g. species Summary/Trend). */
 .ik-period-note {
   font-size: 0.8rem;

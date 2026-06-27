@@ -21,9 +21,12 @@ nat_sort <- function(x) {
 #'   populated and pointing at its default season (`ik_default_period`), so it never passes
 #'   through an empty → "all data" state on first load (which would double-resolve the view).
 #'   The other axes' choices are still populated server-side. If `NULL`, Period renders empty.
+#' @param heading Optional plain section heading rendered above the controls (e.g. "Filters"), to label
+#'   the common/shared axes when a tinted feature-control group (.ik-view-controls) sits above them in
+#'   the sidebar. NULL (default) renders no heading — the controls sit directly under the rail title.
 #' @return A tagList of controls.
 selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL, device_default = NULL,
-                         period_show_js = NULL, period_note = NULL, device_show_js = NULL) {
+                         period_show_js = NULL, period_note = NULL, device_show_js = NULL, heading = NULL) {
   ns <- NS(id)
   dev_choices <- if (!is.null(ik_data))                         # device = source_type; baked here so the
     stats::setNames(sort(unique(vapply(ik_data$datasets,        # default survives while the sidebar panel
@@ -56,11 +59,14 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   # Optionally gate the Period control on a top-level JS condition (e.g. hide it on a tab that spans
   # all time). conditionalPanel's condition reads the GLOBAL input (no ns), so callers reference a
   # top-level input id; the control keeps its own namespaced id, so the server side is unchanged.
-  # When `period_note` is given it shows in the control's place under the negated condition — so a
-  # tab that ignores the Period gets an explanatory note rather than a blank gap.
+  # A tab that ignores the Period gets an explanatory note in the control's place (not a blank gap). The
+  # note is GENERIC and tab-agnostic by default — so changing a view's tab layout never means editing copy
+  # here or at the call site; pass `period_note` only to override.
   if (!is.null(period_show_js) && !is.null(ctrls$period)) {
-    note <- if (!is.null(period_note))
-      conditionalPanel(paste0("!(", period_show_js, ")"), tags$div(class = "ik-period-note", period_note)) else NULL
+    body <- period_note %||% tagList(
+      tags$span(class = "ik-period-note-h", "Period · All data"),
+      "This view spans all data for all seasons and cannot be changed.")
+    note <- conditionalPanel(paste0("!(", period_show_js, ")"), tags$div(class = "ik-period-note", body))
     ctrls$period <- tagList(conditionalPanel(period_show_js, ctrls$period), note)
   }
   # Same trick for Device: gate it on a top-level JS condition (e.g. show only on a Records tab where
@@ -71,6 +77,7 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
   ctrls <- ctrls[show %||% c("period", "reserve", "line", "location", "device", "species")]
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/selection.css")),
+    if (!is.null(heading)) tags$div(class = "ik-sel-section-h", heading),
     div(class = "ik-selection", ctrls)
   )
 }
@@ -84,13 +91,16 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
 #'   a sub-filter WITHIN the datasets currently shown in global Settings: its choices track the
 #'   active set, and an empty pick = "All available" (the active datasets, like every other view).
 #'   NULL omits the axis.
+#' @param source_type Optional "camera"/"trap" — scopes the geography UNIVERSE (reserve/line/location
+#'   choices) to that device's datasets, so a device-locked map's pickers don't offer the other device's
+#'   places. NULL (default) = all active datasets, as before.
 #' @return A reactive returning `ik_select()` output (observations, deployments, effort).
 selection_server <- function(id, ik_data, prefer_scientific, datasets = NULL, species_default = NULL,
-                             show = NULL, active = reactive(TRUE)) {
+                             show = NULL, active = reactive(TRUE), source_type = NULL) {
   moduleServer(id, function(input, output, session) {
     # Geography UNIVERSE follows the active datasets (global Settings toggle), so a hidden dataset's
     # reserves / lines / sites never appear in the pickers — reactive, re-fires when you save the toggle.
-    active_locs <- reactive(ik_active_locations(ik_data))
+    active_locs <- reactive(ik_active_locations(ik_data, source_type = source_type))
     group_map   <- ik_group_taxa(ik_data)   # label -> sci, for resolving the unified Species picker
     shows <- function(axis) is.null(show) || axis %in% show   # NULL = all axes (selection_ui default)
 

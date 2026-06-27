@@ -6,23 +6,9 @@
   gap: 1rem;
 }
 /* This is the one flex-gap page, so the period-banner subtitle would otherwise sit a full 1rem under
-   the title — pull it up so it reads as a subtitle (the gap below it to the controls stays). */
+   the title — pull it up so it reads as a subtitle (the gap below it to the map stays). The Measure /
+   Species controls now live in the sidebar (.ik-view-controls in selection.css), not a row above the map. */
 .ik-maps .ik-page-period { margin: -0.8rem 0 0; }
-
-/* Controls row: device · measure · group. */
-.ik-maps-controls {
-  display: flex;
-  gap: 1.5rem;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-.ik-maps-controls .form-group,
-.ik-maps-controls .shiny-input-container { margin-bottom: 0; }
-.ik-maps-controls .shiny-input-container { min-width: 12rem; }
-/* Only an OPEN selectize dropdown is elevated above the leaflet (panes ~400, controls ~1000) — NOT
-   the whole toolbar, which would otherwise create a stacking context that blocks the navbar menus. */
-.ik-maps-controls .selectize-control.single .selectize-dropdown,
-.ik-maps-controls .selectize-control.multi  .selectize-dropdown { z-index: 1050; }
 
 /* The map frame — theme-matched backdrop (no hardcoded grey), app font. */
 .ik-maps .leaflet-container {
@@ -64,12 +50,10 @@
   padding: 0.35rem 0.6rem;
 }
 
-/* Records / servicing table. */
-/* Reserve a stable height for the records area so drilling to a sparse location (few rows) doesn't
-   shrink the page. Without this, the page can get shorter than the marker-click scroll target, and
-   the browser clamps the scroll back up — the "jumps back up" bounce (most visible on a slow CPU,
-   where the filtered table re-renders after the scroll has already settled). */
-.ik-maps-records { margin-top: 0.5rem; min-height: 30rem; }
+/* Records table. It now sits BESIDE the map on standalone maps (.ik-maps-split below); the old
+   scroll-to-table hack and its reserved min-height went with the stacked layout. The Species-page
+   embeds (fixed) still stack it under the map. */
+.ik-maps-records { margin-top: 0.5rem; }
 .ik-maps-records-header {
   display: flex;
   justify-content: space-between;
@@ -79,9 +63,15 @@
 }
 .ik-maps-records-header small { color: var(--bs-secondary-color, #666); }
 
+/* Side-by-side map + records (standalone maps, wide screens): the records column scrolls within the
+   map's height (set inline to match) so the page stays one screen tall; layout_columns wraps the two
+   back to stacked on narrow windows. */
+.ik-maps-split { align-items: stretch; }
+.ik-maps-side { overflow: auto; }
+.ik-maps-side .ik-maps-records { margin-top: 0; }
+
 /* Hint text inside the priority/timing drill modal. */
 .ik-maps-hint { color: var(--bs-secondary-color, #6c757d); }
 
-/* Measure control wrapper + inline hint. */
-.ik-maps-measure { display: flex; flex-direction: column; }
+/* Inline hint text (drill modals). */
 .ik-maps-hint { color: var(--bs-secondary-color, #6c757d); font-weight: 400; font-size: 0.85em; }

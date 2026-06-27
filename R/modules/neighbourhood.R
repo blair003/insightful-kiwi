@@ -70,18 +70,36 @@ neighbourhood_help_body <- function(line_norm = 2000) {
 
 #' Neighbourhood nav panel. @param id Module id. @param ik_data The container (anchor choices are
 #'   baked into the UI — single-selects in this dropdown nav panel won't keep a server-set default).
+#' Neighbourhood sidebar controls — the anchor (Reserve + optional Line), the Traps-within radius (line
+#' anchor only), Protected/Predator, and the time grain. Built in the module's namespace, rendered in the
+#' global sidebar (ui.R). The Line list CASCADES from the Reserve (populated server-side); "(whole reserve)"
+#' anchors the reserve itself. ALL of these — Reserve + Line included — go in the tinted "View options"
+#' group: they'd normally be shared "Filters", so grouping them as view settings is exactly what flags
+#' that here they aren't. The "(whole reserve)" sentinel is a NON-empty value so selectize lets you pick it
+#' back after choosing a line (an empty value reads as the cleared/placeholder state). @keywords internal
+neighbourhood_controls <- function(id, ik_data) {
+  ns     <- NS(id)
+  loc    <- .nbhd_locations(ik_data)
+  cams   <- loc[!is.na(loc$source_type) & loc$source_type == "camera" & is.finite(loc$latitude), , drop = FALSE]
+  res_ch <- sort(unique(cams$reserve)); res_ch <- stats::setNames(res_ch, res_ch)
+  max_r  <- (ik_data$meta$proximity %||% list())$max_radius_m %||% 2000
+  rad_ch <- c("250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000); rad_ch <- rad_ch[rad_ch <= max_r]
+  div(class = "ik-selection ik-view-controls",
+    tags$div(class = "ik-view-controls-h", "View options"),
+    selectInput(ns("anchor_reserve"), "Reserve", choices = res_ch, selected = unname(res_ch)[1]),
+    # Line cascades from the Reserve (populated server-side); "(whole reserve)" anchors the reserve itself.
+    selectInput(ns("anchor_line"), "Line", choices = c("Whole reserve (all lines)" = "__all__"), selected = "__all__"),
+    conditionalPanel("input.anchor_line != '__all__'", ns = ns,  # a line anchor uses the Traps-within radius
+      selectInput(ns("radius"), "Traps within", choices = rad_ch,
+                  selected = if (500 %in% rad_ch) 500 else max(rad_ch))),
+    selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE),
+    selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE),
+    radioButtons(ns("grain"), "Time grain", inline = TRUE,
+                 choices = c("By season" = "season", "By year" = "year"), selected = "season"))
+}
+
 neighbourhood_ui <- function(id, ik_data) {
   ns <- NS(id)
-  loc  <- .nbhd_locations(ik_data)
-  cams <- loc[!is.na(loc$source_type) & loc$source_type == "camera" & is.finite(loc$latitude), , drop = FALSE]
-  cams <- cams[order(cams$reserve, cams$name), , drop = FALSE]
-  lines_df <- ik_neighbourhood_lines(ik_data)
-  line_val <- paste(lines_df$reserve, lines_df$line, sep = "|")
-  line_ch  <- stats::setNames(line_val, sprintf("%s · Line %s", lines_df$reserve, lines_df$line))
-  res_ch   <- sort(unique(cams$reserve)); res_ch <- stats::setNames(res_ch, res_ch)
-  max_r    <- (ik_data$meta$proximity %||% list())$max_radius_m %||% 2000
-  rad_ch   <- c("250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000)   # beyond ~1 km, use the Reserve anchor
-  rad_ch   <- rad_ch[rad_ch <= max_r]
   nav_panel(
     "Neighbourhood", value = "neighbourhood", icon = icon("circle-nodes"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/neighbourhood.css")),
@@ -90,26 +108,12 @@ neighbourhood_ui <- function(id, ik_data) {
     div(class = "ik-nbhd",
         .ik_page_header("Neighbourhood — protected, predators & nearby trapping",
             description = tagList(
-              "Pick an anchor — a monitoring ", tags$b("line"), " or a whole ", tags$b("reserve"), ". ",
-              "See how ", tags$b("protected"), " and ", tags$b("predator"), " activity on ", tags$b("the line's cameras"),
-              " moves over time, alongside the predators caught in the ", tags$b("traps nearby"),
-              " — those within a radius you set (a reserve uses all its own traps instead)."),
+              "Pick a ", tags$b("reserve"), " in the sidebar — and optionally a ", tags$b("line"), " within it. ",
+              "See how ", tags$b("protected"), " and ", tags$b("predator"), " activity on the cameras moves over ",
+              "time, alongside the predators caught in the ", tags$b("traps nearby"), " — for a line, those within ",
+              "a radius you set; a whole reserve uses all its own traps."),
             help = .ik_info(ns("nbhd_help"), "Neighbourhood — how to read this",
                      neighbourhood_help_body((ik_data$meta$camera$rai %||% list())$norm_hours %||% 2000))),
-        div(class = "ik-nbhd-controls",
-            radioButtons(ns("level"), "Anchor", inline = TRUE,
-                         choices = c("Line" = "line", "Reserve" = "reserve"), selected = "line"),
-            conditionalPanel("input.level == 'line'", ns = ns,
-              selectInput(ns("anchor_line"), "Line", choices = line_ch, selected = line_val[1], width = "210px")),
-            conditionalPanel("input.level == 'reserve'", ns = ns,
-              selectInput(ns("anchor_reserve"), "Reserve", choices = res_ch, selected = unname(res_ch)[1], width = "170px")),
-            conditionalPanel("input.level != 'reserve'", ns = ns,
-              selectInput(ns("radius"), "Traps within", choices = rad_ch,
-                          selected = if (500 %in% rad_ch) 500 else max(rad_ch), width = "120px")),
-            selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "210px"),
-            selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "210px"),
-            radioButtons(ns("grain"), NULL, inline = TRUE,
-                         choices = c("By season" = "season", "By year" = "year"), selected = "season")),
         uiOutput(ns("intro")),
         tags$p(class = "ik-nbhd-hint", "Click a point to see the records behind it."),
         plotOutput(ns("panel"), height = "440px", click = ns("panel_click")),
@@ -122,9 +126,12 @@ neighbourhood_ui <- function(id, ik_data) {
           tags$b(tags$span(style = "color:#2c7fb8", "blue")), " = camera location · ",
           tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap location (the ", tags$b("Device"),
           " layer, underneath). All-time. ", tags$b("Hover a trap in the table"), " to highlight it on the map."),
-        leaflet::leafletOutput(ns("map"), height = "52vh"),
-        uiOutput(ns("map_note")),
-        DT::DTOutput(ns("traps_table")))
+        # Map beside the nearby-traps table (wraps to stacked on narrow).
+        layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+          leaflet::leafletOutput(ns("map"), height = "60vh"),
+          div(class = "ik-maps-side", style = "max-height:60vh;",
+            uiOutput(ns("map_note")),
+            DT::DTOutput(ns("traps_table")))))
   )
 }
 
@@ -149,19 +156,23 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
       updateSelectInput(session, "prot", choices = ik_species_choices(prot_taxa, ik_data, p, splits), selected = keep(isolate(input$prot), .prot_def))
       updateSelectInput(session, "pred", choices = ik_species_choices(pred_taxa, ik_data, p, splits), selected = keep(isolate(input$pred), .pred_def))
     })
-    observe({                                                  # anchor Line/Reserve choices follow active datasets
-      ll <- ik_neighbourhood_lines(ik_data)                   # already active-scoped via .nbhd_locations
-      lv <- paste(ll$reserve, ll$line, sep = "|")
-      lc <- stats::setNames(lv, sprintf("%s · Line %s", ll$reserve, ll$line))
-      updateSelectInput(session, "anchor_line", choices = lc,
-        selected = if ((isolate(input$anchor_line) %||% "") %in% lv) isolate(input$anchor_line) else lv[1])
-      rc <- sort(unique(ll$reserve))
+    observe({                                                  # Reserve choices follow the active datasets
+      rc <- sort(unique(ik_neighbourhood_lines(ik_data)$reserve))
       updateSelectInput(session, "anchor_reserve", choices = stats::setNames(rc, rc),
         selected = if ((isolate(input$anchor_reserve) %||% "") %in% rc) isolate(input$anchor_reserve) else rc[1])
     })
+    observeEvent(input$anchor_reserve, {                       # Line CASCADES from the Reserve ("__all__" = whole reserve)
+      ll <- ik_neighbourhood_lines(ik_data); ll <- ll[ll$reserve == input$anchor_reserve, , drop = FALSE]
+      lv <- paste(ll$reserve, ll$line, sep = "|")
+      updateSelectInput(session, "anchor_line",
+        choices  = c("Whole reserve (all lines)" = "__all__", stats::setNames(lv, sprintf("Line %s", ll$line))),
+        selected = if ((isolate(input$anchor_line) %||% "") %in% lv) isolate(input$anchor_line) else "__all__")
+    }, ignoreNULL = FALSE)
 
-    lvl  <- reactive(input$level %||% "line")
-    akey <- reactive(switch(lvl(), reserve = input$anchor_reserve, input$anchor_line))
+    # Anchor model: a Line picked = anchor that line (with the Traps-within radius); "__all__" = the whole
+    # reserve (uses all its traps). lvl/akey derive from the pickers — no separate Anchor radio.
+    lvl  <- reactive(if (nzchar(input$anchor_line %||% "") && !identical(input$anchor_line, "__all__")) "line" else "reserve")
+    akey <- reactive(if (identical(lvl(), "line")) input$anchor_line else input$anchor_reserve)
     scope_lab <- function(s) if (identical(attr(s, "level"), "reserve")) sprintf("Across %s", attr(s, "label"))
                              else sprintf("%s · traps within %s", attr(s, "label"), rlab(input$radius))
 
@@ -192,11 +203,11 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
       cam_facet <- attr(s, "cam_facet")
       s$period <- factor(s$period, levels = unique(s$period[order(s$order)]))
       s$facet  <- factor(s$facet, levels = c(cam_facet, "Predators caught (nearby traps)"))
-      pal <- c(Protected = "#2e7d32", Predator = "#c62828", Caught = "#6a3d9a")
+      pal <- c(Protected = "#2e7d32", Predator = "#c62828", Catches = "#6a3d9a")
       ggplot2::ggplot(s, ggplot2::aes(.data$period, .data$value, colour = .data$series, group = .data$series)) +
         ggplot2::geom_line(linewidth = 0.8, na.rm = TRUE) + ggplot2::geom_point(size = 1.9, na.rm = TRUE) +
         ggplot2::facet_wrap(ggplot2::vars(.data$facet), ncol = 1, scales = "free_y") +
-        ggplot2::scale_colour_manual(values = pal, breaks = c("Protected", "Predator", "Caught")) +
+        ggplot2::scale_colour_manual(values = pal, breaks = c("Protected", "Predator", "Catches")) +
         ggplot2::labs(x = NULL, y = NULL, colour = NULL) +
         ik_ggtheme(is_dark()) +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1), legend.position = "bottom",
@@ -291,7 +302,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
       pns <- c("boundary", "device", "caught", "protected", "predators", "highlight")  # device lowest; predator RING above protected dot
       for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Protected", "Predators", "Caught", "Device", "Boundary"),
+        overlayGroups = c("Protected", "Predators", "Catches", "Device", "Boundary"),
         options = leaflet::layersControlOptions(collapsed = FALSE))   # toggles visible (like Coverage)
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
@@ -310,7 +321,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
     }
     observe({                                                   # draw the neighbourhood + fit to it
       p <- mproxy()
-      for (g in c("Protected", "Predators", "Caught", "Device", "TrapHighlight")) leaflet::clearGroup(p, g)
+      for (g in c("Protected", "Predators", "Catches", "Device", "TrapHighlight")) leaflet::clearGroup(p, g)
       leaflet::clearControls(p)
       md <- map_data(); req(!is.null(md))
       cam <- md$cams; trp <- md$traps
@@ -335,7 +346,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
                  ifelse(is.na(trp$n_checks), "—", trp$n_checks), gap, ifelse(is.na(trp$status), "—", trp$status)), htmltools::HTML),
         options = leaflet::pathOptions(pane = "device"))
       tc <- trp[trp$catches > 0, , drop = FALSE]               # Caught (purple) — sized by catches
-      if (nrow(tc)) leaflet::addCircleMarkers(p, data = tc, lng = ~longitude, lat = ~latitude, group = "Caught",
+      if (nrow(tc)) leaflet::addCircleMarkers(p, data = tc, lng = ~longitude, lat = ~latitude, group = "Catches",
         radius = rad(tc$catches, 6, 22), stroke = TRUE, color = "#ffffff", weight = 1, fillColor = "#6a3d9a", fillOpacity = 0.85,
         label = lapply(sprintf("<b>%s</b><br><b>%d %s caught</b> (all-time)", tc$name, tc$catches, pl), htmltools::HTML),
         options = leaflet::pathOptions(pane = "caught"))
@@ -350,7 +361,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
         label = lapply(sprintf("<b>%s</b><br>Protected RAI %.2f / %s ch", pc$name, pc$prot_rai, cmh), htmltools::HTML),
         options = leaflet::pathOptions(pane = "protected"))
       leaflet::addLegend(p, "bottomright", colors = c("#2e7d32", "#c62828", "#6a3d9a", "#2c7fb8", "#8a8a8a"),
-        labels = c("Protected (cam)", "Predator (cam)", "Caught (trap)", "Camera", "Trap"), opacity = 0.9)
+        labels = c("Protected (cam)", "Predator (cam)", "Catches (trap)", "Camera", "Trap"), opacity = 0.9)
       allc <- rbind(cam[, c("longitude", "latitude")], trp[, c("longitude", "latitude")])
       if (nrow(allc)) leaflet::fitBounds(p, min(allc$longitude), min(allc$latitude),
         max(allc$longitude), max(allc$latitude), options = list(padding = c(25, 25)))

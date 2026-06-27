@@ -4,9 +4,6 @@
 .ik-cooc-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.6rem; }
 /* Per-tab lead/help text (Distribution / Map / Trend). */
 .ik-cooc-hint { color: var(--bs-secondary-color, #6c757d); font-size: 0.85rem; margin: 0.55rem 0 0.6rem; max-width: 60rem; }
-/* Sidebar: the co-occurrence-specific picks (Predator/Protected/Within/Predator-after) sit below
-   Period/Reserve, set off by a gap + a divider so they read as a related-but-separate group. */
-.ik-cooc-extra { margin-top: 0.9rem; padding-top: 0.85rem; border-top: 1px solid var(--bs-border-color, #dee2e6); }
 /* Trend tab: the "Overlay RAI" toggle group above the plot (compact, no bottom gap). */
 .ik-cooc-trend-ctrl .shiny-input-container { margin-bottom: 0.25rem; }
 .ik-cooc-trend-ctrl .control-label { font-size: 0.85rem; color: var(--bs-secondary-color, #6c757d); }

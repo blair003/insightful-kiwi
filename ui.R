@@ -49,13 +49,10 @@ ui <- page_navbar(
     # open the rail to change them, and the current window stays visible via the in-page period banner.
     conditionalPanel("input.nav === 'overview'",
                      # Snapshot honours the Period; the Trends tab spans all data, so Period hides there
-                     # (a note in its place), mirroring the in-page banner.
+                     # (the generic note in its place), mirroring the in-page banner.
                      selection_ui("overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data,
-                                  period_show_js = "input['overview-ov_tabs'] !== 'Trends'",
-                                  period_note = tagList(
-                                    tags$span(class = "ik-period-note-h", "Period · All data"),
-                                    "The Trends tab spans all data — set a Period on the Snapshot tab."))),
+                                  period_show_js = "input['overview-ov_tabs'] !== 'Trends'")),
     conditionalPanel("input.nav === 'monitoring-overview'",
                      selection_ui("monitoring_overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
@@ -66,42 +63,45 @@ ui <- page_navbar(
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
                                   period_default = .bait_period_def)),
     conditionalPanel("input.nav === 'trap-review'",
-                     # Period drives only the "By trapline" tab + Map; the "Over time" trend ignores it, so
-                     # the Period control hides on that tab (a note in its place). Reserve stays on all
-                     # (the trend is reserve-scoped).
-                     conditionalPanel("input['trapping-trap_view'] !== 'Over time'",
-                       selection_ui("trap_selection", show = c("period"), ik_data = ik_data,
-                                    period_default = .trap_period_def)),
-                     conditionalPanel("input['trapping-trap_view'] === 'Over time'",
-                       tags$div(class = "ik-period-note",
-                                tags$span(class = "ik-period-note-h", "Period · All data"),
-                                "The Over-time trend spans all data — set a Period on the By-trapline or Map tab.")),
-                     selection_ui("trap_selection", show = c("reserve"), ik_data = ik_data)),
+                     # Period drives the "By trapline" + Map tabs; the "Over time" trend spans all data, so
+                     # Period hides there (the generic note in its place). Reserve stays on all tabs.
+                     selection_ui("trap_selection", show = c("period", "reserve"), ik_data = ik_data,
+                                  period_default = .trap_period_def,
+                                  period_show_js = "input['trapping-trap_view'] !== 'Over time'")),
     conditionalPanel("input.nav === 'coverage'",
+                     coverage_controls("coverage", ik_data),
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "all")),
+                                  period_default = "all", heading = "Filters")),
+    conditionalPanel("input.nav === 'neighbourhood'",
+                     # Neighbourhood's anchor IS its data selection (no shared Period/Reserve); all of its
+                     # controls go in the tinted "View options" group — see neighbourhood_controls.
+                     neighbourhood_controls("neighbourhood", ik_data)),
     conditionalPanel("input.nav === 'trap-hero'",
+                     trap_hero_controls("trap_hero", ik_data),
                      selection_ui("trap_hero_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "rolling12")),
+                                  period_default = "rolling12", heading = "Filters")),
     conditionalPanel("input.nav === 'cooccurrence'",
-                     # Period + Reserve from the shared control; Predator/Protected/Within/Predator-after
-                     # are the co-occurrence-specific picks (read by the cooccurrence module's namespace).
-                     # The Trend tab spans all seasons, so Period hides there (a note in its place).
+                     # Predator/Protected/Within/Predator-after are the co-occurrence-specific picks (read by
+                     # the cooccurrence module's namespace) — the tinted "View options" group at the TOP.
+                     # Period + Reserve are the shared "Filters" below. The Trend tab spans all seasons, so
+                     # Period hides there (a note in its place).
+                     cooccurrence_controls("cooccurrence"),
                      selection_ui("cooccurrence_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = "rolling12",
                                   period_show_js = "input['cooccurrence-cooc_view'] !== 'Trend'",
-                                  period_note = tagList(
-                                    tags$span(class = "ik-period-note-h", "Period · All data"),
-                                    "The Trend spans all seasons — set a Period on the Distribution or Map tab.")),
-                     cooccurrence_controls("cooccurrence")),
+                                  heading = "Filters")),
     conditionalPanel("input.nav === 'camera-review' || input.nav === 'duplicates'",
                      tags$small("Controls are within the view.")),
     conditionalPanel("input.nav === 'monitoring-map'",
+                     maps_controls("monitoring_map", device = "camera", ik_data = ik_data),
                      selection_ui("mon_map_selection",
-                                  show = c("period", "reserve", "line", "location"), ik_data = ik_data)),
+                                  show = c("period", "reserve", "line"), ik_data = ik_data,
+                                  heading = "Filters")),
     conditionalPanel("input.nav === 'trapping-map'",
+                     maps_controls("trapping_map", device = "trap", ik_data = ik_data),
                      selection_ui("trap_map_selection",
-                                  show = c("period", "reserve", "line", "location"), ik_data = ik_data)),
+                                  show = c("period", "reserve", "line"), ik_data = ik_data,
+                                  heading = "Filters")),
     conditionalPanel("input.nav === 'monitoring-records'",
                      selection_ui("mon_records_selection",
                                   show = c("dataset", "period", "reserve", "line", "location",
@@ -117,9 +117,6 @@ ui <- page_navbar(
                      selection_ui("species_selection", show = c("period", "reserve", "device"), ik_data = ik_data,
                                   period_default = "all",
                                   period_show_js = "input.ik_species_tab !== 'Trend' && input.ik_species_tab !== 'Summary'",
-                                  period_note = tagList(
-                                    tags$span(class = "ik-period-note-h", "Period · All data"),
-                                    "Summary & Trend always span all data — set a Period from the Map tab on."),
                                   # Device (camera/trap) split only matters for the Records list, so show it just there.
                                   device_show_js = "input.ik_species_tab === 'Records'")),
     tags$div(class = "ik-sidebar-foot",

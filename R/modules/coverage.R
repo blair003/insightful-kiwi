@@ -135,6 +135,20 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
 }
 
 #' Coverage nav panel. @param id Module id. @param ik_data The container (camera-hour norm for help).
+#' Coverage "View options" sidebar controls — Protected / Predator (the map measure) + Gap radius /
+#' Include-nearby-traps (the gaps table). Built in the module's namespace, rendered in the global sidebar
+#' (ui.R) above the shared Filters; the species pickers' choices are populated server-side. @keywords internal
+coverage_controls <- function(id, ik_data = NULL) {
+  ns <- NS(id)
+  div(class = "ik-selection ik-view-controls",
+    tags$div(class = "ik-view-controls-h", "View options"),
+    selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE),
+    selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE),
+    selectInput(ns("radius"), "Gap radius",
+                choices = c("250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 500),
+    .ik_cross_boundary_input(ns("cross_boundary"), "traps"))
+}
+
 coverage_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
   cam_norm  <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500    # per-camera (map markers)
@@ -142,17 +156,18 @@ coverage_ui <- function(id, ik_data = NULL) {
   nav_panel(
     "Coverage", value = "coverage", icon = icon("shield-halved"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/coverage.css")),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),  # .ik-maps-split / -side
     tags$script(src = .ik_asset("js/maps.js")),                            # reuse the resize-on-tab-show fix
     div(class = "ik-cov",
         .ik_page_header("Coverage",
             help = .ik_info(ns("cov_help"), "Coverage — how to read this", coverage_help_body(cam_norm))),
-        # 1. Network density — the structural "is the network even dense enough?" context, up front.
+        # 1. Network density — the structural "is the network even dense enough?" context, up front (all-data).
         tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
         tags$p(class = "ik-cov-gaps-lead",
           "Is the network even dense enough to work? Footprint area, traps & cameras per km², and ",
           "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
         DT::DTOutput(ns("density")),
-        # 2. The map — protected hotspots vs the predator control around them.
+        # 2. The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
         tags$h5(class = "ik-cov-gaps-title ik-cov-section", "Protected hotspots vs predator control"),
         tags$p(class = "ik-cov-lead",
           "Where are the protected species, and is predator control reaching them? ",
@@ -163,25 +178,18 @@ coverage_ui <- function(id, ik_data = NULL) {
           tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap locations (the Device layer). A green hotspot ringed by ",
           "purple/grey is covered; one with little around it is a gap. Period & reserve from the sidebar."),
         div(class = "ik-page-period", uiOutput(ns("period_banner"))),   # this section honours the period (density above is all-data)
-        div(class = "ik-cov-controls",
-            selectInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE, width = "230px"),
-            selectInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE, width = "230px")),
         uiOutput(ns("caption")),
-        leaflet::leafletOutput(ns("map"), height = "55vh"),
-        # 3. Coverage gaps — directly below the map (they drive its hover/click); status meanings live
-        #    on the Status column's hover-ⓘ now (see .cov_gaps_header), not in this lead.
-        div(class = "ik-cov-gaps",
-            div(class = "ik-cov-gaps-head",
-                div(class = "ik-cov-gaps-head-l",
+        layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+          leaflet::leafletOutput(ns("map"), height = "62vh"),
+          # Coverage gaps beside the map (they drive its hover/click); the gap-radius control is in the sidebar.
+          div(class = "ik-maps-side", style = "max-height:62vh;",
+            div(class = "ik-cov-gaps",
+                div(class = "ik-cov-gaps-head",
                     tags$h5(class = "ik-cov-gaps-title", "Coverage gaps"),
                     .ik_info(ns("gaps_help"), "Coverage gaps — how to read this", coverage_gaps_help_body(line_norm))),
-                div(class = "ik-cov-gaps-ctrls",
-                    selectInput(ns("radius"), "Gap radius", width = "120px",  # the line's neighbourhood radius
-                                choices = c("250 m" = 250, "500 m" = 500, "750 m" = 750, "1 km" = 1000), selected = 500),
-                    .ik_cross_boundary_input(ns("cross_boundary"), "traps"))),
-            tags$p(class = "ik-cov-gaps-lead",
-              "Protected hotspots ranked worst-first by how well predator control reaches them, within the gap radius."),
-            DT::DTOutput(ns("gaps"))))
+                tags$p(class = "ik-cov-gaps-lead",
+                  "Protected hotspots ranked worst-first by how well predator control reaches them, within the gap radius."),
+                DT::DTOutput(ns("gaps"))))))
   )
 }
 

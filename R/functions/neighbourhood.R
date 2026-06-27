@@ -90,7 +90,7 @@ ik_neighbourhood_lines <- function(ik_data) {
 #' @return tidy data.frame period · order · facet · series · value, with attrs `n_cam` / `n_trap` /
 #'   `n_anchor` / `cam_facet`; NULL when the anchor or both roles are empty. Facets:
 #'   "Camera activity (per N camera-hrs)" (series Protected/Predator) and
-#'   "Predators caught (nearby traps)" (series Caught).
+#'   "Predators caught (nearby traps)" (series Catches).
 ik_neighbourhood_series <- function(ik_data, level, key, radius_m = 500,
                                     predator_sci = character(0), protected_sci = character(0),
                                     by = "season") {
@@ -163,7 +163,7 @@ ik_neighbourhood_series <- function(ik_data, level, key, radius_m = 500,
     data.frame(period = agg$period, order = agg$order, facet = cam_facet,
                series = "Predator",  value = rate(agg$pred_ind, agg$cam_hrs), stringsAsFactors = FALSE),
     data.frame(period = agg$period, order = agg$order, facet = "Predators caught (nearby traps)",
-               series = "Caught",    value = agg$catches, stringsAsFactors = FALSE))
+               series = "Catches",   value = agg$catches, stringsAsFactors = FALSE))
   attr(rows, "n_cam") <- length(cam_locs); attr(rows, "n_trap") <- length(trap_locs)
   attr(rows, "n_anchor") <- length(nbr$anchor); attr(rows, "cam_facet") <- cam_facet
   attr(rows, "level") <- level; attr(rows, "label") <- nbr$label

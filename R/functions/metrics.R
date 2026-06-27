@@ -192,6 +192,30 @@ ik_rai <- function(ik_data, spec, taxa, level = "reserve") {
   list(lines = lines, summary = summary)
 }
 
+#' Add the "deployed-but-unchecked tail" to trap deployments. A trap that STOPS being checked is assumed
+#' still set, so the gap from its LAST check to the period END counts as trap-nights with NO catches — a
+#' neglected trap then reads as a LOW rate, not an inflated one (its few catches spread over only its short
+#' checked window). `inactive_after_days` (config in meta$trapping$rate; NULL = no cap → run to the period
+#' end) caps the tail so a long-removed trap isn't credited forever. Trap-only (cameras run continuously).
+#' `seasons` NULL = all data (end = the last check anywhere). Appends one blank no-catch row per trap (no
+#' deploymentID, so it never matches an observation). @keywords internal
+.trap_effort_tail <- function(deps, seasons, inactive_after_days = NULL) {
+  if (is.null(deps) || !nrow(deps) || !"deploymentEnd" %in% names(deps)) return(deps)
+  end <- if (is.null(.ik_nz(seasons))) suppressWarnings(max(deps$deploymentEnd, na.rm = TRUE))
+         else .trap_period_bounds(seasons)[2]
+  end <- min(end, Sys.time()); if (!is.finite(end)) return(deps)
+  last <- dplyr::summarise(dplyr::group_by(deps, .data$locationID),
+                           last = max(.data$deploymentEnd, na.rm = TRUE), .groups = "drop")
+  cap <- inactive_after_days %||% Inf
+  last$tail_end <- if (is.finite(cap)) pmin(end, last$last + cap * 86400) else rep(end, nrow(last))
+  last <- last[as.numeric(last$tail_end) > as.numeric(last$last) + 1, , drop = FALSE]   # only a real gap
+  if (!nrow(last)) return(deps)
+  t <- deps[rep(1L, nrow(last)), , drop = FALSE]                 # blank no-catch rows
+  t[] <- lapply(t, function(col) { col[] <- NA; col })
+  t$locationID <- last$locationID; t$deploymentStart <- last$last; t$deploymentEnd <- last$tail_end
+  rbind(deps, t)
+}
+
 #' Trap capture rate per taxon (captures / trap-days × norm), rolled line -> `level`.
 #' NB trap-days use the assigned check-interval effort; a long interval straddling a season
 #' boundary is attributed to its majority season (small boundary approximation).
@@ -210,6 +234,7 @@ ik_trap_rate <- function(ik_data, spec, taxa, level = "reserve") {
   locs$line[is.na(locs$line)] <- "(unlined)"
 
   r      <- ik_resolve(ik_data, spec, source_type = "trap")
+  r$deployments <- .trap_effort_tail(r$deployments, spec$season, cfg$inactive_after_days)  # neglected → low rate
   effort <- .metrics_effort(r, locs, by = c("reserve", "line"), unit_fn = function(h) h / 24)  # trap-days
   obs    <- .metrics_obs(ik_data, r, locs, net = FALSE)              # date-only: net == raw
   lines  <- dplyr::rename(.metrics_grouped(effort, obs, taxa, norm, key = c("reserve", "line")),
@@ -259,6 +284,7 @@ ik_location_metric <- function(ik_data, spec, taxa, source_type = c("camera", "t
     cfg    <- ik_data$meta$trapping$rate %||% list(norm_trap_days = 100)
     nrm    <- norm %||% cfg$norm_trap_days %||% 100
     r      <- ik_resolve(ik_data, spec, source_type = "trap")
+    r$deployments <- .trap_effort_tail(r$deployments, spec$season, cfg$inactive_after_days)  # neglected → low rate
     effort <- .metrics_effort(r, locs, by = by, key = key, unit_fn = function(h) h / 24)  # trap-days
     obs    <- .metrics_obs(ik_data, r, locs, net = FALSE)
     out    <- dplyr::rename(.metrics_grouped(effort, obs, taxa, nrm, key = key),

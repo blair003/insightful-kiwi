@@ -117,15 +117,18 @@ trapping_ui <- function(id, ik_data = NULL) {
                 "Traps coloured by servicing status; a ", tags$b("black ring"), " flags high pressure."),
               .ik_info(ns("map_help"), "The servicing map — how to read this",
                        trapping_help_body(ik_data$meta$trapping, "map"))),
-            leaflet::leafletOutput(ns("map"), height = "55vh"),
-            uiOutput(ns("pressure_note")),
-            tags$h6(class = "trap-pressure-title", "Trap pressure — productive traps checked too rarely"),
-            tags$p(class = "trap-lead",
-              "The ", tags$b("black-ringed"), " traps above: catching on ", tags$b("at least half their checks"),
-              " yet on a ", tags$b("watch / neglected"), " cadence — you're likely missing catches between ",
-              "visits, so these ", tags$b("would reward more frequent checks"), ". Worst first; hover a row to ",
-              "find it on the map, click for its history."),
-            DT::DTOutput(ns("pressure_table"))),
+            # Map beside the trap-pressure table (wraps to stacked on narrow).
+            layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+              leaflet::leafletOutput(ns("map"), height = "72vh"),
+              div(class = "ik-maps-side", style = "max-height:72vh;",
+                uiOutput(ns("pressure_note")),
+                tags$h6(class = "trap-pressure-title", "Traps shown on the map"),
+                tags$p(class = "trap-lead",
+                  "Every trap in the map layers you've ticked — hover a row to find it, click for its history. ",
+                  "Tick ", tags$b("High pressure"), " to keep only the ", tags$b("black-ringed"), " traps: catching ",
+                  "on ", tags$b("≥ half their checks"), " yet on a watch / neglected cadence (likely missing catches between visits)."),
+                checkboxInput(ns("pressure_only"), "High pressure only", value = FALSE),
+                DT::DTOutput(ns("pressure_table"))))),
           tabPanel(
             "Over time", icon = icon("chart-line"),
             div(class = "trap-timeline",
@@ -372,10 +375,18 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
       m <- leaflet::addProviderTiles(m, canvas, group = "Map")
       m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
+      m <- leaflet::addMapPane(m, "boundary", zIndex = 400)   # reserve footprint, below the trap markers
       m <- leaflet::addMapPane(m, "traps", zIndex = 410)
       m <- leaflet::addMapPane(m, "highlight", zIndex = 450)
+      # Boundary — the reserve footprint (convex hull of the trap locations); a selectable layer, like the
+      # other maps. Grey (not green) so it doesn't read as a "Good" status colour. Drawn under the markers.
+      trap_ds <- names(ik_data$datasets)[vapply(ik_data$datasets, function(d) isTRUE(d$meta$source_type == "trap"), logical(1))]
+      hulls <- tryCatch(ik_selection_hulls(locs[locs$dataset %in% trap_ds, , drop = FALSE], "reserve"), error = function(e) NULL)
+      if (!is.null(hulls) && nrow(hulls)) m <- leaflet::addPolygons(m, data = hulls, group = "Boundary",
+        fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve,
+        options = leaflet::pathOptions(pane = "boundary"))
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-             overlayGroups = c("Good", "Watch", "Neglected", "Inactive"),  # status = selectable layer
+             overlayGroups = c("Good", "Watch", "Neglected", "Inactive", "Boundary"),  # status = selectable layer
              options = leaflet::layersControlOptions(collapsed = FALSE))
       if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
       m
@@ -439,16 +450,19 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     })
     output$pressure_table <- DT::renderDT({
       d <- map_traps(); validate(need(!is.null(d), "No traps in this period."))
-      t <- d[d$high_pressure, , drop = FALSE]
-      validate(need(nrow(t), "No high-pressure traps — productive traps are being checked often enough."))
-      t <- t[order(-t$pressure_score), , drop = FALSE]; pressure_shown(t)
-      st <- c(watch = "Watch", neglected = "Neglected")
+      vis <- input$map_groups                                    # the status layers ticked on in the map's layer control
+      if (!is.null(vis)) d <- d[d$grp %in% vis, , drop = FALSE]   # mirror the map: only the shown status layers
+      if (isTRUE(input$pressure_only)) d <- d[d$high_pressure, , drop = FALSE]
+      validate(need(nrow(d), if (isTRUE(input$pressure_only)) "No high-pressure traps in the shown layers."
+                             else "No traps in the shown layers."))
+      d <- d[order(-d$pressure_score, -d$mean_interval_days), , drop = FALSE]; pressure_shown(d)  # high-pressure, then worst-serviced
+      st <- c(good = "Good", watch = "Watch", neglected = "Neglected", dormant = "Dormant", historic = "Historic")
       df <- data.frame(
-        Trap = t$name, Reserve = t$reserve, Line = ifelse(is.na(t$line), "—", t$line),
-        `Catch %` = round(t$catch_pct), `Mean gap (d)` = round(t$mean_interval_days),
-        Captures = t$captures, Checks = as.integer(t$n_checks),
-        Status = unname(ifelse(t$status %in% names(st), st[t$status], t$status)),
-        .loc = t$location, check.names = FALSE, stringsAsFactors = FALSE)
+        Trap = d$name, Reserve = d$reserve, Line = ifelse(is.na(d$line), "—", d$line),
+        `Catch %` = ifelse(is.na(d$catch_pct), NA, round(d$catch_pct)), `Mean gap (d)` = round(d$mean_interval_days),
+        Captures = d$captures, Checks = as.integer(d$n_checks),
+        Status = unname(ifelse(d$status %in% names(st), st[d$status], d$status)),
+        .loc = d$location, check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 10, scrollX = TRUE, dom = "tip",
           columnDefs = list(list(visible = FALSE, targets = 8)),       # hide .loc (index 8)

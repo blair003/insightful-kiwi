@@ -449,7 +449,7 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   class = "ik-metric-card ik-card-more",
   title = sprintf("Open the full %s overview", tolower(dest)),
   onclick = sprintf("Shiny.setInputValue('ik_goto_nav', %s, {priority:'event'})", .ik_jsq(nav)),
-  tags$div(class = "ik-card-more-lead", sprintf("This %s summary shows top species only.", tolower(dest))),
+  tags$div(class = "ik-card-more-lead", sprintf("This %s summary shows flagged species only.", tolower(dest))),
   tags$div(class = "ik-card-more-link", sprintf("%s Detail", dest), icon("arrow-right-long")))
 
 #' Drop possible-duplicate observations — the project-defined NET view used across the analytical

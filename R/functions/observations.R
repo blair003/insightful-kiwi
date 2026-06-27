@@ -52,8 +52,18 @@ ik_feature_enabled <- function(ik_data, key, default = TRUE)
 #' choices, boundary hulls, density, the project header), so a hidden dataset's reserves/lines/sites
 #' don't leak in. Reactive-aware (a toggle re-runs the view); returns all locations outside a session
 #' (build / headless). Computed metrics already scope via ik_resolve(), so this is for the place
-#' UNIVERSE only. @keywords internal
-ik_active_locations <- function(ik_data) ik_active_filter(ik_data$app$geography$locations)
+#' UNIVERSE only. `source_type` ("camera"/"trap") additionally scopes to that device's datasets — used
+#' by the device-locked maps so their Reserve/Line pickers don't offer the OTHER device's places.
+#' @keywords internal
+ik_active_locations <- function(ik_data, source_type = NULL) {
+  locs <- ik_active_filter(ik_data$app$geography$locations)
+  if (!is.null(source_type)) {                                  # keep only the device's datasets' places
+    keep <- names(ik_data$datasets)[vapply(ik_data$datasets,
+              function(d) isTRUE(d$meta$source_type %in% source_type), logical(1))]
+    locs <- locs[locs$dataset %in% keep, , drop = FALSE]
+  }
+  locs
+}
 
 #' Dataset ids to operate on — an explicit one (or vector), else the session's ACTIVE set (the
 #' global toggle), else all. An explicit `dataset` OVERRIDES the toggle (so a view can be

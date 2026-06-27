@@ -17,11 +17,16 @@ ik_marker_radius <- function(v, lo = 5, hi = 20, cap_pctl = NULL) {
   if (is.null(cap_pctl)) {
     r <- range(v, na.rm = TRUE)
     if (!length(v) || !is.finite(diff(r)) || diff(r) == 0) return(rep((lo + hi) / 2, length(v)))
-    return(scales::rescale(sqrt(v), to = c(lo, hi)))
+    return(unname(scales::rescale(sqrt(v), to = c(lo, hi))))
   }
-  cap <- stats::quantile(v[v > 0], cap_pctl, na.rm = TRUE)
+  # unname()/names = FALSE are LOad-bearing: stats::quantile() returns a NAMED value ("98%"), and that
+  # name propagates to the result. A length-1 NAMED numeric is serialised by leaflet (auto_unbox) as a
+  # JSON OBJECT {"98%":r} rather than the scalar r — which breaks a LONE CircleMarker's radius so it
+  # draws empty (the "a single point on the map doesn't show" bug). Multi-point vectors serialise as a
+  # plain array, so the bug only bites when exactly one location has a value. Keep them unnamed.
+  cap <- stats::quantile(v[v > 0], cap_pctl, na.rm = TRUE, names = FALSE)
   if (!is.finite(cap) || cap <= 0) return(rep((lo + hi) / 2, length(v)))
-  scales::rescale(sqrt(pmin(v, cap)), to = c(lo, hi), from = c(0, sqrt(cap)))
+  unname(scales::rescale(sqrt(pmin(v, cap)), to = c(lo, hi), from = c(0, sqrt(cap))))
 }
 
 #' Robust upper cap for a colour/size scale: the `pctl` percentile of the positive values (never below

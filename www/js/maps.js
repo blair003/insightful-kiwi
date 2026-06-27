@@ -39,16 +39,6 @@ $(document).on('shown.bs.tab', function () {
   }, 140);
 });
 
-// Clicking a map marker filters the records table below. Scroll the map to the top of the viewport
-// so the controls above it roll off-screen and the table comes into view, without losing the map
-// (it's ~70vh, so the top of the table shows beneath it). Triggered from the marker-click observer.
-// The records area has a reserved min-height (maps.css) so drilling to a sparse location can't
-// shrink the page below this scroll target and make the browser clamp it back up.
-Shiny.addCustomMessageHandler('ik-maps-scroll', function (id) {
-  var el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
-
 // The species pages share one sidebar, but each page's tabset is its own (namespaced) input — so the
 // active page's server bridges its current tab to this one top-level input, which the sidebar's Period
 // control reads (hidden on the Trend tab, which spans all time). Set globally → no namespace.

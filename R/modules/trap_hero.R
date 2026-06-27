@@ -40,18 +40,31 @@ trap_hero_help_body <- function(norm = 100, min_td = 30) {
 
 #' Top-traps nav panel. @param id Module id. @param ik_data The container (species choices baked into
 #'   the UI — a dropdown nav panel whose selectize renders lazily and would miss a server-set default).
-trap_hero_ui <- function(id, ik_data) {
+#' Top-traps "View options" sidebar controls (Captures-of species + Top-N). Built in the module's
+#' namespace but rendered in the global sidebar (ui.R) above the shared Filters — like maps_controls().
+#' @keywords internal
+trap_hero_controls <- function(id, ik_data) {
   ns  <- NS(id)
   sg  <- ik_species_groups(ik_data)
   ctl <- ik_taxa_groups(sg, "control", "target")
   splits     <- unique(sg$label[which(sg$split)])
   sp_choices <- ik_species_choices(ctl, ik_data, "vernacular", splits,
                                    all_label = "All predators", all_value = "__all__")
+  div(class = "ik-selection ik-view-controls",
+    tags$div(class = "ik-view-controls-h", "View options"),
+    selectInput(ns("species"), "Captures of", choices = sp_choices, selected = "__all__"),
+    selectInput(ns("topn"), "Show",
+                choices = c("Top 10" = 10, "Top 20" = 20, "Top 50" = 50), selected = 10))
+}
+
+trap_hero_ui <- function(id, ik_data) {
+  ns  <- NS(id)
   norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100
   ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
   nav_panel(
     "Top traps", value = "trap-hero", icon = icon("trophy"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trap_hero.css")),
+    tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),  # .ik-maps-split / -side
     tags$script(src = .ik_asset("js/maps.js")),                            # resize-on-tab-show fix
     div(class = "ik-hero",
         .ik_page_header("Top traps — your best performers",
@@ -59,13 +72,11 @@ trap_hero_ui <- function(id, ik_data) {
               tags$b(ntn), "), not raw totals. The map highlights them; the rest are faint for context."),
             help = .ik_info(ns("hero_help"), "Top traps — how to read this", trap_hero_help_body(norm)),
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
-        div(class = "ik-hero-controls",
-            selectInput(ns("species"), "Captures of", choices = sp_choices, selected = "__all__", width = "220px"),
-            selectInput(ns("topn"), "Show", width = "120px",
-                        choices = c("Top 10" = 10, "Top 20" = 20, "Top 50" = 50), selected = 10)),
         uiOutput(ns("note")),
-        leaflet::leafletOutput(ns("map"), height = "55vh"),
-        DT::DTOutput(ns("table")))
+        # Map beside the table (wraps to stacked on narrow); the View options live in the sidebar now.
+        layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+          leaflet::leafletOutput(ns("map"), height = "62vh"),
+          div(class = "ik-maps-side", style = "max-height:62vh;", DT::DTOutput(ns("table")))))
   )
 }
 

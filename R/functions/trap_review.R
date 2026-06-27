@@ -178,9 +178,10 @@ ik_trap_health_cutoffs <- function(ik_data, reserves = NULL, datasets = NULL) {
 #' @param obs Optional pre-fetched `ik_observations(ik_data, with_location = FALSE)` — pass it when
 #'   calling per-period in a loop (e.g. the timeline) so the observation table is built once, not
 #'   once per period. NULL = fetch here.
-#' @return one row per trap: location · dataset · n_checks · trap_days · first_check · last_check ·
-#'   mean_interval_days · captures · name · line · reserve · latitude · longitude · status. NULL when
-#'   there are no trap checks at all.
+#' @return one row per trap: location · dataset · n_checks · trap_days · trap_days_tailed · first_check ·
+#'   last_check · mean_interval_days · captures · name · line · reserve · latitude · longitude · status.
+#'   `trap_days` = actual checked effort (servicing); `trap_days_tailed` = effort run to the period end
+#'   (metrics.R's .trap_effort_tail) — use that for any RATE. NULL when there are no trap checks at all.
 ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   dp <- ik_deployment_period(ik_data)
   dptrap <- dp[!is.na(dp$source_type) & dp$source_type == "trap", , drop = FALSE]
@@ -245,6 +246,16 @@ ik_trap_review <- function(ik_data, seasons = NULL, obs = NULL) {
   gap <- as.numeric(difftime(t_end, per$last_check, units = "days"))
   per$status <- ifelse(!is.na(gap) & gap >= historic_d, "historic",
                 ifelse(!is.na(gap) & gap >= dormant_d, "dormant", per$status))
+
+  # TAILED effort, for the per-period CATCH RATE only (ik_trap_review_series + the reserve report) — it
+  # must match Top traps / the maps, which divide by metrics.R's .trap_effort_tail effort (run from the
+  # last check to the period end). `trap_days` above stays UN-tailed: the servicing table wants actual
+  # checked effort, not the assumed tail. Skipped traps (no in-period check) → 0, like the un-tailed value.
+  tt <- .trap_effort_tail(tr, seasons, ik_data$meta$trapping$rate$inactive_after_days)
+  td_tail <- tapply(as.numeric(difftime(tt$deploymentEnd, tt$deploymentStart, units = "hours")),
+                    tt$locationID, sum, na.rm = TRUE) / 24
+  per$trap_days_tailed <- unname(td_tail[as.character(per$location)])
+  na <- is.na(per$trap_days_tailed); per$trap_days_tailed[na] <- per$trap_days[na]
   per
 }
 
@@ -318,7 +329,7 @@ ik_trap_review_series <- function(ik_data, by = "season", reserve = NULL) {
     cad <- per$mean_interval_days[jgd & per$n_checks > 0]       # real intervals only — skipped traps' "gap" isn't one
     med <- if (length(cad)) stats::median(cad, na.rm = TRUE) else NA_real_
     base <- data.frame(period = plabs[i], order = porder[i], stringsAsFactors = FALSE)
-    td    <- sum(per$trap_days, na.rm = TRUE)                   # period effort (trap-nights)
+    td    <- sum(per$trap_days_tailed, na.rm = TRUE)            # TAILED effort — matches Top traps / metrics.R
     crate <- if (td > 0) norm * sum(per$captures, na.rm = TRUE) / td else NA_real_
     rbind(
       cbind(base, facet = "Servicing (% of judged traps)", series = c("Good", "Watch", "Neglected"),
@@ -416,6 +427,9 @@ ik_trap_effectiveness <- function(ik_data, taxa = NULL, reserve = NULL, bands = 
   otype  <- obs$observationType[oi]; sci <- obs$scientificName[oi]
   caught <- !is.na(otype) & otype == "animal" & !is.na(sci) & (is.null(taxa) | sci %in% taxa)
   event  <- (!is.na(otype) & otype == "animal") | (!is.na(status) & grepl("sprung", status, ignore.case = TRUE))
+  # NB effort here is CHECKED intervals only — deliberately NOT run to the period end like metrics.R's
+  # .trap_effort_tail. This view tests whether check CADENCE drives catch, banding traps by their mean
+  # interval; tailing a stopped-early trap would shove it into a slower band and confound exactly that.
   interval_d <- dp$effort_hours / 24
   oper_d     <- interval_d * ifelse(event, 0.5, 1)   # operational: half-credit an interval ending in a catch/sprung event
   season_nm  <- sub(" .*", "", dp$check_calendar_season %||% dp$calendar_season)   # austral season name, by check date

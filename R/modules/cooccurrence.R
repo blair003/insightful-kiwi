@@ -68,15 +68,17 @@ cooccurrence_help_body <- function() {
   )
 }
 
-#' The Co-occurrence sidebar controls (Predator / Protected / Within / Predator-after). Built here but
-#' rendered in the GLOBAL sidebar (ui.R) alongside Period/Reserve — the server reads them by this
-#' module's namespace regardless of where they sit. Choices for the species pickers are populated
-#' server-side. @keywords internal
+#' The Co-occurrence "View options" controls (Predator / Protected / Within / Predator-after). Built here
+#' but rendered in the GLOBAL sidebar (ui.R) as the tinted feature-control group at the TOP of the rail,
+#' above the shared Filters (Period/Reserve) — the server reads them by this module's namespace wherever
+#' they sit. Choices for the species pickers are populated server-side. Matches the Maps page's
+#' `.ik-view-controls` group (maps_controls). @keywords internal
 cooccurrence_controls <- function(id) {
   ns <- NS(id)
-  # `.ik-selection` so these match the main controls' label/spacing; `.ik-cooc-extra` adds the gap +
-  # divider after Reserve. Pickers are selectize (like Reserve), populated server-side.
-  div(class = "ik-selection ik-cooc-extra",
+  # `.ik-selection` matches the main controls' label/spacing; `.ik-view-controls` makes it the tinted,
+  # accent-bordered "View options" group (same as the Maps page). Pickers are selectize, populated server-side.
+  div(class = "ik-selection ik-view-controls",
+    tags$div(class = "ik-view-controls-h", "View options"),
     selectizeInput(ns("pred"), "Predator",  choices = NULL, multiple = TRUE,
                    options = list(placeholder = "Choose predator(s)")),
     selectizeInput(ns("prot"), "Protected", choices = NULL, multiple = TRUE,
@@ -114,11 +116,14 @@ cooccurrence_ui <- function(id) {
             plotOutput(ns("dist"), height = "340px", click = ns("dist_click"))),
           tabPanel("Map", icon = icon("map-location-dot"),
             tags$p(class = "ik-cooc-hint",
-              "Each protected-species camera, coloured by how soon a predator turns up nearby ",
-              tags$b("(red = soonest)"), " — dot size = number of pairs; the ", tags$b("Density"),
+              "Each protected-species camera detections, coloured by how soon a predator turns up nearby ",
+              tags$b("(red = soonest)"), " — dot size = number of pairs; the ", tags$b("Surface"),
               " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it."),
-            leaflet::leafletOutput(ns("map"), height = "58vh"),
-            DT::DTOutput(ns("map_table"))),
+            # Map beside the records table (wraps to stacked on narrow) — same side-by-side as the Maps page.
+            layout_columns(
+              class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+              leaflet::leafletOutput(ns("map"), height = "60vh"),
+              div(class = "ik-maps-side", style = "max-height:60vh;", DT::DTOutput(ns("map_table"))))),
           tabPanel("Trend", icon = icon("chart-line"),
             tags$p(class = "ik-cooc-hint", "Median gap by season across ", tags$b("all data"),
                    ". Large gaps (weeks+) mean the two rarely share ground, so read trends cautiously; ",
@@ -412,65 +417,97 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       }
       if (nrow(al)) al else NULL
     })
+    # Base map: built ONCE, with NO volatile reactive deps — so changing a setting (even on another tab)
+    # never re-renders the whole widget into the 0-size hidden container (the "grey on tab-show" bug). The
+    # data layers are pushed via leafletProxy in the observers below (the maps.R pattern). Panes fix z-order.
     output$map <- leaflet::renderLeaflet({
-      cams <- cam_locs(); validate(need(!is.null(cams) && nrow(cams), "No camera locations to map for this selection."))
-      d <- timing_loc(); has_pairs <- !is.null(d) && nrow(d)
+      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
       m <- leaflet::leaflet() |>
-        leaflet::addProviderTiles(if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Street") |>
-        leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite") |>
-        leaflet::fitBounds(min(cams$longitude), min(cams$latitude), max(cams$longitude), max(cams$latitude))
-      # Boundary — the monitored footprint (convex hull of the cameras) per reserve; below the markers.
-      hulls <- tryCatch(ik_selection_hulls(cams, "reserve"), error = function(e) NULL)
-      has_bound <- !is.null(hulls) && nrow(hulls)
-      if (has_bound) m <- m |> leaflet::addPolygons(data = hulls, group = "Boundary",
-        fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve)
-      has_surf <- FALSE; pal <- NULL
-      if (has_pairs) {
-        use_days <- max(d$median_gap_h, na.rm = TRUE) >= 48        # legend units follow the data's scale
-        conv <- function(h) if (use_days) h / 24 else h
-        d$gval <- conv(d$median_gap_h); mx <- max(d$gval, na.rm = TRUE)
-        pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
-        surf <- tryCatch(ik_idw_surface(d, "median_gap_h", "reserve"), error = function(e) NULL)
-        has_surf <- !is.null(surf) && nrow(surf)
-        if (has_surf) {
-          surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
-          m <- m |> leaflet::addPolygons(data = surf, group = "Density", stroke = FALSE,
-            fillColor = ~pal(gval), fillOpacity = if (is_dark()) 0.45 else 0.35)
-        }
-      }
-      # Cameras (all locations, faint) BELOW; the co-occurrence data ("Pairs") drawn ON TOP.
-      m <- m |> leaflet::addCircleMarkers(data = cams, lng = ~longitude, lat = ~latitude, group = "Cameras",
-        radius = 3, fill = TRUE, fillColor = "#2c7fb8", fillOpacity = 0.55, stroke = FALSE,
-        label = ~sprintf("%s — camera", name))
-      if (has_pairs) m <- m |> leaflet::addCircleMarkers(data = d, lng = ~longitude, lat = ~latitude,
-        layerId = ~location_id, group = "Pairs",
-        radius = ik_marker_radius(d$n, 6, 20, cap_pctl = 0.98),
-        fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
-        label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")))
-      m <- m |> leaflet::addLayersControl(baseGroups = c("Street", "Satellite"),
-        overlayGroups = c(if (has_surf) "Density", if (has_bound) "Boundary", "Cameras", if (has_pairs) "Pairs"),
+        leaflet::addProviderTiles(canvas, group = "Street") |>
+        leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite")
+      pns <- c("boundary", "surface", "cameras", "pairs")
+      for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
+      m <- leaflet::addLayersControl(m, baseGroups = c("Street", "Satellite"),
+        overlayGroups = c("Surface", "Pairs", "Cameras", "Boundary"),
         options = leaflet::layersControlOptions(collapsed = FALSE))
-      if (has_pairs) m <- m |> leaflet::addLegend("bottomright", pal = pal, values = d$gval,
-        title = sprintf("Median gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
-                        if (use_days) "days" else "hours"), opacity = 0.9)
+      # Initial frame: all camera locations (static); the cameras observer re-fits to the live selection.
+      cam_ds <- names(ik_data$datasets)[vapply(ik_data$datasets, function(d) isTRUE(d$meta$source_type == "camera"), logical(1))]
+      gl <- ik_data$app$geography$locations
+      gl <- gl[gl$dataset %in% cam_ds & is.finite(gl$latitude) & is.finite(gl$longitude), , drop = FALSE]
+      if (nrow(gl)) m <- leaflet::fitBounds(m, min(gl$longitude), min(gl$latitude), max(gl$longitude), max(gl$latitude))
       m
     })
-    # Keep the map rendering even when the Map tab is hidden, so a selection change made on another tab
-    # is drawn into the (off-screen) widget rather than firing a fresh render ON tab-show — that fresh
-    # render raced the resize handler and left the map grey until a manual resize. With this, by the time
-    # the tab is shown the map already exists and maps.js's shown.bs.tab invalidateSize() fixes its size.
-    outputOptions(output, "map", suspendWhenHidden = FALSE)
+    outputOptions(output, "map", suspendWhenHidden = FALSE)   # eager so proxy layers land before first view
+    cproxy <- function() leaflet::leafletProxy("map", session)
+
+    # All proxy draws are gated on the Map tab being LIVE: a leafletProxy op sent to a hidden tabset tab
+    # (where the widget isn't initialised) is lost — including the tile re-add, which is why the map came
+    # up blank. Reading input$cooc_view also makes each observer re-fire on tab-show, so the layers (re)draw
+    # onto the now-visible, sized widget. (maps.js invalidateSize on shown.bs.tab handles the sizing/fit.)
+    on_map <- function() identical(input$cooc_view, "Map")
+
+    observe({                                                 # tiles follow the theme; applied while live
+      if (!on_map()) return()
+      leaflet::addProviderTiles(leaflet::clearGroup(cproxy(), "Street"),
+        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Street")
+    })
+
+    # Boundary + Cameras (the camera footprint) — redraw on the camera selection and re-frame to it.
+    observe({
+      if (!on_map()) return()
+      p <- cproxy(); leaflet::clearGroup(p, "Boundary"); leaflet::clearGroup(p, "Cameras")
+      cams <- cam_locs(); if (is.null(cams) || !nrow(cams)) return()
+      hulls <- tryCatch(ik_selection_hulls(cams, "reserve"), error = function(e) NULL)
+      if (!is.null(hulls) && nrow(hulls)) leaflet::addPolygons(p, data = hulls, group = "Boundary",
+        fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve,
+        options = leaflet::pathOptions(pane = "boundary"))
+      leaflet::addCircleMarkers(p, data = cams, lng = ~longitude, lat = ~latitude, group = "Cameras",
+        radius = 3, fill = TRUE, fillColor = "#2c7fb8", fillOpacity = 0.55, stroke = FALSE,
+        label = ~sprintf("%s — camera", name), options = leaflet::pathOptions(pane = "cameras"))
+      leaflet::fitBounds(p, min(cams$longitude), min(cams$latitude), max(cams$longitude), max(cams$latitude))
+    })
+
+    # Surface + Pairs + legend (the co-detection data) — redraw on the timing data / Within radius.
+    observe({
+      if (!on_map()) return()
+      p <- cproxy(); leaflet::clearGroup(p, "Surface"); leaflet::clearGroup(p, "Pairs"); leaflet::clearControls(p)
+      d <- timing_loc(); if (is.null(d) || !nrow(d)) return()
+      use_days <- max(d$median_gap_h, na.rm = TRUE) >= 48        # legend units follow the data's scale
+      conv <- function(h) if (use_days) h / 24 else h
+      d$gval <- conv(d$median_gap_h); mx <- max(d$gval, na.rm = TRUE)
+      pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
+      surf <- tryCatch(ik_idw_surface(d, "median_gap_h", "reserve"), error = function(e) NULL)
+      if (!is.null(surf) && nrow(surf)) {
+        surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
+        leaflet::addPolygons(p, data = surf, group = "Surface", stroke = FALSE,
+          fillColor = ~pal(gval), fillOpacity = if (is_dark()) 0.45 else 0.35,
+          options = leaflet::pathOptions(pane = "surface"))
+      }
+      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, layerId = ~location_id, group = "Pairs",
+        radius = ik_marker_radius(d$n, 6, 20, cap_pctl = 0.98),
+        fillColor = ~pal(gval), fillOpacity = 0.9, stroke = TRUE, color = "#333333", weight = 1,
+        label = ~sprintf("%s — median gap %s (%d pair%s)", name, .fmt_gap_short(median_gap_h), n, ifelse(n == 1, "", "s")),
+        options = leaflet::pathOptions(pane = "pairs"))
+      leaflet::addLegend(p, "bottomright", pal = pal, values = d$gval,
+        title = sprintf("Median gap (%s)<br/><span style='font-weight:400'>red = soonest</span>",
+                        if (use_days) "days" else "hours"), opacity = 0.9)
+    })
     # The per-camera table under the map (each row = a map dot), soonest first. Shares its (sorted)
     # order with the click handler so a row maps back to its camera. DT returns selections as indices
     # into the data AS PASSED, so this is robust to the user re-sorting the columns.
     map_tab <- reactive({ d <- timing_loc(); if (is.null(d)) return(NULL); d[order(d$median_gap_h), , drop = FALSE] })
     output$map_table <- DT::renderDT({
       d <- map_tab(); validate(need(!is.null(d) && nrow(d), "No co-detections for this selection."))
-      DT::datatable(
-        data.frame(Camera = d$name, Reserve = d$reserve,
-                   `Median gap` = .fmt_gap_short(d$median_gap_h), Pairs = d$n, check.names = FALSE),
-        rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(dom = "tip", pageLength = 10))
+      df <- data.frame(Camera = d$name, Reserve = d$reserve,
+                       `Median gap` = .fmt_gap_short(d$median_gap_h), Pairs = d$n,
+                       .loc = d$location_id, check.names = FALSE)
+      loc_i <- ncol(df) - 1L                                   # 0-based index of the hidden .loc column
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(dom = "tip", pageLength = 10,
+          columnDefs = list(list(visible = FALSE, targets = loc_i)),
+          createdRow = DT::JS(sprintf(                          # hover a row → preview that camera's popup on the map
+            "function(row,data,i){var L=data[%d];row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',L,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
+            loc_i, session$ns("map_table_hover"), session$ns("map_table_hover")))))
     })
     # Open the same co-detection drill from a marker click OR a table row click.
     open_cam <- function(id, nm) {
@@ -489,5 +526,19 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
       i <- input$map_table_rows_selected; d <- map_tab(); if (is.null(d) || !length(i)) return()
       open_cam(d$location_id[i], d$name[i])
     })
+    # Hover a table row → preview that camera's popup on the map (debounced); leaving the row clears it.
+    # Mirrors the Maps page's row-hover behaviour.
+    hover_loc <- shiny::debounce(reactive(input$map_table_hover), 120)
+    observeEvent(hover_loc(), {
+      p <- leaflet::leafletProxy("map", session); leaflet::clearGroup(p, "Hover")
+      loc <- hover_loc(); if (is.null(loc) || !nzchar(loc)) return()
+      d <- map_tab(); if (is.null(d)) return()
+      r <- d[d$location_id == loc, , drop = FALSE]
+      if (!nrow(r) || !is.finite(r$longitude[1])) return()
+      leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], group = "Hover",
+        popup = sprintf("<b>%s</b><br/>median gap %s &middot; %d pair%s", r$name[1],
+                        .fmt_gap_short(r$median_gap_h[1]), r$n[1], ifelse(r$n[1] == 1, "", "s")),
+        options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE))
+    }, ignoreNULL = FALSE)
   })
 }

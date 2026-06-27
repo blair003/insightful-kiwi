@@ -66,13 +66,15 @@ server <- function(input, output, session) {
   # (the device toggle is gone; each lives under its device menu). Period/geography from the sidebar,
   # Measure/Species in-panel. color_mode (navbar dark/light) drives the themed basemap.
   mon_map_selection <- selection_server("mon_map_selection", ik_data, prefer_scientific,
-    show = c("period", "reserve", "line", "location"), active = reactive(identical(input$nav, "monitoring-map")))
+    show = c("period", "reserve", "line"), source_type = "camera",
+    active = reactive(identical(input$nav, "monitoring-map")))
   .lazy_once(reactive(identical(input$nav, "monitoring-map")), function()
     maps_server("monitoring_map", ik_data, prefer_scientific, mon_map_selection,
                 color_mode = reactive(input$color_mode), device = "camera",
                 active = reactive(identical(input$nav, "monitoring-map"))))
   trap_map_selection <- selection_server("trap_map_selection", ik_data, prefer_scientific,
-    show = c("period", "reserve", "line", "location"), active = reactive(identical(input$nav, "trapping-map")))
+    show = c("period", "reserve", "line"), source_type = "trap",
+    active = reactive(identical(input$nav, "trapping-map")))
   .lazy_once(reactive(identical(input$nav, "trapping-map")), function()
     maps_server("trapping_map", ik_data, prefer_scientific, trap_map_selection,
                 color_mode = reactive(input$color_mode), device = "trap",
