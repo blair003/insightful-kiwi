@@ -36,16 +36,35 @@ ui <- page_navbar(
       "document.querySelectorAll('.navbar .dropdown-menu.show, .navbar .nav-item.dropdown.show, .navbar .dropdown-toggle.show')",
       ".forEach(function(e){ e.classList.remove('show'); e.setAttribute('aria-expanded','false'); }); });",
       sep = "\n")))
+    ,
+    # Report whether we're at/above bslib's sidebar breakpoint (576px). The server uses this to auto-collapse
+    # the rail on the light pages ONLY on desktop — below 576px the rail is always-open / non-collapsible
+    # (open=mobile:'always'), so the server leaves it be there. matchMedia 'change' re-reports on a resize /
+    # orientation that crosses the breakpoint, so the per-nav collapse follows the viewport.
+    tags$script(HTML(paste(
+      "(function(){",
+      "  if (!window.matchMedia) return;",
+      "  var mq = window.matchMedia('(min-width: 576px)');",
+      "  function report(){ try { if (window.Shiny && Shiny.setInputValue) Shiny.setInputValue('ik_desktop', mq.matches); } catch(e){} }",
+      "  function bind(){",
+      "    if (window.jQuery) { window.jQuery(document).on('shiny:connected', report); }",  # shiny: events are jQuery-triggered
+      "    if (mq.addEventListener) { mq.addEventListener('change', report); } else if (mq.addListener) { mq.addListener(report); }",
+      "    [80, 300, 800, 1600].forEach(function(t){ setTimeout(report, t); });",            # eager: land ik_desktop ASAP after connect (dedup-safe)
+      "  }",
+      "  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', bind); } else { bind(); }",
+      "})();",
+      sep = "\n")))
   ),
 
   # Global sidebar — filters/controls for the active view.
   # Populated per-view as modules are built; conditional on the selected nav.
   sidebar = sidebar(
     id = "global_sidebar",
-    # Desktop: open by default (the server then collapses it per-nav for the light Overview/Species pages,
-    # see SIDEBAR_NAVS). Mobile: ALWAYS shown — on a phone the rail drops below the content, and "closed"
-    # (the bslib default) left it hidden behind a toggle; "always" keeps it open and immune to the server's
-    # per-nav toggle_sidebar() calls, so the data selection is always reachable.
+    # Desktop: open by default — the HEAVY pages (Maps/Records/…, SIDEBAR_NAVS) want the rail open, and as
+    # the default that costs no toggle, so they show it instantly; the server then COLLAPSES it per-nav for
+    # the light Overview/Species pages (gated on ik_desktop in server.R). Mobile: ALWAYS shown — on a phone
+    # the rail drops below the content; "closed" (the bslib default) hid it behind a toggle, "always" keeps
+    # it open, and the server's collapse is skipped on mobile so nothing hides it.
     open = list(desktop = "open", mobile = "always"),
     title = NULL,                          # no "Data Selection" header + divider — the rail starts straight at View options / Filters
     # The Overview pages keep their controls HERE but the rail is COLLAPSED by default for them (they're

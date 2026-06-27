@@ -152,13 +152,15 @@ server <- function(input, output, session) {
   SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
                     "trap-review", "bait", "coverage", "trap-hero", "cooccurrence",
                     "neighbourhood", "reserve-report")   # their selection/anchor lives in the rail
-  # TEMP (mobile sidebar test): the per-nav auto-collapse ran on EVERY device — on mobile it collapsed the
-  # always-open rail. v0.1 only toggled on desktop (innerWidth > 768) and skipped mobile. Removed for now to
-  # confirm that's the cause; the desktop-only collapse will be re-added (gated on viewport width) once the
-  # rail is confirmed showing on mobile.
-  # observeEvent(input$nav, {
-  #   bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
-  # })
+  # Auto-collapse the rail on the light pages (everything NOT in SIDEBAR_NAVS) — but ONLY on desktop, where
+  # the sidebar is collapsible. Below bslib's 576px breakpoint the rail is always-open and non-collapsible
+  # (open=mobile:"always" in ui.R); collapsing it there just hid it (the original bug). The client reports
+  # `ik_desktop` (a matchMedia flag, ui.R); we re-apply on a change of the nav OR that flag, so the landing
+  # page collapses once the flag first arrives on desktop, and a resize across the breakpoint re-applies.
+  observeEvent(list(input$nav, input$ik_desktop), {
+    if (!isTRUE(input$ik_desktop)) return()                   # mobile / not-yet-known: leave the always-open rail
+    bslib::toggle_sidebar("global_sidebar", open = input$nav %in% SIDEBAR_NAVS)
+  })
   # The in-page period banner's calendar/date is a button (one global input, set from .ik_period_banner)
   # that toggles the filter sidebar — so on pages where the rail is collapsed by default, the banner is
   # the way in to change Period/Compare/Reserve.
