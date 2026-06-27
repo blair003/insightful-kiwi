@@ -1,0 +1,15 @@
+/* health.css — the "network health" strip: a row of red→green gauges (ik_health_strip). */
+.ik-health-strip { margin: 0 0 1.1rem; }
+.ik-health-title { font-weight: 700; font-size: 0.92rem; margin-bottom: 0.45rem; }
+.ik-health-row   { display: flex; flex-wrap: wrap; gap: 1.4rem 1.6rem; }
+.ik-health-item  { flex: 1 1 190px; min-width: 150px; }
+.ik-health-head  { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.3rem; }
+.ik-health-label { font-size: 0.82rem; color: var(--bs-secondary-color, #6c757d); }
+.ik-health-value { font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+
+/* The red→amber→green scale; the marker pin shows where this metric sits (right = better). */
+.ik-health-track  { position: relative; height: 0.5rem; border-radius: 0.3rem;
+  background: linear-gradient(90deg, #c62828 0%, #e6a700 50%, #2e7d32 100%); }
+.ik-health-marker { position: absolute; top: -0.28rem; width: 0.34rem; height: 1.06rem; border-radius: 0.2rem;
+  transform: translateX(-50%); background: var(--bs-body-color, #212529);
+  box-shadow: 0 0 0 2px var(--bs-body-bg, #fff); }

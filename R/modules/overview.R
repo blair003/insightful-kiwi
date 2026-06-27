@@ -926,7 +926,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
         .ov_metric_table(m$summary, names(ctl_targets), "By reserve", prev = m$prev,
                          desirable = ctl_dir, drill_id = session$ns("drill"), kind = "trap",
                          colour = FALSE, digits = 3, min_digits = 2)
-      .ov_device_section("Trapping (control)", trp(),
+      section <- .ov_device_section("Trapping (control)", trp(),
                          "Trap-nights", .ov_num(round(trp()$effort_hours / 24)),
                          "Checks", "Catches", sg,
                          function(o, s, k, sd) NULL,   # trapping cards now cover EVERY caught species → no "other" section
@@ -937,6 +937,11 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
                          ik_data = ik_data, period = selection()$period,
                          help = .ik_info(session$ns("trap_help"), "Trapping — how to read this",
                                          overview_trap_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
+      # Network-health strip on top — a row of red→green gauges (v1: % active, % well-serviced). Modular:
+      # add/redo metrics in ik_trapping_health(); the strip UI is generic (R/functions/health.R).
+      tagList(
+        ik_health_strip(ik_trapping_health(ik_data, selection(), trp()), "Network health"),
+        section)
     })
 
     # The COMPACT main Overview: one panel, both devices, just the headline — Detections/Catches +

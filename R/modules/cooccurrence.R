@@ -129,7 +129,7 @@ cooccurrence_ui <- function(id) {
                     .ik_hint(paste0("Ground the gap trend against how much each species is actually being seen. A gap can ",
                       "rise simply because the protected species is thinning out (or the predator is) — not because they're ",
                       "truly separating. RAI shares one right-hand axis; ± SE shown as a shadow."))),
-                  choices = c("Protected" = "prot", "Predator" = "pred"), selected = "prot")),
+                  choices = c("Protected" = "prot", "Predator" = "pred"), selected = character(0))),  # off by default — read the gap first
             plotOutput(ns("trend"), height = "360px"))))
   )
 }

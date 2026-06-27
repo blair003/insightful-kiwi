@@ -161,12 +161,11 @@ coverage_ui <- function(id, ik_data = NULL) {
     tags$script(src = .ik_asset("js/maps.js")),                            # reuse the resize-on-tab-show fix
     div(class = "ik-cov",
         .ik_page_header("Coverage",
+            description = "Where are the protected species, and is predator control reaching them?",
             help = .ik_info(ns("cov_help"), "Coverage — how to read this", coverage_help_body(cam_norm))),
         # The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
         # (The structural "network density by reserve" table now lives on the main Overview → Network density.)
-        tags$h5(class = "ik-cov-gaps-title", "Protected hotspots vs predator control"),
         tags$p(class = "ik-cov-lead",
-          "Where are the protected species, and is predator control reaching them? ",
           tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
           tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera; ",
           tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps; ",
