@@ -22,8 +22,10 @@ GEO_UNPLACED_RESERVE <- "Unknown"
 
 # Placeholder reserve for LOCATED traps that fall too far (> reserve_match$max_km) from any
 # monitored location to belong to a real reserve — so distant control work isn't force-credited
-# to the nearest reserve (and its capture surface). Has coords (unlike "Unknown"), so it maps.
-GEO_OUTSIDE_RESERVE <- "Outside monitored areas"
+# to the nearest reserve (and its capture surface). Has coords (unlike "Unknown"), so it maps — but
+# it's not a coherent area, so it's never drawn a boundary hull. "Unassigned" vs "Unknown" (the latter
+# has NO coordinates at all); a future pass will tag this trap data with real reserve names.
+GEO_OUTSIDE_RESERVE <- "Unassigned"
 
 # ---- derivers: deriver(package, config) -> data.frame(line, reserve) per location ----
 
@@ -182,7 +184,7 @@ assign_reserves_spatial <- function(locations, id, rm) {
     cols = data.frame(
       location_id = target$location_id,
       # within a reserve hull → that reserve; else the nearest reserve IF within max_km, otherwise
-      # grouped as "Outside monitored areas" (so distant traps aren't force-credited to a reserve).
+      # grouped as "Unassigned" (so distant traps aren't force-credited to a reserve).
       reserve = ifelse(within, contain, ifelse(near_km <= max_km, canon$reserve[ni], GEO_OUTSIDE_RESERVE)),
       within_monitored_area = within,
       nearest_monitoring_location    = canon$name[ni],

@@ -144,6 +144,10 @@ ik_selection_hulls <- function(points, group_col = "reserve", min_points = 3) {
   if (is.null(points) || nrow(points) == 0 ||
       !all(c("longitude", "latitude") %in% names(points))) return(NULL)
   pts <- points[is.finite(points$longitude) & is.finite(points$latitude), , drop = FALSE]
+  # The catch-all pseudo-reserves (Unknown / Unassigned) aren't coherent footprints — a hull would be a
+  # meaningless envelope around scattered devices, so never draw a boundary for them.
+  if (identical(group_col, "reserve") && "reserve" %in% names(pts))
+    pts <- pts[!pts$reserve %in% c(GEO_UNPLACED_RESERVE, GEO_OUTSIDE_RESERVE), , drop = FALSE]
   if (nrow(pts) == 0) return(NULL)
   if (!group_col %in% names(pts)) pts[[group_col]] <- "Selected area"
 

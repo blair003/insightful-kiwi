@@ -951,7 +951,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
           extra = .ov_more_card("monitoring-overview", "Monitoring"))   # → full overview (every species)
         blocks[["camera"]] <- .ov_compact_block("Camera monitoring", "camera",
           "Detections", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
-          count_label = "Cameras", count_value = .ov_num(length(unique(cam()$deployments$locationID))),
+          count_label = "Active cameras", count_value = .ov_num(length(unique(cam()$deployments$locationID))),
           help = .ik_info(session$ns("mon_help_brief"), "Camera monitoring",
                           overview_monitor_help_brief(ik_data$meta$camera$rai$norm_hours %||% 2000)))
       }
@@ -964,7 +964,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
           extra = .ov_more_card("trapping-overview", "Trapping"))   # → full overview (every species caught)
         blocks[["trap"]] <- .ov_compact_block("Trapping", "trap",
           "Catches", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
-          count_label = "Traps", count_value = .ov_num(length(unique(trp()$deployments$locationID))),
+          count_label = "Active traps", count_value = .ov_num(length(unique(trp()$deployments$locationID))),
           help = .ik_info(session$ns("trap_help_brief"), "Trapping",
                           overview_trap_help_brief(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
       }
