@@ -35,24 +35,31 @@ ik_health_strip <- function(items, title = NULL, help = NULL) {
 health_help_body <- function(ik_data) {
   P  <- function(...) tags$p(...)
   gd <- (ik_data$meta$trapping$health %||% list())$good_max
-  tagList(
-    P(tags$br(), "A quick read on whether the trapping network is firing. Each gauge runs on a red → green ",
-      "scale, and both honour the sidebar Period and Reserve."),
-    tags$h6("Network active"),
-    P("The share of the network's traps checked at least once in the selected period — checked traps ÷ all ",
-      "traps in scope. The window matters: a longer period (say Latest 12 months) gives more traps a chance ",
-      "to have been visited, so the figure runs higher; a shorter one is stricter. 100% means every trap saw ",
-      "a visit within the window."),
-    tags$h6("Check frequency"),
-    P("Of the traps still in service, the share kept on a good checking cadence — the mean gap between checks ",
-      "is tight enough", if (!is.null(gd) && is.finite(gd)) sprintf(" (about %d days or less here)", round(gd)),
-      " to count as good, rather than watch or neglected. Long-dormant traps count against it; decommissioned ",
-      "(historic) traps are left out."),
-    P(tags$br(), "These are network-wide summaries. For which traps are active, each trap's cadence and status, ",
-      "and its full check history, open the ",
-      tags$a(href = "#", `data-bs-dismiss` = "modal",
-             onclick = "Shiny.setInputValue('ik_goto_nav','trap-review',{priority:'event'})",
-             "Trap check review"), ".")
+  tabsetPanel(
+    type = "tabs",
+    tabPanel(
+      "What it shows", icon = icon("circle-question"),
+      P(tags$br(), "A quick read on whether the trapping network is firing — two gauges on a ", tags$b("red → green"),
+        " scale, both honouring the sidebar ", tags$b("Period"), " and ", tags$b("Reserve"), "."),
+      tags$ul(
+        tags$li(tags$b("Network active"), " — the share of the network's traps ", tags$b("checked at least once"),
+                " in the period (checked traps ÷ all traps in scope). Are we visiting the traps?"),
+        tags$li(tags$b("Check frequency"), " — of the traps we ", tags$em("did"), " check, the share kept on a ",
+                tags$b("good or watch"), " cadence rather than ", tags$b("neglected"),
+                ". When we visit, do we visit often enough?"))),
+    tabPanel(
+      "Reading it", icon = icon("magnifying-glass-chart"),
+      P(tags$br(), tags$b("Network active"), " moves with the window: a longer ", tags$b("Period"), " gives more traps ",
+        "a chance to have been visited, so it reads higher; a shorter one is stricter. 100% = every trap saw a visit."),
+      P(tags$b("Check frequency"), " only looks at the traps actually checked in the period, so it stays steady as you ",
+        "widen the window. A trap reads ", tags$b("good"), " when its mean gap between checks is tight",
+        if (!is.null(gd) && is.finite(gd)) sprintf(" (about %d days or less here)", round(gd)),
+        ", ", tags$b("watch"), " when it's looser, ", tags$b("neglected"), " when it's too long. A checked-then-",
+        tags$b("lapsed"), " (dormant) trap counts against it; ", tags$b("decommissioned"), " (historic) traps are left out."),
+      P("For the per-trap detail — which traps are active, each one's cadence and full check history — open the ",
+        tags$a(href = "#", `data-bs-dismiss` = "modal",
+               onclick = "Shiny.setInputValue('ik_goto_nav','trap-review',{priority:'event'})",
+               tags$b("Trap check review")), "."))
   )
 }
 
@@ -72,13 +79,15 @@ ik_trapping_health <- function(ik_data, selection, trp = NULL) {
   total <- length(unique(tl$location_id))
   active_frac <- if (total > 0) active / total else NA_real_
 
-  # 2. Check frequency — of the traps still in service, the share on a "Good" checking cadence. Long-dormant
-  #    traps count against it (a lapsed trap is a real servicing concern), but decommissioned (historic)
-  #    traps are EXCLUDED — they're retired, not part of the live network, so they shouldn't drag it down.
+  # 2. Check frequency — of the traps actually CHECKED in the period, the share kept on a good-or-watch
+  #    cadence. Restricting to checked traps (n_checks > 0) is what makes it period-stable: traps NOT visited
+  #    this period are the "Network active" story above, not this one — counting them here is what made a
+  #    longer period read confusingly low. good AND watch both read as "checked often enough"; only neglected
+  #    counts against. Decommissioned (historic) traps are excluded.
   per <- ik_trap_review(ik_data, .ik_nz(selection$season))
   if (!is.null(per) && !is.null(reserve)) per <- per[per$reserve %in% reserve, , drop = FALSE]
-  if (!is.null(per)) per <- per[per$status != "historic", , drop = FALSE]
-  good_frac <- if (!is.null(per) && nrow(per)) mean(per$status == "good", na.rm = TRUE) else NA_real_
+  if (!is.null(per)) per <- per[!is.na(per$n_checks) & per$n_checks > 0 & per$status != "historic", , drop = FALSE]
+  good_frac <- if (!is.null(per) && nrow(per)) mean(per$status %in% c("good", "watch"), na.rm = TRUE) else NA_real_
 
   pctv <- function(f) if (is.finite(f)) sprintf("%.0f%%", 100 * f) else "—"
   list(
@@ -86,6 +95,6 @@ ik_trapping_health <- function(ik_data, selection, trp = NULL) {
          tip = sprintf("%s of %s traps in the network were checked this period.",
                        format(active, big.mark = ","), format(total, big.mark = ","))),
     list(label = "Check frequency", frac = good_frac, value = pctv(good_frac),
-         tip = "Share of in-service traps kept on a 'Good' checking cadence (vs watch / neglected). Dormant traps count against it; decommissioned (historic) traps are excluded.")
+         tip = "Of the traps checked this period, the share kept on a good or watch cadence (vs neglected). Decommissioned (historic) traps are excluded.")
   )
 }
