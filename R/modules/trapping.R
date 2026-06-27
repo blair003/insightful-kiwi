@@ -91,7 +91,7 @@ trapping_byline_controls <- function(id) {
     selected = "dormant")
 }
 
-#' The "Over time" view control — season vs year grain. Sidebar View options; same id, server unchanged.
+#' The "Trend" view control — season vs year grain. Sidebar View options; same id, server unchanged.
 #' @keywords internal
 trapping_overtime_controls <- function(id) {
   ns <- NS(id)
@@ -113,7 +113,7 @@ trapping_ui <- function(id, ik_data = NULL) {
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
         # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
         # "By trapline" leads (default): it's the day-to-day management view and the quicker to load;
-        # "Over time" is the longer-horizon trend.
+        # "Trend" is the longer-horizon seasonal/yearly view.
         tabsetPanel(
           id = ns("trap_view"),
           tabPanel(
@@ -138,7 +138,7 @@ trapping_ui <- function(id, ik_data = NULL) {
                 uiOutput(ns("pressure_controls")),     # short summary + High-pressure toggle — only when a watch/neglected layer is shown
                 DT::DTOutput(ns("pressure_table"))))),
           tabPanel(
-            "Over time", icon = icon("chart-line"),
+            "Trend", icon = icon("chart-line"),
             div(class = "trap-timeline",
                 div(class = "trap-timeline-head",
                     tags$span(class = "trap-timeline-title", "Servicing over time"),
@@ -160,7 +160,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     prefer  <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
     # Tab-aware period banner: the Over-time trend ignores the window, so it reads "All data".
     output$period_banner <- renderUI(
-      .ik_period_banner(ik_data, selection(), all_data = identical(input$trap_view, "Over time")))
+      .ik_period_banner(ik_data, selection(), all_data = identical(input$trap_view, "Trend")))
 
     # Status cell text: cadence "X d" for good/watch/neglected; sparse → check count; else the tier name.
     .iv <- function(status, mean, n) {
@@ -327,7 +327,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
                                             tr$name, if (is.null(ch)) 0 else nrow(ch))),
         if (is.null(ch)) tags$p("No checks this period.") else tags$table(class = "trap-detail",
           tags$thead(tags$tr(tags$th("Check date"), tags$th("Interval"), tags$th("Outcome"),
-                             tags$th("Bait"), tags$th("Volunteer"))),
+                             tags$th("Bait"))),
           tags$tbody(lapply(seq_len(nrow(ch)), function(i) tags$tr(
             class = "trap-click",
             onclick = sprintf("Shiny.setInputValue('%s',{obs:'%s'},{priority:'event'})",
@@ -335,8 +335,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
             tags$td(format(ch$check_date[i], "%d %b %Y")),
             tags$td(if (isTRUE(ch$is_first[i])) tags$em("—") else sprintf("%d d", ch$interval_days[i])),
             tags$td(ch$outcome[i]),
-            tags$td(dash(ch$bait[i])),
-            tags$td(dash(ch$volunteer[i])))))))
+            tags$td(dash(ch$bait[i])))))))
     })
 
     # Record tab — the full observation viewer for the clicked check, with a back link to the checks.
@@ -480,7 +479,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         Status = unname(ifelse(d$status %in% names(st), st[d$status], d$status)),
         .loc = d$location, check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 10, scrollX = TRUE, dom = "tip",
+        options = list(pageLength = 5, scrollX = TRUE, dom = "tip",
           columnDefs = list(list(visible = FALSE, targets = 8)),       # hide .loc (index 8)
           rowCallback = DT::JS(sprintf(
             "function(r,d){r.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',d[8],{priority:'event'});});r.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
@@ -527,8 +526,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       df <- data.frame(
         Date = format(ch$check_date, "%d %b %Y"),
         Interval = ifelse(ch$is_first, "—", paste0(ch$interval_days, " d")),
-        Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait),
-        Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer), ObsID = ch$observationID,
+        Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait), ObsID = ch$observationID,
         check.names = FALSE, stringsAsFactors = FALSE)
       DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 12, scrollX = TRUE, dom = "ftip",
