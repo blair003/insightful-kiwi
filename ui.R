@@ -14,10 +14,13 @@
 
 ui <- page_navbar(
   id = "nav",
-  title = tags$img(
-    src = "images/insightful-kiwi.logo.svg", height = "32",
-    alt = "Insightful Kiwi", title = "Insightful Kiwi"
-  ),
+  title = tags$span(class = "ik-brand",
+    tags$img(src = "images/insightful-kiwi.logo.svg", height = "32",
+             alt = "Insightful Kiwi", title = "Insightful Kiwi"),
+    # Wordmark — small-caps so the leading I and K stay full height while the rest are mini-caps. Shown
+    # next to the logo (fills the empty space beside the hamburger on mobile); on desktop it just reads as
+    # the brand to the left of the centred menu.
+    tags$span(class = "ik-brand-text", "Insightful Kiwi")),
   window_title = "Insightful Kiwi",
   theme = bs_theme(version = 5, font_scale = 0.9),
   fillable = FALSE,

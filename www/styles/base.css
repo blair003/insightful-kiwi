@@ -146,3 +146,19 @@ td .ik-link, .ik-link {
     display: block !important; background: var(--bs-body-bg, #fff) !important; }
   .bslib-sidebar-layout[data-collapsible-mobile="true"]:not(.sidebar-collapsed) > .sidebar > .sidebar-content { display: flex !important; }
 }
+
+/* ── Brand wordmark next to the navbar logo. small-caps renders the leading capitals (I, K) full height
+   and the rest as mini-caps — exactly the "drop-cap-ish" look. Teal #003a32 matches the logo. Shown at all
+   sizes (fills the gap beside the hamburger on mobile); shrinks a touch on small phones so it never crowds
+   the menu toggle. ───────────────────────────────────────────────────────────────────────────────────── */
+.ik-brand { display: inline-flex; align-items: center; gap: 0.45rem; }
+.ik-brand-text {
+  font-variant-caps: small-caps;
+  font-weight: 700;
+  font-size: 1.18rem;
+  letter-spacing: 0.01em;
+  color: #003a32;
+  line-height: 1;
+  white-space: nowrap;
+}
+@media (max-width: 400px) { .ik-brand-text { font-size: 1.02rem; } }
