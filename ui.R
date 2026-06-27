@@ -37,19 +37,16 @@ ui <- page_navbar(
       ".forEach(function(e){ e.classList.remove('show'); e.setAttribute('aria-expanded','false'); }); });",
       sep = "\n")))
     ,
-    # Report whether we're at/above bslib's sidebar breakpoint (576px). The server uses this to auto-collapse
-    # the rail on the light pages ONLY on desktop — below 576px the rail is always-open / non-collapsible
-    # (open=mobile:'always'), so the server leaves it be there. matchMedia 'change' re-reports on a resize /
-    # orientation that crosses the breakpoint, so the per-nav collapse follows the viewport.
+    # On mobile, bslib reads its mobile-vs-desktop breakpoint (a CSS var) ONCE when it initialises the
+    # sidebar; if that runs before the stylesheet/layout settles it caches the wrong size and the rail is
+    # left in a broken/hidden state until the next resize (the old "rotate the phone to reveal it" symptom).
+    # bslib re-evaluates on the window 'resize' event, so dispatch a few once connected — bound via jQuery
+    # because shiny:connected is a jQuery-triggered event (a native addEventListener never fires it).
     tags$script(HTML(paste(
       "(function(){",
-      "  if (!window.matchMedia) return;",
-      "  var mq = window.matchMedia('(min-width: 576px)');",
-      "  function report(){ try { if (window.Shiny && Shiny.setInputValue) Shiny.setInputValue('ik_desktop', mq.matches); } catch(e){} }",
+      "  function nudge(){ try { window.dispatchEvent(new Event('resize')); } catch(e){} }",
       "  function bind(){",
-      "    if (window.jQuery) { window.jQuery(document).on('shiny:connected', report); }",  # shiny: events are jQuery-triggered
-      "    if (mq.addEventListener) { mq.addEventListener('change', report); } else if (mq.addListener) { mq.addListener(report); }",
-      "    [80, 300, 800, 1600].forEach(function(t){ setTimeout(report, t); });",            # eager: land ik_desktop ASAP after connect (dedup-safe)
+      "    if (window.jQuery) { window.jQuery(document).on('shiny:connected', function(){ [60, 350, 900].forEach(function(t){ setTimeout(nudge, t); }); }); }",
       "  }",
       "  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', bind); } else { bind(); }",
       "})();",
@@ -60,12 +57,13 @@ ui <- page_navbar(
   # Populated per-view as modules are built; conditional on the selected nav.
   sidebar = sidebar(
     id = "global_sidebar",
-    # Desktop: open by default — the HEAVY pages (Maps/Records/…, SIDEBAR_NAVS) want the rail open, and as
-    # the default that costs no toggle, so they show it instantly; the server then COLLAPSES it per-nav for
-    # the light Overview/Species pages (gated on ik_desktop in server.R). Mobile: ALWAYS shown — on a phone
-    # the rail drops below the content; "closed" (the bslib default) hid it behind a toggle, "always" keeps
-    # it open, and the server's collapse is skipped on mobile so nothing hides it.
-    open = list(desktop = "open", mobile = "always"),
+    # Desktop: open by default — the HEAVY pages (Maps/Records/…, SIDEBAR_NAVS) want the rail open and as
+    # the default that costs no toggle, so they show it instantly. Mobile: COLLAPSIBLE, closed by default —
+    # on a phone an open rail overlays the content, so the content is visible on load and the rail is opened
+    # on demand (the date/period banner toggles it, just like desktop). The server applies the same per-nav
+    # open/close rules on both (server.R). (Earlier "always" forced it open + non-collapsible, which is why
+    # the date toggle did nothing on mobile.)
+    open = list(desktop = "open", mobile = "closed"),
     title = NULL,                          # no "Data Selection" header + divider — the rail starts straight at View options / Filters
     # The Overview pages keep their controls HERE but the rail is COLLAPSED by default for them (they're
     # left out of SIDEBAR_NAVS in server.R) — regular users aren't confronted with filters, power users
