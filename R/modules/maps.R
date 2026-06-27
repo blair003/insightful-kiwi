@@ -621,7 +621,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         names(df)[4:5] <- c(paste(pred_label(), "RAI"), paste(prot_label(), "RAI"))
         return(DT::datatable(df, rownames = FALSE, selection = "single",
           class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", order = list(list(5, "desc")))))
+          options = list(pageLength = 5, scrollX = TRUE, dom = "ftip", order = list(list(5, "desc")))))
       }
       if (is_timing()) {
         d <- timing_pts(); sel <- selected()
@@ -635,7 +635,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           check.names = FALSE, stringsAsFactors = FALSE)
         return(DT::datatable(df, rownames = FALSE, selection = "single",
           class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", order = list(list(4, "asc")),
+          options = list(pageLength = 5, scrollX = TRUE, dom = "ftip", order = list(list(4, "asc")),
             columnDefs = list(list(visible = FALSE, targets = 4)))))   # hide the numeric sort helper
       }
       if (show_lines()) {                                     # zoomed out → per-LINE RAI; click a line to drill
@@ -646,11 +646,11 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           check.names = FALSE, stringsAsFactors = FALSE)
         return(DT::datatable(df, rownames = FALSE, selection = "single",
           class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", order = list(list(2, "desc")))))
+          options = list(pageLength = 5, scrollX = TRUE, dom = "ftip", order = list(list(2, "desc")))))
       }
       o <- records()
       validate(need(!is.null(o) && nrow(o), sprintf("No %ss of this group here.", if (src() == "trap") "capture" else "detection")))
-      .records_dt(o, hover = TRUE)
+      .records_dt(o, hover = TRUE, page = 5)
     })
 
     rec_proxy <- DT::dataTableProxy("table")
@@ -658,18 +658,23 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # Records DT, shared by the table below the map (hover = TRUE → hovering a row shows that
     # location's popup on the map) and the records modal's "Records" tab. A hidden .loc column
     # carries the location_id; createdRow stashes it on the row + wires the hover input.
-    .records_dt <- function(o, hover = FALSE, dom = "tip") {
+    .records_dt <- function(o, hover = FALSE, dom = "tip", page = 10) {
       prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
       has_t <- format(o$when, "%H:%M:%S") != "00:00:00"
       when_lab <- ifelse(has_t, format(o$when, "%Y-%m-%d %H:%M"), format(o$when, "%Y-%m-%d"))
-      df <- data.frame(When = when_lab, Species = ik_species_label(o$scientificName, ik_data, prefer),
-        Count = o$count, Reserve = o$reserve, Line = o$line, Location = o$locationName,
+      # Count is folded into Species as " ×N", and only when >1 (≈95% are 1) — it frees a whole column for
+      # the wrapping When/place columns without the noise of "×1" everywhere; the exact count still shows in
+      # the record-details drill.
+      sp <- ik_species_label(o$scientificName, ik_data, prefer)
+      sp <- ifelse(!is.na(o$count) & o$count > 1, sprintf("%s ×%d", sp, as.integer(o$count)), sp)
+      df <- data.frame(When = when_lab, Species = sp,
+        Reserve = o$reserve, Line = o$line, Location = o$locationName,
         .loc = o$location_id, check.names = FALSE, stringsAsFactors = FALSE)
       # Device-specific column label (the map is device-locked): Camera / Trap, or Location if combined.
       names(df)[names(df) == "Location"] <-
         if (identical(src(), "trap")) "Trap" else if (identical(src(), "camera")) "Camera" else "Location"
       loc_i <- ncol(df) - 1L                                   # 0-based index of the hidden .loc column
-      opts <- list(pageLength = 10, scrollX = TRUE, dom = dom,
+      opts <- list(pageLength = page, scrollX = TRUE, dom = dom,
                    columnDefs = list(list(visible = FALSE, targets = loc_i)))
       if (hover) opts$createdRow <- DT::JS(sprintf(
         "function(row,data,i){var L=data[%d];row.setAttribute('data-loc',L);row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',L,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",

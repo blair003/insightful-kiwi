@@ -43,7 +43,8 @@ server <- function(input, output, session) {
   overview_selection <- selection_server("overview_selection", ik_data, prefer_scientific,
     show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "overview")))
   overview_server("overview", ik_data, prefer_scientific, overview_selection,
-                  sections = c("camera", "trap"), landing = TRUE)
+                  sections = c("camera", "trap"), landing = TRUE,
+                  network = TRUE, color_mode = reactive(input$color_mode))
   monitoring_overview_selection <- selection_server("monitoring_overview_selection", ik_data, prefer_scientific,
     show = c("period", "compare", "reserve"), active = reactive(identical(input$nav, "monitoring-overview")))
   overview_server("monitoring_overview", ik_data, prefer_scientific, monitoring_overview_selection,

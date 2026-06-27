@@ -2,8 +2,6 @@
 
 .ik-out-title { margin: 0 0 0.2rem; }
 .ik-out-lead { color: var(--bs-secondary-color, #6c757d); max-width: 60rem; margin-bottom: 0.8rem; }
-.out-controls { margin-bottom: 0.4rem; display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: flex-end; }
-.out-controls .control-label { font-weight: 600; margin-right: 0.6rem; }
-.out-controls .shiny-input-container { margin-bottom: 0; }
+/* Predator/Protected pickers now live in the sidebar View options (outcomes_controls), not inline. */
 .out-sep { margin: 1.6rem 0 1rem; }
 .ik-out-subtitle { font-weight: 700; margin: 0 0 0.3rem; }

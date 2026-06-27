@@ -115,19 +115,14 @@ cooccurrence_ui <- function(id) {
             tags$p(class = "ik-cooc-hint", tags$b("Click a bar"), " for the detections behind it."),
             plotOutput(ns("dist"), height = "340px", click = ns("dist_click"))),
           tabPanel("Map", icon = icon("map-location-dot"),
-            tags$p(class = "ik-cooc-hint",
-              "Each protected-species camera detections, coloured by how soon a predator turns up nearby ",
-              tags$b("(red = soonest)"), " — dot size = number of pairs; the ", tags$b("Surface"),
-              " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it."),
+            uiOutput(ns("map_intro")),
             # Map beside the records table (wraps to stacked on narrow) — same side-by-side as the Maps page.
             layout_columns(
               class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
               leaflet::leafletOutput(ns("map"), height = "60vh"),
               div(class = "ik-maps-side", style = "max-height:60vh;", DT::DTOutput(ns("map_table"))))),
           tabPanel("Trend", icon = icon("chart-line"),
-            tags$p(class = "ik-cooc-hint", "Median gap by season across ", tags$b("all data"),
-                   ". Large gaps (weeks+) mean the two rarely share ground, so read trends cautiously; ",
-                   "overlay RAI to tell a real timing shift from simply changing detection rates."),
+            uiOutput(ns("trend_intro")),
             div(class = "ik-cooc-trend-ctrl",
                 checkboxGroupInput(ns("trend_rai"), inline = TRUE,
                   label = tagList("Overlay RAI ",
@@ -235,6 +230,11 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     prox     <- reactive({ r <- radius_m()                      # the "where" phrase, woven into the copy
       if (r <= 0) "at the same camera" else sprintf("within %s", if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r)) })
     prefer      <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
+    # Selected Protected / Predator labels — woven (bold) into every tab's dynamic copy so the data text
+    # reflects the view options. STANDARD: the page title + the description above the tabs stay generic;
+    # the per-tab text under the date banner reflects what's selected (the sidebar is at the very bottom on mobile).
+    prot_l <- reactive(paste(ik_choice_labels(input$prot %||% .prot_def, ik_data, prefer()), collapse = " + "))
+    pred_l <- reactive(paste(ik_choice_labels(input$pred %||% .pred_def, ik_data, prefer()), collapse = " + "))
     # split-aware grouped pickers (group whole, or sub-species per the project flag) — same as the Map.
     observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
       updateSelectizeInput(session, "pred", choices = ik_species_choices(pred_taxa, ik_data, p, splits), selected = keep(isolate(input$pred), .pred_def))
@@ -264,20 +264,37 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     gaps_all <- reactive(.compute_gaps(NULL))                         # Trend (all seasons; Reserve + Within still apply)
 
     output$intro <- renderUI({
-      g <- gaps(); after <- isTRUE(input$after_only); px <- prox()
-      # The dynamic results summary — hint-styled to match the Map/Trend tab hints (size + top spacing);
-      # the static feature intro above the tabs carries the headline.
+      g <- gaps(); after <- isTRUE(input$after_only); px <- prox(); pl <- prot_l(); dl <- pred_l()
       if (is.null(g)) return(tags$p(class = "ik-cooc-hint",
-        if (after) sprintf("No protected-species detections were followed by a predator %s.", px)
-        else sprintf("No protected-species and predator detections were found %s.", px)))
-      prot_l <- paste(ik_choice_labels(input$prot %||% .prot_def, ik_data, prefer()), collapse = " + ")
-      pred_l <- paste(ik_choice_labels(input$pred %||% .pred_def, ik_data, prefer()), collapse = " + ")
-      tags$p(class = "ik-cooc-hint", if (after) sprintf(
-        "%s %s detections followed by a %s %s · median %s until the predator arrives · %d%% within 24 h.",
-        format(nrow(g), big.mark = ","), prot_l, pred_l, px, .fmt_gap(stats::median(g$gap_h)), round(100 * mean(g$gap_h <= 24)))
-      else sprintf(
-        "%s %s detections · median %s to the nearest %s %s · %d%% within 24 h.",
-        format(nrow(g), big.mark = ","), prot_l, .fmt_gap(stats::median(g$gap_h)), pred_l, px, round(100 * mean(g$gap_h <= 24))))
+        if (after) tagList("No ", tags$b(pl), " detections were followed by a ", tags$b(dl), " ", px, ".")
+        else       tagList("No ", tags$b(pl), " and ", tags$b(dl), " detections were found ", px, ".")))
+      pct <- sprintf(" · %d%% within 24 h.", round(100 * mean(g$gap_h <= 24)))
+      if (after) tags$p(class = "ik-cooc-hint",
+        format(nrow(g), big.mark = ","), " ", tags$b(pl), " detections followed by a ", tags$b(dl), " ", px,
+        " · median ", .fmt_gap(stats::median(g$gap_h)), " until the predator arrives", pct)
+      else tags$p(class = "ik-cooc-hint",
+        format(nrow(g), big.mark = ","), " ", tags$b(pl), " detections · median ", .fmt_gap(stats::median(g$gap_h)),
+        " to the nearest ", tags$b(dl), " ", px, pct)
+    })
+
+    # Map tab description — tailored to the selected species (the sidebar is far below on mobile).
+    output$map_intro <- renderUI(tags$p(class = "ik-cooc-hint",
+      "Each ", tags$b(prot_l()), " camera detection, coloured by how soon a ", tags$b(pred_l()),
+      " turns up nearby ", tags$b("(red = soonest)"), " — dot size = number of pairs; the ", tags$b("Surface"),
+      " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it."))
+
+    # Trend tab description — species + Within + stalking aware.
+    output$trend_intro <- renderUI({
+      r <- radius_m()
+      where <- if (r <= 0) "at the same camera"
+               else sprintf("at the same camera, or any camera within %s",
+                            if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r))
+      lead <- if (isTRUE(input$after_only))
+        tagList("Median time until a ", tags$b(pred_l()), " arrives after a ", tags$b(prot_l()), " ", where, ", grouped by season.")
+      else
+        tagList("Median gap between camera detections of ", tags$b(prot_l()), " and ", tags$b(pred_l()), " ", where, ", grouped by season.")
+      tags$p(class = "ik-cooc-hint", lead,
+        " Large gaps (weeks+) indicate the two rarely share ground. Optionally overlay RAI to tell a real timing shift from simply changing detection rates.")
     })
 
     output$dist <- renderPlot({
@@ -503,7 +520,7 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
                        .loc = d$location_id, check.names = FALSE)
       loc_i <- ncol(df) - 1L                                   # 0-based index of the hidden .loc column
       DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(dom = "tip", pageLength = 10,
+        options = list(dom = "tip", pageLength = 5,
           columnDefs = list(list(visible = FALSE, targets = loc_i)),
           createdRow = DT::JS(sprintf(                          # hover a row → preview that camera's popup on the map
             "function(row,data,i){var L=data[%d];row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',L,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",

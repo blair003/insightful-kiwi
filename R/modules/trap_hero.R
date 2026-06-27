@@ -217,7 +217,7 @@ trap_hero_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         check.names = FALSE, stringsAsFactors = FALSE)
       names(df)[names(df) == "rate"] <- sprintf("Catch rate / %s TN", format(norm, big.mark = ","))
       DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 10, scrollX = TRUE, dom = "tip", order = list()))
+        options = list(pageLength = 5, scrollX = TRUE, dom = "tip", order = list()))
     })
 
     # ---- click a trap (map marker or table row) → its full check history → Record Details ----

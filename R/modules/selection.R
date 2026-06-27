@@ -26,7 +26,8 @@ nat_sort <- function(x) {
 #'   the sidebar. NULL (default) renders no heading — the controls sit directly under the rail title.
 #' @return A tagList of controls.
 selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL, device_default = NULL,
-                         period_show_js = NULL, period_note = NULL, device_show_js = NULL, heading = NULL) {
+                         period_show_js = NULL, period_note = NULL, device_show_js = NULL, heading = NULL,
+                         view = character(), view_js = NULL, view_extra = NULL, view_show_js = NULL) {
   ns <- NS(id)
   dev_choices <- if (!is.null(ik_data))                         # device = source_type; baked here so the
     stats::setNames(sort(unique(vapply(ik_data$datasets,        # default survives while the sidebar panel
@@ -75,10 +76,25 @@ selection_ui <- function(id, show = NULL, ik_data = NULL, period_default = NULL,
     ctrls$device <- conditionalPanel(device_show_js, ctrls$device)
   # default shows the six axis controls; `compare` and `net` are opt-in (request via `show`).
   ctrls <- ctrls[show %||% c("period", "reserve", "line", "location", "device", "species")]
+  # Optionally gate individual controls on a top-level JS condition (e.g. hide Compare on all-data tabs),
+  # the same trick as period_show_js but per-named-control.
+  for (nm in names(view_js %||% list())) if (!is.null(ctrls[[nm]]))
+    ctrls[[nm]] <- conditionalPanel(view_js[[nm]], ctrls[[nm]])
+  # Split a tinted "View options" group (the named `view` controls + any module `view_extra`) off the TOP,
+  # above the shared "Filters" axes — same pattern the map/species pages use, applied to the selection's own
+  # axes (e.g. Overview: Compare/Predators/Protected as view options; Period/Reserve as filters).
+  view_names <- intersect(view, names(ctrls)); filt <- ctrls[setdiff(names(ctrls), view_names)]
+  view_box <- if (length(view_names) || !is.null(view_extra)) {
+    grp <- div(class = "ik-selection ik-view-controls",
+               tags$div(class = "ik-view-controls-h", "View options"),
+               ctrls[view_names], view_extra)
+    if (!is.null(view_show_js)) conditionalPanel(view_show_js, grp) else grp   # hide the whole group when empty
+  }
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/selection.css")),
+    view_box,
     if (!is.null(heading)) tags$div(class = "ik-sel-section-h", heading),
-    div(class = "ik-selection", ctrls)
+    div(class = "ik-selection", filt)
   )
 }
 

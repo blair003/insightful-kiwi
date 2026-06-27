@@ -31,7 +31,11 @@
 
 /* Page/section title row: heading + inline help (?) button side by side (.ik_titlebar). Replaces the
    per-module .ik-*-titlebar classes, which were all this same flex rule. */
-.ik-titlebar { display: flex; align-items: center; gap: 0.4rem; margin-top: -0.45rem; }  /* page title: sit close to the top */
+/* App-wide: shrink the big sidebar-layout top padding (bslib default 1.5rem) above every page header,
+   reclaiming vertical space on short screens. Left/right/bottom kept; !important beats the framework's
+   `padding` shorthand regardless of stylesheet order. The per-title negative margins below are now 0. */
+.bslib-sidebar-layout > .main { padding-top: 0.4rem !important; }
+.ik-titlebar { display: flex; align-items: center; gap: 0.4rem; margin-top: 0; }  /* page title: sits close to the top */
 .ik-titlebar > h3, .ik-titlebar > h5 { margin-bottom: 0.1rem; }
 /* …but a titlebar used as a section heading INSIDE a nested tabset (e.g. the overview Trends tab's
    "Are we winning?") is NOT a page title — it needs a normal gap below the tab bar, like the other

@@ -67,9 +67,14 @@ highlights_server <- function(id, ik_data, active = reactive(TRUE)) {
       if (is.null(v) || !nrow(v))
         return(tags$p(class = "ik-hero-empty", "No highlight images have been tagged yet."))
       vc <- v[v$cached, , drop = FALSE]                        # show only what's local — no live hits
+      # The background pre-warm fills the disk cache AFTER this first renders, but renderUI has no reactive
+      # tie to the filesystem — so without a nudge it stays stuck on "downloading" forever even though the
+      # files are landing. Re-poll while the slider isn't full yet (newest IK_HERO_MAX, or all favourites if
+      # fewer) so freshly-cached images appear as they arrive; it stops once the slider is full.
+      if (nrow(vc) < min(IK_HERO_MAX, nrow(v))) invalidateLater(4000, session)
       if (!nrow(vc))
         return(tags$p(class = "ik-hero-empty",
-          "Highlights are downloading in the background — check back shortly."))
+          "Highlights are downloading in the background — they'll appear here as they land."))
       .hero_carousel(vc, session$ns)
     })
   })

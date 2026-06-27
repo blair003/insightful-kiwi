@@ -9,7 +9,7 @@
 /* Page header (org — section title) leads; pulled up to sit closer to the top, tight to the period
    banner subtitle below it. */
 .ik-topbar {
-  margin-top: -0.45rem;   /* page title — sit close to the top (matches .ik-titlebar) */
+  margin-top: 0;   /* page title — sits close to the top (the global .main padding now does the tightening) */
   margin-bottom: 0.1rem;
 }
 
@@ -215,3 +215,12 @@
 .ik-device-title > svg, .ik-device-title > .fa { opacity: 0.75; margin-right: 0.15rem; }
 .ik-ov-compact-block .ik-metric-cards { margin-bottom: 0; }
 .ik-ov-compact-block .bslib-value-box { min-height: 5.2rem; }   /* the two headline boxes, tidy + even */
+
+/* Network density tab — the structural-coverage lead above the table+map, and the table/map split. */
+.ik-ov-network-lead {
+  color: var(--bs-secondary-color, #6c757d);
+  font-size: 0.9rem;
+  max-width: 64rem;
+  margin: 0.2rem 0 0.8rem;
+}
+.ik-ov-network-lead a { cursor: pointer; }

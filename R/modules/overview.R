@@ -133,7 +133,7 @@ overview_trap_help_brief <- function(norm = 100) {
 #'   a tabset: Snapshot (the headline) + Trends (the seasonal graphs). The Trends tab is suspended
 #'   until opened, so the heavy outcome-series compute never touches the landing render.
 overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
-                        label = "Overview", value = "overview", trends = NULL) {
+                        label = "Overview", value = "overview", trends = NULL, network = FALSE) {
   ns <- NS(id)
   body <- div(
     class = "ik-overview",
@@ -143,11 +143,26 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
       if ("trap"   %in% sections) uiOutput(ns("trapping"))
     )
   )
-  inner <- if (!is.null(trends))
-    tabsetPanel(
-      id = ns("ov_tabs"), type = "tabs",
-      tabPanel("Snapshot", icon = icon("gauge"),      body),
-      tabPanel("Trends",   icon = icon("chart-line"), trends))
+  # Optional "Network density" tab — the structural "is the network even dense enough?" view: the
+  # per-reserve density table beside a Cameras / Traps / Boundary map, all-data (period-independent).
+  # Links out to the full Insights -> Coverage gap analysis.
+  nd <- if (isTRUE(network)) tabPanel(
+    "Network density", icon = icon("ruler-combined"),
+    tags$p(class = "ik-ov-network-lead",
+      "Is the network dense enough to work? Footprint, cameras & traps per km², and trap spacing per ",
+      "reserve — structural coverage, independent of any period or season. ",
+      tags$a(href = "#", style = "font-weight:600",
+        onclick = "Shiny.setInputValue('ik_goto_nav','coverage',{priority:'event'});return false;",
+        "Open the full Coverage analysis →")),
+    bslib::layout_columns(
+      class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(5, 7)),
+      div(class = "ik-maps-side", DT::DTOutput(ns("density"))),
+      div(class = "ik-maps", leaflet::leafletOutput(ns("network_map"), height = "60vh"))))
+  tabs <- list(tabPanel("Snapshot", icon = icon("gauge"), body))
+  if (!is.null(trends)) tabs <- c(tabs, list(tabPanel("Trends", icon = icon("chart-line"), trends)))
+  if (isTRUE(network))  tabs <- c(tabs, list(nd))
+  inner <- if (length(tabs) > 1)
+    do.call(tabsetPanel, c(list(id = ns("ov_tabs"), type = "tabs"), tabs))
   else body
   # The page title ("{org} — Monitoring/Trapping") leads; the read-only PERIOD banner sits as a subtitle
   # directly under it (tab-aware — on the Trends tab, a series the period doesn't constrain, it reads
@@ -155,6 +170,8 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
   nav_panel(
     label, value = value, icon = icon("gauge"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/overview.css")),
+    if (isTRUE(network)) tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),
+    if (isTRUE(network)) tags$script(src = .ik_asset("js/maps.js")),
     div(class = "ik-topbar", uiOutput(ns("header"))),
     div(class = "ik-page-period", uiOutput(ns("period_banner"))), inner
   )
@@ -567,10 +584,10 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
 #' OWN Overview page now. Boxes/cards reuse the same `box_drill`/`drill` modals as the full section.
 #' @keywords internal
 .ov_compact_block <- function(title, kind, record_label, record_value, species_value, cards,
-                              box_drill = NULL, help = NULL) {
-  box <- function(metric_key, label, value, icon_name) {
+                              box_drill = NULL, help = NULL, count_label = NULL, count_value = NULL) {
+  box <- function(metric_key, label, value, icon_name, drill = TRUE) {
     vb <- value_box(label, value, showcase = icon(icon_name))
-    if (is.null(box_drill)) return(vb)
+    if (is.null(box_drill) || !drill) return(vb)
     div(class = "ov-box-click", title = "Show the underlying records",
         onclick = sprintf("Shiny.setInputValue('%s',{kind:'%s',metric:'%s'},{priority:'event'})",
                           box_drill, kind, metric_key),
@@ -582,8 +599,11 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
              tags$span(class = "ik-device-title ik-ov-compact-title",
                        icon(.ov_device_icon(kind)), " ", title),
              help),
+    # A leading device-COUNT box (active cameras / traps in the period) adds a sense of network size and,
+    # with three boxes rather than two, stops them stretching super-wide on a laptop. It doesn't drill.
     layout_column_wrap(
-      width = 1/2,
+      width = if (is.null(count_value)) 1/2 else 1/3,
+      if (!is.null(count_value)) box("devices", count_label, count_value, .ov_device_icon(kind), drill = FALSE),
       box("records", record_label, record_value, "paw"),
       box("species", "Species",    species_value, "dna")),
     cards
@@ -676,8 +696,9 @@ overview_ui <- function(id, sections = c("camera", "trap"), compact = FALSE,
 #' @param landing           TRUE for the main cross-device landing page — its header is just the
 #'   organisation name (no "— Monitoring & Trapping" suffix, which reads too technical for a landing).
 overview_server <- function(id, ik_data, prefer_scientific, selection, sections = c("camera", "trap"),
-                            landing = FALSE) {
+                            landing = FALSE, network = FALSE, color_mode = reactive("light")) {
   moduleServer(id, function(input, output, session) {
+    is_dark <- reactive(identical(color_mode(), "dark"))
     sg       <- ik_species_groups(ik_data)
     locs     <- ik_data$app$geography$locations
     projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
@@ -753,7 +774,99 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
     # Tab-aware period banner above the title: the Trends tab spans every season (period doesn't apply)
     # so it reads "All data"; Snapshot and the single-view device pages honour the selected window.
     output$period_banner <- renderUI(
-      .ik_period_banner(ik_data, selection(), all_data = identical(input$ov_tabs, "Trends")))
+      .ik_period_banner(ik_data, selection(), all_data = input$ov_tabs %in% c("Trends", "Network density")))
+
+    # ---- Network density tab (structural coverage; all-data) — only on the cross-device landing ----
+    if (isTRUE(network)) {
+      nd_hulls <- reactive(ik_selection_hulls(ik_active_locations(ik_data), "reserve"))   # footprints (map + hover)
+
+      # Per-reserve density table (moved here from Insights -> Coverage). A cross-reserve comparison, so it
+      # shows EVERY reserve with a device — including the coordless pseudo-reserves (Unknown / Outside), which
+      # get device counts but no area metrics (build_coverage drops them: no coherent convex hull). Structural,
+      # independent of both Period and the sidebar Reserve (matching the whole-network map beside it). A "Total"
+      # row sums counts/area; densities there are area-weighted (total devices ÷ total footprint) and spacing is
+      # trap-weighted.
+      output$density <- DT::renderDT({
+        cam <- ik_active_locations(ik_data, "camera"); trp <- ik_active_locations(ik_data, "trap")
+        validate(need(nrow(cam) || nrow(trp), "No located devices."))
+        cov <- ik_coverage(ik_data)                                # area/density/spacing — coherent reserves only
+        present  <- unique(c(cam$reserve, trp$reserve))            # every reserve with a device
+        reserves <- c(intersect(cov$reserve, present), sort(setdiff(present, cov$reserve)))  # coherent (area desc) first
+        idx  <- match(reserves, cov$reserve)
+        area <- cov$area_km2[idx]; cpk <- cov$cameras_per_km2[idx]; tpk <- cov$traps_per_km2[idx]
+        spc  <- cov$mean_trap_spacing_m[idx]
+        ncam <- as.integer(table(factor(cam$reserve, levels = reserves)))
+        ntrp <- as.integer(table(factor(trp$reserve, levels = reserves)))
+        coh  <- !is.na(area); ta <- sum(area[coh])                 # footprints we can size (for the weighted means)
+        w    <- !is.na(spc) & ntrp > 0                             # reserves with a spacing + traps (spacing weight)
+        t_cpk <- if (ta > 0) sum(ncam[coh]) / ta else NA_real_     # area-weighted density = total devices ÷ total area
+        t_tpk <- if (ta > 0) sum(ntrp[coh]) / ta else NA_real_
+        t_spc <- if (any(w)) stats::weighted.mean(spc[w], ntrp[w]) else NA_real_   # trap-weighted spacing
+        reserves <- c(reserves, "Total")                           # append the aggregate row (compute totals first)
+        area <- c(area, ta); ncam <- c(ncam, sum(ncam)); ntrp <- c(ntrp, sum(ntrp))
+        cpk  <- c(cpk, t_cpk); tpk <- c(tpk, t_tpk); spc <- c(spc, t_spc)
+        fa <- function(a) ifelse(is.na(a) | a <= 0, "—", format(round(a * 100), big.mark = ","))
+        fd <- function(d) ifelse(is.na(d), "—", sprintf("%.1f", d))
+        fs <- function(s) ifelse(is.na(s), "—", format(round(s), big.mark = ","))
+        df <- data.frame(Reserve = reserves, `Area (ha)` = fa(area), Cameras = ncam, Traps = ntrp,
+          `Cameras/km²` = fd(cpk), `Traps/km²` = fd(tpk), `Trap spacing (m)` = fs(spc),
+          check.names = FALSE, stringsAsFactors = FALSE)
+        DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border ik-nd-table",
+          options = list(dom = "t", ordering = FALSE, paging = FALSE,
+            rowCallback = DT::JS("function(r,d){if(d[0]==='Total'){r.style.fontWeight='700';r.style.borderTop='2px solid var(--bs-border-color,#ccc)';}}"),
+            createdRow = DT::JS(sprintf(                            # hover a reserve row → outline it on the map
+              "function(row,data){var R=data[0];if(R==='Total')return;row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',R,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
+              session$ns("density_hover"), session$ns("density_hover")))))
+      })
+
+      # Simplified network map — Cameras / Traps / Boundary only (no surface/predators), all-data. Every
+      # layer is static, so it's drawn once in the base render; only the tiles re-theme via a proxy below.
+      output$network_map <- leaflet::renderLeaflet({
+        fin   <- function(d) if (is.null(d) || !nrow(d)) NULL else d[is.finite(d$longitude) & is.finite(d$latitude), , drop = FALSE]
+        cams  <- fin(ik_active_locations(ik_data, "camera"))
+        traps <- fin(ik_active_locations(ik_data, "trap"))
+        ext   <- rbind(cams[, c("longitude", "latitude")], traps[, c("longitude", "latitude")])
+        validate(need(!is.null(ext) && nrow(ext), "No mapped devices."))
+        h <- nd_hulls()
+        canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
+        m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
+        m <- leaflet::addProviderTiles(m, canvas, group = "Map")
+        m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
+        if (!is.null(h) && nrow(h)) m <- leaflet::addPolygons(m, data = h, group = "Boundary", label = ~reserve,
+          fill = FALSE, color = "#6c757d", weight = 1.5, opacity = 0.85, dashArray = "5,5")
+        if (!is.null(traps)) m <- leaflet::addCircleMarkers(m, data = traps, lng = ~longitude, lat = ~latitude,
+          group = "Traps", radius = 4, stroke = FALSE, fillColor = "#8a8a8a", fillOpacity = 0.85,
+          label = ~name, popup = ~sprintf("<b>%s</b><br>Trap &middot; %s", name, reserve))
+        if (!is.null(cams)) m <- leaflet::addCircleMarkers(m, data = cams, lng = ~longitude, lat = ~latitude,
+          group = "Cameras", radius = 4, stroke = FALSE, fillColor = "#2c7fb8", fillOpacity = 0.85,
+          label = ~name, popup = ~sprintf("<b>%s</b><br>Camera &middot; %s", name, reserve))
+        ov <- c(if (!is.null(cams)) "Cameras", if (!is.null(traps)) "Traps", if (!is.null(h) && nrow(h)) "Boundary")
+        m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"), overlayGroups = ov,
+          options = leaflet::layersControlOptions(collapsed = FALSE))
+        leaflet::fitBounds(m, min(ext$longitude), min(ext$latitude), max(ext$longitude), max(ext$latitude),
+          options = list(padding = c(30, 30)))
+      })
+      # No suspendWhenHidden override: this map lives on a hidden tab of the LANDING page, so let it render
+      # lazily on first open (at full size) rather than load ~1k markers into a 0-size box at every startup.
+      # Every layer is in the base render, so nothing races a proxy; maps.js re-fits on later tab shows.
+
+      observeEvent(color_mode(), {                                      # re-theme tiles without a full re-render
+        p <- leaflet::leafletProxy("network_map", session); leaflet::clearGroup(p, "Map")
+        leaflet::addProviderTiles(p, if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
+      }, ignoreInit = TRUE)
+
+      # Hover a density-table row → outline that reserve's footprint on the map (cleared on mouse-out).
+      nd_hover <- shiny::debounce(reactive(input$density_hover), 100)
+      observeEvent(nd_hover(), {
+        p <- leaflet::leafletProxy("network_map", session); leaflet::clearGroup(p, "nd_highlight")
+        r <- nd_hover(); if (is.null(r) || !nzchar(r)) return()
+        h <- nd_hulls(); if (is.null(h) || !nrow(h)) return()
+        hr <- h[h$reserve == r, , drop = FALSE]; if (!nrow(hr)) return()
+        leaflet::addPolygons(p, data = hr, group = "nd_highlight", fill = TRUE, fillColor = "#cf6819",
+          fillOpacity = 0.15, color = "#cf6819", weight = 3, opacity = 0.95,
+          options = leaflet::pathOptions(interactive = FALSE))
+      }, ignoreNULL = FALSE)
+    }
 
     output$camera <- renderUI({
       if (is.null(cam()$deployments) || !nrow(cam()$deployments))
@@ -838,6 +951,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
           extra = .ov_more_card("monitoring-overview", "Monitoring"))   # → full overview (every species)
         blocks[["camera"]] <- .ov_compact_block("Camera monitoring", "camera",
           "Detections", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
+          count_label = "Cameras", count_value = .ov_num(length(unique(cam()$deployments$locationID))),
           help = .ik_info(session$ns("mon_help_brief"), "Camera monitoring",
                           overview_monitor_help_brief(ik_data$meta$camera$rai$norm_hours %||% 2000)))
       }
@@ -850,6 +964,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
           extra = .ov_more_card("trapping-overview", "Trapping"))   # → full overview (every species caught)
         blocks[["trap"]] <- .ov_compact_block("Trapping", "trap",
           "Catches", .ov_num(nrow(o)), .ov_num(n_spp(o)), cards, session$ns("box_drill"),
+          count_label = "Traps", count_value = .ov_num(length(unique(trp()$deployments$locationID))),
           help = .ik_info(session$ns("trap_help_brief"), "Trapping",
                           overview_trap_help_brief(ik_data$meta$trapping$rate$norm_trap_days %||% 100)))
       }

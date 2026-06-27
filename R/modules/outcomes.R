@@ -74,18 +74,26 @@ outcomes_help_body <- function(norm_trap = 100, norm_hours = 2000) {
   )
 }
 
-#' The outcomes content (intro + predator/protected pickers + the seasonal plot) — split out of
-#' outcomes_ui so it can be embedded as the "Trends" TAB on the Overview page (the are-we-winning
-#' view) as well as stand alone. @keywords internal
+#' The Trends Predator / Protected pickers — rendered in the sidebar "View options" group (Overview →
+#' Trends) instead of inline, so the chart owns the full width and mobile users meet the same view-control
+#' pattern as elsewhere. Same input ids as before, so the server reads input$predators / input$protected
+#' unchanged regardless of where they sit. @keywords internal
+outcomes_controls <- function(id, ik_data = NULL) {
+  ns <- NS(id)
+  tagList(
+    selectInput(ns("predators"), "Predators", choices = NULL, multiple = TRUE),
+    selectInput(ns("protected"), "Protected", choices = NULL, multiple = TRUE))
+}
+
+#' The outcomes content (intro + the seasonal plot) — split out of outcomes_ui so it can be embedded as
+#' the "Trends" TAB on the Overview page (the are-we-winning view). The Predator / Protected pickers live
+#' in the sidebar now (outcomes_controls). @keywords internal
 outcomes_panel_body <- function(id) {
   ns <- NS(id)
   tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/outcomes.css")),
     div(class = "ik-outcomes",
         uiOutput(ns("intro")),
-        div(class = "out-controls",
-            selectInput(ns("predators"), "Predators", choices = NULL, multiple = TRUE, width = "320px"),
-            selectInput(ns("protected"), "Protected", choices = NULL, multiple = TRUE, width = "240px")),
         plotOutput(ns("plot"), height = "660px", click = ns("plot_click")))
   )
 }
@@ -134,18 +142,19 @@ outcomes_server <- function(id, ik_data, prefer_scientific, color_mode = reactiv
 
     output$intro <- renderUI({
       projects <- unique(unlist(lapply(ik_data$datasets, function(d) d$meta$project)))
-      tagList(
-        .ik_page_header("Are we winning?",
-            description = tagList(paste(projects, collapse = " · "), " — the control story across seasons. ",
-              "We ", tags$b("trap predators"), " → predator detections on camera should ",
-              tags$b("fall"), " → protected detections should ", tags$b("rise."), " ",
-              if (is.null(rsv())) "Lines are the network mean across reserves; bands are ± 1 SE. "
-              else sprintf("Scoped to %s (from the sidebar Reserve). ", paste(rsv(), collapse = ", ")),
-              tags$b("Click a point"), " for its per-reserve breakdown."),
-            help = .ik_info(session$ns("out_help"), "Are we winning? — how to read this",
-                     outcomes_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100,
-                                        ik_data$meta$camera$rai$norm_hours %||% 2000)))
-      )
+      pf <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
+      pl <- paste(ik_choice_labels(input$predators %||% .pred_def, ik_data, pf), collapse = " + ")
+      tl <- paste(ik_choice_labels(input$protected %||% .prot_def, ik_data, pf), collapse = " + ")
+      .ik_page_header("Are we winning?",
+        description = tagList(
+          paste(projects, collapse = " · "), " — the control story across seasons, comparing ",
+          tags$b(pl), " (predators) and ", tags$b(tl), " (protected). ",
+          if (is.null(rsv())) "Lines are the network mean across reserves; bands are ± 1 SE. "
+          else sprintf("Scoped to %s; bands are ± 1 SE. ", paste(rsv(), collapse = ", ")),
+          tags$b("Click a point"), " for its per-reserve breakdown."),
+        help = .ik_info(session$ns("out_help"), "Are we winning? — how to read this",
+                 outcomes_help_body(ik_data$meta$trapping$rate$norm_trap_days %||% 100,
+                                    ik_data$meta$camera$rai$norm_hours %||% 2000)))
     })
 
     # the data currently plotted (panel + ordered season factor) — read by the point-click handler

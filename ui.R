@@ -42,16 +42,22 @@ ui <- page_navbar(
   # Populated per-view as modules are built; conditional on the selected nav.
   sidebar = sidebar(
     id = "global_sidebar",
-    title = "Data Selection",
+    title = NULL,                          # no "Data Selection" header + divider — the rail starts straight at View options / Filters
     # The Overview pages keep their controls HERE but the rail is COLLAPSED by default for them (they're
     # left out of SIDEBAR_NAVS in server.R) — regular users aren't confronted with filters, power users
     # open the rail to change them, and the current window stays visible via the in-page period banner.
     conditionalPanel("input.nav === 'overview'",
-                     # Snapshot honours the Period; the Trends tab spans all data, so Period hides there
-                     # (the generic note in its place), mirroring the in-page banner.
+                     # Compare is a "view option" (Snapshot only); Predators/Protected are view options for
+                     # the Trends tab; Period + Reserve are the shared Filters. Period & Compare span all data
+                     # on the Trends / Network density tabs, so both hide there (generic note in Period's place).
                      selection_ui("overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data,
-                                  period_show_js = "input['overview-ov_tabs'] !== 'Trends'")),
+                                  heading = "Filters", view = "compare",
+                                  view_js = list(compare = "input['overview-ov_tabs'] !== 'Trends' && input['overview-ov_tabs'] !== 'Network density'"),
+                                  view_extra = conditionalPanel("input['overview-ov_tabs'] === 'Trends'",
+                                                                outcomes_controls("overview_trends", ik_data)),
+                                  view_show_js = "input['overview-ov_tabs'] !== 'Network density'",
+                                  period_show_js = "input['overview-ov_tabs'] !== 'Trends' && input['overview-ov_tabs'] !== 'Network density'")),
     conditionalPanel("input.nav === 'monitoring-overview'",
                      selection_ui("monitoring_overview_selection",
                                   show = c("period", "compare", "reserve"), ik_data = ik_data)),
@@ -139,7 +145,7 @@ ui <- page_navbar(
 
   # Main page: slim cross-device headline (Snapshot) + the "are we winning?" seasonal graphs as a
   # second Trends tab (suspended until opened, so the heavy outcome-series never hits the landing).
-  overview_ui("overview", compact = TRUE, trends = outcomes_panel_body("overview_trends")),
+  overview_ui("overview", compact = TRUE, trends = outcomes_panel_body("overview_trends"), network = TRUE),
 
   # Menus are organised by DEVICE — Monitoring (camera/observation) and "Trapping" (predator CONTROL:
   # trapping today, poison/etc. later — friendly label now, conceptually Control). Each shown only when

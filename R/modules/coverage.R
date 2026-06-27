@@ -41,8 +41,9 @@ coverage_help_body <- function(cam_norm = 500) {
       P("Camera markers are a detection ", tags$b("rate"), " (per ", ch, " camera-hours), so big vs small ",
         "is comparable across cameras regardless of how long each ran. Catch markers are a ", tags$b("count"),
         " of predators removed. Period and reserve come from the sidebar; click any marker for its detail."),
-      P("The ", tags$b("Network density"), " table below asks a prior question — is the network even dense ",
-        "enough to work? — and the ", tags$b("Coverage gaps"), " table ranks the gaps numerically.")),
+      P("Whether the network is even dense enough to work — footprint, devices per km², spacing — now lives ",
+        "on the main ", tags$b("Overview → Network density"), " tab; the ", tags$b("Coverage gaps"),
+        " table below ranks the gaps that remain numerically.")),
     tabPanel(
       "How it's calculated", icon = icon("calculator"),
       tags$ul(
@@ -161,14 +162,9 @@ coverage_ui <- function(id, ik_data = NULL) {
     div(class = "ik-cov",
         .ik_page_header("Coverage",
             help = .ik_info(ns("cov_help"), "Coverage — how to read this", coverage_help_body(cam_norm))),
-        # 1. Network density — the structural "is the network even dense enough?" context, up front (all-data).
-        tags$h5(class = "ik-cov-gaps-title", "Network density by reserve"),
-        tags$p(class = "ik-cov-gaps-lead",
-          "Is the network even dense enough to work? Footprint area, traps & cameras per km², and ",
-          "the typical (nearest-neighbour) spacing — structural coverage, independent of any period."),
-        DT::DTOutput(ns("density")),
-        # 2. The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
-        tags$h5(class = "ik-cov-gaps-title ik-cov-section", "Protected hotspots vs predator control"),
+        # The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
+        # (The structural "network density by reserve" table now lives on the main Overview → Network density.)
+        tags$h5(class = "ik-cov-gaps-title", "Protected hotspots vs predator control"),
         tags$p(class = "ik-cov-lead",
           "Where are the protected species, and is predator control reaching them? ",
           tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera; ",
@@ -495,23 +491,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         options = list(dom = "tp", pageLength = 15, order = list(list(5, "desc"))))
     })
 
-    # ---- per-reserve network density (structural coverage — is it dense enough?) ----
-    output$density <- DT::renderDT({
-      cov <- ik_coverage(ik_data); validate(need(!is.null(cov) && nrow(cov), "No coverage stats."))
-      areserves <- unique(ik_active_locations(ik_data)$reserve)  # pre-built table spans all datasets — scope it
-      cov <- cov[cov$reserve %in% areserves, , drop = FALSE]
-      rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) cov <- cov[cov$reserve %in% rsv, , drop = FALSE]
-      validate(need(nrow(cov), "No reserves in this selection."))
-      df <- data.frame(Reserve = cov$reserve,
-        `Area (ha)`   = ifelse(is.na(cov$area_km2), "—", format(round(cov$area_km2 * 100), big.mark = ",")),
-        Cameras = cov$n_cameras, Traps = cov$n_traps,
-        `Cameras/km²` = ifelse(is.na(cov$cameras_per_km2), "—", sprintf("%.1f", cov$cameras_per_km2)),
-        `Traps/km²`   = ifelse(is.na(cov$traps_per_km2),   "—", sprintf("%.1f", cov$traps_per_km2)),
-        `Trap spacing (m)` = ifelse(is.na(cov$mean_trap_spacing_m), "—", format(round(cov$mean_trap_spacing_m), big.mark = ",")),
-        check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border",
-        options = list(dom = "t", ordering = FALSE, paging = FALSE))   # every reserve, no hidden rows
-    })
+    # (The per-reserve network-density table moved to the main Overview → Network density tab.)
 
     # ---- click a TRAP marker → its full check history (all-time) → Record Details (as on Neighbourhood) ----
     th_loc <- reactiveVal(NULL); th_open <- reactiveVal(NULL)
