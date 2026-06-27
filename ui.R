@@ -17,10 +17,11 @@ ui <- page_navbar(
   title = tags$span(class = "ik-brand",
     tags$img(src = "images/insightful-kiwi.logo.svg", height = "32",
              alt = "Insightful Kiwi", title = "Insightful Kiwi"),
-    # Wordmark — small-caps so the leading I and K stay full height while the rest are mini-caps. Shown
-    # next to the logo (fills the empty space beside the hamburger on mobile); on desktop it just reads as
-    # the brand to the left of the centred menu.
-    tags$span(class = "ik-brand-text", "Insightful Kiwi")),
+    # Wordmark — two-tone: "Insightful" in the logo teal, "Kiwi" in the app accent. Beside the logo it
+    # fills the space before the hamburger on mobile and reads as the brand left of the menu on desktop.
+    tags$span(class = "ik-brand-text",
+              tags$span(class = "ik-brand-1", "Insightful"), " ",
+              tags$span(class = "ik-brand-2", "Kiwi"))),
   window_title = "Insightful Kiwi",
   theme = bs_theme(version = 5, font_scale = 0.9),
   fillable = FALSE,
