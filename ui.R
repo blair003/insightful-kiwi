@@ -194,36 +194,46 @@ ui <- page_navbar(
   # Menus are organised by DEVICE — Monitoring (camera/observation) and "Trapping" (predator CONTROL:
   # trapping today, poison/etc. later — friendly label now, conceptually Control). Each shown only when
   # the org has that data; Records sits in each, device-filtered (default to the device, still changeable).
-  if (.has_camera) nav_menu(
-    "Monitoring", icon = icon("binoculars"),
-    overview_ui("monitoring_overview", sections = "camera", label = "Overview", value = "monitoring-overview"),
-    if (.has_favourites && ik_feature_enabled(ik_data, "highlights")) highlights_ui("highlights", ik_data),   # friendly visual entry point
-    maps_ui("monitoring_map", device = "camera", label = "Map", value = "monitoring-map", ik_data = ik_data),
-    nav_panel("Deployment review", value = "camera-review", icon = icon("camera"),
-              monitoring_ui("monitoring", ik_data)),
-    if (ik_feature_enabled(ik_data, "cooccurrence")) cooccurrence_ui("cooccurrence"),   # predator ↔ protected timing (camera)
-    if (ik_feature_enabled(ik_data, "duplicates"))
-      nav_panel("Duplicate window", value = "duplicates", icon = icon("clone"),
-                duplicates_ui("duplicates")),
-    records_ui("mon_records", label = "Records", value = "monitoring-records", heading = "Monitoring records")
-  ),
-  if (.has_trap) nav_menu(
-    "Trapping", icon = icon("location-crosshairs"),
-    overview_ui("trapping_overview", sections = "trap", label = "Overview", value = "trapping-overview"),
-    maps_ui("trapping_map", device = "trap", label = "Map", value = "trapping-map", ik_data = ik_data),
-    nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"),
-              trapping_ui("trapping", ik_data)),
-    if (ik_feature_enabled(ik_data, "bait")) bait_ui("bait", ik_data),   # bait effectiveness (trap)
-    if (ik_feature_enabled(ik_data, "trapping_effectiveness")) trapping_effectiveness_ui("trapping_eff", ik_data),   # catch rate vs cadence, by season
-    if (ik_feature_enabled(ik_data, "top_traps")) trap_hero_ui("trap_hero", ik_data),   # best-performing traps on a map
-    if (.has_trappers && ik_feature_enabled(ik_data, "top_trappers")) top_trappers_ui("top_trappers", ik_data),   # gamified per-season volunteer leaderboard
-    records_ui("control_records", label = "Records", value = "trapping-records", heading = "Trapping records")
-  ),
+  # Monitoring / Trapping menus grouped with section headers (the Insights pattern): the everyday views,
+  # then "Analysis", then "Data quality" / "Health" / "Effectiveness". Empty groups drop out via .ik_nav_group.
+  if (.has_camera) do.call(nav_menu, c(
+    list("Monitoring", icon = icon("binoculars")),
+    .ik_nav_group(NULL, list(
+      overview_ui("monitoring_overview", sections = "camera", label = "Overview", value = "monitoring-overview"),
+      if (.has_favourites && ik_feature_enabled(ik_data, "highlights")) highlights_ui("highlights", ik_data),
+      maps_ui("monitoring_map", device = "camera", label = "Map", value = "monitoring-map", ik_data = ik_data),
+      records_ui("mon_records", label = "Records", value = "monitoring-records", heading = "Monitoring records"))),
+    .ik_nav_group("Analysis", list(
+      if (ik_feature_enabled(ik_data, "cooccurrence")) cooccurrence_ui("cooccurrence"))),   # predator ↔ protected timing (camera)
+    .ik_nav_group("Data quality", list(
+      nav_panel("Deployment review", value = "camera-review", icon = icon("camera"), monitoring_ui("monitoring", ik_data)),
+      if (ik_feature_enabled(ik_data, "duplicates"))
+        nav_panel("Duplicate window", value = "duplicates", icon = icon("clone"), duplicates_ui("duplicates")))))),
+  if (.has_trap) do.call(nav_menu, c(
+    list("Trapping", icon = icon("location-crosshairs")),
+    .ik_nav_group(NULL, list(
+      overview_ui("trapping_overview", sections = "trap", label = "Overview", value = "trapping-overview"),
+      maps_ui("trapping_map", device = "trap", label = "Map", value = "trapping-map", ik_data = ik_data),
+      records_ui("control_records", label = "Records", value = "trapping-records", heading = "Trapping records"))),
+    .ik_nav_group("Health", list(
+      nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"), trapping_ui("trapping", ik_data)))),
+    .ik_nav_group("Effectiveness", list(
+      if (ik_feature_enabled(ik_data, "bait")) bait_ui("bait", ik_data),   # bait effectiveness (trap)
+      if (ik_feature_enabled(ik_data, "trapping_effectiveness")) trapping_effectiveness_ui("trapping_eff", ik_data),   # catch rate vs cadence
+      if (ik_feature_enabled(ik_data, "top_traps")) trap_hero_ui("trap_hero", ik_data),   # best-performing traps on a map
+      if (.has_trappers && ik_feature_enabled(ik_data, "top_trappers")) top_trappers_ui("top_trappers", ik_data))))),  # volunteer leaderboard
 
-  # Species — one dashboard page per species GROUP (+ split sub-species), generated from the data.
-  if (ik_feature_enabled(ik_data, "species_pages")) do.call(nav_menu, c(
-    list("Species", icon = icon("paw")),
-    lapply(.species_specs, function(s) species_dashboard_ui(gsub("-", "_", s$key), s, ik_data)))),
+  # Species — one dashboard page per species GROUP (+ split sub-species), grouped by role (config) with a
+  # section header per role, like the Insights menu.
+  if (ik_feature_enabled(ik_data, "species_pages")) {
+    .sp_page <- function(s) species_dashboard_ui(gsub("-", "_", s$key), s, ik_data)
+    .sp_by   <- function(role) lapply(Filter(function(s) identical(s$role, role), .species_specs), .sp_page)
+    do.call(nav_menu, c(
+      list("Species", icon = icon("paw")),
+      .ik_nav_group("Protected", .sp_by("protected")),
+      .ik_nav_group("Predators", .sp_by("predator")),
+      .ik_nav_group("Other", lapply(Filter(function(s) !s$role %in% c("protected", "predator"), .species_specs), .sp_page))))
+  },
 
   # Insights — cross-device synthesis, or features that work on whichever data you have. ("Are we
   # winning?" moved to the Overview page's Trends tab; Reserve report is the deeper over-time chain.)

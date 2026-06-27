@@ -61,6 +61,16 @@
 #' an optional one-line DESCRIPTION of what the page does (spanning all its tabs), then an optional
 #' period BANNER (the data window; tab-aware). Reads "what · what it does · when". Always title →
 #' description → banner, so headers are consistent everywhere.
+#' Build a labelled group of nav items for a `nav_menu`: a bare-string section header (the way the Insights
+#' menu does it) followed by its items, with NULLs (feature-flagged-off pages) dropped. Returns NULL when the
+#' group is empty so no orphan header shows; `header = NULL` yields the items with no header. Splice the result
+#' into `nav_menu()` via `do.call(nav_menu, c(list(title, icon = ...), grpA, grpB, ...))`. @keywords internal
+.ik_nav_group <- function(header, items) {
+  items <- Filter(Negate(is.null), items)
+  if (!length(items)) return(NULL)
+  c(if (!is.null(header)) list(header), items)
+}
+
 #' @param title Page title — a plain string (wrapped as an `h3.ik-page-title`) or a ready tag.
 #' @param description One-line description: a string or inline `tagList(...)`, or NULL to omit.
 #' @param help An `.ik_info(...)` (?) control beside the title, or NULL.
