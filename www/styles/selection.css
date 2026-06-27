@@ -23,7 +23,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ik-accent, #cf6819);
-  margin: 0 0 0.1rem;
+  margin: 0 0 0.35rem;         /* match the Filters heading's gap */
   padding-bottom: 0.12rem;
   border-bottom: 1px solid color-mix(in srgb, var(--ik-accent, #cf6819) 45%, transparent);
 }
@@ -36,12 +36,10 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--bs-secondary-color, #6c757d);
-  margin: 0 0 0.1rem;          /* tight gap to the first filter below the heading */
+  margin: 0 0 0.35rem;         /* moderate gap to the first control below the heading */
   padding-bottom: 0.12rem;
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
 }
-/* The first input under the heading shouldn't add its own top gap. */
-.ik-sel-section-h + .ik-selection .form-group:first-child { margin-top: 0; }
 /* Data period leads the rail; a small gap below it before the View options / Filters. */
 .ik-period-top { margin-bottom: 0.7rem; }
 
