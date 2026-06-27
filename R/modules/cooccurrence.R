@@ -120,7 +120,10 @@ cooccurrence_ui <- function(id) {
             layout_columns(
               class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
               leaflet::leafletOutput(ns("map"), height = "60vh"),
-              div(class = "ik-maps-side", style = "max-height:60vh;", DT::DTOutput(ns("map_table"))))),
+              div(class = "ik-maps-side", style = "max-height:60vh;",
+                div(style = "margin-bottom:0.45rem;",
+                  downloadButton(ns("dl_pairs"), "Download pairs (CSV)", class = "btn-sm")),
+                DT::DTOutput(ns("map_table"))))),
           tabPanel("Trend", icon = icon("chart-line"),
             uiOutput(ns("trend_intro")),
             div(class = "ik-cooc-trend-ctrl",
@@ -281,11 +284,44 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
     })
 
     # Map tab description — tailored to the selected species (the sidebar is far below on mobile).
-    output$map_intro <- renderUI(tags$p(class = "ik-cooc-hint",
-      "Each ", tags$b(prot_l()), " detection, coloured by how soon a ", tags$b(pred_l()),
-      sprintf(" turns up on camera nearby within %d days ", max_pd), tags$b("(red = soonest)"),
-      " — dot size = number of pairs; the ", tags$b("Surface"),
-      " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it."))
+    output$map_intro <- renderUI({
+      r <- radius_m()
+      phrase <- if (r <= 0) sprintf("on the same camera within %d days", max_pd)
+                else sprintf("on any camera within %s, within %d days",
+                             if (r >= 1000) sprintf("%g km", r / 1000) else sprintf("%g m", r), max_pd)
+      tags$p(class = "ik-cooc-hint",
+        "Each ", tags$b(prot_l()), " detection, coloured by how soon a ", tags$b(pred_l()),
+        " turns up ", phrase, " ", tags$b("(red = soonest)"),
+        " — dot size = number of pairs; the ", tags$b("Surface"),
+        " layer interpolates between cameras. ", tags$b("Click a camera"), " for the detections behind it.")
+    })
+
+    # Download the pair-level temporal data — richer than the per-camera table: both cameras, both
+    # timestamps, the camera distance, and the gap + its direction. Exports the same gaps() the Map shows,
+    # so it honours the current Period / Reserve / Within / species / stalking selection.
+    output$dl_pairs <- downloadHandler(
+      filename = function() sprintf("cooccurrence-pairs-%s.csv", Sys.Date()),
+      content  = function(file) {
+        g <- gaps()
+        if (is.null(g) || !nrow(g)) { utils::write.csv(data.frame(), file, row.names = FALSE); return() }
+        locs <- ik_data$app$geography$locations
+        nm   <- function(id) locs$name[match(id, locs$location_id)]
+        df <- data.frame(
+          reserve            = locs$reserve[match(g$location_id, locs$location_id)],
+          protected_camera   = nm(g$location_id),
+          protected_species  = ik_species_label(g$scientificName, ik_data, "vernacular"),
+          protected_seen     = format(g$when, "%Y-%m-%d %H:%M"),
+          predator_camera    = nm(g$pred_loc),
+          distance_m         = round(g$pred_dist_m),
+          predator_species   = ik_species_label(g$pred_sci, ik_data, "vernacular"),
+          predator_seen      = format(g$pred_when, "%Y-%m-%d %H:%M"),
+          gap_hours          = round(g$gap_h, 2),
+          gap_days           = round(g$gap_h / 24, 2),
+          predator_direction = ifelse(g$signed_h > 0, "after protected", "before protected"),
+          check.names = FALSE, stringsAsFactors = FALSE)
+        utils::write.csv(df[order(df$reserve, df$protected_camera, df$protected_seen), , drop = FALSE],
+                         file, row.names = FALSE)
+      })
 
     # Trend tab description — species + Within + stalking aware.
     output$trend_intro <- renderUI({
