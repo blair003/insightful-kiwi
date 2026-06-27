@@ -50,6 +50,9 @@
   padding: 0.35rem 0.6rem;
 }
 
+/* Meta caption line above the map+table split (e.g. Predator pressure's "N sites under pressure…"). */
+.ik-maps-meta { color: var(--bs-secondary-color, #6c757d); font-size: 0.82rem; margin: 0.1rem 0 0.5rem; max-width: 64rem; }
+
 /* Records table. It now sits BESIDE the map on standalone maps (.ik-maps-split below); the old
    scroll-to-table hack and its reserved min-height went with the stacked layout. The Species-page
    embeds (fixed) still stack it under the map. */

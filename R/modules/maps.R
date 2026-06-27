@@ -35,7 +35,9 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 # Measures per device — the map is instantiated device-locked (a camera "Monitoring map" + a trap
 # "Trapping map"), so the device toggle is dropped and the measures come from here.
 .MAPS_MEASURES <- list(
-  camera = c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority"),
+  camera = c("Relative activity" = "rate"),
+  # "Priority (predator vs protected)" moved to its own Insights feature — "Predator pressure"
+  #   (the per-location predator-vs-protected surface + a toggleable trapping overlay).
   # "Timing (predator ↔ protected)" moved to its own page — Co-occurrence → Map.
   # "Servicing health" lives on its own page (Trap review → Map, the richer status map), not a measure here.
   trap   = c("Captures" = "captures", "Capture rate" = "rate"))
@@ -46,14 +48,13 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
 .maps_measure_help <- function(device = NULL, norm = 100) {
   ntn <- paste0(format(norm, big.mark = ","), " trap-nights")
   cam <- list(
-    tags$p("What the camera markers and shaded surface show — switch with the ", tags$b("Measure"), " buttons."),
+    tags$p("What the camera markers and shaded surface show."),
     tags$p(tags$b("Relative activity (RAI)"), " — detection rate for the chosen species group, effort-adjusted ",
       "by camera-hours. Zoom ", tags$b("out"), " for a line-level RAI (the DOC protocol's per-line index); ",
       "zoom ", tags$b("in"), " for the per-camera rate. The shaded surface interpolates it between cameras."),
-    tags$p(tags$b("Priority (predator vs protected)"), " — a composite ", tags$em("where to act"), " score: ",
-      "high (red) where the chosen ", tags$b("predator"), " is active ", tags$b("and"), " the chosen ",
-      tags$b("protected"), " species is scarce (predator RAI high × protected RAI low). Exploratory — click a ",
-      "row in the table for the detections behind it."))
+    tags$p(tags$em("Where to act"), " — the predator-vs-protected ", tags$b("Predator pressure"),
+      " surface now lives on its own ", tags$b("Insights → Predator pressure"), " feature, with a toggleable ",
+      "trapping overlay."))
   trp <- list(
     tags$p("How each trap is coloured and sized — switch with the ", tags$b("Measure"), " buttons."),
     tags$p(tags$b("Captures"), " — total predators of the chosen group caught per trap in the selected period. ",
@@ -68,23 +69,15 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
   else tagList(tags$h6("Camera"), do.call(tagList, cam), tags$h6("Traps"), do.call(tagList, trp))
 }
 
-#' Choices + defaults for the in-panel Species / Predator(s) / Protected selects. Shared by maps_ui
-#' (BAKED into the UI so the default shows — dropdown nav panels render their selectize lazily, so a
-#' server-side updateSelectInput at startup misses them) and maps_server (relabels on name pref).
-#' @keywords internal
+#' Choices + default for the in-panel Species select. Shared by maps_controls (BAKED into the UI so the
+#' default shows — dropdown nav panels render their selectize lazily, so a server-side updateSelectInput
+#' at startup misses them) and maps_server (relabels on name pref). (The predator-vs-protected pickers
+#' left with the Priority measure — see the Predator pressure feature.) @keywords internal
 .maps_picker_defs <- function(ik_data, prefer = "vernacular") {
   sg <- ik_species_groups(ik_data)
   groups <- c(ik_taxa_groups(sg, "monitor", "target"), ik_taxa_groups(sg, "monitor", "interesting"))
-  rt <- function(role) { l <- unique(sg$label[sg$role == role & !is.na(sg$monitor)])
-    stats::setNames(lapply(l, function(x) sg$scientificName[sg$label == x & !is.na(sg$scientificName)]), l) }
-  pred_taxa <- rt("predator"); prot_taxa <- rt("protected"); splits <- unique(sg$label[which(sg$split)])
-  gf <- function(t) paste0("grp:", names(t)[1])   # default = highest-concern group (species_groups order)
   list(species = ik_species_choices_full(ik_data, prefer),
-       predators = ik_species_choices(pred_taxa, ik_data, prefer, splits),
-       protected = ik_species_choices(prot_taxa, ik_data, prefer, splits),
-       group_default = gf(groups), pred_default = gf(pred_taxa),
-       prot_default = gf(prot_taxa),
-       pred_taxa = pred_taxa, prot_taxa = prot_taxa, groups = groups, splits = splits)
+       group_default = paste0("grp:", names(groups)[1]))   # default = highest-concern monitor group (config order)
 }
 
 #' The Maps sidebar controls — Measure + the measure-specific Species / Predator / Protected pickers.
@@ -99,24 +92,18 @@ maps_controls <- function(id, device = NULL, ik_data = NULL) {
   ns   <- NS(id)
   meas <- .MAPS_MEASURES[[device %||% "camera"]]
   pk   <- .maps_picker_defs(ik_data)                            # baked picker defaults (dropdown-lazy-safe)
-  norm <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100   # rate normalisation (config)
+  multi <- length(meas) > 1                                     # >1 measure → keep a Measure radio (traps)
   div(class = "ik-selection ik-view-controls",
     tags$div(class = "ik-view-controls-h", "View options"),
     if (is.null(device))                                        # device-locked instances drop the toggle
       radioButtons(ns("source"), "Device",
                    choices = c(Camera = "camera", Trap = "trap"), selected = "camera", inline = TRUE),
-    radioButtons(ns("measure"), tagList("Measure", .ik_info(ns("measure_help"),
-        if (identical(device, "trap")) "Trapping map — measures"
-        else if (identical(device, "camera")) "Monitoring map — measures" else "Map measures",
-        .maps_measure_help(device, norm))),
-      choices = meas, selected = unname(meas)[1]),
-    # Species is a GROUPING choice (like Device/Measure), shown only for the measures that group by it
-    # (camera RAI, trap captures/rate); Priority uses its own predator/protected pickers, so Species hides.
-    conditionalPanel("input.measure == 'rate' || input.measure == 'captures'", ns = ns,
-      selectInput(ns("species"), "Species", choices = pk$species, selected = pk$group_default, multiple = TRUE)),
-    conditionalPanel("input.measure == 'priority'", ns = ns,
-      selectInput(ns("predators"), "Predator(s)", choices = pk$predators, selected = pk$pred_default, multiple = TRUE),
-      selectInput(ns("protected"), "Protected",   choices = pk$protected, selected = pk$prot_default, multiple = TRUE))
+    # The Measure radio only appears when the device has more than one (traps: Captures / Capture rate).
+    # The camera map has a single measure (Relative activity, since Priority moved to its own feature).
+    # The measure/RAI help lives on the PAGE HEADING (maps_panel_body), not on a sidebar control.
+    if (multi) radioButtons(ns("measure"), "Measure", choices = meas, selected = unname(meas)[1]),
+    # Species is the GROUPING choice; both remaining measures (camera RAI, trap captures/rate) group by it.
+    selectInput(ns("species"), "Species", choices = pk$species, selected = pk$group_default, multiple = TRUE)
   )
 }
 
@@ -140,10 +127,15 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
         downloadButton(ns("download_csv"), "Download CSV", class = "btn-sm")),
     DT::DTOutput(ns("table"))
   )
+  norm  <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100   # rate normalisation (config)
+  ttl   <- if (identical(device, "trap")) "Trapping map" else if (identical(device, "camera")) "Monitoring map" else "Map"
+  help_ttl <- if (identical(device, "trap")) "Trapping map — measures"
+              else if (identical(device, "camera")) "Monitoring map — relative activity" else "Map measures"
   div(
     class = "ik-maps",
     if (!fixed) .ik_page_header(                                 # page heading (the embedded species maps skip it)
-      if (identical(device, "trap")) "Trapping map" else if (identical(device, "camera")) "Monitoring map" else "Map",
+      ttl,
+      help = .ik_info(ns("measure_help"), help_ttl, .maps_measure_help(device, norm)),  # measure/RAI help on the title
       banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
     # Standalone maps put the records table BESIDE the map (wide screens) — spending the surplus
     # horizontal space to buy vertical, so map + table fit one screen and the drill (click a marker →
@@ -198,35 +190,26 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     observeEvent(input$source, {
       ch  <- if (identical(input$source, "trap"))
                c("Captures" = "captures", "Capture rate" = "rate")
-             else c("Relative activity" = "rate", "Priority (predator vs protected)" = "priority")
+             else c("Relative activity" = "rate")
       sel <- if (isTRUE(isolate(input$measure) %in% ch)) isolate(input$measure) else ch[[1]]
       updateRadioButtons(session, "measure", choices = ch, selected = sel)
     }, ignoreInit = TRUE)
 
     src      <- reactive(device %||% input$source %||% "camera")   # device-locked when set
-    # measure: normally the in-panel radio; for a fixed-species embed there's no radio, so lock to the
-    # device default (camera "rate" surface / trap "captures") — the species-relevant grouping measure.
+    # measure: normally the in-panel radio; for a fixed-species embed (or the single-measure camera map,
+    # which has no radio) there's no input, so fall back to the device default — camera "rate" surface /
+    # trap "captures". (Priority/Timing measures moved to their own features — Predator pressure /
+    # Co-occurrence — so the camera map is Relative activity only.)
     measure  <- reactive(if (!is.null(fixed_species)) unname(.MAPS_MEASURES[[device %||% "camera"]])[1]
                          else input$measure %||% unname(.MAPS_MEASURES[[device %||% "camera"]])[1])
-    # Priority composite (camera only): predators-high × kiwi-low → "where to act". Predators are the
-    # predator-role groups, kiwi the protected-role group (both as seen on camera).
-    is_priority <- reactive(src() == "camera" && measure() == "priority")
-    is_timing   <- reactive(src() == "camera" && measure() == "timing")
-    has_pred <- reactive(length(input$predators) > 0)   # predator/protected pickers actually populated?
-    has_prot <- reactive(length(input$protected) > 0)   # (unselecting all → empty state, not stale default)
-    # Composite = predator-role vs protected-role groups (split-aware); defaults = each role's
-    # highest-concern group (species_groups order).
-    # Same picker defs the UI bakes in; the observe below only RELABELS on the name preference.
+    # Same picker defs the UI bakes in; the observe below only RELABELS the Species choices on a name
+    # preference change (the default group order comes from species_groups).
     pk <- .maps_picker_defs(ik_data)
-    pred_taxa <- pk$pred_taxa; prot_taxa <- pk$prot_taxa; splits <- pk$splits
-    .group_default <- pk$group_default; .pred_default <- pk$pred_default; .prot_default <- pk$prot_default
+    .group_default <- pk$group_default
     if (is.null(fixed_species)) observe({ p <- prefer(); keep <- function(cur, def) if (length(cur) && all(nzchar(cur))) cur else def
-      # All three taxa pickers live in-panel (Species is a grouping choice, like Device/Measure).
       # Species offers the full set (groups, split per project flag, + every ungrouped species);
-      # predator/protected stay role-scoped. Defaults: each picker's highest-concern group (config order).
-      updateSelectInput(session, "species",   choices = ik_species_choices_full(ik_data, p),                 selected = keep(isolate(input$species), .group_default))
-      updateSelectInput(session, "predators", choices = ik_species_choices(pred_taxa, ik_data, p, splits),    selected = keep(isolate(input$predators), .pred_default))
-      updateSelectInput(session, "protected", choices = ik_species_choices(prot_taxa, ik_data, p, splits),    selected = keep(isolate(input$protected), .prot_default))
+      # default = the top monitor-target group (config order).
+      updateSelectInput(session, "species", choices = ik_species_choices_full(ik_data, p), selected = keep(isolate(input$species), .group_default))
     })
     # The map surface's taxa come from the in-panel Species pick (input$species), combined into one
     # labelled surface; default to the top monitor-target group. (The map uses Species as a GROUPING,
@@ -238,10 +221,8 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       stats::setNames(list(sci), paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ")) })
     group_lab  <- reactive({ g <- group_taxa(); if (is.null(g)) "group" else names(g) })
     # Species never enters the metrics spec (the map groups by it instead), so the selection spec is used
-    # as-is; defensively drop any stray species axis so priority/timing can't double-filter to it.
+    # as-is; defensively drop any stray species axis so it can't double-filter to it.
     sel <- reactive({ s <- selection(); s$species <- NULL; s })
-    pred_label <- reactive({ v <- input$predators; if (!length(v)) v <- .pred_default; paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
-    prot_label <- reactive({ v <- input$protected; if (!length(v)) v <- .prot_default; paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
     is_dark  <- reactive(identical(color_mode(), "dark"))
     halo     <- reactive(if (is_dark()) "#1a1a1a" else "#ffffff")
     per_cam  <- reactive((ik_data$meta$camera$rai %||% list())$camera_hours %||% 500)
@@ -249,9 +230,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     has_group <- reactive(!is.null(group_taxa()))
     # the per-location value column + its label, for the active rate/count measure
     valcol   <- reactive(if (src() == "trap" && measure() == "captures") "captures" else "metric")
-    vallabel <- reactive(if (is_priority()) "Priority"
-                         else if (is_timing()) "Predator proximity"
-                         else if (src() == "trap" && measure() == "captures") "Captures"
+    vallabel <- reactive(if (src() == "trap" && measure() == "captures") "Captures"
                          else if (src() == "trap") "Capture rate"
                          else "Detections")   # per-camera (zoomed in); zoom out rolls up to "RAI / line"
 
@@ -271,46 +250,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     cam_pts      <- reactive({ m <- cam_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     cam_unplaced <- reactive({ m <- cam_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
 
-    # Priority = norm(predator RAI) × (1 − norm(kiwi RAI)) per camera; both metrics share the
-    # deployed-camera set (0 where none), so they join on location_id. Normalised across the
-    # selection's cameras; high only where predators are high AND kiwi low.
-    prio_all <- reactive({ req(active(), is_priority(), has_pred(), has_prot())   # empty pickers → NULL (empty state)
-      preds <- input$predators; prots <- input$protected
-      pred <- ik_location_metric(ik_data, sel(), list(Predators = ik_resolve_species_choice(preds, pred_taxa)), "camera", norm = per_cam())
-      prot <- ik_location_metric(ik_data, sel(), list(Protected = ik_resolve_species_choice(prots, prot_taxa)), "camera", norm = per_cam())
-      if (is.null(pred) || !nrow(pred)) return(NULL)
-      m <- pred; m$predator <- m$metric
-      m$protected <- if (is.null(prot)) 0 else prot$metric[match(m$location_id, prot$location_id)]
-      m$protected[is.na(m$protected)] <- 0
-      pmx <- function(x) { v <- suppressWarnings(max(x[x > 0], na.rm = TRUE)); if (is.finite(v)) v else 1 }
-      m$metric <- (m$predator / pmx(m$predator)) * (1 - m$protected / pmx(m$protected))
-      m })
-    prio_pts      <- reactive({ m <- prio_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
-    prio_unplaced <- reactive({ m <- prio_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
-
-    # Timing layer (camera only): per-camera median gap between a protected detection and the nearest
-    # predator detection at that camera (ik_predator_protected_gaps, grouped by camera). Mapped as a
-    # "proximity" score — metric = 1/(1+gap_days), so SHORT gaps (predators & protected sharing the
-    # ground close in time = act) score HIGH and read red, mirroring the priority layer's high=act.
-    # The popup carries the real median gap + pair count. Same predator/protected selectors as priority.
-    timing_all <- reactive({ req(active(), is_timing(), has_pred(), has_prot())   # empty pickers → NULL (empty state)
-      preds <- input$predators; prots <- input$protected
-      g <- ik_predator_protected_gaps(ik_data, ik_resolve_species_choice(preds, pred_taxa),
-                                      ik_resolve_species_choice(prots, prot_taxa), .ik_nz(selection()$season))
-      if (is.null(g) || !nrow(g)) return(NULL)
-      if (isTRUE(input$after_only)) { g <- g[g$signed_h > 0, , drop = FALSE]; if (!nrow(g)) return(NULL) }  # stalking
-      agg <- do.call(rbind, lapply(split(g, g$location_id), function(s)
-        data.frame(location_id = s$location_id[1], median_gap_h = stats::median(s$gap_h), n = nrow(s),
-                   stringsAsFactors = FALSE)))
-      locs <- ik_data$app$geography$locations; mi <- match(agg$location_id, locs$location_id)
-      agg$name <- locs$name[mi]; agg$reserve <- locs$reserve[mi]; agg$line <- locs$line[mi]
-      agg$latitude <- locs$latitude[mi]; agg$longitude <- locs$longitude[mi]
-      agg$median_gap_d <- agg$median_gap_h / 24
-      agg$metric <- 1 / (1 + agg$median_gap_d)            # high = close in time = act (red)
-      agg })
-    timing_pts      <- reactive({ m <- timing_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
-    timing_unplaced <- reactive({ m <- timing_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
-
     line_metric <- reactive({ req(active(), src() == "camera", has_group())
       rr <- ik_rai(ik_data, sel(), group_taxa()); ln <- rr$lines
       if (is.null(ln) || !nrow(ln)) return(NULL)
@@ -322,8 +261,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     trap_pts      <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     trap_unplaced <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
 
-    rate_loc_pts <- reactive(if (is_priority()) prio_pts() else if (is_timing()) timing_pts()
-                             else if (src() == "trap") trap_pts() else cam_pts())
+    rate_loc_pts <- reactive(if (src() == "trap") trap_pts() else cam_pts())
     frame_pts    <- reactive(rate_loc_pts())
 
     # ---- helpers ----
@@ -336,19 +274,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # out to ~16x the area. Capped at .MAPS_CAP_PCTL so one big outlier can't shrink everyone. (Size only;
     # the colour key uses the true max — they're independent.)
     .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi, cap_pctl = .MAPS_CAP_PCTL)
-    .prio_ramp <- c("#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c")   # yellow→red — priority/danger
-    surf_pal <- function(cap) leaflet::colorNumeric(if (is_priority() || is_timing()) .prio_ramp else "viridis", c(0, cap))
-    # median gap (hours) → readable "Xh / Xd / Xmo" — VECTORISED (leaflet builds every popup at once)
-    .fmt_gap_lab <- function(h) ifelse(!is.finite(h), "—",
-      ifelse(h < 48, sprintf("%.0f h", h),
-        ifelse(h < 720, sprintf("%.1f d", h / 24), sprintf("%.1f mo", h / 720))))
-    timing_popup <- function(d) sprintf(
-      "<b>%s</b><br/>Line %s &middot; %s<br/><b>Median gap: %s</b><br/>%s &harr; %s &middot; %d pair%s",
-      d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, .fmt_gap_lab(d$median_gap_h),
-      prot_label(), pred_label(), as.integer(d$n), ifelse(d$n == 1, "", "s"))
-    prio_popup <- function(d) sprintf(
-      "<b>%s</b><br/>Line %s &middot; %s<br/><b>Priority: %.2f</b><br/>%s RAI: %.2f &middot; %s RAI: %.2f",
-      d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, d$metric, pred_label(), d$predator, prot_label(), d$protected)
+    surf_pal <- function(cap) leaflet::colorNumeric("viridis", c(0, cap))
     rate_popup <- function(d) {
       body <- if (src() == "trap") {
         # captures measure: the raw line says it all (no separate "Captures: N" header). rate measure:
@@ -370,12 +296,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
 
     # ---- drill state (map ↔ table) ----
     selected <- reactiveVal(NULL)   # NULL | list(kind="location"/"line", id|reserve|line, label)
-    prio_tbl    <- reactiveVal(NULL)  # the priority rows currently shown (ordered) — for the row drill
-    prio_rec    <- reactiveVal(NULL)  # predator+protected detections behind a clicked priority camera
-    prio_recobs <- reactiveVal(NULL)  # the record open in the priority modal's Record-details tab
     maprec_obs  <- reactiveVal(NULL)  # the record open in the camera/trap records modal's detail tab
     # reset the drill when the data context changes (a clicked place may not exist in the new view)
-    observeEvent(list(src(), measure(), input$species, input$predators, input$protected, input$after_only, selection()), selected(NULL), ignoreInit = TRUE)
+    observeEvent(list(src(), measure(), input$species, selection()), selected(NULL), ignoreInit = TRUE)
     sel_coords <- function(sel) {
       if (is.null(sel)) return(NULL)
       if (identical(sel$kind, "location")) {
@@ -470,7 +393,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # ---- Points (line RAI · per-camera rate · trap count/rate) ----
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Points")
-      if (src() == "camera" && !is_priority() && !is_timing() && grain_rv() == "line") {
+      if (src() == "camera" && grain_rv() == "line") {
         d <- line_metric(); if (is.null(d) || !nrow(d)) return()
         cap <- .robust_cap(d$metric); v <- pmin(d$metric, cap); pf <- leaflet::colorNumeric("viridis", c(0, cap))
         leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Points",
@@ -487,7 +410,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Points", layerId = d$location_id,
           radius = .area_radius(v, 5, 20), fillColor = pf(v), fillOpacity = 0.8, stroke = TRUE, color = halo(), weight = 1.5,
           label = sprintf("%s — %s %s", d$name, vallabel(), formatC(d[[vc]], format = "fg", digits = 3)),
-          popup = if (is_priority()) prio_popup(d) else if (is_timing()) timing_popup(d) else rate_popup(d),
+          popup = rate_popup(d),
           popupOptions = leaflet::popupOptions(autoPan = FALSE),
           options = leaflet::pathOptions(pane = "points"))
       }
@@ -537,14 +460,12 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
 
     observe({                                                   # Legend
       p <- proxy(); leaflet::clearControls(p)
-      line_grain <- src() == "camera" && !is_priority() && !is_timing() && grain_rv() == "line"
+      line_grain <- src() == "camera" && grain_rv() == "line"
       d <- if (line_grain) line_metric() else rate_loc_pts()
       vc <- if (line_grain) "metric" else valcol()
       if (is.null(d) || !nrow(d)) return()
       cap <- .robust_cap(d[[vc]]); pf <- surf_pal(cap)
-      ttl <- if (is_priority()) sprintf("Priority &middot; %s high, %s low", pred_label(), prot_label())
-             else if (is_timing()) sprintf("Predator proximity &middot; red = %s close to %s in time", pred_label(), prot_label())
-             else if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
+      ttl <- if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
              else sprintf("%s &middot; %s", vallabel(), group_lab())
       leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl, opacity = 0.9)
     })
@@ -580,21 +501,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     observeEvent(input$drill_clear, selected(NULL))
 
     output$records_caption <- renderUI({
-      if ((is_priority() || is_timing()) && (!has_pred() || !has_prot()))
-        return(tags$small("Pick a predator and a protected species to compare."))
-      if (is_priority()) {
-        d <- prio_pts(); n <- if (is.null(d)) 0L else nrow(d)
-        return(tags$small(sprintf("%s camera sites · priority = %s high & %s low (exploratory). Click a row for the detections behind it.",
-                                  format(n, big.mark = ","), pred_label(), prot_label())))
-      }
-      if (is_timing()) {
-        d <- timing_pts(); n <- if (is.null(d)) 0L else nrow(d)
-        gap_phrase <- if (isTRUE(input$after_only))
-          sprintf("median time until a %s arrives AFTER a %s (stalking)", pred_label(), prot_label())
-        else sprintf("median time between a %s and the nearest %s", prot_label(), pred_label())
-        return(tags$small(sprintf("%s camera sites · %s (exploratory). Click a row for the detections behind it.",
-                                  format(n, big.mark = ","), gap_phrase)))
-      }
       if (show_lines()) {
         d <- line_metric(); n <- if (is.null(d)) 0L else nrow(d)
         tags$small(sprintf("%s camera line%s · RAI per line of %s. Click a line for its records (or zoom in for per-camera).",
@@ -607,37 +513,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     })
 
     output$table <- DT::renderDT({
-      if ((is_priority() || is_timing()))
-        validate(need(has_pred() && has_prot(), "Pick a predator and a protected species to compare."))
-      if (is_priority()) {
-        d <- prio_pts(); sel <- selected()
-        if (!is.null(sel) && identical(sel$kind, "location")) d <- d[d$location_id == sel$id, , drop = FALSE]
-        validate(need(!is.null(d) && nrow(d), "No camera sites in the current selection."))
-        d <- d[order(-d$metric), , drop = FALSE]
-        prio_tbl(d)                                            # remember the order for the row drill
-        df <- data.frame(Camera = d$name, Reserve = d$reserve, Line = d$line,   # priority is camera-only
-          predator = round(d$predator, 2), protected = round(d$protected, 2),
-          Priority = round(d$metric, 2), check.names = FALSE, stringsAsFactors = FALSE)
-        names(df)[4:5] <- c(paste(pred_label(), "RAI"), paste(prot_label(), "RAI"))
-        return(DT::datatable(df, rownames = FALSE, selection = "single",
-          class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 7, scrollX = TRUE, dom = "ftip", order = list(list(5, "desc")))))
-      }
-      if (is_timing()) {
-        d <- timing_pts(); sel <- selected()
-        if (!is.null(sel) && identical(sel$kind, "location")) d <- d[d$location_id == sel$id, , drop = FALSE]
-        validate(need(!is.null(d) && nrow(d), "No predator/protected co-detections in the current selection."))
-        d <- d[order(d$median_gap_h), , drop = FALSE]         # shortest gap (most urgent) first
-        prio_tbl(d)                                            # same row drill as priority
-        df <- data.frame(Location = d$name, Reserve = d$reserve, Line = d$line,
-          `Median gap` = vapply(d$median_gap_h, .fmt_gap_lab, character(1)),
-          `Median gap (h)` = round(d$median_gap_h, 1), Pairs = as.integer(d$n),
-          check.names = FALSE, stringsAsFactors = FALSE)
-        return(DT::datatable(df, rownames = FALSE, selection = "single",
-          class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 7, scrollX = TRUE, dom = "ftip", order = list(list(4, "asc")),
-            columnDefs = list(list(visible = FALSE, targets = 4)))))   # hide the numeric sort helper
-      }
       if (show_lines()) {                                     # zoomed out → per-LINE RAI; click a line to drill
         d <- line_metric(); validate(need(!is.null(d) && nrow(d), "No camera lines in the current selection."))
         d <- d[order(-d$metric), , drop = FALSE]; lines_tbl(d)
@@ -683,79 +558,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         options = opts)
     }
 
-    # Priority row → the predator + protected detections at that camera that drive its score, in a
-    # tabbed modal (Detections → Record details) like Co-occurrence, so the number is auditable.
-    .prio_detections <- function(loc_id) {
-      preds <- input$predators; if (!length(preds)) preds <- .pred_default
-      prots <- input$protected; if (!length(prots)) prots <- .prot_default
-      pred_sci <- ik_resolve_species_choice(preds, pred_taxa); prot_sci <- ik_resolve_species_choice(prots, prot_taxa)
-      obs <- ik_observations(ik_data, with_location = TRUE)
-      obs <- obs[!is.na(obs$observationType) & obs$observationType == "animal" &
-                   !is.na(obs$locationID) & obs$locationID == loc_id & !is.na(obs$eventStart) &
-                   obs$scientificName %in% c(pred_sci, prot_sci), , drop = FALSE]
-      seas <- .ik_nz(selection()$season)                   # scope the drill to the selected period too
-      if (!is.null(seas) && nrow(obs)) {
-        op <- ik_observation_period(ik_data)
-        osea <- op$calendar_season[match(obs$observationID, op$observationID)]
-        obs <- obs[!is.na(osea) & osea %in% seas, , drop = FALSE]
-      }
-      if (!nrow(obs)) return(NULL)
-      obs$role <- ifelse(obs$scientificName %in% pred_sci, pred_label(), prot_label())
-      obs[order(obs$eventStart), , drop = FALSE]
-    }
-    observeEvent(input$table_rows_selected, {                   # priority/timing drill: detections behind a camera
-      req(is_priority() || is_timing()); i <- input$table_rows_selected; d <- prio_tbl()
-      if (!length(i) || is.null(d) || i > nrow(d)) return()
-      row <- d[i, , drop = FALSE]; prio_rec(.prio_detections(row$location_id)); prio_recobs(NULL)
-      sub <- if (is_timing())
-        sprintf("%s · Line %s — median gap %s (%s ↔ %s). The detections behind it:",
-                row$reserve, ifelse(is.na(row$line), "—", row$line), .fmt_gap_lab(row$median_gap_h),
-                prot_label(), pred_label())
-      else
-        sprintf("%s · Line %s — priority %.2f (%s RAI %.2f vs %s RAI %.2f). The detections behind it:",
-                row$reserve, ifelse(is.na(row$line), "—", row$line), row$metric,
-                pred_label(), row$predator, prot_label(), row$protected)
-      showModal(modalDialog(
-        title = .ik_modal_title(sprintf("Detections at %s", row$name), sub),
-        size = "l", easyClose = TRUE, footer = modalButton("Close"),
-        tabsetPanel(id = session$ns("prio_tabs"),
-          tabPanel("Detections",     icon = icon("list"),        DT::dataTableOutput(session$ns("prio_detail"))),
-          tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("prio_record"))))))
-      hideTab(session = session, inputId = "prio_tabs", target = "Record details")   # appears on first drill
-      DT::selectRows(rec_proxy, NULL)
-    }, ignoreInit = TRUE)
-
-    output$prio_detail <- DT::renderDT({
-      det <- prio_rec(); validate(need(!is.null(det) && nrow(det), "No predator or protected detections at this camera."))
-      prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      .lnk <- function(label, id) sprintf(
-        "<a class='ik-link' onclick=\"Shiny.setInputValue('%s',{id:'%s'},{priority:'event'})\">%s</a>",
-        session$ns("prio_view"), id, htmltools::htmlEscape(label))
-      df <- data.frame(
-        Role = det$role,
-        Species = mapply(.lnk, ik_species_label(det$scientificName, ik_data, prefer), det$observationID),
-        When = .ik_when_label(det$eventStart),
-        .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, rownames = FALSE, selection = "none", escape = -2,
-        class = "stripe hover row-border",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
-          columnDefs = .ik_dt_when_defs(df, "When")))
-    })
-    observeEvent(input$prio_view, {
-      id <- input$prio_view$id
-      if (length(id) && nzchar(id)) { prio_recobs(id); showTab(session = session, inputId = "prio_tabs", target = "Record details", select = TRUE) }
-    })
-    observeEvent(input$prio_tab_back, updateTabsetPanel(session, input$prio_tab_back$tabset, selected = input$prio_tab_back$to))
-    output$prio_record <- renderUI({
-      if (is.null(prio_recobs()))
-        return(tags$p(class = "ik-maps-hint", "Click a species in the Detections tab to see its record here."))
-      ob <- ik_observation(ik_data, prio_recobs()); if (is.null(ob)) return(tags$p("Record not found."))
-      prefer <- if (isTRUE(prefer_scientific())) "scientific" else "vernacular"
-      tagList(.ik_tab_back(session$ns("prio_tab_back"), "prio_tabs", "Detections", "Back to detections"),
-              .ovw_title(ik_data, ob, prefer),
-              .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("prio_rec_subtabs")))
-    })
-
     # The records modal: "Records" (the same list as below the map) + "Record details" (the clicked
     # record, with a back link). Opens on Record details; from Records you can drill into any row.
     .maprec_modal <- function() showModal(modalDialog(
@@ -769,7 +571,6 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # A clicked record row opens that modal on its detail tab (no map pan/zoom — that was
     # disorienting; hovering a row previews the location instead). Line-grain rows still drill.
     observeEvent(input$table_rows_selected, {
-      if (is_priority() || is_timing()) return()
       i <- input$table_rows_selected
       if (show_lines()) {                                       # line-grain table: row → drill into that line
         d <- lines_tbl()
@@ -808,7 +609,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     observeEvent(hover_loc(), {
       p <- proxy(); leaflet::clearGroup(p, "Hover")
       loc <- hover_loc()
-      if (is.null(loc) || !nzchar(loc) || is_priority() || is_timing() || show_lines()) return()
+      if (is.null(loc) || !nzchar(loc) || show_lines()) return()
       d <- rate_loc_pts(); if (is.null(d)) return()
       r <- d[d$location_id == loc, , drop = FALSE]
       if (!nrow(r) || !is.finite(r$longitude[1])) return()
@@ -817,22 +618,16 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     }, ignoreNULL = FALSE)
 
     output$unplaced <- renderUI({
-      u <- if (is_priority()) prio_unplaced() else if (is_timing()) timing_unplaced() else if (src() == "trap") trap_unplaced() else cam_unplaced()
+      u <- if (src() == "trap") trap_unplaced() else cam_unplaced()
       if (is.null(u) || !nrow(u)) return(NULL)
       div(class = "ik-maps-unplaced", icon("triangle-exclamation"),
           sprintf(" %s coordless %s not shown on the map (no location fix).", format(nrow(u), big.mark = ","), if (src() == "trap") "traps" else "sites"))
     })
 
     output$download_csv <- downloadHandler(
-      filename = function() {
-        tag <- if (is_priority()) "camera-priority"
-               else if (is_timing()) "camera-timing"
-               else paste0(src(), "-", measure(), "-", gsub("[^A-Za-z0-9]+", "-", tolower(group_lab())))
-        sprintf("maps-%s-%s.csv", tag, Sys.Date())
-      },
+      filename = function() sprintf("maps-%s-%s-%s-%s.csv", src(), measure(), gsub("[^A-Za-z0-9]+", "-", tolower(group_lab())), Sys.Date()),
       content = function(file) {
-        d <- if (is_priority()) prio_pts() else if (is_timing()) timing_pts() else records()
-        if (is.null(d)) d <- data.frame(); utils::write.csv(d, file, row.names = FALSE)
+        d <- records(); if (is.null(d)) d <- data.frame(); utils::write.csv(d, file, row.names = FALSE)
       }
     )
   })

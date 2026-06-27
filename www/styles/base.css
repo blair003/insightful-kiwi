@@ -14,6 +14,12 @@
   --ik-accent: #e8924d; /* brighter burnt-orange so it reads on dark surfaces */
 }
 
+/* Leaflet's control containers default to z-index 1000, which TIES with the navbar's open dropdown menu
+   (Bootstrap --bs-dropdown-zindex: 1000) — so a map's zoom / layers / legend controls show THROUGH the
+   Monitoring/Trapping/Insights menus when they're open over a map. Drop the controls below the dropdown
+   layer while keeping them above the map's own popups (popupPane is 700). App-wide (any leaflet map). */
+.leaflet-top, .leaflet-bottom { z-index: 800; }
+
 /* Modal title convention: a small muted subtitle (e.g. an id) under the title. */
 .ik-modal-subtitle { font-size: 0.78rem; font-weight: 400; color: var(--bs-secondary-color, #6c757d); margin-top: 0.1rem; }
 
