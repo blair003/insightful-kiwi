@@ -8,7 +8,7 @@ R-v0.1/
 v0.1 server.R ui.R global.R
 www/custom-v0.1.css
 www/custom-v0.1.js
-
+www/styles/spatial_analysis-v0.1.css
 
 # No 
 instance/cache/

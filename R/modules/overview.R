@@ -791,6 +791,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
         validate(need(nrow(cam) || nrow(trp), "No located devices."))
         cov <- ik_coverage(ik_data)                                # area/density/spacing — coherent reserves only
         present  <- unique(c(cam$reserve, trp$reserve))            # every reserve with a device
+        rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) present <- intersect(present, rsv)  # honour the sidebar Reserve
+        validate(need(length(present), "No reserves in this selection."))
         reserves <- c(intersect(cov$reserve, present), sort(setdiff(present, cov$reserve)))  # coherent (area desc) first
         idx  <- match(reserves, cov$reserve)
         area <- cov$area_km2[idx]; cpk <- cov$cameras_per_km2[idx]; tpk <- cov$traps_per_km2[idx]
@@ -802,9 +804,11 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
         t_cpk <- if (ta > 0) sum(ncam[coh]) / ta else NA_real_     # area-weighted density = total devices ÷ total area
         t_tpk <- if (ta > 0) sum(ntrp[coh]) / ta else NA_real_
         t_spc <- if (any(w)) stats::weighted.mean(spc[w], ntrp[w]) else NA_real_   # trap-weighted spacing
-        reserves <- c(reserves, "Total")                           # append the aggregate row (compute totals first)
-        area <- c(area, ta); ncam <- c(ncam, sum(ncam)); ntrp <- c(ntrp, sum(ntrp))
-        cpk  <- c(cpk, t_cpk); tpk <- c(tpk, t_tpk); spc <- c(spc, t_spc)
+        if (length(reserves) > 1) {                                # aggregate row only when comparing >1 reserve
+          reserves <- c(reserves, "Total")
+          area <- c(area, ta); ncam <- c(ncam, sum(ncam)); ntrp <- c(ntrp, sum(ntrp))
+          cpk  <- c(cpk, t_cpk); tpk <- c(tpk, t_tpk); spc <- c(spc, t_spc)
+        }
         fa <- function(a) ifelse(is.na(a) | a <= 0, "—", format(round(a * 100), big.mark = ","))
         fd <- function(d) ifelse(is.na(d), "—", sprintf("%.1f", d))
         fs <- function(s) ifelse(is.na(s), "—", format(round(s), big.mark = ","))
@@ -823,11 +827,13 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
       # layer is static, so it's drawn once in the base render; only the tiles re-theme via a proxy below.
       output$network_map <- leaflet::renderLeaflet({
         fin   <- function(d) if (is.null(d) || !nrow(d)) NULL else d[is.finite(d$longitude) & is.finite(d$latitude), , drop = FALSE]
-        cams  <- fin(ik_active_locations(ik_data, "camera"))
-        traps <- fin(ik_active_locations(ik_data, "trap"))
+        rsv  <- .ik_nz(selection()$reserve)                        # honour the sidebar Reserve
+        keep <- function(d) { if (is.null(d) || is.null(rsv)) return(d); x <- d[d$reserve %in% rsv, , drop = FALSE]; if (nrow(x)) x else NULL }
+        cams  <- keep(fin(ik_active_locations(ik_data, "camera")))
+        traps <- keep(fin(ik_active_locations(ik_data, "trap")))
         ext   <- rbind(cams[, c("longitude", "latitude")], traps[, c("longitude", "latitude")])
-        validate(need(!is.null(ext) && nrow(ext), "No mapped devices."))
-        h <- nd_hulls()
+        validate(need(!is.null(ext) && nrow(ext), "No mapped devices in this selection."))
+        h <- nd_hulls(); if (!is.null(h) && !is.null(rsv)) h <- h[h$reserve %in% rsv, , drop = FALSE]
         canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
         m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
         m <- leaflet::addProviderTiles(m, canvas, group = "Map")

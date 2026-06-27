@@ -621,7 +621,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         names(df)[4:5] <- c(paste(pred_label(), "RAI"), paste(prot_label(), "RAI"))
         return(DT::datatable(df, rownames = FALSE, selection = "single",
           class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 5, scrollX = TRUE, dom = "ftip", order = list(list(5, "desc")))))
+          options = list(pageLength = 7, scrollX = TRUE, dom = "ftip", order = list(list(5, "desc")))))
       }
       if (is_timing()) {
         d <- timing_pts(); sel <- selected()
@@ -635,7 +635,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           check.names = FALSE, stringsAsFactors = FALSE)
         return(DT::datatable(df, rownames = FALSE, selection = "single",
           class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 5, scrollX = TRUE, dom = "ftip", order = list(list(4, "asc")),
+          options = list(pageLength = 7, scrollX = TRUE, dom = "ftip", order = list(list(4, "asc")),
             columnDefs = list(list(visible = FALSE, targets = 4)))))   # hide the numeric sort helper
       }
       if (show_lines()) {                                     # zoomed out → per-LINE RAI; click a line to drill
@@ -646,11 +646,11 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
           check.names = FALSE, stringsAsFactors = FALSE)
         return(DT::datatable(df, rownames = FALSE, selection = "single",
           class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 5, scrollX = TRUE, dom = "ftip", order = list(list(2, "desc")))))
+          options = list(pageLength = 7, scrollX = TRUE, dom = "ftip", order = list(list(2, "desc")))))
       }
       o <- records()
       validate(need(!is.null(o) && nrow(o), sprintf("No %ss of this group here.", if (src() == "trap") "capture" else "detection")))
-      .records_dt(o, hover = TRUE, page = 5)
+      .records_dt(o, hover = TRUE, page = 7)
     })
 
     rec_proxy <- DT::dataTableProxy("table")

@@ -520,7 +520,7 @@ cooccurrence_server <- function(id, ik_data, prefer_scientific = reactive(FALSE)
                        .loc = d$location_id, check.names = FALSE)
       loc_i <- ncol(df) - 1L                                   # 0-based index of the hidden .loc column
       DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(dom = "tip", pageLength = 5,
+        options = list(dom = "tip", pageLength = 7,
           columnDefs = list(list(visible = FALSE, targets = loc_i)),
           createdRow = DT::JS(sprintf(                          # hover a row → preview that camera's popup on the map
             "function(row,data,i){var L=data[%d];row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',L,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",

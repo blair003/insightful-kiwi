@@ -81,6 +81,16 @@ trapping_help_body <- function(tr_meta = NULL, which = c("byline", "map", "overt
 
 #' Trapping review tab content (lives inside the Quality nav_panel). @param id Module id.
 #'   @param ik_data The container (servicing-health + rate config for the help modal).
+#' The "By trapline" view control — show dormant/historic traps alongside the active ones. Lives in the
+#' sidebar View options now (not inline); same id, so the server reads input$show_extra unchanged.
+#' @keywords internal
+trapping_byline_controls <- function(id) {
+  ns <- NS(id)
+  checkboxGroupInput(ns("show_extra"), "Also show (otherwise active traps only)",
+    choices = c("Dormant (9 mo+)" = "dormant", "Historic (18 mo+)" = "historic"),
+    selected = "dormant")
+}
+
 trapping_ui <- function(id, ik_data = NULL) {
   ns <- NS(id)
   tagList(
@@ -104,10 +114,6 @@ trapping_ui <- function(id, ik_data = NULL) {
                 tags$span(class = "trap-tab-help-label", "Each trap graded by how often it's checked."),
                 .ik_info(ns("byline_help"), "Trap grading — how to read this",
                          trapping_help_body(ik_data$meta$trapping, "byline"))),
-            div(class = "trap-controls",
-                checkboxGroupInput(ns("show_extra"), "Also show (otherwise active traps only)", inline = TRUE,
-                  choices = c("Dormant (9 mo+)" = "dormant", "Historic (18 mo+)" = "historic"),
-                  selected = "dormant")),
             uiOutput(ns("intro")),
             div(class = "ik-trapping-scroll", uiOutput(ns("table")))),
           tabPanel(

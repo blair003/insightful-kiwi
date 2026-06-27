@@ -414,7 +414,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
         thx("Status", "Servicing health as at the most recent check data — good / watch / neglected (overdue) / dormant / historic."),
         thx(""))))
       DT::datatable(df, container = cont, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 5, scrollX = TRUE, dom = "tip",
+        options = list(pageLength = 7, scrollX = TRUE, dom = "tip",
           columnDefs = list(list(visible = FALSE, targets = 6)),     # hide .loc (index 6)
           rowCallback = DT::JS(sprintf(
             "function(r,d){r.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',d[6],{priority:'event'});});r.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
