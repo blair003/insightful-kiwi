@@ -294,17 +294,9 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
     output$map <- leaflet::renderLeaflet({
       locs <- ik_data$app$geography$locations
       locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("boundary", "device", "caught", "protected", "predators", "highlight")  # device lowest; predator RING above protected dot
-      for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
-      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Protected", "Predators", "Catches", "Device", "Boundary"),
-        options = leaflet::layersControlOptions(collapsed = FALSE))   # toggles visible (like Coverage)
-      if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
-      m
+      ik_map_base(panes = c("boundary", "device", "caught", "protected", "predators", "highlight"),  # device lowest; predator RING above protected dot
+        overlay_groups = c("Protected", "Predators", "Catches", "Device", "Boundary"),
+        is_dark = isolate(is_dark()), fit = locs, pane_z0 = 410)
     })
     outputOptions(output, "map", suspendWhenHidden = FALSE)   # render from load so proxy layers land
 
@@ -316,8 +308,7 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
     observe({                                                   # draw the neighbourhood + fit to it
       if (!isTRUE(on_map())) return()                           # proxy ops are lost to a hidden tab — draw only on the Map tab
       p <- mproxy()
-      leaflet::addProviderTiles(leaflet::clearGroup(p, "Map"),  # (re)apply current-theme tiles (a theme swap while hidden is lost)
-        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
+      ik_swap_theme_tiles(p, is_dark())                         # (re)apply current-theme tiles (a theme swap while hidden is lost)
       for (g in c("Protected", "Predators", "Catches", "Device", "TrapHighlight")) leaflet::clearGroup(p, g)
       leaflet::clearControls(p)
       md <- map_data(); req(!is.null(md))

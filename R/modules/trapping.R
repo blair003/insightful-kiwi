@@ -385,27 +385,15 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     output$map <- leaflet::renderLeaflet({
       locs <- ik_data$app$geography$locations
       locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      m <- leaflet::addMapPane(m, "boundary", zIndex = 400)   # reserve footprint, below the trap markers
-      m <- leaflet::addMapPane(m, "traps", zIndex = 410)
-      m <- leaflet::addMapPane(m, "highlight", zIndex = 450)
+      m <- ik_map_base(panes = c("boundary", "traps", "highlight"),
+        overlay_groups = c("Good", "Watch", "Neglected", "Inactive", "Boundary"),  # status = selectable layer
+        is_dark = isolate(is_dark()), fit = locs)
       # Boundary — the shared reserve footprint (all devices), like every other map; a selectable layer.
       # Grey (not green) so it doesn't read as a "Good" status colour. Drawn under the markers.
-      m <- ik_add_reserve_boundary(m, ik_reserve_boundary(ik_data), color = "#6c757d")
-      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-             overlayGroups = c("Good", "Watch", "Neglected", "Inactive", "Boundary"),  # status = selectable layer
-             options = leaflet::layersControlOptions(collapsed = FALSE))
-      if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
-      m
+      ik_add_reserve_boundary(m, ik_reserve_boundary(ik_data), color = "#6c757d")
     })
     outputOptions(output, "map", suspendWhenHidden = FALSE)   # render from load so proxy layers land
-    observeEvent(color_mode(), {
-      leaflet::addProviderTiles(leaflet::clearGroup(mproxy(), "Map"),
-        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
-    }, ignoreInit = TRUE)
+    observeEvent(color_mode(), ik_swap_theme_tiles(mproxy(), is_dark()), ignoreInit = TRUE)
 
     observe({                                                  # draw the selectable status layers
       req(identical(input$trap_view, "Map"))                   # only when the Map tab is visible, so the
