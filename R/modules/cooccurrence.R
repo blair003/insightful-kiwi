@@ -400,19 +400,11 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
   # Base map: built ONCE, no volatile deps — data layers pushed via leafletProxy in the observers (the
   # maps.R pattern), so a setting change never re-renders the widget into a 0-size hidden container.
   output[[ids$map]] <- leaflet::renderLeaflet({
-    canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-    m <- leaflet::leaflet() |>
-      leaflet::addProviderTiles(canvas, group = "Street") |>
-      leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite")
-    pns <- c("boundary", "surface", "cameras", "pairs")
-    for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
-    m <- leaflet::addLayersControl(m, baseGroups = c("Street", "Satellite"),
-      overlayGroups = c("Surface", "Pairs", "Cameras", "Boundary"),
-      options = leaflet::layersControlOptions(collapsed = FALSE))
     cam_ds <- names(ik_data$datasets)[vapply(ik_data$datasets, function(d) isTRUE(d$meta$source_type == "camera"), logical(1))]
     gl <- locs0[locs0$dataset %in% cam_ds & is.finite(locs0$latitude) & is.finite(locs0$longitude), , drop = FALSE]
-    if (nrow(gl)) m <- leaflet::fitBounds(m, min(gl$longitude), min(gl$latitude), max(gl$longitude), max(gl$latitude))
-    m
+    ik_map_base(panes = c("boundary", "surface", "cameras", "pairs"),
+      overlay_groups = c("Surface", "Pairs", "Cameras", "Boundary"), base_groups = c("Street", "Satellite"),
+      map_group = "Street", is_dark = isolate(is_dark()), fit = gl, pane_z0 = 410)
   })
   outputOptions(output, ids$map, suspendWhenHidden = FALSE)   # eager so proxy layers land before first view
   cproxy <- function() leaflet::leafletProxy(ids$map, session)
@@ -421,8 +413,7 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
   # lost. Reading on_map() also re-fires each observer on tab-show, so the layers (re)draw onto the sized widget.
   observe({
     if (!on_map()) return()
-    leaflet::addProviderTiles(leaflet::clearGroup(cproxy(), "Street"),
-      if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Street")
+    ik_swap_theme_tiles(cproxy(), is_dark(), group = "Street")
   })
   reserve_hulls <- reactive(ik_reserve_boundary(ik_data, reserve()))   # shared all-device reserve footprint
   observe({                                                   # Boundary + Cameras footprint; re-frame to it

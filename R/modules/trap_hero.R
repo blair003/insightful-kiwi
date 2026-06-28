@@ -158,34 +158,22 @@ trap_hero_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       # renders; a req() in here would silently abort the whole map). Markers come via proxy below.
       locs   <- ik_data$app$geography$locations
       locs   <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-             options = leaflet::layersControlOptions(collapsed = TRUE))
-      m <- leaflet::addMapPane(m, "context", zIndex = 410)      # faint all-traps layer underneath …
-      m <- leaflet::addMapPane(m, "top",     zIndex = 430)      # … the highlighted top traps on top
-      if (nrow(locs))
-        m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
-      m
+      ik_map_base(panes = c("context", "top"), overlay_groups = character(0),   # context under top; AllTraps/Top aren't toggleable
+        is_dark = isolate(is_dark()), fit = locs, collapsed = TRUE)
     })
     # Render from load (not just when the tab is shown) so the proxy layers below land on an existing
     # map — otherwise the first markers are drawn before the widget exists and silently dropped.
     outputOptions(output, "map", suspendWhenHidden = FALSE)
 
-    observeEvent(color_mode(), {                              # dark/light base tiles
-      leaflet::addProviderTiles(leaflet::clearGroup(proxy(), "Map"),
-        if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
-    }, ignoreInit = TRUE)
+    observeEvent(color_mode(),                                # dark/light base tiles
+      ik_swap_theme_tiles(proxy(), is_dark()), ignoreInit = TRUE)
 
     observe({                                                  # faint context: every trap
-      p <- proxy(); leaflet::clearGroup(p, "AllTraps")
-      m <- metric(); req(!is.null(m))
-      d <- m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE]; if (!nrow(d)) return()
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "AllTraps",
-        layerId = paste0("T|", d$location_id), radius = 3, stroke = FALSE, fillColor = "#9aa3ab", fillOpacity = 0.45,
-        options = leaflet::pathOptions(pane = "context"),
+      m <- metric()
+      d <- if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE]
+      if (!is.null(d) && !nrow(d)) d <- NULL                  # NULL → helper clears stale dots (matches the old clear-then-req)
+      ik_draw_device_layer(proxy(), d, fill_color = "#9aa3ab", group = "AllTraps", pane = "context",
+        radius = 3, fill_opacity = 0.45, layerId = if (is.null(d)) NULL else paste0("T|", d$location_id),
         label = ~lapply(sprintf("<b>%s</b><br>%s captures / %s trap-nights · click for history", name, captures, round(trap_days)), htmltools::HTML))
     })
 

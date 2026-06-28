@@ -284,18 +284,9 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     output$map <- leaflet::renderLeaflet({
       locs <- ik_data$app$geography$locations
       locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("boundary", "device", "catches", "protected", "predators", "highlight")  # boundary lowest; highlight on TOP
-      for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
-      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Protected", "Predators", "Catches", "Device", "Boundary"),
-        options = leaflet::layersControlOptions(collapsed = FALSE))
-      m <- leaflet::hideGroup(m, "Predators")                   # off by default — the coverage story is Protected vs Catches/Traps
-      if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
-      m
+      ik_map_base(panes = c("boundary", "device", "catches", "protected", "predators", "highlight"),  # boundary lowest; highlight on TOP
+        overlay_groups = c("Protected", "Predators", "Catches", "Device", "Boundary"),
+        is_dark = isolate(is_dark()), fit = locs, hide_groups = "Predators", pane_z0 = 410)
     })
     # Render from load (not just when the Coverage tab is first shown) so the proxy layers below land
     # on a live widget — otherwise the first marker draw races the render and the markers are dropped,
@@ -303,10 +294,7 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
     # only drives the table, wouldn't).
     outputOptions(output, "map", suspendWhenHidden = FALSE)
 
-    observeEvent(color_mode(), {
-      p <- proxy(); leaflet::clearGroup(p, "Map")
-      leaflet::addProviderTiles(p, if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
-    }, ignoreInit = TRUE)
+    observeEvent(color_mode(), ik_swap_theme_tiles(proxy(), is_dark()), ignoreInit = TRUE)
 
     observe({                                                   # Device — active traps (grey, neglected amber) + cameras (blue)
       p <- proxy(); leaflet::clearGroup(p, "Device")
@@ -328,14 +316,11 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
           label = sprintf("%s — camera", cl$name), options = leaflet::pathOptions(pane = "device"))
     })
     observe({                                                   # Catches — traps that caught the predator
-      p <- proxy(); leaflet::clearGroup(p, "Catches")
       d <- trap_pred(); d <- if (is.null(d)) NULL else d[is.finite(d$captures) & d$captures > 0, , drop = FALSE]
-      if (is.null(d) || !nrow(d)) return()
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Catches", layerId = paste0("T|", d$location_id),
-        radius = ik_marker_radius(d$captures, 5, 16, cap = ik_robust_cap(d$captures, 0.9)),   # count-based, trap scale (smaller)
-        fillColor = "#6a3d9a", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1,
-        label = sprintf("%s — %s caught: %d · click for check history", d$name, pred_lab(), as.integer(d$captures)),
-        options = leaflet::pathOptions(pane = "catches"))   # popup dropped: click now opens the trap's check history
+      ik_draw_metric_markers(proxy(), d, value = d$captures, group = "Catches", layerId = paste0("T|", d$location_id),
+        lo = 5, hi = 16, cap = ik_robust_cap(d$captures, 0.9), fill_color = "#6a3d9a",   # count-based, trap scale (smaller)
+        fill_opacity = 0.85, color = "#ffffff", weight = 1, pane = "catches",
+        label = sprintf("%s — %s caught: %d · click for check history", d$name, pred_lab(), as.integer(d$captures)))
     })
     observe({                                                   # Predators on camera (off by default)
       p <- proxy(); leaflet::clearGroup(p, "Predators")
