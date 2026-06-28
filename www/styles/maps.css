@@ -5,10 +5,8 @@
   flex-direction: column;
   gap: 1rem;
 }
-/* This is the one flex-gap page, so the period-banner subtitle would otherwise sit a full 1rem under
-   the title — pull it up so it reads as a subtitle (the gap below it to the map stays). The Measure /
-   Species controls now live in the sidebar (.ik-view-controls in selection.css), not a row above the map. */
-.ik-maps .ik-page-period { margin: -0.8rem 0 0; }
+/* (The period banner now lives on the title row via .ik_page_header — the old -0.8rem pull-up override
+   is gone; it left no gap above the date when it wrapped under the title on mobile. base.css styles it.) */
 
 /* The map frame — theme-matched backdrop (no hardcoded grey), app font. */
 .ik-maps .leaflet-container {
@@ -94,6 +92,13 @@
    that wrapper to nothing so the map row takes the full height.) */
 .ik-map-fill .ik-maps-unplaced { position: absolute; left: 0.6rem; bottom: 0.6rem; z-index: 650;
   margin: 0; max-width: 60%; opacity: 0.96; }
+
+/* Hover-preview popup (marker OR table row): must NOT capture the mouse. A normal popup bubble appearing
+   over the hovered marker would steal the hover (mouseout↔mouseover loop = flicker) and intercept the
+   click so the modal never opens. pointer-events:none lets the cursor "see through" it to the marker. */
+.leaflet-popup.ik-hover-popup,
+.ik-hover-popup .leaflet-popup-content-wrapper,
+.ik-hover-popup .leaflet-popup-tip { pointer-events: none; }
 
 /* Hint text inside the priority/timing drill modal. */
 .ik-maps-hint { color: var(--bs-secondary-color, #6c757d); }

@@ -63,6 +63,11 @@
   column-gap: 1rem; row-gap: 0.1rem; }
 .ik-page-headrow > .ik-titlebar { margin-top: 0; }
 .ik-page-headrow > .ik-page-period { margin: 0; }   /* on the title line: no stacked-banner margins */
+/* On a phone the banner wraps to its own line under the title — give it a touch of air below (before the
+   description / content) so the wrapped header breathes. Mobile only; on the title line it stays inline. */
+@media (max-width: 575.98px) {
+  .ik-page-headrow > .ik-page-period { margin-bottom: 0.4rem; }
+}
 .ik-page-title { margin: 0 0 0.2rem; }
 .ik-page-lead  { color: var(--bs-secondary-color, #6c757d); max-width: 64rem; margin: 0 0 0.7rem; }
 /* Period banner as a SUBTITLE directly under the title/description: tight above, a clear gap to the

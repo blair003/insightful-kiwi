@@ -671,8 +671,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       d <- rate_loc_pts(); if (is.null(d)) return()
       r <- d[d$location_id == loc, , drop = FALSE]
       if (!nrow(r) || !is.finite(r$longitude[1])) return()
+      # className → pointer-events:none (maps.css): the preview must not capture the mouse, or the bubble
+      # appearing over a hovered marker steals the hover (mouseout↔mouseover flicker) and the click.
       leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], popup = hover_popup(r[1, , drop = FALSE]),
-        group = "Hover", options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE))
+        group = "Hover", options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE, className = "ik-hover-popup"))
     }
     hover_loc <- shiny::debounce(reactive(input$table_hover), 120)
     observeEvent(hover_loc(), .show_hover(proxy(), hover_loc()), ignoreNULL = FALSE)   # from the table row
