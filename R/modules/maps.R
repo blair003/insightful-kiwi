@@ -321,20 +321,12 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
                   function(d) isTRUE(d$meta$source_type %in% dev_types), logical(1))]
       locs <- ik_data$app$geography$locations
       locs <- locs[locs$dataset %in% dev_ds & is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
       # Boundary sits ABOVE the surface fill but BELOW every marker layer, so markers always win
       # the hover/click (a boundary on top would steal a marker's tooltip — see the Coverage map).
-      pns <- c("surface", "boundary", "device", "points", "selected")
-      for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 400 + 10 * match(pn, pns))
-      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Surface", "Points", dev_label, "Boundary"),
-        options = leaflet::layersControlOptions(collapsed = FALSE))
-      if (!is.null(fixed_species)) m <- leaflet::hideGroup(m, "Surface")   # species maps: clean by default, surface opt-in
-      if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
-      m
+      ik_map_base(panes = c("surface", "boundary", "device", "points", "selected"),
+        overlay_groups = c("Surface", "Points", dev_label, "Boundary"),
+        is_dark = isolate(is_dark()), fit = locs,
+        hide_groups = if (!is.null(fixed_species)) "Surface" else NULL)   # species maps: clean by default, surface opt-in
     })
     # Render the map even while its tab is hidden. Maps live in dropdown nav panels that aren't the
     # landing tab, so without this the leaflet widget isn't created until first view — and the layer
@@ -345,10 +337,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # active() (see the data section), so the eager widget stays empty — and cheap — until first viewed.
     outputOptions(output, "map", suspendWhenHidden = FALSE)
 
-    observeEvent(color_mode(), {
-      p <- proxy(); leaflet::clearGroup(p, "Map")
-      leaflet::addProviderTiles(p, if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
-    }, ignoreInit = TRUE)
+    observeEvent(color_mode(), ik_swap_theme_tiles(proxy(), is_dark()), ignoreInit = TRUE)
 
     observe({                                                   # re-frame on data change
       d <- frame_pts(); if (is.null(d) || !nrow(d)) return(); p <- proxy()
@@ -400,16 +389,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     }) |> bindCache(rate_loc_pts(), valcol())
     surface_idw <- reactive(if (isTRUE(surface_on())) surface_compute() else NULL)
     observe({
-      p <- proxy(); leaflet::clearGroup(p, "Surface")
-      s <- surface_idw(); if (is.null(s) || !nrow(s)) return()
       # Confine each reserve's field to its own reserve hull (the same hull the Boundary draws) — the shared
       # per-reserve clip, so an interpolation buffer can't bleed across a touching/overlapping boundary.
-      s <- ik_clip_surface_to_reserves(s, reserve_hulls())
-      if (is.null(s) || !nrow(s)) return()
-      cap <- .robust_cap(s$predicted); pf <- surf_pal(cap)
-      leaflet::addPolygons(p, data = s, group = "Surface", weight = 0.5, color = ~pf(pmin(predicted, cap)),
-        fillColor = ~pf(pmin(predicted, cap)), fillOpacity = if (is_dark()) 0.5 else 0.4,
-        options = leaflet::pathOptions(pane = "surface"))
+      s <- surface_idw(); if (!is.null(s) && nrow(s)) s <- ik_clip_surface_to_reserves(s, reserve_hulls())
+      ik_draw_idw_surface(proxy(), s, group = "Surface", is_dark = is_dark())
     })
 
     # ---- Points (line RAI · per-camera rate · trap count/rate) ----
@@ -481,10 +464,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       d <- if (line_grain) line_metric() else rate_loc_pts()
       vc <- if (line_grain) "metric" else valcol()
       if (is.null(d) || !nrow(d)) return()
-      cap <- .robust_cap(d[[vc]]); pf <- surf_pal(cap)
+      cap <- ik_max_cap(d[[vc]]); pf <- leaflet::colorNumeric("viridis", c(0, cap))
       ttl <- if (line_grain) sprintf("RAI / line &middot; %s", group_lab())
              else sprintf("%s &middot; %s", vallabel(), group_lab())
-      leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl, opacity = 0.9)
+      ik_draw_metric_legend(p, pf, pmin(d[[vc]], cap), ttl)
     })
 
     observeEvent(input$map_marker_click, {
