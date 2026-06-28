@@ -40,7 +40,11 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
   #   (the per-location predator-vs-protected surface + a toggleable trapping overlay).
   # "Timing (predator ↔ protected)" moved to its own page — Co-occurrence → Map.
   # "Servicing health" lives on its own page (Trap review → Map, the richer status map), not a measure here.
-  trap   = c("Captures" = "captures", "Capture rate" = "rate"))
+  # "Captures" (raw count) was dropped — Capture rate (effort-adjusted) is the honest activity signal and
+  #   mirrors the camera map's single rate measure; the raw catch count is still in each trap's popup + the
+  #   records drill. (Its original reason — a short-effort outlier dominating the surface — was an
+  #   Unassigned-area trap, now excluded from the surface.)
+  trap   = c("Capture rate" = "rate"))
 
 #' The "Measure" help body, written for the map's OWN device (each map is device-locked, so the
 #' camera map shouldn't explain trap measures or vice versa). NULL device → both (combined map).
@@ -56,12 +60,11 @@ MAPS_LINE_ZOOM <- 13   # at/above this zoom, camera activity shows per-camera; b
       " surface now lives on its own ", tags$b("Insights → Predator pressure"), " feature, with a toggleable ",
       "trapping overlay."))
   trp <- list(
-    tags$p("How each trap is coloured and sized — switch with the ", tags$b("Measure"), " buttons."),
-    tags$p(tags$b("Captures"), " — total predators of the chosen group caught per trap in the selected period. ",
-      "Raw counts: catches are sparse, so a count reads more honestly than a rate at low effort."),
-    tags$p(tags$b("Capture rate"), " — captures per ", tags$b(ntn), " (effort-adjusted), so heavily- ",
-      "and lightly-checked traps compare fairly. Marker size is clamped near the top of the range so one ",
-      "low-effort outlier (e.g. 1 catch in a few trap-nights) can't shrink the rest."),
+    tags$p("How each trap is coloured and sized on the map."),
+    tags$p(tags$b("Capture rate"), " — predators of the chosen group caught per ", tags$b(ntn),
+      " (effort-adjusted), so heavily- and lightly-checked traps compare fairly. Marker size is clamped ",
+      "near the top of the range so one low-effort outlier (e.g. 1 catch in a few trap-nights) can't ",
+      "shrink the rest. The raw catch ", tags$b("count"), " for each trap is in its popup and the records below."),
     tags$p(tags$em("Servicing health — how often each trap is checked — has its own map on the ",
       tags$b("Trap review"), " page (the Map tab).")))
   if (identical(device, "camera"))    do.call(tagList, cam)
@@ -132,7 +135,7 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
   )
   norm  <- (ik_data$meta$trapping$rate %||% list())$norm_trap_days %||% 100   # rate normalisation (config)
   ttl   <- if (identical(device, "trap")) "Trapping map" else if (identical(device, "camera")) "Monitoring map" else "Map"
-  help_ttl <- if (identical(device, "trap")) "Trapping map — measures"
+  help_ttl <- if (identical(device, "trap")) "Trapping map — capture rate"
               else if (identical(device, "camera")) "Monitoring map — relative activity" else "Map measures"
   div(
     class = if (fixed) "ik-maps" else "ik-maps ik-map-fill",     # fill the viewport on standalone pages
@@ -191,18 +194,16 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     prefer <- reactive(if (isTRUE(prefer_scientific())) "scientific" else "vernacular")
 
     observeEvent(input$source, {
-      ch  <- if (identical(input$source, "trap"))
-               c("Captures" = "captures", "Capture rate" = "rate")
+      ch  <- if (identical(input$source, "trap")) c("Capture rate" = "rate")
              else c("Relative activity" = "rate")
       sel <- if (isTRUE(isolate(input$measure) %in% ch)) isolate(input$measure) else ch[[1]]
       updateRadioButtons(session, "measure", choices = ch, selected = sel)
     }, ignoreInit = TRUE)
 
     src      <- reactive(device %||% input$source %||% "camera")   # device-locked when set
-    # measure: normally the in-panel radio; for a fixed-species embed (or the single-measure camera map,
-    # which has no radio) there's no input, so fall back to the device default — camera "rate" surface /
-    # trap "captures". (Priority/Timing measures moved to their own features — Predator pressure /
-    # Co-occurrence — so the camera map is Relative activity only.)
+    # measure: each device-locked map now has a SINGLE measure (camera "rate" / trap "rate"), so there's no
+    # radio — fall back to the device default. (Captures dropped from the trap map; Priority/Timing moved to
+    # their own features — Predator pressure / Co-occurrence.) A combined map would still read input$measure.
     measure  <- reactive(if (!is.null(fixed_species)) unname(.MAPS_MEASURES[[device %||% "camera"]])[1]
                          else input$measure %||% unname(.MAPS_MEASURES[[device %||% "camera"]])[1])
     # Same picker defs the UI bakes in; the observe below only RELABELS the Species choices on a name
@@ -231,10 +232,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     per_cam  <- reactive((ik_data$meta$camera$rai %||% list())$camera_hours %||% 500)
     norm     <- ik_data$meta$trapping$rate$norm_trap_days %||% 100   # trap rate normalisation (config)
     has_group <- reactive(!is.null(group_taxa()))
-    # the per-location value column + its label, for the active rate/count measure
-    valcol   <- reactive(if (src() == "trap" && measure() == "captures") "captures" else "metric")
-    vallabel <- reactive(if (src() == "trap" && measure() == "captures") "Captures"
-                         else if (src() == "trap") "Capture rate"
+    # the per-location value column + its label (always the rate `metric` now — both maps are rate-only)
+    valcol   <- reactive("metric")
+    vallabel <- reactive(if (src() == "trap") "Capture rate"
                          else "Detections")   # per-camera (zoomed in); zoom out rolls up to "RAI / line"
 
     grain_rv <- reactiveVal("line")
@@ -259,7 +259,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       ce <- ik_group_centroids(cam_pts(), c("reserve", "line")); if (is.null(ce)) return(NULL)
       m <- merge(ln, ce, by = c("reserve", "line")); if (nrow(m)) m else NULL })
 
-    trap_all <- reactive({ req(active(), src() == "trap", measure() %in% c("captures", "rate"), has_group())
+    trap_all <- reactive({ req(active(), src() == "trap", measure() == "rate", has_group())
       ik_location_metric(ik_data, sel(), group_taxa(), "trap") })
     trap_pts      <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     trap_unplaced <- reactive({ m <- trap_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
@@ -280,13 +280,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     surf_pal <- function(cap) leaflet::colorNumeric("viridis", c(0, cap))
     rate_popup <- function(d) {
       body <- if (src() == "trap") {
-        # captures measure: the raw line says it all (no separate "Captures: N" header). rate measure:
-        # the per-trap-night rate IS extra info, so keep it above the raw counts.
-        if (measure() == "captures")
-          sprintf("<b>Captures: %d</b> &middot; Trap-days: %s", as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
-        else
-          sprintf("<b>Capture rate: %.2f</b> / %s trap-nights<br/>Captures: %d &middot; Trap-days: %s",
-                  d$metric, format(norm, big.mark = ","), as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
+        # the per-trap-night rate is the headline; the raw catch count + effort sit below it.
+        sprintf("<b>Capture rate: %.2f</b> / %s trap-nights<br/>Captures: %d &middot; Trap-days: %s",
+                d$metric, format(norm, big.mark = ","), as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
       } else {
         # per-camera: just the raw count + effort (the per-deployment rate added nothing over "Detections: N").
         sprintf("<b>Detections: %d</b> &middot; Camera-hours: %s", as.integer(d$individuals), format(round(d$camera_hours), big.mark = ","))
@@ -531,7 +527,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     })
 
     # ---- records table + CSV ----
-    records_base <- reactive({ req(measure() %in% c("rate", "captures"), has_group())
+    records_base <- reactive({ req(measure() == "rate", has_group())
       ik_metric_obs(ik_data, sel(), group_taxa(), group_lab(), source_type = src()) })
     records <- reactive({
       o <- records_base(); if (is.null(o)) return(NULL); sel <- selected(); if (is.null(sel)) return(o)
