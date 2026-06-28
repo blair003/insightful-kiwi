@@ -85,15 +85,15 @@ predator_pressure_ui <- function(id, ik_data = NULL) {
     "Predator pressure", value = "predator-pressure", icon = icon("crosshairs"),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),   # .ik-maps-split / -side / records
     tags$script(src = .ik_asset("js/maps.js")),                                              # resize-on-tab-show fix
-    div(class = "ik-maps ik-pp",
+    div(class = "ik-maps ik-pp ik-map-fill",                     # fill the viewport (map row grows under the header)
         .ik_page_header("Predator pressure",
             description = "Where are predators winning ground from the protected species — and is trapping reaching those places?",
             help = .ik_info(ns("pp_help"), "Predator pressure — how to read this", predator_pressure_help_body(cam_norm)),
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         uiOutput(ns("caption")),
         layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
-          leaflet::leafletOutput(ns("map"), height = "70vh"),
-          div(class = "ik-maps-side", style = "max-height:70vh;",
+          leaflet::leafletOutput(ns("map"), height = "100%"),
+          div(class = "ik-maps-side",                            # height fills the row via .ik-map-fill
             div(class = "ik-maps-records",
                 uiOutput(ns("drill_chip")),
                 div(class = "ik-maps-records-header",

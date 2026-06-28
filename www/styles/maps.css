@@ -67,11 +67,27 @@
 .ik-maps-records-header small { color: var(--bs-secondary-color, #666); }
 
 /* Side-by-side map + records (standalone maps, wide screens): the records column scrolls within the
-   map's height (set inline to match) so the page stays one screen tall; layout_columns wraps the two
-   back to stacked on narrow windows. */
+   map's height so the page stays one screen tall; layout_columns wraps the two back to stacked on narrow
+   windows. */
 .ik-maps-split { align-items: stretch; }
 .ik-maps-side { overflow: auto; }
 .ik-maps-side .ik-maps-records { margin-top: 0; }
+
+/* ── Fill the viewport (standalone map pages: Monitoring/Trapping map, Coverage, Predator pressure) ──
+   A hard-coded leaflet height (e.g. 62vh) ignored the variable page header above it, so a short header
+   left a big gap below the map and a tall one overflowed. Instead make the page a flex COLUMN pinned to
+   the viewport height (minus the navbar + a small bottom gap): the header/caption keep their natural
+   height and the map+table row GROWS to take whatever's left — so every standalone map ends at the same
+   small gap above the fold, whatever its header. A min-height keeps the map usable on short screens (it
+   then scrolls). The map + side fill that row at height:100% (R passes height = "100%"). Tabbed map
+   features (Co-occurrence, Neighbourhood) deliberately keep a fixed height and may run past the fold. */
+.ik-map-fill { display: flex; flex-direction: column;
+  height: calc(100vh - 5rem); height: calc(100dvh - 5rem);   /* dvh where supported (mobile chrome); vh fallback */
+  min-height: 32rem; }
+.ik-map-fill > .ik-maps-split { flex: 1 1 auto; min-height: 0; margin-bottom: 0; }
+.ik-map-fill .ik-maps-split > .leaflet,
+.ik-map-fill .ik-maps-split > .html-widget { height: 100% !important; }
+.ik-map-fill .ik-maps-side { height: 100%; max-height: none; }
 
 /* Hint text inside the priority/timing drill modal. */
 .ik-maps-hint { color: var(--bs-secondary-color, #6c757d); }

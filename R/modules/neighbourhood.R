@@ -124,14 +124,8 @@ neighbourhood_ui <- function(id, ik_data) {
             plotOutput(ns("panel"), height = "440px", click = ns("panel_click"))),
           # Map — the same neighbourhood in space (all-time), with hover-to-highlight traps.
           tabPanel("Map", icon = icon("map-location-dot"),
-            tags$p(class = "ik-nbhd-hint",
-              tags$b(tags$span(style = "color:#2e7d32", "Green")), " = protected on camera · ",
-              tags$b(tags$span(style = "color:#c62828", "red")), " = predators on camera · ",
-              tags$b(tags$span(style = "color:#6a3d9a", "purple")), " = predators caught in traps · ",
-              tags$b(tags$span(style = "color:#2c7fb8", "blue")), " = camera location · ",
-              tags$b(tags$span(style = "color:#8a8a8a", "grey")), " = trap location (the ", tags$b("Device"),
-              " layer, underneath). All-time. ", tags$b("Hover a trap in the table"), " to highlight it on the map."),
-            layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
+            # (the "hover a trap in the table" hint was dropped; a small top gap keeps the map off the tab line)
+            layout_columns(class = "ik-maps-split ik-nbhd-mapsplit", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
               leaflet::leafletOutput(ns("map"), height = "60vh"),
               div(class = "ik-maps-side", style = "max-height:60vh;",
                 uiOutput(ns("map_note")),

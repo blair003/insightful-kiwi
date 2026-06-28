@@ -173,7 +173,7 @@ coverage_ui <- function(id, ik_data = NULL) {
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/coverage.css")),
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/maps.css")),  # .ik-maps-split / -side
     tags$script(src = .ik_asset("js/maps.js")),                            # reuse the resize-on-tab-show fix
-    div(class = "ik-cov",
+    div(class = "ik-cov ik-map-fill",                            # fill the viewport (map row grows under the header)
         .ik_page_header("Coverage Gaps",
             description = "Where are the protected species, and is predator control reaching them?",
             help = .ik_info(ns("cov_help"), "Coverage Gaps — how to read this", coverage_help_body(cam_norm)),
@@ -181,9 +181,9 @@ coverage_ui <- function(id, ik_data = NULL) {
         # The map (protected hotspots vs predator control) beside the gaps table; View options → sidebar.
         uiOutput(ns("caption")),
         layout_columns(class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
-          leaflet::leafletOutput(ns("map"), height = "62vh"),
+          leaflet::leafletOutput(ns("map"), height = "100%"),
           # Coverage gaps beside the map (they drive its hover/click); the gap-radius control is in the sidebar.
-          div(class = "ik-maps-side", style = "max-height:62vh;",
+          div(class = "ik-maps-side",                            # height fills the row via .ik-map-fill
             div(class = "ik-cov-gaps",
                 # No heading (the page title already says it) — start straight at the lead, help inline.
                 tags$p(class = "ik-cov-gaps-lead",

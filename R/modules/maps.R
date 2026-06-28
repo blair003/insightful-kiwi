@@ -118,7 +118,10 @@ maps_controls <- function(id, device = NULL, ik_data = NULL) {
 #'   measure locks to the device default. @param height Leaflet height. @keywords internal
 maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, height = "70vh") {
   ns   <- NS(id)
-  map     <- leaflet::leafletOutput(ns("map"), height = height)
+  # Standalone maps fill the viewport (height 100% inside the .ik-map-fill flex column); the embedded
+  # species maps (fixed) keep their passed fixed height and stack.
+  map_h   <- if (fixed) height else "100%"
+  map     <- leaflet::leafletOutput(ns("map"), height = map_h)
   records <- div(
     class = "ik-maps-records",
     uiOutput(ns("drill_chip")),
@@ -132,7 +135,7 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
   help_ttl <- if (identical(device, "trap")) "Trapping map — measures"
               else if (identical(device, "camera")) "Monitoring map — relative activity" else "Map measures"
   div(
-    class = "ik-maps",
+    class = if (fixed) "ik-maps" else "ik-maps ik-map-fill",     # fill the viewport on standalone pages
     if (!fixed) .ik_page_header(                                 # page heading (the embedded species maps skip it)
       ttl,
       help = .ik_info(ns("measure_help"), help_ttl, .maps_measure_help(device, norm)),  # measure/RAI help on the title
@@ -145,7 +148,7 @@ maps_panel_body <- function(id, device = NULL, ik_data = NULL, fixed = FALSE, he
     else layout_columns(
       class = "ik-maps-split", col_widths = breakpoints(sm = 12, lg = c(8, 4)),
       map,
-      div(class = "ik-maps-side", style = sprintf("max-height:%s;", height), records)),
+      div(class = "ik-maps-side", records)),                     # height comes from .ik-map-fill (fills the row)
     uiOutput(ns("unplaced"))   # coordless-records note: a footnote below the table/columns
   )
 }
