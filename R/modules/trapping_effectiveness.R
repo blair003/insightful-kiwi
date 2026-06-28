@@ -91,10 +91,10 @@ trapping_effectiveness_help_body <- function(norm = 100) {
   )
 }
 
-#' Trapping effectiveness nav panel. @param id Module id. @param ik_data The container (species +
-#'   reserve choices are baked into the UI — this is a dropdown nav panel, whose selectize controls
-#'   render lazily and would miss a server-set default while hidden).
-trapping_effectiveness_ui <- function(id, ik_data) {
+#' Catch-efficiency TAB body — embedded under "Check frequency → Catch efficiency" (no longer a top-level
+#' nav). The species picker is inline; Period + Reserve come from the shared trap-review sidebar selection.
+#' @param id Module id. @param ik_data The container (species choices baked in — selectize renders lazily).
+trapping_effectiveness_body <- function(id, ik_data) {
   ns  <- NS(id)
   sg  <- ik_species_groups(ik_data)
   ctl <- ik_taxa_groups(sg, "control", "target")
@@ -102,21 +102,16 @@ trapping_effectiveness_ui <- function(id, ik_data) {
   sp_choices  <- ik_species_choices(ctl, ik_data, "vernacular", splits,
                                      all_label = "All predators", all_value = "__all__")
   norm <- ik_data$meta$trapping$rate$norm_trap_days %||% 100        # catch-rate normalisation unit (trap-nights)
-  ntn  <- paste0(format(norm, big.mark = ","), " trap-nights")
-  nav_panel(
-    "Catch efficiency", value = "trapping-effectiveness", icon = icon("bullseye"),
+  tagList(
     tags$link(rel = "stylesheet", type = "text/css", href = .ik_asset("styles/trapping_effectiveness.css")),
-    div(class = "ik-teff",
-        .ik_page_header("Catch efficiency",
-            description = "Does checking traps more often result in a higher catch rate?",
-            help = .ik_info(ns("teff_help"), "Catch efficiency — how to read this",
-                     trapping_effectiveness_help_body(norm)),
-            banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),  # Data period + Reserve are in the sidebar
-        div(class = "teff-controls",
-            selectInput(ns("species"), "Captures of", choices = sp_choices, selected = "__all__", width = "200px")),
-        uiOutput(ns("note")),
-        plotOutput(ns("plot"), height = "440px"))
-  )
+    div(class = "trap-tab-help",
+        tags$span(class = "trap-lead", "Does checking traps more often result in a higher catch rate?"),
+        .ik_info(ns("teff_help"), "Catch efficiency — how to read this",
+                 trapping_effectiveness_help_body(norm))),
+    div(class = "teff-controls",
+        selectInput(ns("species"), "Captures of", choices = sp_choices, selected = "__all__", width = "200px")),
+    uiOutput(ns("note")),
+    plotOutput(ns("plot"), height = "440px"))
 }
 
 #' Trapping effectiveness server.
@@ -139,8 +134,10 @@ trapping_effectiveness_server <- function(id, ik_data, prefer_scientific = react
     output$note <- renderUI({
       d <- data(); if (is.null(d) || !nrow(d)) return(NULL)
       tags$p(class = "teff-note",
-        "Two bars per band — ", tags$b("Nominal"), " vs ", tags$b("Operational"), " trap-nights. The number",
-        " above each band is how many trap-seasons it pools (small = noisy).")
+        tags$b("n above each band = the trap-seasons behind it"), " — the smaller it is, the noisier the bar, ",
+        "so weight tall bars with a big n. Two bars per band: ", tags$b("Nominal"), " vs ",
+        tags$b("Operational"), " trap-nights. (Period defaults to the last year — pick ", tags$b("All data"),
+        " in the sidebar for the fullest pattern.)")
     })
 
     output$plot <- renderPlot({
@@ -148,10 +145,11 @@ trapping_effectiveness_server <- function(id, ik_data, prefer_scientific = react
       norm <- attr(d, "norm")
       ggplot2::ggplot(d, ggplot2::aes(.data$band, .data$rate, fill = .data$basis)) +
         ggplot2::geom_col(position = ggplot2::position_dodge(width = 0.8), width = 0.72, na.rm = TRUE) +
-        # one sample-size label per band, above the taller (Operational) bar
+        # one sample-size label per band, above the taller (Operational) bar — the reliability cue, so make
+        # it read: bold, "n=" prefixed (it's the trap-seasons behind the bar, not a catch count).
         ggplot2::geom_text(data = d[d$basis == "Operational", , drop = FALSE],
-                           ggplot2::aes(label = .data$n_traps), vjust = -0.4, size = 2.9,
-                           colour = ik_plot_ink(is_dark()), na.rm = TRUE, show.legend = FALSE) +
+                           ggplot2::aes(label = paste0("n=", .data$n_traps)), vjust = -0.5, size = 3.5,
+                           fontface = "bold", colour = ik_plot_ink(is_dark()), na.rm = TRUE, show.legend = FALSE) +
         ggplot2::facet_wrap(ggplot2::vars(.data$season), nrow = 1) +
         ggplot2::scale_fill_manual(values = c(Nominal = "#6a3d9a", Operational = "#b39ddb")) +
         ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.12))) +

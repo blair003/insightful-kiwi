@@ -100,18 +100,16 @@ ui <- page_navbar(
                      selection_ui("bait_selection", show = c("period"), ik_data = ik_data,
                                   period_default = "rolling12",
                                   controls = bait_controls("bait", ik_data), heading = "Filters")),
-    conditionalPanel("input.nav === 'trapping-effectiveness'",
-                     selection_ui("trapping_eff_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "all", heading = "Filters")),   # default all seasons (the cross-season story)
     conditionalPanel("input.nav === 'trap-review'",
-                     # Period drives the "By trapline" + Map tabs; the "Trend" tab spans all data, so
-                     # Period hides there (the generic note in its place). Reserve stays on all tabs.
+                     # Period drives the "By trapline" + Map + Catch efficiency tabs; the "Trend" tab spans all
+                     # data, so Period hides there (the generic note in its place). Reserve stays on all tabs.
                      selection_ui("trap_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = .trap_period_def, heading = "Filters",
                                   view_extra = tagList(   # per-tab view controls: By-trapline Dormant/Historic, Over-time grain
                                     conditionalPanel("input['trapping-trap_view'] === 'By trapline'", trapping_byline_controls("trapping")),
                                     conditionalPanel("input['trapping-trap_view'] === 'Trend'", trapping_overtime_controls("trapping"))),
-                                  view_show_js = "input['trapping-trap_view'] !== 'Map'",
+                                  # View-options section hides on the tabs with no view controls (Map, Catch efficiency).
+                                  view_show_js = "input['trapping-trap_view'] !== 'Map' && input['trapping-trap_view'] !== 'Catch efficiency'",
                                   period_show_js = "input['trapping-trap_view'] !== 'Trend'")),
     conditionalPanel("input.nav === 'coverage'",
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,
@@ -220,10 +218,11 @@ ui <- page_navbar(
       maps_ui("trapping_map", device = "trap", label = "Map", value = "trapping-map", ik_data = ik_data),
       records_ui("control_records", label = "Records", value = "trapping-records", heading = "Trapping records"))),
     .ik_nav_group("Health", list(
-      nav_panel("Trap review", value = "trap-review", icon = icon("heart-pulse"), trapping_ui("trapping", ik_data)))),
+      # Check frequency (was "Trap review") — grades each trap by check cadence; the Catch-efficiency
+      # analysis (catch rate vs cadence) is now a TAB inside it, not a separate menu item.
+      nav_panel("Check frequency", value = "trap-review", icon = icon("heart-pulse"), trapping_ui("trapping", ik_data)))),
     .ik_nav_group("Effectiveness", list(
       if (ik_feature_enabled(ik_data, "bait")) bait_ui("bait", ik_data),   # bait effectiveness (trap)
-      if (ik_feature_enabled(ik_data, "trapping_effectiveness")) trapping_effectiveness_ui("trapping_eff", ik_data),   # catch rate vs cadence
       if (ik_feature_enabled(ik_data, "top_traps")) trap_hero_ui("trap_hero", ik_data),   # best-performing traps on a map
       if (.has_trappers && ik_feature_enabled(ik_data, "top_trappers")) top_trappers_ui("top_trappers", ik_data))))),  # volunteer leaderboard
 

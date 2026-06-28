@@ -127,10 +127,10 @@ server <- function(input, output, session) {
   bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific,
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
-  trapping_eff_selection <- selection_server("trapping_eff_selection", ik_data, prefer_scientific,
-    show = c("period", "reserve"), active = reactive(identical(input$nav, "trapping-effectiveness")))
+  # Catch efficiency is now a TAB inside Check frequency (nav "trap-review"), so it shares that nav's
+  # sidebar selection (period + reserve) — no separate selection of its own.
   trapping_effectiveness_server("trapping_eff", ik_data, prefer_scientific, color_mode = cm,
-                                selection = trapping_eff_selection)
+                                selection = trap_selection)
   trap_hero_selection <- selection_server("trap_hero_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "trap-hero")))
   .lazy_once(reactive(identical(input$nav, "trap-hero")), function()
@@ -159,7 +159,7 @@ server <- function(input, output, session) {
   # (The collapse toggle stays either way.)
   SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
                     "trap-review", "bait", "coverage", "predator-pressure", "trap-hero", "cooccurrence",
-                    "neighbourhood", "reserve-report", "trapping-effectiveness")   # their selection/anchor lives in the rail
+                    "neighbourhood", "reserve-report")   # their selection/anchor lives in the rail
   # Auto-collapse the rail on the light pages / open it on the heavy ones — DESKTOP ONLY. On mobile the rail
   # is an overlay: auto-opening it on every navigation just covered the content (and you'd have to dismiss it
   # each time), so on a phone we leave it CLOSED and let you open it on demand via the period-banner date.

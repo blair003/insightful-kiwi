@@ -108,7 +108,8 @@ trapping_ui <- function(id, ik_data = NULL) {
     div(class = "ik-trapping",
         # Period banner (subtitle under the title) tracks the active tab: the By-trapline table + Map
         # honour the window, the Over-time trend spans everything (reads "All data").
-        .ik_page_header("Trap check-frequency review",
+        .ik_page_header("Check frequency",
+            description = "Each trap graded by how often it's checked — often enough?",
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
         # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
@@ -145,7 +146,12 @@ trapping_ui <- function(id, ik_data = NULL) {
                     .ik_info(ns("overtime_help"), "Servicing over time — how to read this",
                              trapping_help_body(ik_data$meta$trapping, "overtime"))),
                 uiOutput(ns("timeline_note")),
-                plotOutput(ns("timeline"), height = "620px")))))
+                plotOutput(ns("timeline"), height = "620px"))),
+          # Catch efficiency — the analytical companion (does tighter checking catch more per trap-night?),
+          # built on the same check-cadence metric. Embedded here so it isn't a top-level menu item.
+          if (ik_feature_enabled(ik_data, "trapping_effectiveness")) tabPanel(
+            "Catch efficiency", icon = icon("bullseye"),
+            trapping_effectiveness_body("trapping_eff", ik_data))))
   )
 }
 
