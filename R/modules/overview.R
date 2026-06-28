@@ -819,7 +819,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
         fd <- function(d) ifelse(is.na(d), "—", sprintf("%.1f", d))
         fs <- function(s) ifelse(is.na(s), "—", format(round(s), big.mark = ","))
         df <- data.frame(Reserve = reserves, `Area (ha)` = fa(area), Cameras = ncam, Traps = ntrp,
-          `Cameras/km²` = fd(cpk), `Traps/km²` = fd(tpk), `Trap spacing (m)` = fs(spc),
+          `Cameras/ km²` = fd(cpk), `Traps/ km²` = fd(tpk), `Trap spacing (m)` = fs(spc),
           check.names = FALSE, stringsAsFactors = FALSE)
         DT::datatable(df, rownames = FALSE, selection = "none", class = "stripe hover row-border ik-nd-table",
           options = list(dom = "t", ordering = FALSE, paging = FALSE,
