@@ -441,7 +441,18 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
 
     observe({                                                   # Boundary — names the reserve on hover of the line
       p <- proxy(); leaflet::clearGroup(p, "Boundary")
-      h <- ik_selection_hulls(frame_pts(), "reserve"); if (is.null(h) || !nrow(h)) return()
+      fp <- frame_pts()
+      # Outline only reserves that actually have a marker showing. frame_pts carries EVERY deployed device
+      # (0-value rows included), but at per-location grain the Points layer hides zero-value locations — so
+      # a reserve with deployed traps but no records of the selected group shows no markers, and a boundary
+      # drawn around it floats over empty ground (the reported "boundary but it's wrong"). Restrict the hull
+      # to reserves with ≥1 displayed point (same value column the Points layer filters on). At LINE grain
+      # every line shows regardless, so keep all reserves there.
+      line_grain <- src() == "camera" && grain_rv() == "line"
+      if (!line_grain && !is.null(fp)) { vc <- valcol()
+        live <- unique(fp$reserve[is.finite(fp[[vc]]) & fp[[vc]] > 0])
+        fp <- fp[fp$reserve %in% live, , drop = FALSE] }
+      h <- ik_selection_hulls(fp, "reserve"); if (is.null(h) || !nrow(h)) return()
       # Outline only (fill = FALSE), so the reserve label fires only when you hover the dashed line —
       # not the interior gaps between markers (same behaviour as the Coverage map).
       leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
