@@ -79,19 +79,32 @@
    small gap above the fold, whatever its header. A min-height keeps the map usable on short screens (it
    then scrolls). The map + side fill that row at height:100% (R passes height = "100%"). Tabbed map
    features (Co-occurrence, Neighbourhood) deliberately keep a fixed height and may run past the fold. */
-.ik-map-fill { display: flex; flex-direction: column; position: relative;   /* relative: the coordless note floats inside it */
-  height: calc(100vh - 5rem); height: calc(100dvh - 5rem);   /* dvh where supported (mobile chrome); vh fallback */
-  min-height: 32rem; }
-.ik-map-fill > .ik-maps-split { flex: 1 1 auto; min-height: 0; margin-bottom: 0; }
-.ik-map-fill .ik-maps-split > .leaflet,
-.ik-map-fill .ik-maps-split > .html-widget { height: 100% !important; }
-.ik-map-fill .ik-maps-side { height: 100%; max-height: none; }
-/* The "N coordless devices…" note FLOATS over the map's bottom-left instead of sitting below it (where it
-   stole height from the map row). Bottom-left is clear — zoom is top-left, legend/attribution bottom-right.
-   (It lives inside a uiOutput wrapper, hence the descendant selector; absolute-positioning it collapses
-   that wrapper to nothing so the map row takes the full height.) */
-.ik-map-fill .ik-maps-unplaced { position: absolute; left: 0.6rem; bottom: 0.6rem; z-index: 650;
-  margin: 0; max-width: 60%; opacity: 0.96; }
+/* DESKTOP only (≥576px): the flex fill. On a phone the columns stack to ONE column, so the map's cell has
+   no definite height and a height:100% leaflet collapses to nothing — so we scope the fill to desktop and
+   give mobile a plain fixed height below. */
+@media (min-width: 576px) {
+  .ik-map-fill { display: flex; flex-direction: column; position: relative;   /* relative: the coordless note floats inside it */
+    height: calc(100vh - 5rem); height: calc(100dvh - 5rem);   /* dvh where supported (mobile chrome); vh fallback */
+    min-height: 32rem; }
+  .ik-map-fill > .ik-maps-split { flex: 1 1 auto; min-height: 0; margin-bottom: 0; }
+  .ik-map-fill .ik-maps-split > .leaflet,
+  .ik-map-fill .ik-maps-split > .html-widget { height: 100% !important; }
+  .ik-map-fill .ik-maps-side { height: 100%; max-height: none; }
+  /* The "N coordless devices…" note FLOATS over the map's bottom-left instead of sitting below it (where it
+     stole height from the map row). Bottom-left is clear — zoom is top-left, legend/attribution bottom-right.
+     (It lives inside a uiOutput wrapper, hence the descendant selector; absolute-positioning it collapses
+     that wrapper to nothing so the map row takes the full height.) */
+  .ik-map-fill .ik-maps-unplaced { position: absolute; left: 0.6rem; bottom: 0.6rem; z-index: 650;
+    margin: 0; max-width: 60%; opacity: 0.96; }
+}
+/* MOBILE (<576px): the columns stack and the bslib grid has no height, so the R height="100%" leaflet
+   collapses. Force a plain fixed height on the widget + its container (descendant selectors — the leaflet
+   is wrapped by the grid web component, so a `>` child selector misses it). Stacked block, table below. */
+@media (max-width: 575.98px) {
+  .ik-map-fill .html-widget,
+  .ik-map-fill .leaflet,
+  .ik-map-fill .leaflet-container { height: 60vh !important; min-height: 60vh; }
+}
 
 /* Hover-preview popup (marker OR table row): must NOT capture the mouse. A normal popup bubble appearing
    over the hovered marker would steal the hover (mouseout↔mouseover loop = flicker) and intercept the

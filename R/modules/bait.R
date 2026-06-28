@@ -170,12 +170,18 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         sprintf("  %.2f  (%s caught · %s trap-days)", d$rate,
                 format(d$captures, big.mark = ","), format(round(d$trap_days), big.mark = ","))
       unit <- if (identical(group(), "ingredient")) "ingredients" else "recipes"
+      # On a narrow (mobile) plot the long full-recipe names crowd the y axis — wrap them onto two lines.
+      # Short single-ingredient names fall under the width and stay one line. (200 = effectively no wrap.)
+      pw      <- session$clientData[[paste0("output_", session$ns("plot"), "_width")]]
+      wrap_at <- if (!is.null(pw) && pw < 520) 18L else 200L
+      .wrap_y <- function(x) vapply(x, function(s) paste(strwrap(s, width = wrap_at), collapse = "\n"), character(1))
 
       ggplot(d, aes(xval, .data$bait, fill = xval)) +
         geom_col(width = 0.72) +
         geom_text(aes(label = lab), hjust = 0, size = 3.4, colour = ik_plot_ink(is_dark())) +
         scale_fill_gradient(low = "#d7ccc8", high = "#5d4037", guide = "none") +
         scale_x_continuous(expand = expansion(mult = c(0, 0.55))) +
+        scale_y_discrete(labels = .wrap_y) +
         labs(x = if (count) "Total captures" else paste0("Captures per ", ntn), y = NULL,
              subtitle = sprintf("Top %d of %d %s, by %s", nrow(d), total, unit,
                                 if (count) "total caught" else "capture rate")) +
