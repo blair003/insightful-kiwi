@@ -167,9 +167,7 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       sv$captures[is.na(sv$captures)] <- 0L
       sv })
 
-    .robust_cap <- function(v) { m <- suppressWarnings(max(v, na.rm = TRUE)); if (is.finite(m) && m > 0) m else 1 }
-    surf_pal <- function(cap) leaflet::colorNumeric(.PP_RAMP, c(0, cap))
-    proxy    <- function() leaflet::leafletProxy("map", session)
+    proxy    <- function() leaflet::leafletProxy("map", session)   # .robust_cap/surf_pal removed — now ik_max_cap + the shared draw helpers
 
     # ---- drill state (map ↔ table) ----
     selected    <- reactiveVal(NULL)   # NULL | list(kind="location", id, label) — a clicked camera
@@ -182,25 +180,13 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
     output$map <- leaflet::renderLeaflet({
       locs <- ik_data$app$geography$locations
       locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-      m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-      m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-      m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-      pns <- c("surface", "boundary", "traps", "catches", "cameras", "selected")   # surface lowest; selected on TOP
-      for (pn in pns) m <- leaflet::addMapPane(m, pn, zIndex = 410 + 10 * match(pn, pns))
-      m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
-        overlayGroups = c("Pressure surface", "Cameras", "Catches", "Traps", "Boundary"),
-        options = leaflet::layersControlOptions(collapsed = FALSE))
-      m <- leaflet::hideGroup(m, "Traps")                        # the dense context field — opt-in
-      if (nrow(locs)) m <- leaflet::fitBounds(m, min(locs$longitude), min(locs$latitude), max(locs$longitude), max(locs$latitude))
-      m
+      ik_map_base(panes = c("surface", "boundary", "traps", "catches", "cameras", "selected"),   # surface lowest; selected on TOP
+        overlay_groups = c("Pressure surface", "Cameras", "Catches", "Traps", "Boundary"),
+        is_dark = isolate(is_dark()), fit = locs, hide_groups = "Traps", pane_z0 = 410)
     })
     outputOptions(output, "map", suspendWhenHidden = FALSE)      # render from load so proxy layers land
 
-    observeEvent(color_mode(), {
-      p <- proxy(); leaflet::clearGroup(p, "Map")
-      leaflet::addProviderTiles(p, if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
-    }, ignoreInit = TRUE)
+    observeEvent(color_mode(), ik_swap_theme_tiles(proxy(), is_dark()), ignoreInit = TRUE)
 
     observe({                                                    # re-frame to the camera extent of the selection
       d <- prio_pts(); if (is.null(d) || !nrow(d)) return(); p <- proxy()
@@ -222,29 +208,19 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       ik_idw_surface(d, "metric", "reserve") }) |> bindCache(prio_pts())
     surface_idw <- reactive(if (isTRUE(surface_on())) surface_compute() else NULL)
     observe({
-      p <- proxy(); leaflet::clearGroup(p, "Pressure surface")
       s <- ik_clip_surface_to_reserves(surface_idw(), reserve_hulls())   # confine the field to the reserve
-      if (is.null(s) || !nrow(s)) return()
-      cap <- .robust_cap(s$predicted); pf <- surf_pal(cap)
-      leaflet::addPolygons(p, data = s, group = "Pressure surface", weight = 0.5, color = ~pf(pmin(predicted, cap)),
-        fillColor = ~pf(pmin(predicted, cap)), fillOpacity = if (is_dark()) 0.5 else 0.4,
-        options = leaflet::pathOptions(pane = "surface"))
+      ik_draw_idw_surface(proxy(), s, group = "Pressure surface", pal = .PP_RAMP, is_dark = is_dark())
     })
 
     # ---- Cameras — per-camera priority score (same ramp as the surface) ----
     observe({
-      p <- proxy(); leaflet::clearGroup(p, "Cameras")
       d <- prio_pts(); d <- if (is.null(d)) NULL else d[is.finite(d$metric) & d$metric > 0, , drop = FALSE]
-      if (is.null(d) || !nrow(d)) return()
-      cap <- .robust_cap(d$metric); v <- pmin(d$metric, cap); pf <- surf_pal(cap)
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Cameras",
-        layerId = paste0("C|", d$location_id),
-        radius = ik_marker_radius(v, 5, 20, cap_pctl = 0.98), fillColor = pf(v), fillOpacity = 0.85,
-        stroke = TRUE, color = if (is_dark()) "#1a1a1a" else "#ffffff", weight = 1.5,
+      ik_draw_metric_markers(proxy(), d, value = d$metric, group = "Cameras", layerId = paste0("C|", d$location_id),
+        lo = 5, hi = 20, cap_pctl = 0.98, pal = .PP_RAMP,
+        fill_opacity = 0.85, color = if (is_dark()) "#1a1a1a" else "#ffffff", weight = 1.5, pane = "cameras",
         label = sprintf("%s — pressure %.2f", d$name, d$metric),
         popup = sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>Pressure: %.2f</b><br/>%s RAI: %.2f &middot; %s RAI: %.2f",
-          d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, d$metric, pred_lab(), d$predator, prot_lab(), d$protected),
-        popupOptions = leaflet::popupOptions(autoPan = FALSE), options = leaflet::pathOptions(pane = "cameras"))
+          d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, d$metric, pred_lab(), d$predator, prot_lab(), d$protected))
     })
 
     # ---- Catches — traps that caught the chosen predator (purple, count scale) ----
@@ -252,28 +228,23 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
     # "Traps", "T|") don't share an id — a shared id lets the hidden Traps layer clobber the catch (leaflet
     # replaces a duplicate layerId), which made the whole Catches layer vanish. Both still open check history.
     observe({
-      p <- proxy(); leaflet::clearGroup(p, "Catches")
       d <- trap_pred(); d <- if (is.null(d)) NULL else d[is.finite(d$captures) & d$captures > 0, , drop = FALSE]
-      if (is.null(d) || !nrow(d)) return()
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Catches", layerId = paste0("K|", d$location_id),
-        radius = ik_marker_radius(d$captures, 5, 16, cap = ik_robust_cap(d$captures, 0.9)),
-        fillColor = "#6a3d9a", fillOpacity = 0.85, stroke = TRUE, color = "#ffffff", weight = 1,
-        label = sprintf("%s — %s caught: %d · click for check history", d$name, pred_lab(), as.integer(d$captures)),
-        options = leaflet::pathOptions(pane = "catches"))
+      ik_draw_metric_markers(proxy(), d, value = d$captures, group = "Catches", layerId = paste0("K|", d$location_id),
+        lo = 5, hi = 16, cap = ik_robust_cap(d$captures, 0.9), fill_color = "#6a3d9a",
+        fill_opacity = 0.85, color = "#ffffff", weight = 1, pane = "catches",
+        label = sprintf("%s — %s caught: %d · click for check history", d$name, pred_lab(), as.integer(d$captures)))
     })
 
     # ---- Traps — the active field (grey, neglected amber); off by default ----
     observe({
-      p <- proxy(); leaflet::clearGroup(p, "Traps")
-      d <- trap_active(); if (is.null(d) || !nrow(d)) return()
+      d <- trap_active(); if (is.null(d) || !nrow(d)) { leaflet::clearGroup(proxy(), "Traps"); return() }
       st_lab <- c(good = "Good", watch = "Watch", neglected = "Neglected")
       lab <- sprintf("%s — %s · %d check%s · %s trap-days · %d caught · click for check history",
                      d$name, ifelse(is.na(d$status), "—", unname(st_lab[d$status])),
                      as.integer(d$n_checks), ifelse(d$n_checks == 1L, "", "s"),
                      format(round(d$trap_days), big.mark = ","), as.integer(d$captures))
-      leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Traps", layerId = paste0("T|", d$location),
-        radius = 3, fill = TRUE, fillColor = ifelse(d$status == "neglected", "#f59f00", "#8a8a8a"), fillOpacity = 0.6, stroke = FALSE,
-        label = lab, options = leaflet::pathOptions(pane = "traps"))
+      ik_draw_device_layer(proxy(), d, fill_color = ifelse(d$status == "neglected", "#f59f00", "#8a8a8a"),
+        group = "Traps", pane = "traps", radius = 3, fill_opacity = 0.6, label = lab, layerId = paste0("T|", d$location))
     })
 
     observe({                                                    # Boundary — the shared reserve footprint draw
@@ -282,21 +253,19 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
     })
 
     observe({                                                    # Selected highlight (a clicked camera)
-      p <- proxy(); leaflet::clearGroup(p, "Selected")
-      sel <- selected(); if (is.null(sel)) return()
-      locs <- ik_data$app$geography$locations; i <- match(sel$id, locs$location_id)
-      if (is.na(i) || !is.finite(locs$longitude[i])) return()
-      leaflet::addCircleMarkers(p, lng = locs$longitude[i], lat = locs$latitude[i], group = "Selected",
-        radius = 16, fill = FALSE, stroke = TRUE, color = "#ff5722", weight = 3, opacity = 0.95,
-        options = leaflet::pathOptions(pane = "selected"))
+      sel <- selected(); locs <- ik_data$app$geography$locations
+      i <- if (is.null(sel)) NA_integer_ else match(sel$id, locs$location_id)
+      ik_draw_selection_ring(proxy(),
+        if (is.na(i)) NULL else locs$longitude[i],
+        if (is.na(i)) NULL else locs$latitude[i])
     })
 
     observe({                                                    # legends: pressure gradient + trapping key
       p <- proxy(); leaflet::clearControls(p)
       d <- prio_pts(); if (is.null(d) || !nrow(d)) return()
-      cap <- .robust_cap(d$metric); pf <- surf_pal(cap)
-      leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d$metric, cap),
-        title = sprintf("Predator pressure &middot; %s high, %s low", pred_lab(), prot_lab()), opacity = 0.9)
+      cap <- ik_max_cap(d$metric); pf <- leaflet::colorNumeric(.PP_RAMP, c(0, cap))
+      ik_draw_metric_legend(p, pf, pmin(d$metric, cap),
+        sprintf("Predator pressure &middot; %s high, %s low", pred_lab(), prot_lab()))
       leaflet::addLegend(p, "bottomleft", colors = c("#6a3d9a", "#8a8a8a", "#f59f00"),
         labels = c(sprintf("%s caught (traps)", pred_lab()), "Traps in service", "Traps neglected"),
         title = "Trapping overlay", opacity = 0.9)
