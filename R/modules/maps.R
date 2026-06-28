@@ -357,6 +357,17 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       else leaflet::fitBounds(p, min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude), options = list(padding = c(30, 30)))
     })
 
+    # The CONSTANT reserve footprint — the convex hull of ALL active device locations per reserve
+    # (cameras + traps), independent of the measure / species / period. So the Boundary outline is the
+    # SAME on every map and never moves with the data, and the Surface is clipped to it (below) — the
+    # reserve, not the scattered points, defines the confines. Scoped to the sidebar Reserve. Mirrors the
+    # Coverage / Predator-pressure maps (ik_active_locations → ik_selection_hulls), which already do this.
+    reserve_hulls <- reactive({ req(active())
+      locs <- ik_active_locations(ik_data)
+      locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
+      rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) locs <- locs[locs$reserve %in% rsv, , drop = FALSE]
+      ik_selection_hulls(locs, "reserve") })
+
     # ---- Surface (rate/count field; robust clamp) ----
     # IDW interpolation is the heaviest map computation. Cache it on the points + value column (the
     # points already encode the selection + active datasets, so they fully determine the surface);
@@ -378,12 +389,25 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     })
     surface_compute <- reactive({
       d <- rate_loc_pts(); if (is.null(d) || !nrow(d)) return(NULL)
+      # Drop the catch-all pseudo-reserves (Unknown / Unassigned): their scattered devices aren't a real
+      # footprint, so an IDW over them spreads a meaningless blob across the map (the Boundary already
+      # excludes them — ik_selection_hulls). Keeps the surface on coherent reserves only.
+      d <- d[!d$reserve %in% c(GEO_UNPLACED_RESERVE, GEO_OUTSIDE_RESERVE), , drop = FALSE]
+      if (!nrow(d)) return(NULL)
       ik_idw_surface(d, valcol(), "reserve")
     }) |> bindCache(rate_loc_pts(), valcol())
     surface_idw <- reactive(if (isTRUE(surface_on())) surface_compute() else NULL)
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Surface")
       s <- surface_idw(); if (is.null(s) || !nrow(s)) return()
+      # Confine the field to the reserve outline (the same constant hull the Boundary draws), so it uses the
+      # reserve's confines rather than the interpolation's own buffered point-hull.
+      hl <- reserve_hulls()
+      if (!is.null(hl) && nrow(hl)) s <- tryCatch({
+        cl <- suppressWarnings(sf::st_intersection(sf::st_make_valid(s), sf::st_union(sf::st_geometry(hl))))
+        cl[!sf::st_is_empty(cl), , drop = FALSE]
+      }, error = function(e) s)
+      if (is.null(s) || !nrow(s)) return()
       cap <- .robust_cap(s$predicted); pf <- surf_pal(cap)
       leaflet::addPolygons(p, data = s, group = "Surface", weight = 0.5, color = ~pf(pmin(predicted, cap)),
         fillColor = ~pf(pmin(predicted, cap)), fillOpacity = if (is_dark()) 0.5 else 0.4,
@@ -439,20 +463,12 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         options = leaflet::pathOptions(pane = "device"))
     })
 
-    observe({                                                   # Boundary — names the reserve on hover of the line
+    observe({                                                   # Boundary — the CONSTANT reserve footprint
       p <- proxy(); leaflet::clearGroup(p, "Boundary")
-      fp <- frame_pts()
-      # Outline only reserves that actually have a marker showing. frame_pts carries EVERY deployed device
-      # (0-value rows included), but at per-location grain the Points layer hides zero-value locations — so
-      # a reserve with deployed traps but no records of the selected group shows no markers, and a boundary
-      # drawn around it floats over empty ground (the reported "boundary but it's wrong"). Restrict the hull
-      # to reserves with ≥1 displayed point (same value column the Points layer filters on). At LINE grain
-      # every line shows regardless, so keep all reserves there.
-      line_grain <- src() == "camera" && grain_rv() == "line"
-      if (!line_grain && !is.null(fp)) { vc <- valcol()
-        live <- unique(fp$reserve[is.finite(fp[[vc]]) & fp[[vc]] > 0])
-        fp <- fp[fp$reserve %in% live, , drop = FALSE] }
-      h <- ik_selection_hulls(fp, "reserve"); if (is.null(h) || !nrow(h)) return()
+      # The reserve outline is a FIXED property of the reserve (all its devices), not of the measure or
+      # species — so it's the same on every map and doesn't move as you change the view. (Was the hull of
+      # the current metric points, which shifted with the data and drew nonsense for a group with no records.)
+      h <- reserve_hulls(); if (is.null(h) || !nrow(h)) return()
       # Outline only (fill = FALSE), so the reserve label fires only when you hover the dashed line —
       # not the interior gaps between markers (same behaviour as the Coverage map).
       leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
