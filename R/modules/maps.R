@@ -392,24 +392,40 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     })
     surface_compute <- reactive({
       d <- rate_loc_pts(); if (is.null(d) || !nrow(d)) return(NULL)
+      vc <- valcol()
       # Drop the catch-all pseudo-reserves (Unknown / Unassigned): their scattered devices aren't a real
       # footprint, so an IDW over them spreads a meaningless blob across the map (the Boundary already
-      # excludes them — ik_selection_hulls). Keeps the surface on coherent reserves only.
+      # excludes them — ik_selection_hulls).
       d <- d[!d$reserve %in% c(GEO_UNPLACED_RESERVE, GEO_OUTSIDE_RESERVE), , drop = FALSE]
+      # A surface needs a SIGNAL: drop reserves whose value is 0 at every device. Otherwise IDW returns a
+      # flat field of zeros that paints the whole reserve the lowest colour even though nothing was
+      # detected/caught there (the "Mokoroa has a surface but no captures" report).
+      if (nrow(d)) {
+        pos <- names(which(tapply(d[[vc]], d$reserve, function(v) any(is.finite(v) & v > 0))))
+        d <- d[d$reserve %in% pos, , drop = FALSE]
+      }
       if (!nrow(d)) return(NULL)
-      ik_idw_surface(d, valcol(), "reserve")
+      ik_idw_surface(d, vc, "reserve")
     }) |> bindCache(rate_loc_pts(), valcol())
     surface_idw <- reactive(if (isTRUE(surface_on())) surface_compute() else NULL)
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Surface")
       s <- surface_idw(); if (is.null(s) || !nrow(s)) return()
-      # Confine the field to the reserve outline (the same constant hull the Boundary draws), so it uses the
-      # reserve's confines rather than the interpolation's own buffered point-hull.
+      # Confine each reserve's field to ITS OWN reserve hull (the same constant hull the Boundary draws) —
+      # clipping PER reserve, not to the union, so an interpolation buffer from one reserve can't bleed
+      # across a touching/overlapping boundary into the next (the suspected Mokoroa↔neighbour overlap).
       hl <- reserve_hulls()
-      if (!is.null(hl) && nrow(hl)) s <- tryCatch({
-        cl <- suppressWarnings(sf::st_intersection(sf::st_make_valid(s), sf::st_union(sf::st_geometry(hl))))
-        cl[!sf::st_is_empty(cl), , drop = FALSE]
-      }, error = function(e) s)
+      if (!is.null(hl) && nrow(hl) && "reserve" %in% names(s)) {
+        parts <- lapply(unique(s$reserve), function(rn) {
+          cells <- s[s$reserve == rn, , drop = FALSE]; h <- hl[hl$reserve == rn, , drop = FALSE]
+          if (!nrow(h)) return(NULL)
+          out <- tryCatch(suppressWarnings(sf::st_intersection(sf::st_make_valid(cells), sf::st_union(sf::st_geometry(h)))),
+                          error = function(e) cells)
+          out[!sf::st_is_empty(out), , drop = FALSE]
+        })
+        parts <- Filter(function(x) !is.null(x) && nrow(x), parts)
+        s <- if (length(parts)) do.call(rbind, parts) else NULL
+      }
       if (is.null(s) || !nrow(s)) return()
       cap <- .robust_cap(s$predicted); pf <- surf_pal(cap)
       leaflet::addPolygons(p, data = s, group = "Surface", weight = 0.5, color = ~pf(pmin(predicted, cap)),
