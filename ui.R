@@ -105,11 +105,11 @@ ui <- page_navbar(
                      # data, so Period hides there (the generic note in its place). Reserve stays on all tabs.
                      selection_ui("trap_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = .trap_period_def, heading = "Filters",
-                                  view_extra = tagList(   # per-tab view controls: By-trapline Dormant/Historic, Over-time grain
+                                  view_extra = tagList(   # per-tab view controls: By-trapline Dormant/Historic, Over-time grain, Catch-efficiency species
                                     conditionalPanel("input['trapping-trap_view'] === 'By trapline'", trapping_byline_controls("trapping")),
-                                    conditionalPanel("input['trapping-trap_view'] === 'Trend'", trapping_overtime_controls("trapping"))),
-                                  # View-options section hides on the tabs with no view controls (Map, Catch efficiency).
-                                  view_show_js = "input['trapping-trap_view'] !== 'Map' && input['trapping-trap_view'] !== 'Catch efficiency'",
+                                    conditionalPanel("input['trapping-trap_view'] === 'Trend'", trapping_overtime_controls("trapping")),
+                                    conditionalPanel("input['trapping-trap_view'] === 'Catch efficiency'", trapping_effectiveness_controls("trapping_eff", ik_data))),
+                                  view_show_js = "input['trapping-trap_view'] !== 'Map'",   # only Map has no view controls
                                   period_show_js = "input['trapping-trap_view'] !== 'Trend'")),
     conditionalPanel("input.nav === 'coverage'",
                      selection_ui("coverage_selection", show = c("period", "reserve"), ik_data = ik_data,

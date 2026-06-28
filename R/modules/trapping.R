@@ -110,6 +110,8 @@ trapping_ui <- function(id, ik_data = NULL) {
         # honour the window, the Over-time trend spans everything (reads "All data").
         .ik_page_header("Check frequency",
             description = "Each trap graded by how often it's checked — often enough?",
+            help = .ik_info(ns("byline_help"), "Check frequency — how to read this",
+                     trapping_help_body(ik_data$meta$trapping, "byline")),   # moved off the By-trapline tab onto the heading
             banner = div(class = "ik-page-period", uiOutput(ns("period_banner")))),
         # Two tabs keep the current-period management DETAIL apart from the cross-period TREND — the
         # table is Period-driven, the trend ignores Period, so they don't belong on one page together.
@@ -119,10 +121,6 @@ trapping_ui <- function(id, ik_data = NULL) {
           id = ns("trap_view"),
           tabPanel(
             "By trapline", icon = icon("table-list"),
-            div(class = "trap-tab-help",
-                tags$span(class = "trap-tab-help-label", "Each trap graded by how often it's checked."),
-                .ik_info(ns("byline_help"), "Trap grading — how to read this",
-                         trapping_help_body(ik_data$meta$trapping, "byline"))),
             uiOutput(ns("intro")),
             div(class = "ik-trapping-scroll", uiOutput(ns("table")))),
           tabPanel(
@@ -218,9 +216,11 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
     })
 
     output$intro <- renderUI({
-      per <- review()$all                       # counts over ALL traps (so hidden tiers still show a count)
-      if (is.null(per)) return(tags$p("No trap checks in this period."))
+      per <- review()$per                       # counts over the traps SHOWN — honours the Dormant/Historic toggle
+      if (is.null(per)) return(tags$p("No traps shown for this period (try showing dormant/historic in the sidebar)."))
       st <- table(factor(per$status, c("good", "watch", "neglected", "dormant", "historic")))
+      n_active   <- st[["good"]] + st[["watch"]] + st[["neglected"]]    # graded traps
+      n_inactive <- st[["dormant"]] + st[["historic"]]                 # dormant/historic shown
       # Legend cutoffs scoped to the RESERVE(s) in view — each reserve is calibrated against its own
       # cadence spread, so filtering to a reserve shows that reserve's exact cutoff (falls back to the
       # in-view dataset blend when a reserve has no own calibration).
@@ -237,12 +237,14 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
         leg("neglected", sprintf("Neglected >%dd", wm), st[["neglected"]]))
       if (st[["dormant"]]  > 0)          legs <- c(legs, list(leg("dormant",  sprintf("Dormant %d mo+",  dm), st[["dormant"]])))
       if (st[["historic"]] > 0)          legs <- c(legs, list(leg("historic", sprintf("Historic %d mo+", hm), st[["historic"]])))
-      # Just the key now — a one-line count + the colour codes. The grading explanation moved to the
-      # tab's (?) help so the top of the table stays lean.
+      # Just the key now — a one-line count + the colour codes. The grading explanation lives in the
+      # page-heading (?) help so the top of the table stays lean.
       tagList(
         tags$p(class = "trap-lead", sprintf(
-          "%s traps · %s checks · %s captures this period — graded as of the period end. Click a line for its traps.",
-          .ov_num(nrow(per)), .ov_num(sum(per$n_checks)), .ov_num(sum(per$captures)))),
+          "Graded as of period end: %s traps active%s · %s checks · %s captures this period. Click a line for its traps.",
+          .ov_num(n_active),
+          if (n_inactive > 0) sprintf(", %s inactive", .ov_num(n_inactive)) else "",
+          .ov_num(sum(per$n_checks)), .ov_num(sum(per$captures)))),
         tags$div(class = "trap-legend", legs)
       )
     })
