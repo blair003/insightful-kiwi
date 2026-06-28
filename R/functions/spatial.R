@@ -202,11 +202,12 @@ ik_add_reserve_boundary <- function(map, hulls, color = "#37474f", pane = "bound
   # faint fill — pure visual context; non-interactive so the interior never captures a hover
   map <- leaflet::addPolygons(map, data = hulls, group = "Boundary",
     fill = TRUE, fillColor = color, fillOpacity = 0.04, stroke = FALSE, options = po(FALSE))
-  # wide INVISIBLE hit-stroke along the edge: a ~14px band that's easy to land on; on hover it shows the
-  # reserve name and a crisp highlight (opacity jumps from 0). Below the marker panes, so markers still win.
+  # wide INVISIBLE hit-stroke along the edge: a ~14px band that's easy to land on so the thin dashed line
+  # is less finicky to hover; it ONLY carries the reserve-name tooltip — NO highlight (a highlight on a
+  # wide stroke renders as a huge line on the canvas renderer and doesn't reset on mouse-out). Stays
+  # opacity 0 = never visible. Below the marker panes, so markers still win their own hover.
   map <- leaflet::addPolygons(map, data = hulls, group = "Boundary", label = ~reserve,
     labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
-    highlightOptions = leaflet::highlightOptions(weight = 3.5, color = "#1565c0", opacity = 0.95, bringToFront = TRUE),
     fill = FALSE, stroke = TRUE, color = color, weight = 14, opacity = 0, options = po(TRUE))
   # the thin visible dashed outline (non-interactive — the hit-stroke above does the interacting)
   leaflet::addPolygons(map, data = hulls, group = "Boundary",
