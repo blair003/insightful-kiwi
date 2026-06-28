@@ -278,16 +278,16 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # the colour key uses the true max — they're independent.)
     .area_radius <- function(v, lo, hi) ik_marker_radius(v, lo, hi, cap_pctl = .MAPS_CAP_PCTL)
     surf_pal <- function(cap) leaflet::colorNumeric("viridis", c(0, cap))
-    rate_popup <- function(d) {
-      body <- if (src() == "trap") {
-        # the per-trap-night rate is the headline; the raw catch count + effort sit below it.
+    # Hover card — the SAME compact popup whether you hover a MARKER or its row in the records table below.
+    # Concise (no Line/Reserve line — click for the full record). One row in, one popup out.
+    hover_popup <- function(d) {
+      body <- if (src() == "trap")
         sprintf("<b>Capture rate: %.2f</b> / %s trap-nights<br/>Captures: %d &middot; Trap-days: %s",
                 d$metric, format(norm, big.mark = ","), as.integer(d$captures), format(round(d$trap_days), big.mark = ","))
-      } else {
-        # per-camera: just the raw count + effort (the per-deployment rate added nothing over "Detections: N").
-        sprintf("<b>Detections: %d</b> &middot; Camera-hours: %s", as.integer(d$individuals), format(round(d$camera_hours), big.mark = ","))
-      }
-      sprintf("<b>%s</b><br/>Line %s &middot; %s<br/>%s", d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, body)
+      else
+        sprintf("<b>Detections: %d</b> &middot; Camera-hours: %s",
+                as.integer(d$individuals), format(round(d$camera_hours), big.mark = ","))
+      sprintf("<b>%s</b> &mdash; %s", d$name, body)
     }
     line_popup <- function(d) sprintf(
       "<b>Line %s</b> &middot; %s<br/>RAI: %.2f (per 2000 CH)<br/>%d cameras &middot; %d detections", d$line, d$reserve, d$metric, as.integer(d$n), as.integer(d$individuals))
@@ -296,6 +296,7 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # ---- drill state (map ↔ table) ----
     selected <- reactiveVal(NULL)   # NULL | list(kind="location"/"line", id|reserve|line, label)
     maprec_obs  <- reactiveVal(NULL)  # the record open in the camera/trap records modal's detail tab
+    maprec_loc  <- reactiveVal(NULL)  # a clicked marker scopes the modal's Records tab to that location (NULL = all)
     # reset the drill when the data context changes (a clicked place may not exist in the new view)
     observeEvent(list(src(), measure(), input$species, selection()), selected(NULL), ignoreInit = TRUE)
     sel_coords <- function(sel) {
@@ -446,11 +447,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         d <- if (is.null(d)) NULL else d[is.finite(d[[vc]]) & d[[vc]] > 0, , drop = FALSE]
         if (is.null(d) || !nrow(d)) return()
         cap <- .robust_cap(d[[vc]]); v <- pmin(d[[vc]], cap); pf <- surf_pal(cap)
+        # No label / no click-popup: hovering shows the same popup as a table row (mouseover handler below),
+        # and clicking opens the records modal for the location (no leaflet popup — you're going to the modal).
         leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Points", layerId = d$location_id,
           radius = .area_radius(v, 5, 20), fillColor = pf(v), fillOpacity = 0.8, stroke = TRUE, color = halo(), weight = 1.5,
-          label = sprintf("%s — %s %s", d$name, vallabel(), formatC(d[[vc]], format = "fg", digits = 3)),
-          popup = rate_popup(d),
-          popupOptions = leaflet::popupOptions(autoPan = FALSE),
           options = leaflet::pathOptions(pane = "points"))
       }
     })
@@ -512,18 +512,26 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       leaflet::addLegend(p, "bottomright", pal = pf, values = pmin(d[[vc]], cap), title = ttl, opacity = 0.9)
     })
 
-    observeEvent(input$map_marker_click, {                      # marker → filter table
+    observeEvent(input$map_marker_click, {
       cid <- input$map_marker_click$id
       if (is.null(cid)) return()
-      if (startsWith(cid, "L|")) {
+      if (startsWith(cid, "L|")) {                              # a LINE marker (camera line grain) → drill the table
         pr <- strsplit(cid, "|", fixed = TRUE)[[1]]
         selected(list(kind = "line", reserve = pr[2], line = pr[3], label = sprintf("Line %s · %s", pr[3], pr[2])))
-      } else {
-        locs <- ik_data$app$geography$locations
-        selected(list(kind = "location", id = cid, label = locs$name[match(cid, locs$location_id)] %||% cid))
+        return()
       }
-      # No scroll needed: the records table sits BESIDE the map (maps_panel_body's side-by-side layout),
-      # so a marker click filters it in place, already in view.
+      # A LOCATION marker → open its records in the modal (NOT a hard filter of the table beside the map):
+      # one record goes straight to its details, many open the Records list to pick from.
+      o <- records_base(); if (is.null(o)) return()
+      recs <- o[!is.na(o$location_id) & o$location_id == cid, , drop = FALSE]
+      if (!nrow(recs)) return()
+      locs <- ik_data$app$geography$locations
+      maprec_loc(cid); .maprec_modal(locs$name[match(cid, locs$location_id)] %||% cid)
+      if (nrow(recs) == 1) {                                    # single record → its details directly
+        maprec_obs(recs$observationID[1]); updateTabsetPanel(session, "maprec_tabs", selected = "Record details")
+      } else {                                                  # many → the Records list (click a row for details)
+        maprec_obs(NULL); updateTabsetPanel(session, "maprec_tabs", selected = "Records")
+      }
     })
 
     # ---- records table + CSV ----
@@ -600,15 +608,23 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         options = opts)
     }
 
-    # The records modal: "Records" (the same list as below the map) + "Record details" (the clicked
-    # record, with a back link). Opens on Record details; from Records you can drill into any row.
-    .maprec_modal <- function() showModal(modalDialog(
-      title = .ik_modal_title(sprintf("%s record", if (src() == "trap") "Trap" else "Camera"),
+    # The records modal: "Records" (the records at the clicked location, or the current list) + "Record
+    # details" (the clicked record, with a back link). `loc_name` titles it with the place when opened
+    # from a marker; the Records tab is scoped to `maprec_loc()` (set by the marker click) via maprec_records.
+    .maprec_modal <- function(loc_name = NULL) showModal(modalDialog(
+      title = .ik_modal_title(loc_name %||% sprintf("%s records", if (src() == "trap") "Trap" else "Camera"),
                               sprintf("%s · click a record for its details, then Back for the list", group_lab())),
       size = "l", easyClose = TRUE, footer = modalButton("Close"),
       tabsetPanel(id = session$ns("maprec_tabs"),
         tabPanel("Records",        icon = icon("list"),        DT::dataTableOutput(session$ns("maprec_table"))),
         tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("maprec_record"))))))
+    # The records shown IN the modal: a clicked marker's location (from records_base, so it matches what the
+    # click counted, independent of any line drill), else the current list (the side-table-row-click flow).
+    maprec_records <- reactive({
+      loc <- maprec_loc()
+      if (is.null(loc)) return(records())
+      o <- records_base(); if (is.null(o)) NULL else o[!is.na(o$location_id) & o$location_id == loc, , drop = FALSE]
+    })
 
     # A clicked record row opens that modal on its detail tab (no map pan/zoom — that was
     # disorienting; hovering a row previews the location instead). Line-grain rows still drill.
@@ -622,14 +638,15 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         DT::selectRows(rec_proxy, NULL); return()
       }
       o <- records(); if (!length(i) || is.null(o) || i > nrow(o)) return()
+      maprec_loc(NULL)                                          # a row click → the full list in the modal, not a place
       maprec_obs(o$observationID[i]); .maprec_modal()
       updateTabsetPanel(session, "maprec_tabs", selected = "Record details")
       DT::selectRows(rec_proxy, NULL)
     }, ignoreInit = TRUE)
 
-    output$maprec_table <- DT::renderDT({ o <- records(); validate(need(!is.null(o) && nrow(o), "No records.")); .records_dt(o, dom = "ftip") })
+    output$maprec_table <- DT::renderDT({ o <- maprec_records(); validate(need(!is.null(o) && nrow(o), "No records.")); .records_dt(o, dom = "ftip") })
     observeEvent(input$maprec_table_rows_selected, {
-      i <- input$maprec_table_rows_selected; o <- records()
+      i <- input$maprec_table_rows_selected; o <- maprec_records()
       if (length(i) && !is.null(o) && i <= nrow(o)) {
         maprec_obs(o$observationID[i]); showTab(session = session, inputId = "maprec_tabs", target = "Record details", select = TRUE)
       }
@@ -645,19 +662,27 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
               .ovw_tabs(ik_data, ob, prefer, tabset_id = session$ns("maprec_subtabs")))
     })
 
-    # Hover a record row → preview that location's popup on the map (debounced so fast passes don't
-    # spam the server); leaving the row clears it. Records views only (camera rate / trap counts).
-    hover_loc <- shiny::debounce(reactive(input$table_hover), 120)
-    observeEvent(hover_loc(), {
-      p <- proxy(); leaflet::clearGroup(p, "Hover")
-      loc <- hover_loc()
+    # ONE hover preview, driven from EITHER side: hovering a record row OR hovering its marker shows the
+    # same compact popup at the location (the table_hover input carries a location_id from the row; the
+    # marker mouseover carries the marker's layerId). Debounced so fast passes don't spam the server.
+    .show_hover <- function(p, loc) {
+      leaflet::clearGroup(p, "Hover")
       if (is.null(loc) || !nzchar(loc) || show_lines()) return()
       d <- rate_loc_pts(); if (is.null(d)) return()
       r <- d[d$location_id == loc, , drop = FALSE]
       if (!nrow(r) || !is.finite(r$longitude[1])) return()
-      leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], popup = rate_popup(r[1, , drop = FALSE]),
+      leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], popup = hover_popup(r[1, , drop = FALSE]),
         group = "Hover", options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE))
+    }
+    hover_loc <- shiny::debounce(reactive(input$table_hover), 120)
+    observeEvent(hover_loc(), .show_hover(proxy(), hover_loc()), ignoreNULL = FALSE)   # from the table row
+    marker_over <- shiny::debounce(reactive(input$map_marker_mouseover), 90)
+    observeEvent(marker_over(), {                                                       # from the marker
+      ev <- marker_over(); loc <- if (is.null(ev)) NULL else ev$id
+      if (!is.null(loc) && startsWith(loc, "L|")) loc <- NULL    # line markers aren't location previews
+      .show_hover(proxy(), loc)
     }, ignoreNULL = FALSE)
+    observeEvent(input$map_marker_mouseout, leaflet::clearGroup(proxy(), "Hover"), ignoreInit = TRUE)
 
     output$unplaced <- renderUI({
       u <- if (src() == "trap") trap_unplaced() else cam_unplaced()
