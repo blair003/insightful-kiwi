@@ -840,20 +840,13 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
         ext   <- rbind(cams[, c("longitude", "latitude")], traps[, c("longitude", "latitude")])
         validate(need(!is.null(ext) && nrow(ext), "No mapped devices in this selection."))
         h <- nd_hulls(); if (!is.null(h) && !is.null(rsv)) h <- h[h$reserve %in% rsv, , drop = FALSE]
-        canvas <- if (isolate(is_dark())) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron
-        m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
-        m <- leaflet::addProviderTiles(m, canvas, group = "Map")
-        m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-        m <- ik_add_reserve_boundary(m, h, color = "#6c757d", pane = NULL)   # shared draw (no custom panes here)
-        if (!is.null(traps)) m <- leaflet::addCircleMarkers(m, data = traps, lng = ~longitude, lat = ~latitude,
-          group = "Traps", radius = 4, stroke = FALSE, fillColor = "#8a8a8a", fillOpacity = 0.85,
-          label = ~name, popup = ~sprintf("<b>%s</b><br>Trap &middot; %s", name, reserve))
-        if (!is.null(cams)) m <- leaflet::addCircleMarkers(m, data = cams, lng = ~longitude, lat = ~latitude,
-          group = "Cameras", radius = 4, stroke = FALSE, fillColor = "#2c7fb8", fillOpacity = 0.85,
-          label = ~name, popup = ~sprintf("<b>%s</b><br>Camera &middot; %s", name, reserve))
         ov <- c(if (!is.null(cams)) "Cameras", if (!is.null(traps)) "Traps", if (!is.null(h) && nrow(h)) "Boundary")
-        m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"), overlayGroups = ov,
-          options = leaflet::layersControlOptions(collapsed = FALSE))
+        m <- ik_map_base(panes = character(0), overlay_groups = ov, is_dark = isolate(is_dark()))   # shared base; no custom panes, padded fit below
+        m <- ik_add_reserve_boundary(m, h, color = "#6c757d", pane = NULL)   # shared draw (no custom panes here)
+        if (!is.null(traps)) m <- ik_draw_device_layer(m, traps, fill_color = "#8a8a8a", group = "Traps", pane = NULL,
+          radius = 4, fill_opacity = 0.85, label = ~name, popup = ~sprintf("<b>%s</b><br>Trap &middot; %s", name, reserve))
+        if (!is.null(cams)) m <- ik_draw_device_layer(m, cams, fill_color = "#2c7fb8", group = "Cameras", pane = NULL,
+          radius = 4, fill_opacity = 0.85, label = ~name, popup = ~sprintf("<b>%s</b><br>Camera &middot; %s", name, reserve))
         leaflet::fitBounds(m, min(ext$longitude), min(ext$latitude), max(ext$longitude), max(ext$latitude),
           options = list(padding = c(30, 30)))
       })
@@ -861,10 +854,8 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
       # lazily on first open (at full size) rather than load ~1k markers into a 0-size box at every startup.
       # Every layer is in the base render, so nothing races a proxy; maps.js re-fits on later tab shows.
 
-      observeEvent(color_mode(), {                                      # re-theme tiles without a full re-render
-        p <- leaflet::leafletProxy("network_map", session); leaflet::clearGroup(p, "Map")
-        leaflet::addProviderTiles(p, if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Map")
-      }, ignoreInit = TRUE)
+      observeEvent(color_mode(),                                        # re-theme tiles without a full re-render
+        ik_swap_theme_tiles(leaflet::leafletProxy("network_map", session), is_dark()), ignoreInit = TRUE)
 
       # Hover a density-table row → outline that reserve's footprint on the map (cleared on mouse-out).
       nd_hover <- shiny::debounce(reactive(input$density_hover), 100)
