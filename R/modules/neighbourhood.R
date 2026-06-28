@@ -364,23 +364,12 @@ neighbourhood_server <- function(id, ik_data, prefer_scientific = reactive(FALSE
         max(allc$longitude), max(allc$latitude), options = list(padding = c(25, 25)))
     })
 
-    observe({                                                   # Boundary — the anchor's reserve footprint (hull)
+    observe({                                                   # Boundary — the anchor's reserve footprint (shared draw)
       if (!isTRUE(on_map())) return()                           # proxy ops are lost to a hidden tab
       p <- mproxy(); leaflet::clearGroup(p, "Boundary")
       k <- akey(); if (is.null(k) || !nzchar(k)) return()
       rn <- if (identical(lvl(), "reserve")) k else strsplit(k, "|", fixed = TRUE)[[1]][1]   # line: its reserve
-      locs <- ik_active_locations(ik_data)
-      locs <- locs[!is.na(locs$reserve) & locs$reserve == rn &
-                     is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      h <- ik_selection_hulls(locs, "reserve"); if (is.null(h) || !nrow(h)) return()
-      edge <- if (is_dark()) "#cfd8dc" else "#37474f"
-      leaflet::addPolygons(p, data = h, group = "Boundary", fill = TRUE, fillColor = edge, fillOpacity = 0.05,
-        stroke = FALSE, options = leaflet::pathOptions(pane = "boundary", interactive = FALSE))
-      leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
-        labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
-        highlightOptions = leaflet::highlightOptions(weight = 3, color = "#1565c0", bringToFront = TRUE),
-        fill = FALSE, stroke = TRUE, color = edge, weight = 1.5, dashArray = "5,6",
-        options = leaflet::pathOptions(pane = "boundary"))
+      ik_add_reserve_boundary(p, ik_reserve_boundary(ik_data, rn), color = if (is_dark()) "#cfd8dc" else "#37474f")
     })
 
     output$map_note <- renderUI({

@@ -176,6 +176,60 @@ ik_selection_hulls <- function(points, group_col = "reserve", min_points = 3) {
   do.call(rbind, hulls)
 }
 
+#' The reserve BOUNDARY footprint for a map's Boundary layer — the SINGLE source every map shares so the
+#' outline is identical everywhere. The convex hull of ALL active device locations (cameras + traps) per
+#' reserve, scoped to `reserve`. A fixed property of the reserve: independent of the measure / species /
+#' period, so it never moves with the data. NULL `reserve` = all reserves. Returns an sf (reserve, geometry)
+#' or NULL. (Per-device hulls drifted between maps — Co-occurrence used cameras-only, Trap review traps-only;
+#' route them all through here instead.) @keywords internal
+ik_reserve_boundary <- function(ik_data, reserve = NULL) {
+  locs <- ik_active_locations(ik_data)
+  locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
+  rsv  <- .ik_nz(reserve); if (!is.null(rsv)) locs <- locs[locs$reserve %in% rsv, , drop = FALSE]
+  ik_selection_hulls(locs, "reserve")
+}
+
+#' Draw the reserve Boundary layer on a leaflet map OR leafletProxy: a faint fill (context, non-interactive
+#' so it never steals a marker's hover) + a WIDE INVISIBLE hit-stroke that makes the thin dashed outline
+#' easy to hover (it carries the reserve-name label + the highlight) + the thin visible dashed outline.
+#' One helper so every map's Boundary looks and behaves the same. Caller clears the "Boundary" group first.
+#' @param color Stroke/fill colour (the caller picks light/dark). @keywords internal
+ik_add_reserve_boundary <- function(map, hulls, color = "#37474f", pane = "boundary") {
+  if (is.null(hulls) || !nrow(hulls)) return(map)
+  po <- function(interactive = TRUE)   # pane is optional (some maps define no custom panes)
+    if (is.null(pane)) leaflet::pathOptions(interactive = interactive)
+    else leaflet::pathOptions(pane = pane, interactive = interactive)
+  # faint fill — pure visual context; non-interactive so the interior never captures a hover
+  map <- leaflet::addPolygons(map, data = hulls, group = "Boundary",
+    fill = TRUE, fillColor = color, fillOpacity = 0.04, stroke = FALSE, options = po(FALSE))
+  # wide INVISIBLE hit-stroke along the edge: a ~14px band that's easy to land on; on hover it shows the
+  # reserve name and a crisp highlight (opacity jumps from 0). Below the marker panes, so markers still win.
+  map <- leaflet::addPolygons(map, data = hulls, group = "Boundary", label = ~reserve,
+    labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
+    highlightOptions = leaflet::highlightOptions(weight = 3.5, color = "#1565c0", opacity = 0.95, bringToFront = TRUE),
+    fill = FALSE, stroke = TRUE, color = color, weight = 14, opacity = 0, options = po(TRUE))
+  # the thin visible dashed outline (non-interactive — the hit-stroke above does the interacting)
+  leaflet::addPolygons(map, data = hulls, group = "Boundary",
+    fill = FALSE, stroke = TRUE, color = color, weight = 2, dashArray = "5,5", options = po(FALSE))
+}
+
+#' Clip an IDW surface (grid cells, one row each, with a `reserve` column) to the reserve hulls PER reserve,
+#' so a reserve's shaded field stays inside its own boundary — no buffer overhang past the outline, no bleed
+#' across a touching/overlapping neighbour. Returns the clipped sf, or NULL if nothing survives. @keywords internal
+ik_clip_surface_to_reserves <- function(surface, hulls) {
+  if (is.null(surface) || !nrow(surface) || is.null(hulls) || !nrow(hulls) || !"reserve" %in% names(surface))
+    return(surface)
+  parts <- lapply(unique(surface$reserve), function(rn) {
+    cells <- surface[surface$reserve == rn, , drop = FALSE]; h <- hulls[hulls$reserve == rn, , drop = FALSE]
+    if (!nrow(h)) return(NULL)
+    out <- tryCatch(suppressWarnings(sf::st_intersection(sf::st_make_valid(cells), sf::st_union(sf::st_geometry(h)))),
+                    error = function(e) cells)
+    out[!sf::st_is_empty(out), , drop = FALSE]
+  })
+  parts <- Filter(function(x) !is.null(x) && nrow(x), parts)
+  if (length(parts)) do.call(rbind, parts) else NULL
+}
+
 #' Per-group centroid (mean lng/lat) + point count — for line/reserve-grain markers.
 #'
 #' A plain data.frame (NOT sf): one row per group with the mean of its points' coordinates,

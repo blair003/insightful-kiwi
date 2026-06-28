@@ -357,16 +357,10 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
       else leaflet::fitBounds(p, min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude), options = list(padding = c(30, 30)))
     })
 
-    # The CONSTANT reserve footprint — the convex hull of ALL active device locations per reserve
-    # (cameras + traps), independent of the measure / species / period. So the Boundary outline is the
-    # SAME on every map and never moves with the data, and the Surface is clipped to it (below) — the
-    # reserve, not the scattered points, defines the confines. Scoped to the sidebar Reserve. Mirrors the
-    # Coverage / Predator-pressure maps (ik_active_locations → ik_selection_hulls), which already do this.
-    reserve_hulls <- reactive({ req(active())
-      locs <- ik_active_locations(ik_data)
-      locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) locs <- locs[locs$reserve %in% rsv, , drop = FALSE]
-      ik_selection_hulls(locs, "reserve") })
+    # The CONSTANT reserve footprint, from the SHARED helper every map uses (ik_reserve_boundary): the hull
+    # of ALL active devices per reserve, scoped to the sidebar Reserve. Independent of measure/species/period,
+    # so the Boundary is the same on every map; the Surface is clipped to it (below).
+    reserve_hulls <- reactive({ req(active()); ik_reserve_boundary(ik_data, selection()$reserve) })
 
     # ---- Surface (rate/count field; robust clamp) ----
     # IDW interpolation is the heaviest map computation. Cache it on the points + value column (the
@@ -408,21 +402,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Surface")
       s <- surface_idw(); if (is.null(s) || !nrow(s)) return()
-      # Confine each reserve's field to ITS OWN reserve hull (the same constant hull the Boundary draws) —
-      # clipping PER reserve, not to the union, so an interpolation buffer from one reserve can't bleed
-      # across a touching/overlapping boundary into the next (the suspected Mokoroa↔neighbour overlap).
-      hl <- reserve_hulls()
-      if (!is.null(hl) && nrow(hl) && "reserve" %in% names(s)) {
-        parts <- lapply(unique(s$reserve), function(rn) {
-          cells <- s[s$reserve == rn, , drop = FALSE]; h <- hl[hl$reserve == rn, , drop = FALSE]
-          if (!nrow(h)) return(NULL)
-          out <- tryCatch(suppressWarnings(sf::st_intersection(sf::st_make_valid(cells), sf::st_union(sf::st_geometry(h)))),
-                          error = function(e) cells)
-          out[!sf::st_is_empty(out), , drop = FALSE]
-        })
-        parts <- Filter(function(x) !is.null(x) && nrow(x), parts)
-        s <- if (length(parts)) do.call(rbind, parts) else NULL
-      }
+      # Confine each reserve's field to its own reserve hull (the same hull the Boundary draws) — the shared
+      # per-reserve clip, so an interpolation buffer can't bleed across a touching/overlapping boundary.
+      s <- ik_clip_surface_to_reserves(s, reserve_hulls())
       if (is.null(s) || !nrow(s)) return()
       cap <- .robust_cap(s$predicted); pf <- surf_pal(cap)
       leaflet::addPolygons(p, data = s, group = "Surface", weight = 0.5, color = ~pf(pmin(predicted, cap)),
@@ -478,19 +460,9 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         options = leaflet::pathOptions(pane = "device"))
     })
 
-    observe({                                                   # Boundary — the CONSTANT reserve footprint
+    observe({                                                   # Boundary — the CONSTANT reserve footprint (shared draw)
       p <- proxy(); leaflet::clearGroup(p, "Boundary")
-      # The reserve outline is a FIXED property of the reserve (all its devices), not of the measure or
-      # species — so it's the same on every map and doesn't move as you change the view. (Was the hull of
-      # the current metric points, which shifted with the data and drew nonsense for a group with no records.)
-      h <- reserve_hulls(); if (is.null(h) || !nrow(h)) return()
-      # Outline only (fill = FALSE), so the reserve label fires only when you hover the dashed line —
-      # not the interior gaps between markers (same behaviour as the Coverage map).
-      leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
-        labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
-        highlightOptions = leaflet::highlightOptions(weight = 3.5, color = "#1565c0", bringToFront = TRUE),
-        fill = FALSE, color = if (is_dark()) "#9ccc65" else "#2e7d32", weight = 2, dashArray = "5,5",
-        options = leaflet::pathOptions(pane = "boundary"))
+      ik_add_reserve_boundary(p, reserve_hulls(), color = if (is_dark()) "#9ccc65" else "#2e7d32")
     })
 
     observe({                                                   # Selected highlight (drill)

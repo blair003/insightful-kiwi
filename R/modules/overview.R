@@ -844,8 +844,7 @@ overview_server <- function(id, ik_data, prefer_scientific, selection, sections 
         m <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE))
         m <- leaflet::addProviderTiles(m, canvas, group = "Map")
         m <- leaflet::addProviderTiles(m, leaflet::providers$Esri.WorldImagery, group = "Satellite")
-        if (!is.null(h) && nrow(h)) m <- leaflet::addPolygons(m, data = h, group = "Boundary", label = ~reserve,
-          fill = FALSE, color = "#6c757d", weight = 1.5, opacity = 0.85, dashArray = "5,5")
+        m <- ik_add_reserve_boundary(m, h, color = "#6c757d", pane = NULL)   # shared draw (no custom panes here)
         if (!is.null(traps)) m <- leaflet::addCircleMarkers(m, data = traps, lng = ~longitude, lat = ~latitude,
           group = "Traps", radius = 4, stroke = FALSE, fillColor = "#8a8a8a", fillOpacity = 0.85,
           label = ~name, popup = ~sprintf("<b>%s</b><br>Trap &middot; %s", name, reserve))

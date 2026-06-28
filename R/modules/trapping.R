@@ -384,13 +384,9 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       m <- leaflet::addMapPane(m, "boundary", zIndex = 400)   # reserve footprint, below the trap markers
       m <- leaflet::addMapPane(m, "traps", zIndex = 410)
       m <- leaflet::addMapPane(m, "highlight", zIndex = 450)
-      # Boundary — the reserve footprint (convex hull of the trap locations); a selectable layer, like the
-      # other maps. Grey (not green) so it doesn't read as a "Good" status colour. Drawn under the markers.
-      trap_ds <- names(ik_data$datasets)[vapply(ik_data$datasets, function(d) isTRUE(d$meta$source_type == "trap"), logical(1))]
-      hulls <- tryCatch(ik_selection_hulls(locs[locs$dataset %in% trap_ds, , drop = FALSE], "reserve"), error = function(e) NULL)
-      if (!is.null(hulls) && nrow(hulls)) m <- leaflet::addPolygons(m, data = hulls, group = "Boundary",
-        fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve,
-        options = leaflet::pathOptions(pane = "boundary"))
+      # Boundary — the shared reserve footprint (all devices), like every other map; a selectable layer.
+      # Grey (not green) so it doesn't read as a "Good" status colour. Drawn under the markers.
+      m <- ik_add_reserve_boundary(m, ik_reserve_boundary(ik_data), color = "#6c757d")
       m <- leaflet::addLayersControl(m, baseGroups = c("Map", "Satellite"),
              overlayGroups = c("Good", "Watch", "Neglected", "Inactive", "Boundary"),  # status = selectable layer
              options = leaflet::layersControlOptions(collapsed = FALSE))

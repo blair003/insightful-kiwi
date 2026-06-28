@@ -424,14 +424,12 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
     leaflet::addProviderTiles(leaflet::clearGroup(cproxy(), "Street"),
       if (is_dark()) leaflet::providers$CartoDB.DarkMatter else leaflet::providers$CartoDB.Positron, group = "Street")
   })
+  reserve_hulls <- reactive(ik_reserve_boundary(ik_data, reserve()))   # shared all-device reserve footprint
   observe({                                                   # Boundary + Cameras footprint; re-frame to it
     if (!on_map()) return()
     p <- cproxy(); leaflet::clearGroup(p, "Boundary"); leaflet::clearGroup(p, "Cameras")
     cams <- cam_locs(); if (is.null(cams) || !nrow(cams)) return()
-    hulls <- tryCatch(ik_selection_hulls(cams, "reserve"), error = function(e) NULL)
-    if (!is.null(hulls) && nrow(hulls)) leaflet::addPolygons(p, data = hulls, group = "Boundary",
-      fill = FALSE, color = "#6c757d", weight = 1.5, dashArray = "5,5", label = ~reserve,
-      options = leaflet::pathOptions(pane = "boundary"))
+    ik_add_reserve_boundary(p, reserve_hulls(), color = if (is_dark()) "#cfd8dc" else "#37474f")   # was cameras-only
     leaflet::addCircleMarkers(p, data = cams, lng = ~longitude, lat = ~latitude, group = "Cameras",
       radius = 3, fill = TRUE, fillColor = "#2c7fb8", fillOpacity = 0.55, stroke = FALSE,
       label = ~sprintf("%s — camera", name), options = leaflet::pathOptions(pane = "cameras"))
@@ -445,7 +443,9 @@ ik_cooc_map <- function(input, output, session, ik_data, prefer, gaps, reserve, 
     conv <- function(h) if (use_days) h / 24 else h
     d$gval <- conv(d$min_gap_h); mx <- max(d$gval, na.rm = TRUE)
     pal  <- leaflet::colorNumeric(c("#e31a1c", "#fd8d3c", "#fecc5c", "#ffffb2"), c(0, mx))  # red = soonest
-    surf <- tryCatch(ik_idw_surface(d, "min_gap_h", "reserve"), error = function(e) NULL)
+    sd   <- d[!d$reserve %in% c(GEO_UNPLACED_RESERVE, GEO_OUTSIDE_RESERVE), , drop = FALSE]   # no pseudo-reserve blob
+    surf <- if (!nrow(sd)) NULL else tryCatch(ik_idw_surface(sd, "min_gap_h", "reserve"), error = function(e) NULL)
+    surf <- ik_clip_surface_to_reserves(surf, reserve_hulls())   # confine to the reserve outline (no overspill)
     if (!is.null(surf) && nrow(surf)) {
       surf$gval <- pmin(conv(pmax(0, surf$predicted)), mx)
       leaflet::addPolygons(p, data = surf, group = "Surface", stroke = FALSE,

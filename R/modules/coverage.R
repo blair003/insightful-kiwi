@@ -365,25 +365,10 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                          name, ifelse(is.na(line), "—", line), reserve, prot_lab(), metric, format(per_cam, big.mark = ","), as.integer(individuals)),
         options = leaflet::pathOptions(pane = "protected"))
     })
-    observe({                                                   # Boundary — monitored footprint (convex hull) per reserve
+    observe({                                                   # Boundary — the shared reserve footprint draw
       p <- proxy(); leaflet::clearGroup(p, "Boundary"); req(active())
-      locs <- ik_active_locations(ik_data)                      # active datasets only → no hidden reserves
-      locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) locs <- locs[locs$reserve %in% rsv, , drop = FALSE]
-      h <- ik_selection_hulls(locs, "reserve"); if (is.null(h) || !nrow(h)) return()
-      edge <- if (is_dark()) "#cfd8dc" else "#37474f"
-      # Two layers in the Boundary group: a faint tint (pure visual context, NON-interactive so it
-      # never captures hover) + the dashed OUTLINE which carries the reserve label. So the name only
-      # appears when you're ON the boundary line — not in the empty gaps between dense interior markers,
-      # which was annoying. (The 8px renderer tolerance keeps the thin line easy to hover.)
-      leaflet::addPolygons(p, data = h, group = "Boundary",
-        fill = TRUE, fillColor = edge, fillOpacity = 0.05, stroke = FALSE,
-        options = leaflet::pathOptions(pane = "boundary", interactive = FALSE))
-      leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
-        labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
-        highlightOptions = leaflet::highlightOptions(weight = 3, color = "#1565c0", bringToFront = TRUE),
-        fill = FALSE, stroke = TRUE, color = edge, weight = 1.5, dashArray = "5,6",
-        options = leaflet::pathOptions(pane = "boundary"))
+      ik_add_reserve_boundary(p, ik_reserve_boundary(ik_data, .ik_nz(selection()$reserve)),
+                              color = if (is_dark()) "#cfd8dc" else "#37474f")
     })
     observe({                                                   # re-frame to the deployed extent of the selection
       p <- proxy(); d <- trap_active()

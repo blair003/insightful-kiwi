@@ -209,16 +209,22 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       else leaflet::fitBounds(p, min(d$longitude), min(d$latitude), max(d$longitude), max(d$latitude), options = list(padding = c(30, 30)))
     })
 
+    # The constant reserve footprint (shared helper) — the Boundary outline + the Surface clip.
+    reserve_hulls <- reactive({ req(active()); ik_reserve_boundary(ik_data, selection()$reserve) })
+
     # ---- Pressure surface (IDW; only computed when the layer is shown) ----
     surface_on <- reactiveVal(TRUE)
     observe({ v <- { g <- input$map_groups; if (is.null(g)) TRUE else "Pressure surface" %in% g }
       if (!identical(v, surface_on())) surface_on(v) })
     surface_compute <- reactive({ d <- prio_pts(); if (is.null(d) || !nrow(d)) return(NULL)
+      d <- d[!d$reserve %in% c(GEO_UNPLACED_RESERVE, GEO_OUTSIDE_RESERVE), , drop = FALSE]   # no scattered pseudo-reserve blob
+      if (!nrow(d)) return(NULL)
       ik_idw_surface(d, "metric", "reserve") }) |> bindCache(prio_pts())
     surface_idw <- reactive(if (isTRUE(surface_on())) surface_compute() else NULL)
     observe({
       p <- proxy(); leaflet::clearGroup(p, "Pressure surface")
-      s <- surface_idw(); if (is.null(s) || !nrow(s)) return()
+      s <- ik_clip_surface_to_reserves(surface_idw(), reserve_hulls())   # confine the field to the reserve
+      if (is.null(s) || !nrow(s)) return()
       cap <- .robust_cap(s$predicted); pf <- surf_pal(cap)
       leaflet::addPolygons(p, data = s, group = "Pressure surface", weight = 0.5, color = ~pf(pmin(predicted, cap)),
         fillColor = ~pf(pmin(predicted, cap)), fillOpacity = if (is_dark()) 0.5 else 0.4,
@@ -270,20 +276,9 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
         label = lab, options = leaflet::pathOptions(pane = "traps"))
     })
 
-    observe({                                                    # Boundary — monitored footprint per reserve
-      p <- proxy(); leaflet::clearGroup(p, "Boundary"); req(active())
-      locs <- ik_active_locations(ik_data); locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
-      rsv <- .ik_nz(selection()$reserve); if (!is.null(rsv)) locs <- locs[locs$reserve %in% rsv, , drop = FALSE]
-      h <- ik_selection_hulls(locs, "reserve"); if (is.null(h) || !nrow(h)) return()
-      edge <- if (is_dark()) "#cfd8dc" else "#37474f"
-      leaflet::addPolygons(p, data = h, group = "Boundary",
-        fill = TRUE, fillColor = edge, fillOpacity = 0.05, stroke = FALSE,
-        options = leaflet::pathOptions(pane = "boundary", interactive = FALSE))
-      leaflet::addPolygons(p, data = h, group = "Boundary", label = ~reserve,
-        labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", sticky = TRUE),
-        highlightOptions = leaflet::highlightOptions(weight = 3, color = "#1565c0", bringToFront = TRUE),
-        fill = FALSE, stroke = TRUE, color = edge, weight = 1.5, dashArray = "5,6",
-        options = leaflet::pathOptions(pane = "boundary"))
+    observe({                                                    # Boundary — the shared reserve footprint draw
+      p <- proxy(); leaflet::clearGroup(p, "Boundary")
+      ik_add_reserve_boundary(p, reserve_hulls(), color = if (is_dark()) "#cfd8dc" else "#37474f")
     })
 
     observe({                                                    # Selected highlight (a clicked camera)
