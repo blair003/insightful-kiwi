@@ -429,10 +429,13 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
         d <- if (is.null(d)) NULL else d[is.finite(d[[vc]]) & d[[vc]] > 0, , drop = FALSE]
         if (is.null(d) || !nrow(d)) return()
         cap <- .robust_cap(d[[vc]]); v <- pmin(d[[vc]], cap); pf <- surf_pal(cap)
-        # No label / no click-popup: hovering shows the same popup as a table row (mouseover handler below),
-        # and clicking opens the records modal for the location (no leaflet popup — you're going to the modal).
+        # Hover = leaflet's own LABEL (a tooltip), built CLIENT-side from the same hover_popup content — no
+        # server round-trip, so it can't flicker or block the click the way a mouseover→addPopups did over
+        # overlapping markers. No click-popup: clicking opens the records modal for the location.
         leaflet::addCircleMarkers(p, data = d, lng = ~longitude, lat = ~latitude, group = "Points", layerId = d$location_id,
           radius = .area_radius(v, 5, 20), fillColor = pf(v), fillOpacity = 0.8, stroke = TRUE, color = halo(), weight = 1.5,
+          label = lapply(hover_popup(d), htmltools::HTML),
+          labelOptions = leaflet::labelOptions(textsize = "12px", direction = "auto", offset = c(0, -2)),
           options = leaflet::pathOptions(pane = "points"))
       }
     })
@@ -637,26 +640,19 @@ maps_server <- function(id, ik_data, prefer_scientific, selection, color_mode = 
     # ONE hover preview, driven from EITHER side: hovering a record row OR hovering its marker shows the
     # same compact popup at the location (the table_hover input carries a location_id from the row; the
     # marker mouseover carries the marker's layerId). Debounced so fast passes don't spam the server.
-    .show_hover <- function(p, loc) {
-      leaflet::clearGroup(p, "Hover")
-      if (is.null(loc) || !nzchar(loc) || show_lines()) return()
+    # Hovering a record ROW previews that location's popup on the map (the marker shows the same card via
+    # its own leaflet label, client-side). Debounced so fast passes don't spam the server; the className →
+    # pointer-events:none (maps.css) so the preview bubble can't capture the mouse.
+    hover_loc <- shiny::debounce(reactive(input$table_hover), 120)
+    observeEvent(hover_loc(), {
+      p <- proxy(); leaflet::clearGroup(p, "Hover")
+      loc <- hover_loc(); if (is.null(loc) || !nzchar(loc) || show_lines()) return()
       d <- rate_loc_pts(); if (is.null(d)) return()
       r <- d[d$location_id == loc, , drop = FALSE]
       if (!nrow(r) || !is.finite(r$longitude[1])) return()
-      # className → pointer-events:none (maps.css): the preview must not capture the mouse, or the bubble
-      # appearing over a hovered marker steals the hover (mouseout↔mouseover flicker) and the click.
       leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], popup = hover_popup(r[1, , drop = FALSE]),
         group = "Hover", options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE, className = "ik-hover-popup"))
-    }
-    hover_loc <- shiny::debounce(reactive(input$table_hover), 120)
-    observeEvent(hover_loc(), .show_hover(proxy(), hover_loc()), ignoreNULL = FALSE)   # from the table row
-    marker_over <- shiny::debounce(reactive(input$map_marker_mouseover), 90)
-    observeEvent(marker_over(), {                                                       # from the marker
-      ev <- marker_over(); loc <- if (is.null(ev)) NULL else ev$id
-      if (!is.null(loc) && startsWith(loc, "L|")) loc <- NULL    # line markers aren't location previews
-      .show_hover(proxy(), loc)
     }, ignoreNULL = FALSE)
-    observeEvent(input$map_marker_mouseout, leaflet::clearGroup(proxy(), "Hover"), ignoreInit = TRUE)
 
     output$unplaced <- renderUI({
       u <- if (src() == "trap") trap_unplaced() else cam_unplaced()
