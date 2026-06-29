@@ -106,6 +106,22 @@
   .ik-map-fill .leaflet-container { height: 60vh !important; min-height: 60vh; }
 }
 
+/* Spatial explorer — a flex row (NOT a bslib grid) so panes A/B and the records side can flex:
+   one-map = main + side (≈8/4); side-by-side = main + comparison (50/50). The hidden member is a
+   conditionalPanel (display:none), so it drops out of the flow and the rest reflows. */
+.ik-spex-row { display: flex; gap: 0.5rem; align-items: stretch; }
+.ik-spex-main, .ik-spex-compare-pane { flex: 1 1 0; min-width: 0; }
+.ik-spex-side { flex: 0 0 22rem; min-width: 0; overflow: auto; }
+.ik-spex-compare-toggles { margin: 0.15rem 0 0.4rem; }
+.ik-spex-compare-toggles .form-group, .ik-spex-compare-toggles .shiny-input-container { margin-bottom: 0.1rem; }
+.ik-spex-compare-h { margin-top: 0.75rem; border-top: 1px solid var(--bs-border-color, #dee2e6); padding-top: 0.5rem; }
+@media (min-width: 576px) {
+  .ik-map-fill > .ik-spex-row { flex: 1 1 auto; min-height: 0; margin-bottom: 0; }
+  .ik-map-fill .ik-spex-row .leaflet, .ik-map-fill .ik-spex-row .html-widget { height: 100% !important; }
+  .ik-map-fill .ik-spex-side { height: 100%; max-height: none; }
+}
+@media (max-width: 575.98px) { .ik-spex-row { flex-direction: column; } .ik-spex-side { flex-basis: auto; } }
+
 /* Hover-preview popup (marker OR table row): must NOT capture the mouse. A normal popup bubble appearing
    over the hovered marker would steal the hover (mouseout↔mouseover loop = flicker) and intercept the
    click so the modal never opens. pointer-events:none lets the cursor "see through" it to the marker. */
