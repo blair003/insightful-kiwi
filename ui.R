@@ -122,7 +122,13 @@ ui <- page_navbar(
     conditionalPanel("input.nav === 'spatial-explorer'",
                      selection_ui("spatial_explorer_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = "rolling12",
-                                  controls = spatial_explorer_controls("spatial_explorer", ik_data), heading = "Filters")),
+                                  controls = spatial_explorer_controls("spatial_explorer", ik_data), heading = "Filters"),
+                     # Comparison map's OWN period + species — only in side-by-side AND unlocked.
+                     conditionalPanel("input['spatial_explorer-display'] == 'sbs' && input['spatial_explorer-lock'] == false",
+                                      tags$div(class = "ik-sel-section-h ik-spex-compare-h", icon("clone"), " Comparison map (right)"),
+                                      selection_ui("spatial_explorer_selection_b", show = c("period"), ik_data = ik_data,
+                                                   period_default = "rolling12",
+                                                   controls = spatial_explorer_compare_controls("spatial_explorer", ik_data)))),
     conditionalPanel("input.nav === 'neighbourhood'",
                      # All-time view; the anchor (Reserve/Line) is its data selection, in View options.
                      selection_all_data(),

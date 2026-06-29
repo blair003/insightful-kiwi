@@ -126,9 +126,12 @@ server <- function(input, output, session) {
                              color_mode = cm, active = reactive(identical(input$nav, "predator-pressure"))))
   spatial_explorer_selection <- selection_server("spatial_explorer_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "spatial-explorer")))
+  spatial_explorer_selection_b <- selection_server("spatial_explorer_selection_b", ik_data, prefer_scientific,
+    show = c("period"), active = reactive(identical(input$nav, "spatial-explorer")))   # the comparison pane's own period
   .lazy_once(reactive(identical(input$nav, "spatial-explorer")), function()
     spatial_explorer_server("spatial_explorer", ik_data, prefer_scientific, spatial_explorer_selection,
-                            color_mode = cm, active = reactive(identical(input$nav, "spatial-explorer"))))
+                            color_mode = cm, active = reactive(identical(input$nav, "spatial-explorer")),
+                            selection_b = spatial_explorer_selection_b))
   bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific,
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
@@ -163,8 +166,8 @@ server <- function(input, output, session) {
   # stays visible via that banner. The heavy-filter pages (Maps, Records, Trap review, …) open it.
   # (The collapse toggle stays either way.)
   SIDEBAR_NAVS <- c("monitoring-map", "trapping-map", "monitoring-records", "trapping-records",
-                    "trap-review", "bait", "coverage", "predator-pressure", "trap-hero", "cooccurrence",
-                    "neighbourhood", "reserve-report")   # their selection/anchor lives in the rail
+                    "trap-review", "bait", "coverage", "predator-pressure", "spatial-explorer", "trap-hero",
+                    "cooccurrence", "neighbourhood", "reserve-report")   # their selection/anchor lives in the rail
   # Auto-collapse the rail on the light pages / open it on the heavy ones — DESKTOP ONLY. On mobile the rail
   # is an overlay: auto-opening it on every navigation just covered the content (and you'd have to dismiss it
   # each time), so on a phone we leave it CLOSED and let you open it on demand via the period-banner date.

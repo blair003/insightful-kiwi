@@ -69,31 +69,36 @@ spatial_explorer_help_body <- function(cam_norm = 500) {
 #' in side-by-side). Choices are populated server-side. @keywords internal
 spatial_explorer_controls <- function(id, ik_data = NULL) {
   ns <- NS(id)
-  .picker_set <- function(suffix = "") tagList(
-    conditionalPanel(sprintf("input.mode%s != 'pvp'", suffix), ns = ns,
-      selectInput(ns(paste0("species", suffix)), "Species", choices = NULL, multiple = TRUE)),
-    conditionalPanel(sprintf("input.mode%s == 'pvp'", suffix), ns = ns,
-      selectInput(ns(paste0("pred", suffix)), "Predator(s)", choices = NULL, multiple = TRUE),
-      selectInput(ns(paste0("prot", suffix)), "Protected",   choices = NULL, multiple = TRUE)))
-  .mode_radio <- function(suffix = "", label = "Species mode") radioButtons(ns(paste0("mode", suffix)), label,
-    choices = c("Combined" = "combined", "Per species" = "separate", "Predator vs protected" = "pvp"), selected = "combined")
-
   div(class = "ik-selection ik-view-controls",
     tags$div(class = "ik-view-controls-h", "View options"),
     radioButtons(ns("display"), "Display", inline = TRUE,
       choices = c("One map" = "single", "Side by side" = "sbs"), selected = "single"),
-    # Comparison lock + link — only meaningful in side-by-side.
+    # Comparison lock + link — only meaningful in side-by-side. Lock OFF by default: a locked
+    # side-by-side is two identical maps, so the comparison opens free (its own period + species).
     conditionalPanel("input.display == 'sbs'", ns = ns,
       div(class = "ik-spex-compare-toggles",
-        checkboxInput(ns("lock"), tagList(icon("lock"), " Lock panes (same picks)"), value = TRUE),
+        checkboxInput(ns("lock"), tagList(icon("lock"), " Lock comparison to this map"), value = FALSE),
         checkboxInput(ns("link"), tagList(icon("link"), " Link views (pan/zoom together)"), value = TRUE))),
-    .mode_radio(),
-    .picker_set(),
-    # Pane B's own controls — shown only side-by-side AND unlocked ("Comparison map").
-    conditionalPanel("input.display == 'sbs' && input.lock == false", ns = ns,
-      tags$div(class = "ik-view-controls-h ik-spex-compare-h", icon("clone"), " Comparison map"),
-      .mode_radio("_b", "Species mode"),
-      .picker_set("_b")))
+    radioButtons(ns("mode"), "Species mode",
+      choices = c("Combined" = "combined", "Per species" = "separate", "Predator vs protected" = "pvp"), selected = "combined"),
+    conditionalPanel("input.mode != 'pvp'", ns = ns,
+      selectInput(ns("species"), "Species", choices = NULL, multiple = TRUE)),
+    conditionalPanel("input.mode == 'pvp'", ns = ns,
+      selectInput(ns("pred"), "Predator(s)", choices = NULL, multiple = TRUE),
+      selectInput(ns("prot"), "Protected",   choices = NULL, multiple = TRUE)))
+}
+
+#' The comparison pane's "Comparison map" pickers — rendered inside the SECOND selection block (which
+#' supplies pane B's own Data period). Pane B follows pane A's species MODE, so the picker shown keys
+#' off `input.mode` (A's), not a mode of its own. @keywords internal
+spatial_explorer_compare_controls <- function(id, ik_data = NULL) {
+  ns <- NS(id)
+  tagList(
+    conditionalPanel("input.mode != 'pvp'", ns = ns,
+      selectInput(ns("species_b"), "Species", choices = NULL, multiple = TRUE)),
+    conditionalPanel("input.mode == 'pvp'", ns = ns,
+      selectInput(ns("pred_b"), "Predator(s)", choices = NULL, multiple = TRUE),
+      selectInput(ns("prot_b"), "Protected",   choices = NULL, multiple = TRUE)))
 }
 
 #' Spatial-explorer nav panel. @param id Module id. @param ik_data The container (camera-hour scale).
@@ -138,7 +143,7 @@ spatial_explorer_ui <- function(id, ik_data = NULL) {
 #' @param active reactive, TRUE when this tab is current (gates the heavy metric reactives).
 spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                                     selection = reactive(list()), color_mode = reactive("light"),
-                                    active = reactive(TRUE)) {
+                                    active = reactive(TRUE), selection_b = reactive(list())) {
   moduleServer(id, function(input, output, session) {
     output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
     is_dark <- reactive(identical(color_mode(), "dark"))
@@ -191,7 +196,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     # ── one PANE = the whole draw pipeline for a single leaflet output, parameterised by its input
     # getters (so panes A and B share every observer). Returns a handle of its data reactives so the
     # records side can read pane A. ───────────────────────────────────────────────────────────────
-    make_pane <- function(map_id, pane_active, get_species, get_mode, get_pred, get_prot) {
+    make_pane <- function(map_id, pane_active, get_selection, get_species, get_mode, get_pred, get_prot) {
       proxy <- function() leaflet::leafletProxy(map_id, session)
 
       sp_sci <- reactive({ v <- get_species(); if (!length(v) || "__all__" %in% v) all_sci else ik_resolve_species_choice(v, grp_taxa) })
@@ -202,17 +207,17 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       pred_lab <- reactive({ v <- get_pred(); if (!length(v)) "predator"  else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
       prot_lab <- reactive({ v <- get_prot(); if (!length(v)) "protected" else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
 
-      prio_all  <- reactive({ req(pane_active()); ik_priority_metric(ik_data, selection(), pred_sci(), prot_sci(), norm = per_cam) })
+      prio_all  <- reactive({ req(pane_active()); ik_priority_metric(ik_data, get_selection(), pred_sci(), prot_sci(), norm = per_cam) })
       prio_pts  <- reactive({ m <- prio_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
       trap_pred <- reactive({ req(pane_active()); if (!length(pred_sci())) return(NULL)
-        m <- ik_location_metric(ik_data, selection(), list(P = pred_sci()), "trap")
+        m <- ik_location_metric(ik_data, get_selection(), list(P = pred_sci()), "trap")
         if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
       entries <- reactive({ v <- get_species(); if (!length(v) || "__all__" %in% v) paste0("grp:", unique(.sg$label)) else v })
 
       detect_all <- reactive({ req(pane_active()); sci <- sp_sci(); if (!length(sci)) return(NULL)
-        ik_location_metric(ik_data, selection(), list(Selected = sci), "camera", norm = per_cam) })
+        ik_location_metric(ik_data, get_selection(), list(Selected = sci), "camera", norm = per_cam) })
       catch_all  <- reactive({ req(pane_active()); sci <- sp_sci(); if (!length(sci)) return(NULL)
-        ik_location_metric(ik_data, selection(), list(Selected = sci), "trap") })
+        ik_location_metric(ik_data, get_selection(), list(Selected = sci), "trap") })
       .placed    <- function(m) if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE]
       detect_pts <- reactive(.placed(detect_all()))
       catch_pts  <- reactive(.placed(catch_all()))
@@ -234,7 +239,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       })
 
       selected <- reactiveVal(NULL)   # NULL | list(id, label) — a clicked marker's location
-      observeEvent(list(get_species(), get_pred(), get_prot(), get_mode(), selection()), selected(NULL), ignoreInit = TRUE)
+      observeEvent(list(get_species(), get_pred(), get_prot(), get_mode(), get_selection()), selected(NULL), ignoreInit = TRUE)
 
       output[[map_id]] <- leaflet::renderLeaflet({
         locs <- ik_data$app$geography$locations
@@ -313,8 +318,8 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
           taxa <- ik_choice_taxa(v, grp_taxa, ik_data, isolate(prefer())); if (is.null(taxa)) return(NULL)
           sci  <- unlist(taxa, use.names = FALSE)
           list(label = names(taxa)[1], key = .glyph_key(v),
-               det   = ik_location_metric(ik_data, selection(), stats::setNames(list(sci), "x"), "camera", norm = per_cam),
-               catch = ik_location_metric(ik_data, selection(), stats::setNames(list(sci), "x"), "trap"))
+               det   = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "camera", norm = per_cam),
+               catch = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "trap"))
         })
         pe <- Filter(Negate(is.null), pe)
         drawn_groups(unique(vapply(pe, function(e) .draw_entry_layer(p, e), character(1))))
@@ -386,28 +391,32 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
 
     # ── pane A (always) + pane B (the comparison map, only in side-by-side) ───────────────────────
     sbs    <- reactive(identical(input$display, "sbs"))
-    locked <- reactive(!isTRUE(sbs()) || isTRUE(input$lock))   # one-map ⇒ effectively locked
-    paneA  <- make_pane("map", active,
-      reactive(input$species), reactive(input$mode), reactive(input$pred), reactive(input$prot))
-    # When locked, pane B mirrors A's picks; unlocked, it reads its own *_b controls.
-    paneB  <- make_pane("map_b", reactive(active() && sbs()),
-      reactive(if (locked()) input$species else input$species_b),
-      reactive(if (locked()) input$mode    else input$mode_b),
-      reactive(if (locked()) input$pred    else input$pred_b),
-      reactive(if (locked()) input$prot    else input$prot_b))
+    locked <- reactive(!isTRUE(sbs()) || isTRUE(input$lock))   # one-map OR lock closed ⇒ B mirrors A
+    # Pane B's effective selection: its OWN Data period (the 2nd selection block) with pane A's reserve
+    # (shared); pane A's selection wholesale when locked.
+    sel_b <- reactive({ if (locked()) selection() else { s <- selection_b(); s$reserve <- selection()$reserve; s } })
 
-    # Seed pane B's controls from A the first time the lock is broken, then keep them populated.
+    paneA <- make_pane("map", active, selection,
+      reactive(input$species), reactive(input$mode), reactive(input$pred), reactive(input$prot))
+    # Locked ⇒ B mirrors A (picks + period); unlocked ⇒ B reads its own *_b species + period, but
+    # ALWAYS follows A's species MODE (so the two maps are the same KIND of view).
+    paneB <- make_pane("map_b", reactive(active() && sbs()), sel_b,
+      reactive(if (locked()) input$species else input$species_b),
+      reactive(input$mode),
+      reactive(if (locked()) input$pred else input$pred_b),
+      reactive(if (locked()) input$prot else input$prot_b))
+
+    # Pane B's pickers always carry choices; seed them from A the first time the comparison opens.
+    .populate_pickers("_b")
     b_init <- reactiveVal(FALSE)
-    observeEvent(input$lock, {
-      if (!isTRUE(input$lock) && !isTRUE(b_init())) {
-        updateRadioButtons(session, "mode_b",    selected = isolate(input$mode))
-        updateSelectInput (session, "species_b", choices = ik_species_choices_full(ik_data, isolate(prefer()), all_label = "All species", all_value = "__all__"), selected = isolate(input$species))
-        updateSelectInput (session, "pred_b",    choices = ik_species_choices(pred_taxa, ik_data, isolate(prefer()), .splits), selected = isolate(input$pred))
-        updateSelectInput (session, "prot_b",    choices = ik_species_choices(prot_taxa, ik_data, isolate(prefer()), .splits), selected = isolate(input$prot))
+    observe({
+      if (isTRUE(sbs()) && !isTRUE(input$lock) && !isTRUE(b_init())) {
+        updateSelectInput(session, "species_b", selected = isolate(input$species))
+        updateSelectInput(session, "pred_b",    selected = isolate(input$pred))
+        updateSelectInput(session, "prot_b",    selected = isolate(input$prot))
         b_init(TRUE)
-        .populate_pickers("_b", species_default = isolate(input$species))   # keep B's pickers fresh thereafter
       }
-    }, ignoreInit = TRUE)
+    })
 
     # Resize the panes when the display mode changes (a conditionalPanel reveal doesn't fire a map
     # resize), and (re)wire pan/zoom linking. Both handled by spatial_explorer.js.
