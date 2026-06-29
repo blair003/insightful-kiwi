@@ -38,9 +38,10 @@ spatial_explorer_help_body <- function(cam_norm = 500) {
         " gives each picked species its own toggleable icon layer; ", tags$b("Predator vs protected"),
         " draws the camera ", tags$b("pressure surface"), " (predators high × protected low) with the predator's ",
         "catches over it."),
-      P(tags$b("Display mode"), " switches between one map and two ", tags$b("side by side"), " — break the ",
-        tags$b("lock"), " to compare a different selection on the right, and ", tags$b("Link views"),
-        " to pan/zoom them together."),
+      P(tags$b("Display"), " switches between one map and two ", tags$b("side by side"), ". Break a ",
+        tags$b("chain"), " (on Data period or Species) to compare a different period — ", tags$b("prior period"),
+        ", ", tags$b("same period last year"), ", or any other — or a different species on the right map; ",
+        tags$b("Link views"), " pans/zooms them together. Reserve is always shared."),
       P(tags$b("Hint:"), " select a single ", tags$b("Reserve"), " and zoom in — the markers are most readable at reserve scale.")),
     tabPanel(
       "The layers", icon = icon("layer-group"),
@@ -63,42 +64,59 @@ spatial_explorer_help_body <- function(cam_norm = 500) {
   )
 }
 
-#' Spatial-explorer "View options" sidebar controls — the display mode (one map / side-by-side + the
-#' comparison lock and link toggles), the species mode, and the picker(s). Pane A drives `species`/
-#' `pred`/`prot`; the comparison pane B reveals its own `*_b` set when the lock is broken (shown only
-#' in side-by-side). Choices are populated server-side. @keywords internal
+#' Spatial-explorer sidebar controls — a "Map options" group (display mode + Link-views + species mode),
+#' then the Data period and Species as v0.1-style LINKABLE items: each carries a chain/broken-chain
+#' toggle (side-by-side only); breaking the chain reveals that setting's tinted "Comparison map"
+#' control for pane B. Reserve (rendered by selection_ui, below) is always shared. The primary period
+#' inputs live in the two selection_servers' namespaces so those servers build the period SPECS; the
+#' species pickers live in this module's namespace. Choices are baked here / populated server-side.
+#' @keywords internal
 spatial_explorer_controls <- function(id, ik_data = NULL) {
-  ns <- NS(id)
-  div(class = "ik-selection ik-view-controls",
-    tags$div(class = "ik-view-controls-h", "View options"),
-    radioButtons(ns("display"), "Display", inline = TRUE,
-      choices = c("One map" = "single", "Side by side" = "sbs"), selected = "single"),
-    # Comparison lock + link — only meaningful in side-by-side. Lock OFF by default: a locked
-    # side-by-side is two identical maps, so the comparison opens free (its own period + species).
+  ns   <- NS(id)
+  selA <- NS("spatial_explorer_selection")     # primary period input → the main selection_server's spec
+  per_choices <- if (!is.null(ik_data)) ik_period_choices(ik_data)
+  per_default <- if (!is.null(ik_data)) (ik_default_period(ik_data) %||% "rolling12") else "rolling12"
+  # The comparison period is the full picker with two RELATIVE quick options on top — "Prior period" /
+  # "Same period last year" (computed from the left map). Falls back to the left map when the relative
+  # window doesn't resolve (e.g. the left map is on a rolling window, which has no clean prior).
+  cmp_choices <- c(list("Prior period" = "prior", "Same period last year" = "last_year"), per_choices)
+
+  # A LINKABLE item: a chain/broken-chain toggle (side-by-side only), the primary widget, and a tinted
+  # "Comparison map" widget revealed when the chain is broken.
+  linkable <- function(heading, link_id, primary, comparison) tagList(
+    div(class = "ik-spex-setting-h", tags$span(heading),
+      conditionalPanel("input.display == 'sbs'", ns = ns,
+        tags$span(class = "ik-spex-link", title = "Link or unlink this setting across the two maps",
+          checkboxInput(ns(link_id), label = tagList(
+            tags$span(class = "ik-spex-linked",   icon("link")),
+            tags$span(class = "ik-spex-unlinked", icon("link-slash"))), value = TRUE)))),
+    primary,
+    conditionalPanel(sprintf("input.display == 'sbs' && input.%s == false", link_id), ns = ns,
+      div(class = "ik-spex-compare-field",
+        div(class = "ik-spex-compare-tag", icon("clone"), " Comparison map"),
+        comparison)))
+
+  # the species picker(s) for one pane — Species OR Predator/Protected, keyed off the shared MODE.
+  species_pickers <- function(sfx = "") tagList(
+    conditionalPanel("input.mode != 'pvp'", ns = ns,
+      selectInput(ns(paste0("species", sfx)), NULL, choices = NULL, multiple = TRUE)),
+    conditionalPanel("input.mode == 'pvp'", ns = ns,
+      selectInput(ns(paste0("pred", sfx)), "Predator(s)", choices = NULL, multiple = TRUE),
+      selectInput(ns(paste0("prot", sfx)), "Protected",   choices = NULL, multiple = TRUE)))
+  per_input <- function(sel_ns) selectInput(sel_ns("period"), NULL, choices = per_choices, selected = per_default)
+
+  div(class = "ik-selection ik-view-controls ik-spex-controls",
+    tags$div(class = "ik-view-controls-h", "Map options"),
+    radioButtons(ns("display"), NULL, inline = TRUE,
+      choiceNames  = list(tagList(icon("map"), " One map"), tagList(icon("table-columns"), " Side by side")),
+      choiceValues = c("single", "sbs"), selected = "single"),
     conditionalPanel("input.display == 'sbs'", ns = ns,
-      div(class = "ik-spex-compare-toggles",
-        checkboxInput(ns("lock"), tagList(icon("lock"), " Lock comparison to this map"), value = FALSE),
-        checkboxInput(ns("link"), tagList(icon("link"), " Link views (pan/zoom together)"), value = TRUE))),
+      checkboxInput(ns("link"), tagList(icon("link"), " Link views (pan/zoom together)"), value = TRUE)),
     radioButtons(ns("mode"), "Species mode",
       choices = c("Combined" = "combined", "Per species" = "separate", "Predator vs protected" = "pvp"), selected = "combined"),
-    conditionalPanel("input.mode != 'pvp'", ns = ns,
-      selectInput(ns("species"), "Species", choices = NULL, multiple = TRUE)),
-    conditionalPanel("input.mode == 'pvp'", ns = ns,
-      selectInput(ns("pred"), "Predator(s)", choices = NULL, multiple = TRUE),
-      selectInput(ns("prot"), "Protected",   choices = NULL, multiple = TRUE)))
-}
-
-#' The comparison pane's "Comparison map" pickers — rendered inside the SECOND selection block (which
-#' supplies pane B's own Data period). Pane B follows pane A's species MODE, so the picker shown keys
-#' off `input.mode` (A's), not a mode of its own. @keywords internal
-spatial_explorer_compare_controls <- function(id, ik_data = NULL) {
-  ns <- NS(id)
-  tagList(
-    conditionalPanel("input.mode != 'pvp'", ns = ns,
-      selectInput(ns("species_b"), "Species", choices = NULL, multiple = TRUE)),
-    conditionalPanel("input.mode == 'pvp'", ns = ns,
-      selectInput(ns("pred_b"), "Predator(s)", choices = NULL, multiple = TRUE),
-      selectInput(ns("prot_b"), "Protected",   choices = NULL, multiple = TRUE)))
+    linkable("Data period", "link_period", per_input(selA),
+      selectInput(ns("compare_period"), NULL, choices = cmp_choices, selected = "prior")),
+    linkable("Species",     "link_species", species_pickers(""),   species_pickers("_b")))
 }
 
 #' Spatial-explorer nav panel. @param id Module id. @param ik_data The container (camera-hour scale).
@@ -143,7 +161,7 @@ spatial_explorer_ui <- function(id, ik_data = NULL) {
 #' @param active reactive, TRUE when this tab is current (gates the heavy metric reactives).
 spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
                                     selection = reactive(list()), color_mode = reactive("light"),
-                                    active = reactive(TRUE), selection_b = reactive(list())) {
+                                    active = reactive(TRUE)) {
   moduleServer(id, function(input, output, session) {
     output$period_banner <- renderUI(.ik_period_banner(ik_data, selection()))
     is_dark <- reactive(identical(color_mode(), "dark"))
@@ -390,27 +408,34 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     }
 
     # ── pane A (always) + pane B (the comparison map, only in side-by-side) ───────────────────────
-    sbs    <- reactive(identical(input$display, "sbs"))
-    locked <- reactive(!isTRUE(sbs()) || isTRUE(input$lock))   # one-map OR lock closed ⇒ B mirrors A
-    # Pane B's effective selection: its OWN Data period (the 2nd selection block) with pane A's reserve
-    # (shared); pane A's selection wholesale when locked.
-    sel_b <- reactive({ if (locked()) selection() else { s <- selection_b(); s$reserve <- selection()$reserve; s } })
+    sbs <- reactive(identical(input$display, "sbs"))
+    # Per-setting LINKS: linked (or one-map) ⇒ pane B mirrors pane A for that setting; unlinked ⇒ B
+    # reads its own comparison control. Period and Species link independently; reserve is always shared.
+    .per_linked <- reactive(!isTRUE(sbs()) || isTRUE(input$link_period))
+    .spp_linked <- reactive(!isTRUE(sbs()) || isTRUE(input$link_species))
+    sel_b <- reactive({
+      if (.per_linked()) return(selection())                    # period chained → mirror the left map
+      tok <- input$compare_period
+      per <- if (length(tok) && tok %in% c("prior", "last_year")) ik_prev_period(selection()$period, tok, ik_data) else tok
+      if (is.null(per) || is.na(per) || !nzchar(per)) per <- selection()$period   # relative window doesn't resolve → mirror A
+      s <- selection(); s$period <- per; s$season <- ik_expand_period(per, ik_data); s   # B = A's reserve, B's period
+    })
 
     paneA <- make_pane("map", active, selection,
       reactive(input$species), reactive(input$mode), reactive(input$pred), reactive(input$prot))
-    # Locked ⇒ B mirrors A (picks + period); unlocked ⇒ B reads its own *_b species + period, but
-    # ALWAYS follows A's species MODE (so the two maps are the same KIND of view).
+    # Pane B follows A's species MODE always; its species mirror A unless the Species chain is broken,
+    # and its period mirrors A unless the Period chain is broken (sel_b handles the period).
     paneB <- make_pane("map_b", reactive(active() && sbs()), sel_b,
-      reactive(if (locked()) input$species else input$species_b),
+      reactive(if (.spp_linked()) input$species else input$species_b),
       reactive(input$mode),
-      reactive(if (locked()) input$pred else input$pred_b),
-      reactive(if (locked()) input$prot else input$prot_b))
+      reactive(if (.spp_linked()) input$pred else input$pred_b),
+      reactive(if (.spp_linked()) input$prot else input$prot_b))
 
-    # Pane B's pickers always carry choices; seed them from A the first time the comparison opens.
+    # Pane B's pickers always carry choices; seed them from A the first time the Species chain is broken.
     .populate_pickers("_b")
     b_init <- reactiveVal(FALSE)
     observe({
-      if (isTRUE(sbs()) && !isTRUE(input$lock) && !isTRUE(b_init())) {
+      if (isTRUE(sbs()) && !isTRUE(input$link_species) && !isTRUE(b_init())) {
         updateSelectInput(session, "species_b", selected = isolate(input$species))
         updateSelectInput(session, "pred_b",    selected = isolate(input$pred))
         updateSelectInput(session, "prot_b",    selected = isolate(input$prot))

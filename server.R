@@ -126,12 +126,9 @@ server <- function(input, output, session) {
                              color_mode = cm, active = reactive(identical(input$nav, "predator-pressure"))))
   spatial_explorer_selection <- selection_server("spatial_explorer_selection", ik_data, prefer_scientific,
     show = c("period", "reserve"), active = reactive(identical(input$nav, "spatial-explorer")))
-  spatial_explorer_selection_b <- selection_server("spatial_explorer_selection_b", ik_data, prefer_scientific,
-    show = c("period"), active = reactive(identical(input$nav, "spatial-explorer")))   # the comparison pane's own period
   .lazy_once(reactive(identical(input$nav, "spatial-explorer")), function()
     spatial_explorer_server("spatial_explorer", ik_data, prefer_scientific, spatial_explorer_selection,
-                            color_mode = cm, active = reactive(identical(input$nav, "spatial-explorer")),
-                            selection_b = spatial_explorer_selection_b))
+                            color_mode = cm, active = reactive(identical(input$nav, "spatial-explorer"))))
   bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific,
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)
