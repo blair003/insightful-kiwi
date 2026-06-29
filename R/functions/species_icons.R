@@ -32,7 +32,7 @@ ik_species_icon <- function(key, class = NULL) {
 #' @return a `leaflet::icons()` object. @keywords internal
 ik_species_marker_icon <- function(keys, fill, shape = c("circle", "square"), sizes = 28, halo = "#ffffff") {
   shape <- match.arg(shape)
-  keys  <- tolower(as.character(keys)); keys[is.na(keys) | !nzchar(keys)] <- "other"
+  keys  <- tolower(as.character(keys)); keys[is.na(keys)] <- ""   # "" → no silhouette (a plain tinted shape)
   n     <- length(keys); sizes <- rep_len(as.numeric(sizes), n)
   bg <- if (shape == "square")
     sprintf('<rect x="2.5" y="2.5" width="35" height="35" rx="9" fill="%s" stroke="%s" stroke-width="2"/>', fill, halo)
@@ -42,7 +42,7 @@ ik_species_marker_icon <- function(keys, fill, shape = c("circle", "square"), si
   # margin inside the shape — and recoloured white via `color=#fff` so its currentColor fills/strokes
   # knock out of the tinted shape.
   urls <- vapply(keys, function(k) {
-    inner <- .IK_SPP_ICONS[[k]] %||% .IK_SPP_ICONS[["other"]]
+    inner <- if (!nzchar(k)) "" else (.IK_SPP_ICONS[[k]] %||% .IK_SPP_ICONS[["other"]])
     svg <- sprintf(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">%s<g transform="translate(8,8)" color="#ffffff" fill="currentColor">%s</g></svg>',
       bg, inner)

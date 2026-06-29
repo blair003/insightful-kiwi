@@ -15,8 +15,13 @@
 # Catches (trap count) are ALWAYS separate layers + legends (units differ — rate vs count), the device
 # read by COLOUR + SHAPE (teal disc = camera, amber square = trap), size ∝ value.
 
-.SPEX_DETECT <- "#0d9488"   # teal — camera detections (device colour; value = marker size)
-.SPEX_CATCH  <- "#d97706"   # amber — trap catches
+.SPEX_DETECT <- "#0d9488"   # teal  — camera device-field context (faint)
+.SPEX_CATCH  <- "#d97706"   # amber — trap device-field context (faint)
+# Markers are coloured by species ROLE (predator / protected / other — "bad vs good"), and shaped by
+# DEVICE (disc = camera detection, square = trap catch); size = value. The role split is what keeps a
+# mustelid from looking like a kiwi at the same camera.
+.SPEX_ROLE       <- c(predator = "#d62728", protected = "#2e9e3f", other = "#8a8a8a")   # red / green / grey
+.SPEX_ROLE_LABEL <- c(predator = "Predators", protected = "Protected", other = "Other")
 
 #' Body of the Spatial-explorer "how to read this" help modal — tabbed, matching the app help format.
 #' `cam_norm` = the per-camera scale the detection rates are shown at (project config). @keywords internal
@@ -30,14 +35,15 @@ spatial_explorer_help_body <- function(cam_norm = 500) {
       P(tags$br(), "An ", tags$b("expert-mode"), " map: pick any species (or a group like Mustelids) and see ",
         "where the ", tags$b("cameras"), " detect it against where the ", tags$b("traps"), " catch it — ",
         "the two devices on one canvas, for the sidebar's period and reserve."),
-      P(tags$b(tags$span(style = "color:#0d9488", "Detections")), " (teal) are camera relative-activity; ",
-        tags$b(tags$span(style = "color:#d97706", "Catches")), " (amber) are trap captures. ",
-        tags$b("Colour says which device, size says how much"), "."),
+      P(tags$b("Colour says the role"), " — ", tags$b(tags$span(style = "color:#d62728", "predators")), " (red), ",
+        tags$b(tags$span(style = "color:#2e9e3f", "protected")), " (green), ", tags$b("other"), " (grey) — so a mustelid never ",
+        "looks like a kiwi. ", tags$b("Shape says the device"), ": a ", tags$b("disc"), " is a camera detection, a ",
+        tags$b("square"), " is a trap catch. ", tags$b("Size says how much"), "."),
       P(tags$b("Species mode"), " (sidebar) reshapes what a marker means: ", tags$b("Combined"),
-        " merges everything you pick into one detection + one catch value per location; ", tags$b("Per species"),
-        " gives each picked species its own toggleable icon layer; ", tags$b("Predator vs protected"),
-        " draws the camera ", tags$b("pressure surface"), " (predators high × protected low) with the predator's ",
-        "catches over it."),
+        " sums the picked species within each role → one Predators / Protected / Other layer; ", tags$b("Per species"),
+        " gives each picked species its own toggleable layer (role-coloured, with its silhouette); ",
+        tags$b("Predator vs protected"), " draws the camera ", tags$b("pressure surface"),
+        " (predators high × protected low) with the predator's catches over it."),
       P(tags$b("Display"), " switches between one map and two ", tags$b("side by side"), ". Break a ",
         tags$b("chain"), " (on Data period or Species) to compare a different period — ", tags$b("prior period"),
         ", ", tags$b("same period last year"), ", or any other — or a different species on the right map; ",
@@ -45,10 +51,11 @@ spatial_explorer_help_body <- function(cam_norm = 500) {
       P(tags$b("Hint:"), " select a single ", tags$b("Reserve"), " and zoom in — the markers are most readable at reserve scale.")),
     tabPanel(
       "The layers", icon = icon("layer-group"),
-      P(tags$br(), "Toggle these top-right."),
+      P(tags$br(), "Toggle these top-right. A layer holds both camera detections (discs) and trap catches (squares)."),
       tags$ul(
-        tags$li(tags$b(tags$span(style = "color:#0d9488", "Detections")), " — camera relative-activity for the picked species, one marker per camera; size ∝ RAI."),
-        tags$li(tags$b(tags$span(style = "color:#d97706", "Catches")), " — trap captures of the picked species, one marker per trap; size ∝ count."),
+        tags$li(tags$b(tags$span(style = "color:#d62728", "Predators")), " / ",
+                tags$b(tags$span(style = "color:#2e9e3f", "Protected")), " / ", tags$b("Other"),
+                " — the picked species by role (Combined), or one layer per species (Per species)."),
         tags$li(tags$b("Cameras / Traps"), " — the device field (every active camera / trap), faint context dots. Off by default."),
         tags$li(tags$b("Boundary"), " — the monitored footprint (convex hull of the devices) per reserve; hover for its name."))),
     tabPanel(
@@ -180,6 +187,9 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     .splits   <- unique(.sg$label[which(.sg$split)])
     .pred_def <- if (length(pred_taxa)) paste0("grp:", names(pred_taxa)[1]) else NULL
     .prot_def <- if (length(prot_taxa)) paste0("grp:", names(prot_taxa)[1]) else NULL
+    # The conservation ROLE of each scientificName (predator / protected / other) — drives marker colour.
+    .role_of <- function(sci) { r <- .sg$role[match(sci, .sg$scientificName)]
+      r[is.na(r) | !(r %in% c("predator", "protected"))] <- "other"; r }
     # The icon glyph KEY for a picked value (group → its group key; species → its group's key, else paw).
     .glyph_key <- function(v) {
       if (startsWith(v, "grp:")) (.sg$group[match(sub("^grp:", "", v), .sg$label)] %||% "other")
@@ -263,7 +273,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
         locs <- ik_data$app$geography$locations
         locs <- locs[is.finite(locs$latitude) & is.finite(locs$longitude), , drop = FALSE]
         ik_map_base(panes = c("surface", "boundary", "cameras", "traps", "detections", "catches", "selected"),
-          overlay_groups = c("Detections", "Catches", "Cameras", "Traps", "Boundary"),
+          overlay_groups = c("Cameras", "Traps", "Boundary"),   # role/species value layers are added by the dynamic control
           is_dark = isolate(is_dark()), fit = locs, hide_groups = c("Cameras", "Traps"), pane_z0 = 410)
       })
       outputOptions(output, map_id, suspendWhenHidden = FALSE)
@@ -288,59 +298,63 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       observe(ik_draw_device_layer(proxy(), .dev_context("trap"), fill_color = .SPEX_CATCH,
         group = "Traps", pane = "traps", radius = 3, fill_opacity = 0.35, label = ~name))
 
-      observe({                                                # Combined: merged Detections (teal)
-        comb <- identical(mode(), "combined")
-        d <- if (!comb) NULL else { x <- detect_pts(); if (is.null(x)) NULL else x[is.finite(x$metric) & x$metric > 0, , drop = FALSE] }
-        ik_draw_metric_markers(proxy(), d, value = d$metric, group = "Detections",
-          layerId = paste0("C|", d$location_id), lo = 4, hi = 15, cap_pctl = 0.98,
-          fill_color = .SPEX_DETECT, fill_opacity = 0.85, color = if (is_dark()) "#1a1a1a" else "#ffffff",
-          weight = 1.4, pane = "detections", label = sprintf("%s — %s RAI %.2f", d$name, sp_lab(), d$metric))
-      })
-      observe({                                                # Catches (amber): Combined selection or P-v-P predator
-        m <- mode()
-        src <- if (m == "combined") catch_pts() else if (m == "pvp") trap_pred() else NULL
-        d   <- if (is.null(src)) NULL else src[is.finite(src$captures) & src$captures > 0, , drop = FALSE]
-        lab <- if (m == "pvp") pred_lab() else sp_lab()
+      observe({                                                # P-v-P only: the predator's trap catches (amber "Control")
+        d <- if (identical(mode(), "pvp")) trap_pred() else NULL
+        d <- if (is.null(d)) NULL else d[is.finite(d$captures) & d$captures > 0, , drop = FALSE]
         ik_draw_metric_markers(proxy(), d, value = d$captures, group = "Catches",
           layerId = paste0("K|", d$location_id), lo = 3, hi = 12, cap = ik_robust_cap(d$captures, 0.9),
           fill_color = .SPEX_CATCH, fill_opacity = 0.8, color = "#ffffff", weight = 1, pane = "catches",
-          label = sprintf("%s — %s caught %d", d$name, lab, as.integer(d$captures)))
+          label = sprintf("%s — %s caught %d", d$name, pred_lab(), as.integer(d$captures)))
       })
 
-      # Per-species: one toggleable layer per picked ENTRY (detections disc + catches square + glyph).
+      # One toggleable LAYER per group — Combined groups by ROLE (Predators/Protected/Other), Per-species
+      # groups by picked ENTRY. Each layer = that group's camera detections (disc) + trap catches (square),
+      # coloured by its ROLE, the species silhouette knocked out (Per-species) or blank (Combined).
       drawn_groups <- reactiveVal(character(0))
-      .draw_entry_layer <- function(p, e) {
+      .draw_group_layer <- function(p, e) {
         grp <- e$label
         det <- if (is.null(e$det))   NULL else e$det[is.finite(e$det$latitude) & is.finite(e$det$longitude) & is.finite(e$det$metric) & e$det$metric > 0, , drop = FALSE]
         cat <- if (is.null(e$catch)) NULL else e$catch[is.finite(e$catch$latitude) & is.finite(e$catch$longitude) & is.finite(e$catch$captures) & e$catch$captures > 0, , drop = FALSE]
         if (!is.null(det) && nrow(det)) {
           sz <- round(2 * ik_marker_radius(det$metric, 6, 18, cap_pctl = 0.98) + 6)
           leaflet::addMarkers(p, lng = det$longitude, lat = det$latitude, group = grp,
-            icon = ik_species_marker_icon(rep(e$key, nrow(det)), .SPEX_DETECT, "circle", sz),
-            layerId = paste0("C|", grp, "|", det$location_id), label = sprintf("%s — %s RAI %.2f", det$name, grp, det$metric))
+            icon = ik_species_marker_icon(rep(e$key, nrow(det)), e$colour, "circle", sz),
+            layerId = paste0("C|", grp, "|", det$location_id), label = sprintf("%s — %s detections, RAI %.2f", det$name, grp, det$metric))
         }
         if (!is.null(cat) && nrow(cat)) {
           sz <- round(2 * ik_marker_radius(cat$captures, 5, 15, cap = ik_robust_cap(cat$captures, 0.9)) + 6)
           leaflet::addMarkers(p, lng = cat$longitude, lat = cat$latitude, group = grp,
-            icon = ik_species_marker_icon(rep(e$key, nrow(cat)), .SPEX_CATCH, "square", sz),
+            icon = ik_species_marker_icon(rep(e$key, nrow(cat)), e$colour, "square", sz),
             layerId = paste0("K|", grp, "|", cat$location_id), label = sprintf("%s — %s caught %d", cat$name, grp, as.integer(cat$captures)))
         }
         grp
       }
+      # the groups to draw for the current mode: by ROLE (Combined) or by ENTRY (Per-species).
+      draw_groups <- reactive({
+        sci_metric <- function(sci) list(
+          det   = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "camera", norm = per_cam),
+          catch = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "trap"))
+        if (identical(mode(), "combined")) {
+          sci <- sp_sci(); if (!length(sci)) return(list()); roles <- .role_of(sci)
+          Filter(Negate(is.null), lapply(c("predator", "protected", "other"), function(r) {
+            s <- sci[roles == r]; if (!length(s)) return(NULL)
+            c(list(label = unname(.SPEX_ROLE_LABEL[r]), key = "", colour = unname(.SPEX_ROLE[r])), sci_metric(s))
+          }))
+        } else if (identical(mode(), "separate")) {
+          Filter(Negate(is.null), lapply(entries(), function(v) {
+            taxa <- ik_choice_taxa(v, grp_taxa, ik_data, isolate(prefer())); if (is.null(taxa)) return(NULL)
+            sci  <- unlist(taxa, use.names = FALSE)
+            role <- names(sort(table(.role_of(sci)), decreasing = TRUE))[1] %||% "other"   # the entry's dominant role
+            c(list(label = names(taxa)[1], key = .glyph_key(v), colour = unname(.SPEX_ROLE[role])), sci_metric(sci))
+          }))
+        } else list()
+      })
       observe({
         p <- proxy()
         for (g in drawn_groups()) leaflet::clearGroup(p, g)
-        if (!identical(mode(), "separate")) { drawn_groups(character(0)); return() }
+        if (mode() == "pvp") { drawn_groups(character(0)); return() }
         req(pane_active())
-        pe <- lapply(entries(), function(v) {
-          taxa <- ik_choice_taxa(v, grp_taxa, ik_data, isolate(prefer())); if (is.null(taxa)) return(NULL)
-          sci  <- unlist(taxa, use.names = FALSE)
-          list(label = names(taxa)[1], key = .glyph_key(v),
-               det   = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "camera", norm = per_cam),
-               catch = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "trap"))
-        })
-        pe <- Filter(Negate(is.null), pe)
-        drawn_groups(unique(vapply(pe, function(e) .draw_entry_layer(p, e), character(1))))
+        drawn_groups(unique(vapply(draw_groups(), function(e) .draw_group_layer(p, e), character(1))))
       })
 
       # P-v-P: pressure surface (IDW of priority) + per-camera priority markers.
@@ -364,9 +378,8 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
 
       observe({                                                # dynamic layers control (overlay set per mode)
         p <- proxy()
-        overlays <- if (identical(mode(), "separate")) c(drawn_groups(), "Cameras", "Traps", "Boundary")
-                    else if (identical(mode(), "pvp"))  c("Pressure surface", "Camera pressure", "Catches", "Traps", "Boundary")
-                    else c("Detections", "Catches", "Cameras", "Traps", "Boundary")
+        overlays <- if (identical(mode(), "pvp")) c("Pressure surface", "Camera pressure", "Catches", "Traps", "Boundary")
+                    else c(drawn_groups(), "Cameras", "Traps", "Boundary")   # role (Combined) or species (Per-species) layers
         leaflet::addLayersControl(p, baseGroups = c("Map", "Satellite"), overlayGroups = overlays,
           options = leaflet::layersControlOptions(collapsed = FALSE))
         shown <- isolate(input[[paste0(map_id, "_groups")]])
@@ -389,11 +402,13 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
           leaflet::addLegend(p, "bottomleft", colors = .SPEX_CATCH, labels = sprintf("%s caught (traps)", pred_lab()), title = "Control", opacity = 0.9)
           return()
         }
-        d <- detect_pts(); cc <- catch_pts()
-        if (!(!is.null(d) && any(d$metric > 0, na.rm = TRUE)) && !(!is.null(cc) && any(cc$captures > 0, na.rm = TRUE))) return()
-        leaflet::addLegend(p, "bottomright", colors = c(.SPEX_DETECT, .SPEX_CATCH),
-          labels = c("Camera detections (size &prop; RAI)", "Trap catches (size &prop; count)"),
-          title = sprintf("%s &middot; %s", sp_lab(), if (identical(mode(), "separate")) "per species" else "combined"), opacity = 0.9)
+        sci <- sp_sci()
+        present <- intersect(c("predator", "protected", "other"), unique(.role_of(sci)))
+        if (!length(present)) return()
+        leaflet::addLegend(p, "bottomright", colors = unname(.SPEX_ROLE[present]), labels = unname(.SPEX_ROLE_LABEL[present]),
+          title = sprintf("%s &middot; by role", sp_lab()), opacity = 0.9)
+        leaflet::addControl(p, position = "bottomright", className = "ik-maps-shapekey",
+          html = "&#9679; camera detection &nbsp; &#9632; trap catch<br/><small>size = amount</small>")
       })
 
       observeEvent(input[[paste0(map_id, "_marker_click")]], {  # marker → filter table to that location
