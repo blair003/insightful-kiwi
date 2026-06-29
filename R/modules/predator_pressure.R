@@ -136,19 +136,10 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
     prot_lab <- reactive({ v <- input$prot; if (!length(v)) "protected" else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
     has_pick <- reactive(length(pred_sci()) > 0 && length(prot_sci()) > 0)
 
-    # ---- the camera priority composite (per location) — lifted from maps.R prio_all ----
-    # predators-high × protected-low → "where to act". Both metrics share the deployed-camera set (0
-    # where none), so they join on location_id; normalised across the selection's cameras.
+    # ---- the camera priority composite (per location) — the shared ik_priority_metric() ----
+    # predators-high × protected-low → "where to act", normalised across the selection's cameras.
     prio_all <- reactive({ req(active(), has_pick())
-      pred <- ik_location_metric(ik_data, selection(), list(P = pred_sci()), "camera", norm = per_cam)
-      prot <- ik_location_metric(ik_data, selection(), list(P = prot_sci()), "camera", norm = per_cam)
-      if (is.null(pred) || !nrow(pred)) return(NULL)
-      m <- pred; m$predator <- m$metric
-      m$protected <- if (is.null(prot)) 0 else prot$metric[match(m$location_id, prot$location_id)]
-      m$protected[is.na(m$protected)] <- 0
-      pmx <- function(x) { v <- suppressWarnings(max(x[x > 0], na.rm = TRUE)); if (is.finite(v)) v else 1 }
-      m$metric <- (m$predator / pmx(m$predator)) * (1 - m$protected / pmx(m$protected))
-      m })
+      ik_priority_metric(ik_data, selection(), pred_sci(), prot_sci(), norm = per_cam) })
     prio_pts      <- reactive({ m <- prio_all(); if (is.null(m)) NULL else m[is.finite(m$latitude) & is.finite(m$longitude), , drop = FALSE] })
     prio_unplaced <- reactive({ m <- prio_all(); if (is.null(m)) NULL else m[!(is.finite(m$latitude) & is.finite(m$longitude)), , drop = FALSE] })
 

@@ -295,6 +295,27 @@ ik_location_metric <- function(ik_data, spec, taxa, source_type = c("camera", "t
   out
 }
 
+#' Per-location "predator pressure" PRIORITY: predators-high × protected-low, the camera composite
+#' that the Predator-pressure page and the Spatial explorer's Predator-vs-Protected mode both draw.
+#' Each camera's predator RAI and protected RAI are scaled to the busiest camera in the selection,
+#' then priority = predator(scaled) × (1 − protected(scaled)) — high only where predators are high
+#' AND protected low. Returns the camera metric frame with `$predator`, `$protected` and the composite
+#' `$metric` (NULL if there's no predator data, or either role is empty).
+#' @param spec selection spec. @param pred_sci/prot_sci resolved scientificNames. @param norm per-camera scale.
+#' @keywords internal
+ik_priority_metric <- function(ik_data, spec, pred_sci, prot_sci, norm = NULL) {
+  if (!length(pred_sci) || !length(prot_sci)) return(NULL)
+  pred <- ik_location_metric(ik_data, spec, list(P = pred_sci), "camera", norm = norm)
+  prot <- ik_location_metric(ik_data, spec, list(P = prot_sci), "camera", norm = norm)
+  if (is.null(pred) || !nrow(pred)) return(NULL)
+  m <- pred; m$predator <- m$metric
+  m$protected <- if (is.null(prot)) 0 else prot$metric[match(m$location_id, prot$location_id)]
+  m$protected[is.na(m$protected)] <- 0
+  pmx <- function(x) { v <- suppressWarnings(max(x[x > 0], na.rm = TRUE)); if (is.finite(v)) v else 1 }
+  m$metric <- (m$predator / pmx(m$predator)) * (1 - m$protected / pmx(m$protected))
+  m
+}
+
 #' The animal observations BEHIND a metric cell — the auditable basis a RAI/rate figure is built
 #' from, for the Overview drill down to the records. Re-resolves the same selection + counting
 #' rules (camera = net per config; trap = raw) and filters to the clicked taxon / reserve / line.
