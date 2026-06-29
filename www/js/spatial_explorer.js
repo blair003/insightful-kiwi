@@ -41,13 +41,38 @@
     b.setView(a.getCenter(), a.getZoom(), { animate: false });
   }
 
+  // The SWIPE/curtain: the two panes overlap (CSS), and a draggable divider sets `--swipe` (a %)
+  // which clips the comparison map. One-time wiring per divider.
+  function initSwipe() {
+    var row = document.querySelector('.ik-spex-row'); if (!row) return;
+    var divider = row.querySelector('.ik-spex-swipe-divider'); if (!divider || divider._spex) return;
+    divider._spex = true;
+    if (!row.style.getPropertyValue('--swipe')) row.style.setProperty('--swipe', '50%');
+    var dragging = false;
+    function setPct(clientX) {
+      var r = row.getBoundingClientRect();
+      var pct = Math.max(4, Math.min(96, ((clientX - r.left) / r.width) * 100));
+      row.style.setProperty('--swipe', pct + '%');
+    }
+    divider.addEventListener('mousedown', function (e) { dragging = true; e.preventDefault(); });
+    window.addEventListener('mousemove', function (e) { if (dragging) setPct(e.clientX); });
+    window.addEventListener('mouseup', function () { dragging = false; });
+    divider.addEventListener('touchstart', function () { dragging = true; }, { passive: true });
+    window.addEventListener('touchmove', function (e) { if (dragging && e.touches[0]) setPct(e.touches[0].clientX); }, { passive: true });
+    window.addEventListener('touchend', function () { dragging = false; });
+  }
+
   if (window.Shiny) {
     Shiny.addCustomMessageHandler('spex-sync', function (msg) {
       var key = msg.a + '|' + msg.b;
+      var row = document.querySelector('.ik-spex-row');
+      if (row) row.classList.toggle('ik-spex-swipe', msg.display === 'swipe');
       invalidate(msg.a); invalidate(msg.b);
+      setTimeout(function () { invalidate(msg.a); invalidate(msg.b); }, 220);  // re-fit after the layout change settles
       unlink(key);
-      if (msg.link) { setTimeout(function () { link(msg.a, msg.b); }, 140); }
-      else if (msg.sbs) { setTimeout(function () { seed(msg.a, msg.b); }, 140); }
+      if (msg.link) { setTimeout(function () { link(msg.a, msg.b); }, 220); }
+      else if (msg.twoPane) { setTimeout(function () { seed(msg.a, msg.b); }, 220); }
+      if (msg.swipe) setTimeout(initSwipe, 250);
     });
   }
 })();

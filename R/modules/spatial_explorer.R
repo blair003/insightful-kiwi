@@ -92,13 +92,13 @@ spatial_explorer_controls <- function(id, ik_data = NULL) {
   # "Comparison map" widget revealed when the chain is broken.
   linkable <- function(heading, link_id, primary, comparison) tagList(
     div(class = "ik-spex-setting-h", tags$span(heading),
-      conditionalPanel("input.display == 'sbs'", ns = ns,
+      conditionalPanel("input.display != 'single'", ns = ns,
         tags$span(class = "ik-spex-link", title = "Link or unlink this setting across the two maps",
           checkboxInput(ns(link_id), label = tagList(
             tags$span(class = "ik-spex-linked",   icon("link")),
             tags$span(class = "ik-spex-unlinked", icon("link-slash"))), value = TRUE)))),
     primary,
-    conditionalPanel(sprintf("input.display == 'sbs' && input.%s == false", link_id), ns = ns,
+    conditionalPanel(sprintf("input.display != 'single' && input.%s == false", link_id), ns = ns,
       div(class = "ik-spex-compare-field",
         div(class = "ik-spex-compare-tag", icon("clone"), " Comparison map"),
         comparison)))
@@ -115,9 +115,10 @@ spatial_explorer_controls <- function(id, ik_data = NULL) {
   div(class = "ik-selection ik-view-controls ik-spex-controls",
     tags$div(class = "ik-view-controls-h", "Map options"),
     radioButtons(ns("display"), NULL, inline = TRUE,
-      choiceNames  = list(tagList(icon("map"), " One map"), tagList(icon("table-columns"), " Side by side")),
-      choiceValues = c("single", "sbs"), selected = "single"),
-    conditionalPanel("input.display == 'sbs'", ns = ns,
+      choiceNames  = list(tagList(icon("map"), " One"), tagList(icon("table-columns"), " Side by side"),
+                          tagList(icon("arrows-left-right"), " Swipe")),
+      choiceValues = c("single", "sbs", "swipe"), selected = "single"),
+    conditionalPanel("input.display == 'sbs'", ns = ns,   # swipe always links (the two halves must align)
       checkboxInput(ns("link"), tagList(icon("link"), " Link views (pan/zoom together)"), value = TRUE)),
     radioButtons(ns("mode"), "Species mode",
       choices = c("Combined" = "combined", "Per species" = "separate", "Predator vs protected" = "pvp"), selected = "combined"),
@@ -148,9 +149,11 @@ spatial_explorer_ui <- function(id, ik_data = NULL) {
         # FLEX ITEM is the inner classed div — pane A is a plain direct child, the rest sit inside.
         div(class = "ik-spex-row",
           div(class = "ik-spex-main", .map_panel("map")),
-          conditionalPanel("input.display == 'sbs'", ns = ns,
+          conditionalPanel("input.display != 'single'", ns = ns,         # the comparison map (side-by-side OR swipe)
             div(class = "ik-spex-compare-pane", .map_panel("map_b"))),
-          conditionalPanel("input.display != 'sbs'", ns = ns,
+          conditionalPanel("input.display == 'swipe'", ns = ns,          # the draggable curtain divider
+            div(class = "ik-spex-swipe-divider", tags$span(class = "ik-spex-swipe-grip"))),
+          conditionalPanel("input.display == 'single'", ns = ns,
             div(class = "ik-spex-side",
               div(class = "ik-maps-records",
                   uiOutput(ns("drill_chip")),
@@ -423,11 +426,11 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     }
 
     # ── pane A (always) + pane B (the comparison map, only in side-by-side) ───────────────────────
-    sbs <- reactive(identical(input$display, "sbs"))
+    two_pane <- reactive(input$display %in% c("sbs", "swipe"))   # side-by-side OR swipe ⇒ pane B is live
     # Per-setting LINKS: linked (or one-map) ⇒ pane B mirrors pane A for that setting; unlinked ⇒ B
     # reads its own comparison control. Period and Species link independently; reserve is always shared.
-    .per_linked <- reactive(!isTRUE(sbs()) || isTRUE(input$link_period))
-    .spp_linked <- reactive(!isTRUE(sbs()) || isTRUE(input$link_species))
+    .per_linked <- reactive(!isTRUE(two_pane()) || isTRUE(input$link_period))
+    .spp_linked <- reactive(!isTRUE(two_pane()) || isTRUE(input$link_species))
     sel_b <- reactive({
       if (.per_linked()) return(selection())                    # period chained → mirror the left map
       tok <- input$compare_period
@@ -440,7 +443,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       reactive(input$species), reactive(input$mode), reactive(input$pred), reactive(input$prot))
     # Pane B follows A's species MODE always; its species mirror A unless the Species chain is broken,
     # and its period mirrors A unless the Period chain is broken (sel_b handles the period).
-    paneB <- make_pane("map_b", reactive(active() && sbs()), sel_b,
+    paneB <- make_pane("map_b", reactive(active() && two_pane()), sel_b,
       reactive(if (.spp_linked()) input$species else input$species_b),
       reactive(input$mode),
       reactive(if (.spp_linked()) input$pred else input$pred_b),
@@ -450,7 +453,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     .populate_pickers("_b")
     b_init <- reactiveVal(FALSE)
     observe({
-      if (isTRUE(sbs()) && !isTRUE(input$link_species) && !isTRUE(b_init())) {
+      if (isTRUE(two_pane()) && !isTRUE(input$link_species) && !isTRUE(b_init())) {
         updateSelectInput(session, "species_b", selected = isolate(input$species))
         updateSelectInput(session, "pred_b",    selected = isolate(input$pred))
         updateSelectInput(session, "prot_b",    selected = isolate(input$prot))
@@ -461,9 +464,11 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     # Resize the panes when the display mode changes (a conditionalPanel reveal doesn't fire a map
     # resize), and (re)wire pan/zoom linking. Both handled by spatial_explorer.js.
     observeEvent(list(input$display, input$link), {
+      disp <- input$display %||% "single"
       session$sendCustomMessage("spex-sync", list(
-        a = session$ns("map"), b = session$ns("map_b"),
-        sbs = isTRUE(sbs()), link = isTRUE(sbs()) && isTRUE(input$link)))
+        a = session$ns("map"), b = session$ns("map_b"), display = disp,
+        twoPane = isTRUE(two_pane()), swipe = identical(disp, "swipe"),
+        link = isTRUE(two_pane()) && (identical(disp, "swipe") || isTRUE(input$link))))  # swipe forces link
     }, ignoreNULL = FALSE)
 
     # ── records side (pane A) ─────────────────────────────────────────────────────────────────────
