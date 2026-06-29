@@ -124,6 +124,11 @@ server <- function(input, output, session) {
   .lazy_once(reactive(identical(input$nav, "predator-pressure")), function()
     predator_pressure_server("predator_pressure", ik_data, prefer_scientific, predator_pressure_selection,
                              color_mode = cm, active = reactive(identical(input$nav, "predator-pressure"))))
+  spatial_explorer_selection <- selection_server("spatial_explorer_selection", ik_data, prefer_scientific,
+    show = c("period", "reserve"), active = reactive(identical(input$nav, "spatial-explorer")))
+  .lazy_once(reactive(identical(input$nav, "spatial-explorer")), function()
+    spatial_explorer_server("spatial_explorer", ik_data, prefer_scientific, spatial_explorer_selection,
+                            color_mode = cm, active = reactive(identical(input$nav, "spatial-explorer"))))
   bait_selection <- selection_server("bait_selection", ik_data, prefer_scientific,
     show = c("period"), active = reactive(identical(input$nav, "bait")))
   bait_server("bait", ik_data, prefer_scientific, color_mode = cm, selection = bait_selection)

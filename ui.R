@@ -119,6 +119,10 @@ ui <- page_navbar(
                      selection_ui("predator_pressure_selection", show = c("period", "reserve"), ik_data = ik_data,
                                   period_default = "rolling12",
                                   controls = predator_pressure_controls("predator_pressure", ik_data), heading = "Filters")),
+    conditionalPanel("input.nav === 'spatial-explorer'",
+                     selection_ui("spatial_explorer_selection", show = c("period", "reserve"), ik_data = ik_data,
+                                  period_default = "rolling12",
+                                  controls = spatial_explorer_controls("spatial_explorer", ik_data), heading = "Filters")),
     conditionalPanel("input.nav === 'neighbourhood'",
                      # All-time view; the anchor (Reserve/Line) is its data selection, in View options.
                      selection_all_data(),
@@ -248,6 +252,8 @@ ui <- page_navbar(
     # Predator pressure is camera-DERIVED (the priority surface), so it needs camera data; hide it on
     # trap-only data like Neighbourhood. The trapping overlay is additive context on top.
     if (.has_camera && ik_feature_enabled(ik_data, "predator_pressure")) predator_pressure_ui("predator_pressure", ik_data),
+    # Spatial explorer composites camera DETECTIONS against trap CATCHES — needs BOTH devices.
+    if (.has_camera && .has_trap && ik_feature_enabled(ik_data, "spatial_explorer")) spatial_explorer_ui("spatial_explorer", ik_data),
     # Neighbourhood is camera-ANCHORED (pick a camera site/line/reserve) — useless without camera
     # data, so hide it then, the same way the Monitoring menu auto-hides. Coverage still degrades
     # gracefully on trap-only data, so it stays.
