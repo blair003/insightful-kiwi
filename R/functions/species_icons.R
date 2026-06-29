@@ -52,6 +52,31 @@ ik_species_marker_icon <- function(keys, fill, shape = c("circle", "square"), si
                  iconAnchorX = sizes / 2, iconAnchorY = sizes / 2)
 }
 
+#' A value-sized ROLE-PIE map marker — ONE marker per LOCATION showing the mix of roles detected/caught
+#' there, so a predator and a protected species at the same camera don't overwrite each other. EQUAL
+#' sectors per PRESENT role (presence, not proportion — a rare protected species stays visible), with a
+#' halo. Shape = device (disc = camera, square = trap → vertical bands). `roles` = the present roles (a
+#' subset of predator/protected/other, in display order); `colours` = the role→hex map. Returns ONE SVG
+#' data-URI (size is set by the caller's iconWidth/Height). @keywords internal
+ik_role_pie_svg <- function(roles, colours, shape = c("circle", "square"), halo = "#ffffff") {
+  shape <- match.arg(shape); n <- length(roles); if (!n) return(NA_character_)
+  cols <- unname(colours[roles])
+  if (shape == "square") {
+    w <- 35 / n
+    inner <- paste0(vapply(seq_len(n), function(i)
+      sprintf('<rect x="%.2f" y="2.5" width="%.3f" height="35" fill="%s"/>', 2.5 + (i - 1) * w, w + 0.4, cols[i]), character(1)), collapse = "")
+    svg <- sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><defs><clipPath id="c"><rect x="2.5" y="2.5" width="35" height="35" rx="9"/></clipPath></defs><g clip-path="url(#c)">%s</g><rect x="2.5" y="2.5" width="35" height="35" rx="9" fill="none" stroke="%s" stroke-width="2"/></svg>', inner, halo)
+  } else {
+    cx <- 20; cy <- 20; r <- 17.5
+    pt <- function(a) sprintf("%.2f %.2f", cx + r * sin(a * pi / 180), cy - r * cos(a * pi / 180))
+    inner <- if (n == 1) sprintf('<circle cx="20" cy="20" r="17.5" fill="%s"/>', cols[1])
+      else paste0(vapply(seq_len(n), function(i) { a0 <- (i - 1) * 360 / n; a1 <- i * 360 / n
+        sprintf('<path d="M20 20 L%s A17.5 17.5 0 %d 1 %s Z" fill="%s"/>', pt(a0), if (a1 - a0 > 180) 1 else 0, pt(a1), cols[i]) }, character(1)), collapse = "")
+    svg <- sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">%s<circle cx="20" cy="20" r="17.5" fill="none" stroke="%s" stroke-width="2"/></svg>', inner, halo)
+  }
+  paste0("data:image/svg+xml,", utils::URLencode(svg, reserved = TRUE))
+}
+
 # Each entry is the INNER markup of the <svg>. Thin lines (whiskers, tails, legs) use
 # stroke="currentColor" with no fill; bodies use the svg-level fill.
 .IK_SPP_ICONS <- list(
