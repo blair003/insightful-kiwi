@@ -17,6 +17,41 @@ ik_species_icon <- function(key, class = NULL) {
     if (is.null(class)) "" else paste0(" ", class), inner))
 }
 
+#' A value-sized MAP MARKER icon for a species/group — the on-map sibling of `ik_species_icon`.
+#' Each marker is a device-tinted SHAPE (round disc for cameras, rounded square for traps) with the
+#' species silhouette (the `.IK_SPP_ICONS` set) knocked out in WHITE on top, plus a thin halo so it
+#' reads on light, satellite and dark tiles. Device is encoded by SHAPE *and* COLOUR (the locked
+#' visual language). Vectorised: `keys`/`sizes` recycle to one icon per marker, so one call builds a
+#' whole layer's icon set for `leaflet::addMarkers(icon = ...)`.
+#'
+#' @param keys  species-group KEYS (the `species_groups$group` column; unknown/NA → generic paw).
+#' @param fill  the device fill colour (teal for cameras, amber for traps).
+#' @param shape "circle" (cameras) or "square" (traps).
+#' @param sizes icon diameters in px (one per marker, or one recycled).
+#' @param halo  the halo/stroke colour around the shape (default white).
+#' @return a `leaflet::icons()` object. @keywords internal
+ik_species_marker_icon <- function(keys, fill, shape = c("circle", "square"), sizes = 28, halo = "#ffffff") {
+  shape <- match.arg(shape)
+  keys  <- tolower(as.character(keys)); keys[is.na(keys) | !nzchar(keys)] <- "other"
+  n     <- length(keys); sizes <- rep_len(as.numeric(sizes), n)
+  bg <- if (shape == "square")
+    sprintf('<rect x="2.5" y="2.5" width="35" height="35" rx="9" fill="%s" stroke="%s" stroke-width="2"/>', fill, halo)
+  else
+    sprintf('<circle cx="20" cy="20" r="17.5" fill="%s" stroke="%s" stroke-width="2"/>', fill, halo)
+  # The silhouette (0–24 viewBox) is placed at translate(8,8) into a 0–40 canvas — centred with a
+  # margin inside the shape — and recoloured white via `color=#fff` so its currentColor fills/strokes
+  # knock out of the tinted shape.
+  urls <- vapply(keys, function(k) {
+    inner <- .IK_SPP_ICONS[[k]] %||% .IK_SPP_ICONS[["other"]]
+    svg <- sprintf(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">%s<g transform="translate(8,8)" color="#ffffff" fill="currentColor">%s</g></svg>',
+      bg, inner)
+    paste0("data:image/svg+xml,", utils::URLencode(svg, reserved = TRUE))
+  }, character(1), USE.NAMES = FALSE)
+  leaflet::icons(iconUrl = urls, iconWidth = sizes, iconHeight = sizes,
+                 iconAnchorX = sizes / 2, iconAnchorY = sizes / 2)
+}
+
 # Each entry is the INNER markup of the <svg>. Thin lines (whiskers, tails, legs) use
 # stroke="currentColor" with no fill; bodies use the svg-level fill.
 .IK_SPP_ICONS <- list(

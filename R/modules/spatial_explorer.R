@@ -65,7 +65,9 @@ spatial_explorer_controls <- function(id, ik_data = NULL) {
   ns <- NS(id)
   div(class = "ik-selection ik-view-controls",
     tags$div(class = "ik-view-controls-h", "View options"),
-    selectInput(ns("species"), "Species", choices = NULL, multiple = TRUE))
+    selectInput(ns("species"), "Species", choices = NULL, multiple = TRUE),
+    radioButtons(ns("mode"), "Show as", inline = TRUE,
+      choices = c("Combined" = "combined", "Per species" = "separate"), selected = "combined"))
 }
 
 #' Spatial-explorer nav panel. @param id Module id. @param ik_data The container (camera-hour scale).
@@ -111,10 +113,15 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     per_cam  <- (ik_data$meta$camera$rai %||% list())$camera_hours %||% 500   # per-camera marker scale
     grp_taxa <- ik_group_taxa(ik_data)
     all_sci  <- sort(unique(stats::na.omit(ik_observations(ik_data, with_location = FALSE)$scientificName)))
+    # Default the picker to the predator-role groups — a "pest pressure vs control" front door
+    # (the app's conservation focus), not the busier "everything". User can widen to All species.
+    .sg          <- ik_species_groups(ik_data)
+    .pred_groups <- unique(.sg$label[!is.na(.sg$role) & .sg$role == "predator"])
+    .sp_default  <- if (length(.pred_groups)) paste0("grp:", .pred_groups) else "__all__"
 
-    # ---- the unified Species picker (group whole / split sub-species / ungrouped); "All species" default ----
+    # ---- the unified Species picker (group whole / split sub-species / ungrouped); predator default ----
     observe({ p <- prefer()
-      sel <- isolate(input$species); if (!length(sel)) sel <- "__all__"
+      sel <- isolate(input$species); if (!length(sel)) sel <- .sp_default
       updateSelectInput(session, "species",
         choices  = ik_species_choices_full(ik_data, p, all_label = "All species", all_value = "__all__"),
         selected = sel)
@@ -123,6 +130,19 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       if (!length(v) || "__all__" %in% v) all_sci else ik_resolve_species_choice(v, grp_taxa) })
     sp_lab <- reactive({ v <- input$species
       if (!length(v) || "__all__" %in% v) "all species" else paste(ik_choice_labels(v, ik_data, prefer()), collapse = " + ") })
+
+    mode <- reactive(if (identical(input$mode, "separate")) "separate" else "combined")
+
+    # The icon glyph KEY for a picked value (group → its group key; species → its group's key, else paw).
+    .glyph_key <- function(v) {
+      if (startsWith(v, "grp:")) (.sg$group[match(sub("^grp:", "", v), .sg$label)] %||% "other")
+      else if (startsWith(v, "sci:")) (.sg$group[match(sub("^sci:", "", v), .sg$scientificName)] %||% "other")
+      else "other"
+    }
+    # In Per-species mode each picked ENTRY is its own layer. "All species" would mean one layer per
+    # species (unwieldy), so expand it to one layer per GROUP instead.
+    entries <- reactive({ v <- input$species
+      if (!length(v) || "__all__" %in% v) paste0("grp:", unique(.sg$label)) else v })
 
     # ---- combined per-location values: ONE camera RAI + ONE trap count per location ----
     # The whole picked set is passed as a single taxa group, so .metrics_grouped sums it to one value.
@@ -177,23 +197,77 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     observe(ik_draw_device_layer(proxy(), .dev_context("trap"), fill_color = .SPEX_CATCH,
       group = "Traps", pane = "traps", radius = 3, fill_opacity = 0.35, label = ~name))
 
-    # ---- Detections — combined camera RAI (teal, size ∝ RAI) ----
+    # ---- Combined mode: ONE merged Detections layer (teal) + ONE Catches layer (amber) ----
+    # In Per-species mode these clear (d → NULL) and the per-entry layers below take over.
     observe({
-      d <- detect_pts(); d <- if (is.null(d)) NULL else d[is.finite(d$metric) & d$metric > 0, , drop = FALSE]
+      comb <- identical(mode(), "combined")
+      d <- if (!comb) NULL else { x <- detect_pts(); if (is.null(x)) NULL else x[is.finite(x$metric) & x$metric > 0, , drop = FALSE] }
       ik_draw_metric_markers(proxy(), d, value = d$metric, group = "Detections",
         layerId = paste0("C|", d$location_id), lo = 4, hi = 15, cap_pctl = 0.98,
         fill_color = .SPEX_DETECT, fill_opacity = 0.85, color = if (is_dark()) "#1a1a1a" else "#ffffff",
         weight = 1.4, pane = "detections",
         label = sprintf("%s — %s RAI %.2f", d$name, sp_lab(), d$metric))
     })
-
-    # ---- Catches — combined trap captures (amber, size ∝ count) ----
     observe({
-      d <- catch_pts(); d <- if (is.null(d)) NULL else d[is.finite(d$captures) & d$captures > 0, , drop = FALSE]
+      comb <- identical(mode(), "combined")
+      d <- if (!comb) NULL else { x <- catch_pts(); if (is.null(x)) NULL else x[is.finite(x$captures) & x$captures > 0, , drop = FALSE] }
       ik_draw_metric_markers(proxy(), d, value = d$captures, group = "Catches",
         layerId = paste0("K|", d$location_id), lo = 3, hi = 12, cap = ik_robust_cap(d$captures, 0.9),
         fill_color = .SPEX_CATCH, fill_opacity = 0.8, color = "#ffffff", weight = 1, pane = "catches",
         label = sprintf("%s — %s caught %d", d$name, sp_lab(), as.integer(d$captures)))
+    })
+
+    # ---- Per-species mode: one toggleable layer per picked ENTRY, with the species GLYPH icon ----
+    # Each layer carries both the entry's camera detections (teal disc) and trap catches (amber
+    # square) — device read by shape+colour (the locked language); the layers control names the
+    # species. drawn_groups tracks the live layer names so a re-pick clears the stale ones.
+    drawn_groups <- reactiveVal(character(0))
+    .draw_entry_layer <- function(p, e) {
+      grp <- e$label
+      det <- if (is.null(e$det))   NULL else e$det[is.finite(e$det$latitude) & is.finite(e$det$longitude) & is.finite(e$det$metric) & e$det$metric > 0, , drop = FALSE]
+      cat <- if (is.null(e$catch)) NULL else e$catch[is.finite(e$catch$latitude) & is.finite(e$catch$longitude) & is.finite(e$catch$captures) & e$catch$captures > 0, , drop = FALSE]
+      if (!is.null(det) && nrow(det)) {
+        sz <- round(2 * ik_marker_radius(det$metric, 6, 18, cap_pctl = 0.98) + 6)
+        leaflet::addMarkers(p, lng = det$longitude, lat = det$latitude, group = grp,
+          icon = ik_species_marker_icon(rep(e$key, nrow(det)), .SPEX_DETECT, "circle", sz),
+          layerId = paste0("C|", grp, "|", det$location_id),
+          label = sprintf("%s — %s RAI %.2f", det$name, grp, det$metric))
+      }
+      if (!is.null(cat) && nrow(cat)) {
+        sz <- round(2 * ik_marker_radius(cat$captures, 5, 15, cap = ik_robust_cap(cat$captures, 0.9)) + 6)
+        leaflet::addMarkers(p, lng = cat$longitude, lat = cat$latitude, group = grp,
+          icon = ik_species_marker_icon(rep(e$key, nrow(cat)), .SPEX_CATCH, "square", sz),
+          layerId = paste0("K|", grp, "|", cat$location_id),
+          label = sprintf("%s — %s caught %d", cat$name, grp, as.integer(cat$captures)))
+      }
+      grp
+    }
+    observe({
+      p <- proxy()
+      for (g in drawn_groups()) leaflet::clearGroup(p, g)        # clear the previous per-entry layers
+      if (!identical(mode(), "separate")) { drawn_groups(character(0)); return() }
+      req(active())
+      pe <- lapply(entries(), function(v) {
+        taxa <- ik_choice_taxa(v, grp_taxa, ik_data, isolate(prefer())); if (is.null(taxa)) return(NULL)
+        sci  <- unlist(taxa, use.names = FALSE)
+        list(label = names(taxa)[1], key = .glyph_key(v),
+             det   = ik_location_metric(ik_data, selection(), stats::setNames(list(sci), "x"), "camera", norm = per_cam),
+             catch = ik_location_metric(ik_data, selection(), stats::setNames(list(sci), "x"), "trap"))
+      })
+      pe <- Filter(Negate(is.null), pe)
+      grps <- vapply(pe, function(e) .draw_entry_layer(p, e), character(1))
+      drawn_groups(unique(grps))
+    })
+
+    # Dynamic layers control — combined shows Detections/Catches; per-species shows the entry layers.
+    observe({
+      p <- proxy()
+      overlays <- if (identical(mode(), "separate")) c(drawn_groups(), "Cameras", "Traps", "Boundary")
+                  else c("Detections", "Catches", "Cameras", "Traps", "Boundary")
+      leaflet::addLayersControl(p, baseGroups = c("Map", "Satellite"), overlayGroups = overlays,
+        options = leaflet::layersControlOptions(collapsed = FALSE))
+      shown <- isolate(input$map_groups)                         # re-hide the context unless the user showed it
+      for (g in c("Cameras", "Traps")) if (is.null(shown) || !(g %in% shown)) leaflet::hideGroup(p, g)
     })
 
     observe({                                                 # Boundary — the shared reserve footprint
@@ -217,12 +291,14 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       if (!has_d && !has_c) return()
       leaflet::addLegend(p, "bottomright", colors = c(.SPEX_DETECT, .SPEX_CATCH),
         labels = c("Camera detections (size &prop; RAI)", "Trap catches (size &prop; count)"),
-        title = sprintf("%s &middot; combined", sp_lab()), opacity = 0.9)
+        title = sprintf("%s &middot; %s", sp_lab(), if (identical(mode(), "separate")) "per species" else "combined"),
+        opacity = 0.9)
     })
 
     observeEvent(input$map_marker_click, {                    # marker → filter table to that location
       cid <- input$map_marker_click$id; if (is.null(cid)) return()
-      loc <- sub("^[CK]\\|", "", cid); locs <- ik_data$app$geography$locations
+      loc <- sub(".*\\|", "", cid)                            # "C|loc" or "C|Mustelids|loc" → loc
+      locs <- ik_data$app$geography$locations
       selected(list(id = loc, label = locs$name[match(loc, locs$location_id)] %||% loc))
     })
 
