@@ -1,6 +1,13 @@
 {
   "name": "insightful-kiwi-shiny",
+  "updateRemoteUserUID": false,
   
+  "runArgs": [
+    "--cpus=4",
+    "--memory=16g",
+    "--memory-swap=16g"
+  ],
+
   "features": {
     "ghcr.io/devcontainers/features/node:2.1.0": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
@@ -11,13 +18,14 @@
     "context": "..",
     "target": "dev"
   },
+
   "workspaceFolder": "/srv/shiny-server/insightful.kiwi",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/srv/shiny-server/insightful.kiwi,type=bind,consistency=cached",
+  "workspaceMount": "source=/mnt/nas/code/insightful-kiwi,target=/srv/shiny-server/insightful.kiwi,type=bind,consistency=cached",
 
   "mounts": [
-    "source=${localEnv:HOME}/.ssh/ssh-agent.sock,target=/ssh-agent,type=bind",
-    "source=insightful-kiwi-claude,target=/root/.claude,type=volume",
-    "source=insightful-kiwi-codex,target=/root/.codex,type=volume"
+    "type=bind,source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent",
+    "type=bind,source=${localWorkspaceFolder}/.persistent_data/claude,target=/root/.claude",
+    "type=bind,source=${localWorkspaceFolder}/.persistent_data/codex,target=/root/.codex"
   ],
   
   "containerEnv": {

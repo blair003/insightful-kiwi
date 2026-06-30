@@ -26,6 +26,7 @@ instance/www/media-cache/*
 # -------------------------------------------------------------------
 app_cache/
 .DS_Store
+.persistent_data/
 .vscode/
 .claude
 .positai/
@@ -41,3 +42,5 @@ app_cache/
 .Ruserdata/
 *.Rproj
 .lintrdocs/
+docs/v0.1reference/spatial_analysis_module.R
+docs/v0.1reference/spatial_map_module.R
