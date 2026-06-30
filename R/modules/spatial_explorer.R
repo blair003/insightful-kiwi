@@ -41,8 +41,9 @@ spatial_explorer_help_body <- function(cam_norm = 500) {
         tags$b("square"), " is a trap catch. ", tags$b("Size says how much"), ". Where more than one role is at a ",
         "location the marker is ", tags$b("split"), " (e.g. half red / half green) so neither hides the other — ",
         tags$b("click it for the full per-species breakdown"), "."),
-      P(tags$b("Species mode"), " (sidebar): ", tags$b("Combined"), " draws one role-split marker per location; ",
-        tags$b("Per species"), " gives each picked species its own toggleable layer (role-coloured, with its silhouette)."),
+      P(tags$b("Markers"), " (sidebar): ", tags$b("By role"), " draws one role-split marker per location; ",
+        tags$b("By species"), " gives each picked species its own toggleable layer (role-coloured, with its silhouette; ",
+        "markers fan out where species share a spot)."),
       P(tags$b("Display"), " switches between one map and two ", tags$b("side by side"), ". Break a ",
         tags$b("chain"), " (on Data period or Species) to compare a different period — ", tags$b("prior period"),
         ", ", tags$b("same period last year"), ", or any other — or a different species on the right map; ",
@@ -112,8 +113,8 @@ spatial_explorer_controls <- function(id, ik_data = NULL) {
       choiceValues = c("single", "sbs", "swipe"), selected = "single"),
     conditionalPanel("input.display == 'sbs'", ns = ns,   # swipe always links (the two halves must align)
       checkboxInput(ns("link"), tagList(icon("link"), " Link views (pan/zoom together)"), value = TRUE)),
-    radioButtons(ns("mode"), "Species mode",
-      choices = c("Combined" = "combined", "Per species" = "separate"), selected = "combined"),
+    radioButtons(ns("mode"), "Markers",
+      choices = c("By role" = "combined", "By species" = "separate"), selected = "combined"),
     linkable("Data period", "link_period", per_input(selA),
       selectInput(ns("compare_period"), NULL, choices = cmp_choices, selected = "prior")),
     linkable("Species",     "link_species", species_pickers(""),   species_pickers("_b")))
@@ -400,39 +401,50 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       observe(.draw_pies(proxy(), "camera", "Detections"))
       observe(.draw_pies(proxy(), "trap",   "Catches"))
 
-      # ── PER-SPECIES: one toggleable LAYER per picked ENTRY (role-coloured, with its silhouette) ──
+      # ── BY SPECIES: one toggleable LAYER per picked ENTRY (role-coloured, silhouette). Where several
+      # species share a location their markers are FANNED OUT around the point so none hides another,
+      # and each keeps a UNIQUE layerId (C|<species>|<loc>) so leaflet doesn't drop the duplicates. ──
       drawn_groups <- reactiveVal(character(0))
-      .draw_group_layer <- function(p, e) {
-        grp <- e$label
-        det <- if (is.null(e$det))   NULL else e$det[is.finite(e$det$latitude) & is.finite(e$det$longitude) & is.finite(e$det$metric) & e$det$metric > 0, , drop = FALSE]
-        cat <- if (is.null(e$catch)) NULL else e$catch[is.finite(e$catch$latitude) & is.finite(e$catch$longitude) & is.finite(e$catch$captures) & e$catch$captures > 0, , drop = FALSE]
-        if (!is.null(det) && nrow(det)) {
-          sz <- round(2 * ik_marker_radius(det$metric, 6, 18, cap_pctl = 0.98) + 6)
-          leaflet::addMarkers(p, lng = det$longitude, lat = det$latitude, group = grp,
-            icon = ik_species_marker_icon(rep(e$key, nrow(det)), e$colour, "circle", sz),
-            layerId = paste0("C|", det$location_id), label = sprintf("%s — %s RAI %.2f · click for detail", det$name, grp, det$metric))
+      .draw_fanned <- function(p, ent, which, source, prefix) {
+        rows <- do.call(rbind, lapply(ent, function(e) { m <- e[[which]]; if (is.null(m)) return(NULL)
+          val <- if (source == "camera") m$metric else m$captures
+          keep <- is.finite(m$latitude) & is.finite(m$longitude) & is.finite(val) & val > 0
+          if (!any(keep)) return(NULL)
+          data.frame(label = e$label, key = e$key, colour = e$colour, loc = m$location_id[keep],
+            name = m$name[keep], lat = m$latitude[keep], lng = m$longitude[keep], value = val[keep], stringsAsFactors = FALSE) }))
+        if (is.null(rows) || !nrow(rows)) return()
+        rows <- rows[order(rows$loc), , drop = FALSE]
+        rows$idx  <- stats::ave(seq_len(nrow(rows)), rows$loc, FUN = seq_along)   # 1..n within a location
+        rows$n    <- stats::ave(rows$idx, rows$loc, FUN = max)
+        ang <- ifelse(rows$n > 1, 2 * pi * (rows$idx - 1) / rows$n, 0); rr <- 0.00038   # ~42 m fan radius
+        rows$olat <- ifelse(rows$n > 1, rows$lat + rr * sin(ang), rows$lat)
+        rows$olng <- ifelse(rows$n > 1, rows$lng + rr * cos(ang) / cos(rows$lat * pi / 180), rows$lng)
+        for (lbl in unique(rows$label)) {
+          s  <- rows[rows$label == lbl, , drop = FALSE]
+          sz <- if (source == "camera") round(2 * ik_marker_radius(s$value, 6, 18, cap_pctl = 0.98) + 6)
+                else round(2 * ik_marker_radius(s$value, 5, 15, cap = ik_robust_cap(s$value, 0.9)) + 6)
+          leaflet::addMarkers(p, lng = s$olng, lat = s$olat, group = lbl,
+            icon = ik_species_marker_icon(s$key, s$colour[1], if (source == "camera") "circle" else "square", sz),
+            layerId = paste0(prefix, lbl, "|", s$loc),
+            label = sprintf("%s — %s %s · click for detail", s$name, lbl,
+                            if (source == "camera") sprintf("RAI %.2f", s$value) else paste0(as.integer(s$value), " caught")))
         }
-        if (!is.null(cat) && nrow(cat)) {
-          sz <- round(2 * ik_marker_radius(cat$captures, 5, 15, cap = ik_robust_cap(cat$captures, 0.9)) + 6)
-          leaflet::addMarkers(p, lng = cat$longitude, lat = cat$latitude, group = grp,
-            icon = ik_species_marker_icon(rep(e$key, nrow(cat)), e$colour, "square", sz),
-            layerId = paste0("K|", cat$location_id), label = sprintf("%s — %s caught %d · click for detail", cat$name, grp, as.integer(cat$captures)))
-        }
-        grp
       }
       observe({
         p <- proxy()
         for (g in drawn_groups()) leaflet::clearGroup(p, g)
         if (!identical(mode(), "separate")) { drawn_groups(character(0)); return() }
         req(pane_active())
-        groups <- Filter(Negate(is.null), lapply(entries(), function(v) {
+        ent <- Filter(Negate(is.null), lapply(entries(), function(v) {
           taxa <- ik_choice_taxa(v, grp_taxa, ik_data, isolate(prefer())); if (is.null(taxa)) return(NULL)
           sci  <- unlist(taxa, use.names = FALSE)
           role <- names(sort(table(.role_of(sci)), decreasing = TRUE))[1] %||% "other"
           list(label = names(taxa)[1], key = .glyph_key(v), colour = unname(.SPEX_ROLE[role]),
                det   = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "camera", norm = per_cam),
                catch = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "trap")) }))
-        drawn_groups(unique(vapply(groups, function(e) .draw_group_layer(p, e), character(1))))
+        .draw_fanned(p, ent, "det",   "camera", "C|")
+        .draw_fanned(p, ent, "catch", "trap",   "K|")
+        drawn_groups(unique(vapply(ent, function(e) e$label, character(1))))
       })
 
       observe({                                                # dynamic layers control — position by side (swipe)
