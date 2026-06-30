@@ -209,9 +209,9 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       ik_draw_metric_markers(proxy(), d, value = d$metric, group = "Cameras", layerId = paste0("C|", d$location_id),
         lo = 5, hi = 20, cap_pctl = 0.98, pal = .PP_RAMP,
         fill_opacity = 0.85, color = if (is_dark()) "#1a1a1a" else "#ffffff", weight = 1.5, pane = "cameras",
-        label = sprintf("%s — pressure %.2f", d$name, d$metric),
-        popup = sprintf("<b>%s</b><br/>Line %s &middot; %s<br/><b>Pressure: %.2f</b><br/>%s RAI: %.2f &middot; %s RAI: %.2f",
-          d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, d$metric, pred_lab(), d$predator, prot_lab(), d$protected))
+        label = sprintf("%s — Line %s", d$name, ifelse(is.na(d$line), "—", d$line)),
+        popup = sprintf("<b>%s</b><br/>Line %s &middot; %s<br/>%s RAI: %.2f &middot; %s RAI: %.2f",
+          d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, pred_lab(), d$predator, prot_lab(), d$protected))
     })
 
     # ---- Catches — traps that caught the chosen predator (purple, count scale) ----
@@ -256,7 +256,8 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       d <- prio_pts(); if (is.null(d) || !nrow(d)) return()
       cap <- ik_max_cap(d$metric); pf <- leaflet::colorNumeric(.PP_RAMP, c(0, cap))
       ik_draw_metric_legend(p, pf, pmin(d$metric, cap),
-        sprintf("Predator pressure &middot; %s high, %s low", pred_lab(), prot_lab()))
+        sprintf("Predator pressure<br><span style='font-weight:400;font-size:.85em'>%s high</span><br><span style='font-weight:400;font-size:.85em'>%s low</span>",
+                htmltools::htmlEscape(pred_lab()), htmltools::htmlEscape(prot_lab())))
       leaflet::addLegend(p, "bottomleft", colors = c("#6a3d9a", "#8a8a8a", "#f59f00"),
         labels = c(sprintf("%s caught (traps)", pred_lab()), "Traps in service", "Traps neglected"),
         title = "Trapping overlay", opacity = 0.9)
@@ -279,7 +280,7 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
     output$records_caption <- renderUI({
       if (!has_pick()) return(tags$small("Pick a predator and a protected species to compare."))
       d <- prio_pts(); n <- if (is.null(d)) 0L else nrow(d)
-      tags$small(sprintf("%s camera site%s · pressure = %s high & %s low (exploratory). Click a row for the detections behind it.",
+      tags$small(sprintf("%s camera site%s — reddest = highest predator pressure (more %s, fewer %s). Click a row for the detections behind it.",
                          format(n, big.mark = ","), if (n == 1L) "" else "s", pred_lab(), prot_lab()))
     })
 
@@ -288,15 +289,42 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       d <- prio_pts(); sel <- selected()
       if (!is.null(sel) && identical(sel$kind, "location")) d <- d[d$location_id == sel$id, , drop = FALSE]
       validate(need(!is.null(d) && nrow(d), "No camera sites in the current selection."))
-      d <- d[order(-d$metric), , drop = FALSE]; prio_tbl(d)
-      df <- data.frame(Camera = d$name, Reserve = d$reserve, Line = d$line,
-        predator = round(d$predator, 2), protected = round(d$protected, 2),
-        Pressure = round(d$metric, 2), check.names = FALSE, stringsAsFactors = FALSE)
-      names(df)[4:5] <- c(paste(pred_lab(), "RAI"), paste(prot_lab(), "RAI"))
-      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 8, scrollX = TRUE, dom = "ftip", order = list(list(5, "desc"))))
+      d <- d[order(-d$metric), , drop = FALSE]; prio_tbl(d)        # priority order — highest (reddest) first
+      cap <- ik_max_cap(d$metric); if (!is.finite(cap) || cap <= 0) cap <- 1
+      rg  <- grDevices::col2rgb(leaflet::colorNumeric(.PP_RAMP, c(0, cap))(pmin(d$metric, cap)))
+      df <- data.frame(
+        Camera = d$name, Reserve = d$reserve, Line = ifelse(is.na(d$line), "—", as.character(d$line)),
+        `Predator RAI` = round(d$predator, 2), `Protected RAI` = round(d$protected, 2),
+        .col = sprintf("rgba(%d,%d,%d,0.5)", rg["red", ], rg["green", ], rg["blue", ]),  # hidden: priority tint, red=high
+        .loc = d$location_id,                                       # hidden: drives the hover → marker highlight
+        check.names = FALSE, stringsAsFactors = FALSE)
+      ci <- which(names(df) == ".col") - 1L; li <- which(names(df) == ".loc") - 1L        # 0-based DT targets
+      # FIXED column names (not the picked species, which change with the selection and tripped DataTables
+      # — "column 'Stoat RAI' not found"); the species are named in the caption + legend instead. Rows
+      # arrive priority-sorted, ordering off so the red→yellow tint reads top-to-bottom. No Pressure column
+      # (the raw score is opaque) — createdRow paints each row by priority and wires hover → map highlight.
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "hover row-border ik-row-click",
+        options = list(pageLength = 8, scrollX = TRUE, dom = "ftip", ordering = FALSE,
+          columnDefs = list(list(visible = FALSE, targets = c(ci, li))),
+          # tint the CELLS, not the <tr> (bslib paints td backgrounds over the row, hiding a tr tint)
+          createdRow = DT::JS(sprintf(
+            "function(row,data,i){var bg=data[%d];for(var k=0;k<row.children.length;k++){row.children[k].style.backgroundColor=bg;}var L=data[%d];row.addEventListener('mouseenter',function(){Shiny.setInputValue('%s',L,{priority:'event'});});row.addEventListener('mouseleave',function(){Shiny.setInputValue('%s','',{priority:'event'});});}",
+            ci, li, session$ns("pp_hover"), session$ns("pp_hover")))))
     })
     prio_dt_proxy <- DT::dataTableProxy("table")
+
+    # Hover a priority row → ring that camera's marker on the map (see WHICH dot the row is). Empty clears.
+    pp_hover <- shiny::debounce(reactive(input$pp_hover), 100)
+    observeEvent(pp_hover(), {
+      p <- proxy(); leaflet::clearGroup(p, "PPHighlight")
+      loc <- pp_hover(); if (is.null(loc) || !nzchar(loc)) return()
+      d <- prio_pts(); if (is.null(d)) return()
+      r <- d[d$location_id == loc, , drop = FALSE]
+      if (!nrow(r) || !is.finite(r$longitude[1])) return()
+      leaflet::addCircleMarkers(p, lng = r$longitude[1], lat = r$latitude[1], group = "PPHighlight",
+        radius = 11, fill = FALSE, stroke = TRUE, weight = 3, opacity = 0.95,
+        color = if (is_dark()) "#4dabf7" else "#1565c0", options = leaflet::pathOptions(pane = "selected"))
+    }, ignoreNULL = FALSE)
 
     output$caption <- renderUI({
       if (!has_pick()) return(NULL)
@@ -336,8 +364,8 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       obs[order(obs$eventStart), , drop = FALSE]
     }
     # Open the per-camera detections modal — from a map marker (direct) OR a table row. The subtitle
-    # is the customised context line: reserve · line — pressure, with the predator/protected RAIs in
-    # bold, and the active period spelled out.
+    # is the customised context line: reserve · line — the predator/protected RAIs in bold (the opaque
+    # pressure score itself is not shown), with the active period spelled out.
     .open_pp_modal <- function(loc_id) {
       d <- prio_pts(); if (is.null(d)) return()
       row <- d[d$location_id == loc_id, , drop = FALSE]; if (!nrow(row)) return()
@@ -347,9 +375,9 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       ptxt <- if (length(plab) && nzchar(plab) && length(span) && nzchar(span)) sprintf("%s (%s)", plab, span)
               else if (length(span) && nzchar(span)) span else if (length(plab)) plab else ""
       sub <- HTML(sprintf(
-        "Camera &middot; %s &middot; Line %s &mdash; pressure <b>%.2f</b> (%s RAI <b>%.2f</b> vs %s RAI <b>%.2f</b>)%s",
+        "Camera &middot; %s &middot; Line %s &mdash; %s RAI <b>%.2f</b> vs %s RAI <b>%.2f</b>%s",
         htmltools::htmlEscape(row$reserve), ifelse(is.na(row$line), "—", htmltools::htmlEscape(as.character(row$line))),
-        row$metric, htmltools::htmlEscape(pred_lab()), row$predator, htmltools::htmlEscape(prot_lab()), row$protected,
+        htmltools::htmlEscape(pred_lab()), row$predator, htmltools::htmlEscape(prot_lab()), row$protected,
         if (nzchar(ptxt)) sprintf(" &middot; %s", htmltools::htmlEscape(ptxt)) else ""))
       showModal(modalDialog(
         title = .ik_modal_title(sprintf("Detections at %s", row$name), sub),
