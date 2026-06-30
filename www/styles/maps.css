@@ -153,6 +153,14 @@
   margin-right: 0.4em; vertical-align: -1px; }
 .ik-spex-modal-more { margin-top: 0.5rem; font-size: 0.85rem; }
 .ik-spex-hint { cursor: help; color: var(--bs-secondary-color, #888); font-size: 0.85em; }
+/* Bottom-left summary overlay — detections + captures by role for the map's selection. */
+.ik-spex-summary { background: rgba(255,255,255,0.92); padding: 5px 9px; border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25); font-size: 0.78rem; color: #333; }
+.ik-spex-summary-t { border-collapse: collapse; }
+.ik-spex-summary-t th, .ik-spex-summary-t td { padding: 1px 6px; text-align: right; }
+.ik-spex-summary-t th:first-child, .ik-spex-summary-t td:first-child { text-align: left; font-weight: 600; color: #555; padding-left: 0; }
+.ik-spex-summary-t th { font-weight: 700; }
+.ik-spex-summary-f { margin-top: 2px; color: #888; font-size: 0.72rem; }
 @media (min-width: 576px) {
   .ik-map-fill > .ik-spex-row { flex: 1 1 auto; min-height: 0; margin-bottom: 0; }
   .ik-map-fill .ik-spex-row .leaflet, .ik-map-fill .ik-spex-row .html-widget { height: 100% !important; }

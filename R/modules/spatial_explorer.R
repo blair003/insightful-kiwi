@@ -157,8 +157,7 @@ spatial_explorer_ui <- function(id, ik_data = NULL) {
                   div(class = "ik-maps-records-header",
                       uiOutput(ns("records_caption")),
                       downloadButton(ns("download_csv"), "Download CSV", class = "btn-sm")),
-                  DT::DTOutput(ns("table")))))),
-        uiOutput(ns("unplaced")))
+                  DT::DTOutput(ns("table")))))))
   )
 }
 
@@ -413,7 +412,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
           val <- if (source == "camera") m$metric else m$captures
           keep <- is.finite(m$latitude) & is.finite(m$longitude) & is.finite(val) & val > 0
           if (!any(keep)) return(NULL)
-          data.frame(label = e$label, key = e$key, colour = e$colour, loc = m$location_id[keep],
+          data.frame(label = e$label, key = e$key, colour = e$colour, role = e$role, loc = m$location_id[keep],
             name = m$name[keep], lat = m$latitude[keep], lng = m$longitude[keep], value = val[keep], stringsAsFactors = FALSE) }))
         if (is.null(rows) || !nrow(rows)) return()
         rows <- rows[order(rows$loc), , drop = FALSE]
@@ -431,6 +430,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
           leaflet::addMarkers(p, lng = s$olng, lat = s$olat, group = lbl,
             icon = ik_species_marker_icon(s$key, s$colour[1], if (source == "camera") "circle" else "square", s$sz),
             layerId = paste0(prefix, lbl, "|", s$loc),
+            options = leaflet::markerOptions(zIndexOffset = switch(s$role[1], predator = 400, protected = 200, 0)),  # predators on top
             label = sprintf("%s — %s %s · click for detail", s$name, lbl,
                             if (source == "camera") sprintf("RAI %.2f", s$value) else paste0(as.integer(s$value), " caught")))
         }
@@ -444,7 +444,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
           taxa <- ik_choice_taxa(v, grp_taxa, ik_data, isolate(prefer())); if (is.null(taxa)) return(NULL)
           sci  <- unlist(taxa, use.names = FALSE)
           role <- names(sort(table(.role_of(sci)), decreasing = TRUE))[1] %||% "other"
-          list(label = names(taxa)[1], key = .glyph_key(v), colour = unname(.SPEX_ROLE[role]),
+          list(label = names(taxa)[1], key = .glyph_key(v), colour = unname(.SPEX_ROLE[role]), role = role,
                det   = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "camera", norm = per_cam),
                catch = ik_location_metric(ik_data, get_selection(), stats::setNames(list(sci), "x"), "trap")) }))
         .draw_fanned(p, ent, "det",   "camera", "C|")
@@ -465,14 +465,30 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       observe({ p <- proxy(); leaflet::clearGroup(p, "Boundary")  # Boundary
         ik_add_reserve_boundary(p, reserve_hulls(), color = if (is_dark()) "#cfd8dc" else "#37474f") })
 
-      observe({                                                # legend (role key) + shape key — position by side
+      observe({                                                # legend (role key) + shape key + bottom-left SUMMARY
         p <- proxy(); leaflet::clearControls(p)
-        present <- intersect(c("predator", "protected", "other"), unique(.role_of(sp_sci())))
+        sci <- sp_sci(); present <- intersect(c("predator", "protected", "other"), unique(.role_of(sci)))
         if (!length(present)) return()
         leaflet::addLegend(p, ctrl()$legend, colors = unname(.SPEX_ROLE[present]), labels = unname(.SPEX_ROLE_LABEL[present]),
           title = sprintf("%s &middot; by role", sp_lab()), opacity = 0.9)
         leaflet::addControl(p, position = ctrl()$legend, className = "ik-maps-shapekey",
           html = "&#9679; camera detection &nbsp; &#9632; trap catch<br/><small>size = amount; click for detail</small>")
+        # SUMMARY (bottom-left) — detections + captures by role, for THIS map's selection.
+        roles <- .role_of(sci); short <- c(predator = "Pred", protected = "Prot", other = "Other")
+        counts <- lapply(present, function(r) { s <- sci[roles == r]
+          cam <- ik_location_metric(ik_data, get_selection(), stats::setNames(list(s), "x"), "camera", norm = per_cam)
+          trp <- ik_location_metric(ik_data, get_selection(), stats::setNames(list(s), "x"), "trap")
+          c(det = if (is.null(cam)) 0L else as.integer(round(sum(cam$individuals, na.rm = TRUE))),
+            cat = if (is.null(trp)) 0L else as.integer(round(sum(trp$captures, na.rm = TRUE)))) })
+        cells <- function(k) paste(vapply(seq_along(present), function(i) sprintf("<td>%s</td>", format(counts[[i]][[k]], big.mark = ",")), character(1)), collapse = "")
+        hdr <- paste(sprintf("<th style='color:%s'>%s</th>", unname(.SPEX_ROLE[present]), short[present]), collapse = "")
+        du <- { m <- detect_all(); if (is.null(m)) 0L else sum(!(is.finite(m$latitude) & is.finite(m$longitude))) }
+        cu <- { m <- catch_all();  if (is.null(m)) 0L else sum(!(is.finite(m$latitude) & is.finite(m$longitude))) }
+        leaflet::addControl(p, position = "bottomleft", className = "ik-spex-summary", html = paste0(
+          "<table class='ik-spex-summary-t'><tr><th>This map</th>", hdr, "</tr>",
+          "<tr><td>Detections</td>", cells("det"), "</tr><tr><td>Caught</td>", cells("cat"), "</tr></table>",
+          if (du + cu) sprintf("<div class='ik-spex-summary-f'>+ %s coordless site%s not mapped</div>",
+                               format(du + cu, big.mark = ","), if (du + cu == 1L) "" else "s") else ""))
       })
 
       observeEvent(input[[paste0(map_id, "_marker_click")]], {  # marker → MODAL for that location
@@ -492,10 +508,16 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     .spp_linked <- reactive(!isTRUE(two_pane()) || isTRUE(input$link_species))
     sel_b <- reactive({
       if (.per_linked()) return(selection())                    # period chained → mirror the left map
-      tok <- input$compare_period
-      per <- if (length(tok) && tok %in% c("prior", "last_year")) ik_prev_period(selection()$period, tok, ik_data) else tok
-      if (is.null(per) || is.na(per) || !nzchar(per)) per <- selection()$period   # relative window doesn't resolve → mirror A
-      s <- selection(); s$period <- per; s$season <- ik_expand_period(per, ik_data); s   # B = A's reserve, B's period
+      tok <- input$compare_period; base <- selection()          # B keeps A's reserve; only its period differs
+      if (length(tok) && tok %in% c("prior", "last_year")) {    # RELATIVE — shift the main period's SEASONS back
+        bs <- .ik_nz(base$season); if (is.null(bs)) return(base)   # main = all data → no relative window
+        new <- if (tok == "prior" && length(bs) == 1) ik_prior_season(bs, ik_data)  # single season → the season before
+               else vapply(bs, function(s) ik_same_season_last_year(s, ik_data), character(1), USE.NAMES = FALSE)  # else (incl. rolling windows) → back a year
+        new <- new[!is.na(new)]; if (!length(new)) return(base)
+        base$season <- new; base$period <- paste0("compare:", tok); return(base)    # the metric filters on $season; $period is display-only
+      }
+      if (is.null(tok) || !nzchar(tok)) return(base)            # ABSOLUTE period code
+      base$season <- ik_expand_period(tok, ik_data); base$period <- tok; base
     })
 
     paneA <- make_pane("map", "a", active, selection, reactive(input$species), reactive(input$mode))
@@ -554,13 +576,6 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
         format(nc, big.mark = ","), if (identical(nc, 1L)) "" else "s"))
     })
 
-    output$unplaced <- renderUI({
-      du <- { m <- paneA$detect_all(); if (is.null(m)) 0L else sum(!(is.finite(m$latitude) & is.finite(m$longitude))) }
-      cu <- { m <- paneA$catch_all();  if (is.null(m)) 0L else sum(!(is.finite(m$latitude) & is.finite(m$longitude))) }
-      n <- du + cu; if (!n) return(NULL)
-      div(class = "ik-maps-unplaced", icon("triangle-exclamation"),
-          sprintf(" %s coordless site%s not shown on the map (no location fix).", format(n, big.mark = ","), if (n == 1L) "" else "s"))
-    })
 
     output$download_csv <- downloadHandler(
       filename = function() sprintf("spatial-explorer-%s.csv", Sys.Date()),
