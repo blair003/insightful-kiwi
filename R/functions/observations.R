@@ -198,10 +198,17 @@ ik_observation <- function(ik_data, observation_id) {
     hit$latitude     <- dr$latitude
     hit$longitude    <- dr$longitude
     hit$cameraModel  <- dr$cameraModel    # trap type for trap deployments
+    hit$cameraID            <- dr$cameraID            # hardware id (Provenance)
+    hit$deploymentStart     <- dr$deploymentStart     # deployment window (Provenance)
+    hit$deploymentEnd       <- dr$deploymentEnd
+    hit$deploymentComments  <- dr$deploymentComments  # e.g. "Converted from trap.NZ" (Provenance)
     locs <- ik_data$app$geography$locations
     gr   <- locs[match(hit$locationID, locs$location_id), , drop = FALSE]
     hit$reserve <- gr$reserve
     hit$line    <- gr$line
+    hit$within_monitored_area          <- gr$within_monitored_area           # data-quality context for
+    hit$nearest_monitoring_location    <- gr$nearest_monitoring_location     # out-of-reserve traps
+    hit$nearest_monitoring_distance_km <- gr$nearest_monitoring_distance_km
     return(ik_tag_provenance(hit, id, ds))
   }
   NULL

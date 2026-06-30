@@ -288,20 +288,9 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
         ifelse(reb == "yes", "Yes",
         ifelse(reb == "no",  "<span style='color:#adb5bd'>No</span>",
                              "<span style='color:#adb5bd'>—</span>")))
-      interval <- ifelse(ch$is_first, "—", paste0(ch$interval_days, " d"))
-      df <- data.frame(
-        Date = format(ch$check_date, "%d %b %Y"),
-        Interval = interval, Outcome = ch$outcome, Bait = ch$bait,
-        Rebaited = rebaited, Volunteer = ch$volunteer, ObsID = ch$observationID,
-        check.names = FALSE, stringsAsFactors = FALSE)
-      dt <- DT::datatable(df, rownames = FALSE, selection = "single",
-        escape = -which(names(df) == "Rebaited"),                # Rebaited holds an icon + tooltip
-        class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 15, scrollX = TRUE, dom = "ftip",
-                       columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))  # hide ObsID
-      # Highlight the catch you came from (tints the whole row's cells). See .ik_dt_highlight_row.
-      dt <- .ik_dt_highlight_row(dt, "ObsID", sel_hl())
-      dt
+      # Standard trap-history table (Date·Season·Interval·Outcome·Bait) + this module's richer
+      # recipe-aware Rebaited column, and the "row you came from" highlight.
+      ik_trap_history_dt(ch, rebaited = rebaited, highlight = sel_hl(), page_length = 15)
     })
 
     observeEvent(input$hist_table_rows_selected, {               # history row → its record

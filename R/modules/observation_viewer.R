@@ -95,6 +95,137 @@
   sprintf("%s%s", lbl, if (!is.na(d)) sprintf(" · %s", d) else "")
 }
 
+# Role display label + accent colour for a record's species (matches the Spatial explorer palette).
+.OVW_ROLE_LABEL <- c(predator = "Predator", protected = "Protected", other = "Other")
+.OVW_ROLE_COL   <- c(predator = "#d62728", protected = "#2e9e3f", other = "#8a8a8a")
+
+#' The record's monitoring season (calendar_season, e.g. "Autumn 2026"), or NA. @keywords internal
+.ovw_season <- function(ik_data, ob) {
+  po <- ik_data$app$period$observations
+  if (is.null(po) || !length(ob$observationID)) return(NA_character_)
+  po$calendar_season[match(ob$observationID, po$observationID)]
+}
+
+#' The species' row in the project species-groups registry (group label, role, monitor/control intent,
+#' sentiment) — the "about this species" context. NULL when the record has no resolvable species
+#' (blank / unclassified). @keywords internal
+.ovw_species_meta <- function(ik_data, ob) {
+  sn <- ob$scientificName
+  if (length(sn) == 0 || is.na(sn) || !nzchar(sn)) return(NULL)
+  sg <- ik_species_groups(ik_data)
+  if (is.null(sg) || !nrow(sg)) return(NULL)
+  g <- sg[match(sn, sg$scientificName), , drop = FALSE]
+  if (!nrow(g) || is.na(g$group)) return(NULL)
+  g
+}
+
+#' The record species' role (predator / protected / other), or NA. @keywords internal
+.ovw_role <- function(ik_data, ob) {
+  m <- .ovw_species_meta(ik_data, ob)
+  if (is.null(m)) return(NA_character_)
+  m$role[1]
+}
+
+#' The de-duplication window applied to this species (project `duplicate_window`, per-species override
+#' over the default) as a readable "N min", or NA. Minute-resolution only — meaningless for date-only
+#' trap data, so callers pass it for camera records only. @keywords internal
+.ovw_dupwindow <- function(ik_data, ob) {
+  sn <- ob$scientificName
+  if (length(sn) == 0 || is.na(sn)) return(NA_character_)
+  dw <- ik_data$meta$duplicate_window %||% list(default = 5, by_species = list())  # canonical path (species Summary)
+  w <- dw$by_species[[sn]]; if (is.null(w)) w <- dw$default
+  if (is.null(w) || length(w) != 1 || is.na(w) || !is.finite(w)) return(NA_character_)
+  sprintf("%g min", w)
+}
+
+#' The deployment window as "start – end" (dates), or a single date / NA. @keywords internal
+.ovw_deploy_window <- function(ob) {
+  fmt <- function(x) if (length(x) && !is.na(x)) format(x, "%d %b %Y") else NA_character_
+  s <- fmt(ob$deploymentStart); e <- fmt(ob$deploymentEnd)
+  if (is.na(s) && is.na(e)) return(NA_character_)
+  if (is.na(e) || identical(s, e)) return(s)
+  if (is.na(s)) return(e)
+  paste(s, "–", e)
+}
+
+#' One labelled fact for the Summary grid, dropped when empty. @keywords internal
+.ovw_fact <- function(label, value) {
+  v <- .ovw_val(value)
+  if (is.na(v) || !nzchar(v)) return(NULL)
+  tags$div(class = "ovw-fact", tags$span(class = "ovw-fact-k", label), tags$span(class = "ovw-fact-v", v))
+}
+
+#' The "About <group>" section for the Summary tab — the record species' species-group meta. @keywords internal
+.ovw_about <- function(ik_data, ob, meta, is_cam) {
+  if (is.null(meta)) return(NULL)
+  nz   <- function(x) if (length(x) && !is.na(x) && nzchar(x)) x else ""
+  mon  <- switch(nz(meta$monitor), target = "Core target", interesting = "Of interest", NA_character_)
+  ctrl <- if (isTRUE(meta$control == "target")) "Control target" else NA_character_
+  conc <- switch(nz(meta$sentiment), bad = "Pest", good = "Protected", NA_character_)
+  .ovw_section(sprintf("About %s", meta$label),
+    .ovw_row("Role", unname(.OVW_ROLE_LABEL[meta$role]) %||% tools::toTitleCase(meta$role)),
+    .ovw_row("Monitoring", mon),
+    .ovw_row("Control", ctrl),
+    .ovw_row("Concern", conc),
+    .ovw_row("Duplicate window", if (is_cam) .ovw_dupwindow(ik_data, ob) else NA_character_))
+}
+
+#' Build the Summary tab: a headline (role badge + species + count), a compact key-facts grid, and the
+#' "about this species" meta — the at-a-glance card that keeps the long Details tab for the deep dive.
+#' @keywords internal
+.ovw_summary <- function(ik_data, ob, prefer) {
+  is_cam  <- identical(ob$source_type, "camera")
+  subject <- .ovw_subject(ik_data, ob, prefer)
+  role    <- .ovw_role(ik_data, ob)
+  count   <- if (length(ob$count) && !is.na(ob$count) && ob$count > 1) ob$count else NA
+  badge   <- if (!is.na(role)) tags$span(class = "ovw-role-badge",
+    style = sprintf("background:%s", unname(.OVW_ROLE_COL[role]) %||% "#8a8a8a"),
+    unname(.OVW_ROLE_LABEL[role]) %||% tools::toTitleCase(role)) else NULL
+  head <- tags$div(class = "ovw-sum-head", badge,
+    tags$div(class = "ovw-sum-sp", subject,
+      if (!is.na(count)) tags$span(class = "ovw-sum-count", sprintf("×%s", count))))
+  facts <- Filter(Negate(is.null), list(
+    .ovw_fact(if (is_cam) "Detected" else "Checked", if (is_cam) ob$eventStart else ob$eventEnd),
+    .ovw_fact("Season",   .ovw_season(ik_data, ob)),
+    .ovw_fact("Reserve",  ob$reserve),
+    .ovw_fact("Line",     ob$line),
+    .ovw_fact("Location", ob$locationName),
+    .ovw_fact("Device",   tools::toTitleCase(ob$source_type %||% "")),
+    if (!is_cam) .ovw_fact("Outcome", ik_obs_type_label(ob$observationType, TRUE)) else NULL))
+  tags$div(class = "ovw-summary",
+    head,
+    tags$div(class = "ovw-sum-grid", facts),
+    .ovw_about(ik_data, ob, .ovw_species_meta(ik_data, ob), is_cam))
+}
+
+#' Build the Map tab: the record's coordinates (moved here from Details) above a small leaflet showing
+#' the point within its reserve boundary. Returns the coords + an empty note when there's no location.
+#' The map re-sizes when the tab is shown via the global maps.js resize-on-tab-show handler. @keywords internal
+.ovw_map <- function(ik_data, ob) {
+  lat <- ob$latitude; lng <- ob$longitude
+  has_xy <- length(lat) && !is.na(lat) && length(lng) && !is.na(lng)
+  coords <- if (has_xy) sprintf("%.5f, %.5f", lat, lng) else "Not recorded"
+  header <- tags$div(class = "ovw-map-head",
+    tags$div(class = "ovw-row",
+      tags$span(class = "ovw-k", "Coordinates"), tags$span(class = "ovw-v", coords)),
+    if (has_xy) tags$a(class = "ovw-orig", target = "_blank", rel = "noopener",
+      href = sprintf("https://www.google.com/maps/search/?api=1&query=%.6f,%.6f", lat, lng),
+      "Open in Google Maps ↗"))
+  if (!has_xy) return(tags$div(class = "ovw-map", header,
+    tags$p(class = "ovw-empty", "This record has no coordinates to map.")))
+  role <- .ovw_role(ik_data, ob)
+  col  <- unname(.OVW_ROLE_COL[role %||% "other"]); if (is.null(col) || is.na(col)) col <- "#1f78b4"
+  hull <- tryCatch(ik_reserve_boundary(ik_data, ob$reserve), error = function(e) NULL)
+  m <- leaflet::leaflet(width = "100%", height = 380,
+         options = leaflet::leafletOptions(attributionControl = FALSE))
+  m <- leaflet::addProviderTiles(m, leaflet::providers$CartoDB.Positron)
+  if (!is.null(hull) && nrow(hull)) m <- ik_add_reserve_boundary(m, hull, color = "#6c757d", pane = NULL)
+  m <- leaflet::addCircleMarkers(m, lng = lng, lat = lat, radius = 9, weight = 2,
+    color = "#ffffff", opacity = 1, fillColor = col, fillOpacity = 1)
+  m <- leaflet::setView(m, lng = lng, lat = lat, zoom = 15)
+  tags$div(class = "ovw-map", header, tags$div(class = "ovw-map-canvas", m))
+}
+
 #' Build the Details tab content from an enriched observation row. @keywords internal
 .ovw_details <- function(ik_data, ob, prefer) {
   is_cam  <- identical(ob$source_type, "camera")
@@ -121,13 +252,11 @@
       .ovw_row("Individual", ob$individualID)),
     .ovw_section("When & where",
       .ovw_row(if (is_cam) "Detected" else "Checked", if (is_cam) ob$eventStart else ob$eventEnd),
+      .ovw_row("Season", .ovw_season(ik_data, ob)),                # the record's monitoring season
       .ovw_row("Reserve", ob$reserve),
       .ovw_row("Line", ob$line),
       .ovw_row("Location", ob$locationName),
-      .ovw_row("Device", tools::toTitleCase(ob$source_type %||% "")),
-      .ovw_row("Coordinates",
-               if (length(ob$latitude) && !is.na(ob$latitude))
-                 sprintf("%.5f, %.5f", ob$latitude, ob$longitude) else NA)),
+      .ovw_row("Device", tools::toTitleCase(ob$source_type %||% ""))),  # coordinates moved to the Map tab
     if (is_cam) .ovw_section("Detection context",
       .ovw_row("Diel period", diel),
       .ovw_row("Day / night", dn),
@@ -158,9 +287,11 @@
   )
 }
 
-#' The Provenance tab: how this record came to be (classification lineage) and where it lives
-#' (dataset + ids + comments). Split off the Details tab to keep it short. @keywords internal
+#' The Provenance tab: how this record came to be (classification lineage), the deployment it belongs to,
+#' where it lives (dataset + ids + comments), and — for out-of-reserve records — its data-quality
+#' context. Split off the Details tab to keep it short. @keywords internal
 .ovw_provenance <- function(ik_data, ob, prefer) {
+  is_cam <- identical(ob$source_type, "camera")
   tags$div(
     class = "ovw-details",
     .ovw_section("Classification",
@@ -168,6 +299,18 @@
       .ovw_row("Classified by", ob$classifiedBy),
       .ovw_row(if (isTRUE(ob$classificationMethod == "human")) "Validation" else "Confidence",
                .ovw_classprob(ob$classificationMethod, ob$classificationProbability))),
+    .ovw_section("Deployment",
+      .ovw_row("Deployed", .ovw_deploy_window(ob)),               # the device's start–end window
+      .ovw_row(if (is_cam) "Camera ID" else "Trap ID", ob$cameraID),
+      .ovw_row("Deployment notes", ob$deploymentComments)),       # e.g. "Converted from trap.NZ"
+    # Only for records OUTSIDE a monitored reserve — how far the (usually trap) point sits from the
+    # surveyed network, so an out-of-area catch isn't mistaken for in-reserve monitoring.
+    if (isFALSE(ob$within_monitored_area)) .ovw_section("Location quality",
+      .ovw_row("Within monitored area", "No"),
+      .ovw_row("Nearest monitoring site", ob$nearest_monitoring_location),
+      .ovw_row("Distance to monitoring",
+               if (length(ob$nearest_monitoring_distance_km) && !is.na(ob$nearest_monitoring_distance_km))
+                 sprintf("%.2f km", ob$nearest_monitoring_distance_km) else NA)),
     .ovw_section("Record",
       .ovw_row("Dataset", ob$dataset),
       .ovw_row("Observation ID", ob$observationID),
@@ -214,9 +357,10 @@
   )
 }
 
-#' The observation viewer BODY: a tabset — Photos (camera w/ public media only) · Details ·
-#' Provenance — reused by the standalone modal AND inline (the drill Record tabs), so every
-#' record viewer looks the same. Warms the media cache as a side effect (no-op if cached).
+#' The observation viewer BODY: a tabset — Photos (camera w/ public media only) · Summary · Map
+#' (only when the record has coordinates) · Details · Provenance — reused by the standalone modal AND
+#' inline (the drill Record tabs), so every record viewer looks the same. Photos lead for cameras
+#' (the wow); Summary leads for traps / media-less records. Warms the media cache as a side effect.
 #'
 #' @param ik_data   The ik_data container.
 #' @param ob        An enriched observation row (`ik_observation`).
@@ -229,8 +373,11 @@
   is_cam  <- identical(ob$source_type, "camera")
   mv      <- if (is_cam) ik_event_media_view(ik_data, ob$eventID) else NULL
   has_med <- !is.null(mv) && nrow(mv) > 0
+  has_xy  <- length(ob$latitude) && !is.na(ob$latitude) && length(ob$longitude) && !is.na(ob$longitude)
   tabs <- Filter(Negate(is.null), list(
     if (has_med) tabPanel("Photos", icon = icon("image"), .ovw_media(mv)),
+    tabPanel("Summary",  icon = icon("clipboard"),        .ovw_summary(ik_data, ob, prefer)),
+    if (has_xy) tabPanel("Map", icon = icon("location-dot"), .ovw_map(ik_data, ob)),
     tabPanel("Details",    icon = icon("circle-info"),    .ovw_details(ik_data, ob, prefer)),
     tabPanel("Provenance", icon = icon("clipboard-list"), .ovw_provenance(ik_data, ob, prefer))))
   body <- do.call(tabsetPanel, c(if (!is.null(tabset_id)) list(id = tabset_id), tabs))

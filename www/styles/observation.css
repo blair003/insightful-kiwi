@@ -69,5 +69,60 @@
 .ovw-k { color: var(--bs-secondary-color, #6c757d); }
 .ovw-v { font-variant-numeric: tabular-nums; }
 
+/* Summary tab: an at-a-glance headline + compact fact grid + species meta. */
+.ovw-summary { margin-top: 0.5rem; }
+.ovw-sum-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.ovw-role-badge {
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.ovw-sum-sp    { font-size: 1.25rem; font-weight: 600; line-height: 1.1; }
+.ovw-sum-count { color: var(--bs-secondary-color, #6c757d); font-weight: 400; margin-left: 0.3rem; }
+.ovw-sum-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.55rem 1rem;
+  margin-bottom: 1rem;
+}
+.ovw-fact   { display: flex; flex-direction: column; gap: 0.05rem; }
+.ovw-fact-k {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--bs-secondary-color, #6c757d);
+}
+.ovw-fact-v { font-variant-numeric: tabular-nums; }
+
+/* Map tab: coordinates header above a compact reserve-context map. */
+.ovw-map { margin-top: 0.5rem; }
+.ovw-map-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.ovw-map-head .ovw-row { border-bottom: 0; padding: 0; }
+.ovw-map-canvas {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.ovw-map-canvas .leaflet-container { background: var(--bs-body-bg, #fff); }
+.ovw-empty { color: var(--bs-secondary-color, #6c757d); font-style: italic; padding: 0.5rem 0.1rem; }
+
 /* Make Records rows read as clickable. */
 #records-table table.dataTable tbody tr { cursor: pointer; }

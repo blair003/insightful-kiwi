@@ -258,19 +258,14 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     output$spex_modal_list <- DT::renderDT({
       if (identical(modal_kind(), "trap")) {
         ch <- .trap_modal_rows(); validate(need(!is.null(ch) && nrow(ch), "No checks in the selected period."))
-        df <- data.frame(Date = format(ch$check_date, "%d %b %Y"), Outcome = ch$outcome,
-          Bait = ifelse(is.na(ch$bait), "—", ch$bait), Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer),
-          ObsID = ch$observationID, .when_sort = as.numeric(ch$check_date),   # sort Date chronologically, not as a string
-          check.names = FALSE, stringsAsFactors = FALSE)
-        cdefs <- .ik_dt_when_defs(df, "Date", hide = "ObsID")
-      } else {
-        det <- .camera_modal_rows()
-        validate(need(!is.null(det) && nrow(det), if (isTRUE(modal_all())) "No detections here in this period." else "No detections of the selected species here in this period."))
-        df <- data.frame(Species = ik_species_label(det$scientificName, ik_data, prefer()),
-          Role = unname(.SPEX_ROLE_LABEL[det$role]), When = .ik_when_label(det$eventStart),
-          ObsID = det$observationID, .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
-        cdefs <- .ik_dt_when_defs(df, "When", hide = "ObsID")
+        return(ik_trap_history_dt(ch, page_length = 10))        # shared standard trap-history table
       }
+      det <- .camera_modal_rows()
+      validate(need(!is.null(det) && nrow(det), if (isTRUE(modal_all())) "No detections here in this period." else "No detections of the selected species here in this period."))
+      df <- data.frame(Species = ik_species_label(det$scientificName, ik_data, prefer()),
+        Role = unname(.SPEX_ROLE_LABEL[det$role]), When = .ik_when_label(det$eventStart),
+        ObsID = det$observationID, .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
+      cdefs <- .ik_dt_when_defs(df, "When", hide = "ObsID")
       DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", columnDefs = cdefs))
     })

@@ -218,6 +218,56 @@
                   backgroundColor = DT::styleEqual(id, colour))
 }
 
+#' The raw trap.NZ "rebaited" flag (volunteer's "did you re-bait?") as a cell label: Yes / a muted
+#' No / a muted "—" when unrecorded. Used by the Bait module's richer Rebaited column and as the
+#' default for `ik_trap_history_dt(rebaited = TRUE)`. @keywords internal
+.ik_rebaited_label <- function(reb) {
+  reb <- tolower(trimws(ifelse(is.na(reb), "", reb)))
+  ifelse(reb == "yes", "Yes",
+  ifelse(reb == "no",  "<span style='color:#adb5bd'>No</span>",
+                       "<span style='color:#adb5bd'>—</span>"))
+}
+
+#' THE standard trap check-history table — one row per check, newest first, columns
+#' Date · Season · Interval · Outcome · Bait (+ Rebaited when given), a hidden ObsID for the
+#' row-click record drill, and a TRUE chronological Date sort (via a hidden `.when_sort`, so
+#' "9 Jun" no longer sorts after "10 Jun"). Every trap-history modal across the app renders this
+#' one builder so they stay identical — change the trap-history look here, once.
+#'
+#' Rows come straight from `ik_trap_checks()` and are NOT reordered, so a caller's
+#' `..._rows_selected` index still maps to `ch$observationID[i]` (DT returns the source-data index).
+#'
+#' @param ch          An `ik_trap_checks()` data frame (check_date, season, interval_days,
+#'   is_first, outcome, bait, rebaited, observationID), newest first.
+#' @param rebaited     NULL (default) to omit the Rebaited column; TRUE for the plain Yes/No/—
+#'   label; or a character vector of pre-rendered cell HTML (the Bait module passes its richer
+#'   "Yes · new recipe" markup). When non-NULL the Rebaited column is rendered un-escaped.
+#' @param highlight    Optional ObsID to tint (the "row you came from" marker); NULL = none.
+#' @param page_length  Rows per page (default 12).
+#' @return A `DT::datatable`. @keywords internal
+ik_trap_history_dt <- function(ch, rebaited = NULL, highlight = NULL, page_length = 12) {
+  df <- data.frame(
+    Date     = format(ch$check_date, "%d %b %Y"),
+    Season   = ifelse(is.na(ch$season), "—", ch$season),
+    Interval = ifelse(ch$is_first, "—", paste0(ch$interval_days, " d")),
+    Outcome  = ch$outcome,
+    Bait     = ifelse(is.na(ch$bait), "—", ch$bait),
+    check.names = FALSE, stringsAsFactors = FALSE)
+  has_reb <- !is.null(rebaited)
+  if (has_reb) df$Rebaited <- if (isTRUE(rebaited)) .ik_rebaited_label(ch$rebaited) else rebaited
+  df$.when_sort <- as.numeric(ch$check_date)
+  df$ObsID      <- ch$observationID
+  defs <- .ik_dt_when_defs(df, "Date", hide = "ObsID")
+  dt <- DT::datatable(df, rownames = FALSE, selection = "single",
+    escape = if (has_reb) -which(names(df) == "Rebaited") else TRUE,
+    class = "stripe hover row-border ik-row-click",
+    options = list(pageLength = page_length, scrollX = TRUE, dom = "ftip",
+      order = list(list(0L, "desc")),                          # newest check first (Date → .when_sort desc)
+      columnDefs = defs))
+  if (!is.null(highlight)) dt <- .ik_dt_highlight_row(dt, "ObsID", highlight)
+  dt
+}
+
 #' Shared ggplot theme that FOLLOWS the app's dark/light mode, so plots sit on the card cleanly the
 #' way the leaflet basemap does. The plot/panel backgrounds are transparent (the bslib card shows
 #' through, light or dark); only the ink — text, axes, gridlines — flips with the mode. Pair every

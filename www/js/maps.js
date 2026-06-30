@@ -3,6 +3,12 @@
 // and (2) if a map is still stuck zoomed right out — the symptom when fitBounds ran at zero size
 // (e.g. launched from the RStudio runner): it shows the world map until you poke a control — re-fit
 // it to its own layers. The zoom guard means a map already fitted (or one you've zoomed) is left alone.
+//
+// Loaded globally (ui.R head, for the observation-viewer Map tab which can open from any page) AND
+// per map-module — so guard the whole body to bind the tab handler / register the message handler
+// exactly once however many times the script is included.
+if (!window.__ikMapsJsLoaded) {
+window.__ikMapsJsLoaded = true;
 $(document).on('shown.bs.tab', function () {
   setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 10);
   setTimeout(function () {
@@ -45,3 +51,4 @@ $(document).on('shown.bs.tab', function () {
 Shiny.addCustomMessageHandler('ik-species-tab', function (tab) {
   Shiny.setInputValue('ik_species_tab', tab);
 });
+}

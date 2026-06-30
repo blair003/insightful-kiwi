@@ -516,15 +516,7 @@ trapping_server <- function(id, ik_data, selection, color_mode = reactive("light
       req(th_loc())
       ch <- ik_trap_checks(ik_data, th_loc(), NULL)             # full all-time history, newest first
       validate(need(!is.null(ch) && nrow(ch), "No checks recorded for this trap."))
-      df <- data.frame(
-        Date = format(ch$check_date, "%d %b %Y"),
-        Season = ifelse(is.na(ch$season), "—", ch$season),
-        Interval = ifelse(ch$is_first, "—", paste0(ch$interval_days, " d")),
-        Outcome = ch$outcome, Bait = ifelse(is.na(ch$bait), "—", ch$bait), ObsID = ch$observationID,
-        check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-        options = list(pageLength = 12, scrollX = TRUE, dom = "ftip",
-          columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))
+      ik_trap_history_dt(ch)
     })
     observeEvent(input$th_table_rows_selected, {
       i <- input$th_table_rows_selected; ch <- ik_trap_checks(ik_data, th_loc(), NULL)

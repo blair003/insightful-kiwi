@@ -32,6 +32,9 @@ ui <- page_navbar(
     tags$link(rel = "icon", href = "images/icons/favicon.png", type = "image/png", sizes = "32x32"),
     # full-screen sequence viewer for the observation Photos burst (delegated clicks → works in modals)
     tags$script(src = .ik_asset("js/ovw-lightbox.js")),
+    # leaflet resize-on-tab-show — global so the observation-viewer Map tab re-sizes wherever the
+    # record modal is opened (records list, species, etc.); self-guards against the per-map-page copy.
+    tags$script(src = .ik_asset("js/maps.js")),
     # When a tab is shown — including programmatically via nav_select (the Overview "Monitoring Detail
     # →" link cards) — collapse any navbar dropdown left open, so jumping to a menu page doesn't leave
     # its dropdown hanging open.
