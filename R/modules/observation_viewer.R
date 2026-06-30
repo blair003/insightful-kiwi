@@ -161,12 +161,17 @@
   nz   <- function(x) if (length(x) && !is.na(x) && nzchar(x)) x else ""
   mon  <- switch(nz(meta$monitor), target = "Core target", interesting = "Of interest", NA_character_)
   ctrl <- if (isTRUE(meta$control == "target")) "Control target" else NA_character_
-  conc <- switch(nz(meta$sentiment), bad = "Pest", good = "Protected", NA_character_)
+  # the project's coarse sentiment tag, shown verbatim (not dressed up as a specific "concern" —
+  # a one-word tag can't carry a species' real ecological impact). Surfaced ONLY for "other"
+  # species: for predators (always a pest) / protected (always a taonga) the Role already says it.
+  sent <- if (identical(meta$role, "other"))
+            switch(nz(meta$sentiment), bad = "Pest", good = "Beneficial", neutral = "Neutral", NA_character_)
+          else NA_character_
   .ovw_section(sprintf("About %s", meta$label),
     .ovw_row("Role", unname(.OVW_ROLE_LABEL[meta$role]) %||% tools::toTitleCase(meta$role)),
     .ovw_row("Monitoring", mon),
     .ovw_row("Control", ctrl),
-    .ovw_row("Concern", conc),
+    .ovw_row("Sentiment", sent),
     .ovw_row("Duplicate window", if (is_cam) .ovw_dupwindow(ik_data, ob) else NA_character_))
 }
 
