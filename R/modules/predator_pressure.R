@@ -209,9 +209,8 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       ik_draw_metric_markers(proxy(), d, value = d$metric, group = "Cameras", layerId = paste0("C|", d$location_id),
         lo = 5, hi = 20, cap_pctl = 0.98, pal = .PP_RAMP,
         fill_opacity = 0.85, color = if (is_dark()) "#1a1a1a" else "#ffffff", weight = 1.5, pane = "cameras",
-        label = sprintf("%s — Line %s", d$name, ifelse(is.na(d$line), "—", d$line)),
-        popup = sprintf("<b>%s</b><br/>Line %s &middot; %s<br/>%s RAI: %.2f &middot; %s RAI: %.2f",
-          d$name, ifelse(is.na(d$line), "—", d$line), d$reserve, pred_lab(), d$predator, prot_lab(), d$protected))
+        label = sprintf("%s — Line %s", d$name, ifelse(is.na(d$line), "—", d$line)))
+        # No click popup — a marker click opens the detections modal; the detail popup shows on table-row hover.
     })
 
     # ---- Catches — traps that caught the chosen predator (purple, count scale) ----
@@ -313,7 +312,8 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
     })
     prio_dt_proxy <- DT::dataTableProxy("table")
 
-    # Hover a priority row → ring that camera's marker on the map (see WHICH dot the row is). Empty clears.
+    # Hover a priority row → ring that camera's marker AND pop its detail on the map (so the hovered row
+    # is obvious, not just a faint ring). Empty clears both.
     pp_hover <- shiny::debounce(reactive(input$pp_hover), 100)
     observeEvent(pp_hover(), {
       p <- proxy(); leaflet::clearGroup(p, "PPHighlight")
@@ -324,6 +324,10 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
       leaflet::addCircleMarkers(p, lng = r$longitude[1], lat = r$latitude[1], group = "PPHighlight",
         radius = 11, fill = FALSE, stroke = TRUE, weight = 3, opacity = 0.95,
         color = if (is_dark()) "#4dabf7" else "#1565c0", options = leaflet::pathOptions(pane = "selected"))
+      leaflet::addPopups(p, lng = r$longitude[1], lat = r$latitude[1], group = "PPHighlight",
+        popup = sprintf("<b>%s</b><br/>Line %s &middot; %s<br/>%s RAI: %.2f &middot; %s RAI: %.2f",
+          r$name[1], ifelse(is.na(r$line[1]), "—", r$line[1]), r$reserve[1], pred_lab(), r$predator[1], prot_lab(), r$protected[1]),
+        options = leaflet::popupOptions(closeButton = FALSE, autoPan = FALSE))
     }, ignoreNULL = FALSE)
 
     output$caption <- renderUI({

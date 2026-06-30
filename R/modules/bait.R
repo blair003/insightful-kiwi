@@ -174,7 +174,12 @@ bait_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       # Short single-ingredient names fall under the width and stay one line. (200 = effectively no wrap.)
       pw      <- session$clientData[[paste0("output_", session$ns("plot"), "_width")]]
       wrap_at <- if (!is.null(pw) && pw < 520) 18L else 200L
-      .wrap_y <- function(x) vapply(x, function(s) paste(strwrap(s, width = wrap_at), collapse = "\n"), character(1))
+      # cap at TWO lines — a long recipe wrapping onto 3+ lines crowds the axis; truncate with an ellipsis.
+      .wrap_y <- function(x) vapply(x, function(s) {
+        w <- strwrap(s, width = wrap_at)
+        if (length(w) > 2) w <- c(w[1], paste0(w[2], "…"))
+        paste(w, collapse = "\n")
+      }, character(1))
 
       ggplot(d, aes(xval, .data$bait, fill = xval)) +
         geom_col(width = 0.72) +

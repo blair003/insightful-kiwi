@@ -120,7 +120,7 @@ ui <- page_navbar(
                                   controls = coverage_controls("coverage", ik_data), heading = "Filters")),   # spatial view: a full annual cycle
     conditionalPanel("input.nav === 'predator-pressure'",
                      selection_ui("predator_pressure_selection", show = c("period", "reserve"), ik_data = ik_data,
-                                  period_default = "rolling12",
+                                  period_default = "latest2_complete",   # 2 seasons — recent pressure, not diluted by a full year
                                   controls = predator_pressure_controls("predator_pressure", ik_data), heading = "Filters")),
     conditionalPanel("input.nav === 'spatial-explorer'",
                      # Period + Species (incl. their comparison controls) live in the explorer's own

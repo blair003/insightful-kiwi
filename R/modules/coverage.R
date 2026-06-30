@@ -86,9 +86,9 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
       tags$ul(
         tags$li(tags$b("Protected / Predator"), " — detections pooled across the line's cameras, as a rate per ", ch,
                 " camera-hours (the line's RAI — a per-line figure, so a larger unit than the per-camera map). 0 = none seen on camera."),
-        tags$li(tags$b("Traps"), " — traps running within the gap radius (how much trapping reaches the line)."),
+        tags$li(tags$b("Traps"), " — traps running within the gap radius (how much trapping reaches the line). A count in ",
+                tags$b("(parentheses)"), " is how many of those are ", tags$b("neglected"), " — active but unserviced this period."),
         tags$li(tags$b("Caught"), " — predators caught in those nearby traps this period."),
-        tags$li(tags$b("Neglected"), " — of the nearby active traps, how many are unserviced this period."),
         tags$li(tags$b("Traps/km²"), " — trap density for THIS line: the traps above divided by the area within the gap radius of its cameras (so it moves with the line and the radius).")),
       tags$h6("Status"),
       tags$ul(
@@ -103,11 +103,11 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
         tags$br(),
         tags$li(tags$b("Neighbourhood"), " — a line's “nearby” is the traps within the ", tags$b("gap radius"),
                 " of its cameras. A bigger radius counts more distant traps as nearby, so more lines look ",
-                "covered — it drives the Traps, Caught and Neglected columns. With a reserve selected, ",
+                "covered — it drives the Traps (incl. the neglected count) and Caught columns. With a reserve selected, ",
                 tags$b("Include nearby traps beyond the reserve"), " (on by default) also counts traps within ",
                 "the radius tagged to another reserve (a boundary buffer); switch it off for a strict in-reserve view."),
         tags$li(tags$b("Rates"), " — protected/predator are the line's detections ÷ its cameras' camera-hours × ", ch, " (pooled into one per-line RAI)."),
-        tags$li(tags$b("Neglected"), " — from the trap servicing assessment (a nearby active trap unchecked ",
+        tags$li(tags$b("Neglected (the parenthesised count)"), " — from the trap servicing assessment (a nearby active trap unchecked ",
                 "this period); see the Trap review help for the cadence buckets."),
         tags$li(tags$b("Ranking"), " — worst gap first (protected present, control weakest).")),
       P(tags$em("Why isn't the radius drawn on the map?"), " It's applied ", tags$b("per line"), " — each line ",
@@ -142,9 +142,8 @@ coverage_gaps_help_body <- function(cam_norm = 500) {
     thx("Line"), thx("Reserve"),
     thx("Protected", sprintf("Protected detections pooled across this line's cameras, as a rate per %s camera-hours (the line's RAI). 0 = none on camera.", n)),
     thx("Predator",  sprintf("Predator detections pooled across this line's cameras, per %s camera-hours. Higher = more predator activity on camera.", n)),
-    thx("Traps", "Traps running within the gap radius of this line's cameras — how much trapping reaches it. Set by the Gap radius control."),
+    thx("Traps", "Traps running within the gap radius of this line's cameras — how much trapping reaches it (Gap radius control). A number in (parentheses) is how many of those are NEGLECTED — active but unserviced this period."),
     thx("Caught", "Predators caught in those nearby traps this period."),
-    thx("Neglected", "Of the nearby active traps, how many are unserviced (neglected) this period."),
     thx("Traps/km²", "Per-line trap density: the traps above ÷ the area within the gap radius of this line's cameras (moves with the line and the radius).")
   )))   # Status column dropped — each row is now tinted by its status (see the colour key under the lead)
 }
@@ -414,7 +413,9 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       df <- data.frame(Line = g$line, Reserve = g$reserve,
         `Protected` = ifelse(is.na(g$prot_rate), "—", sprintf("%.2f", g$prot_rate)),
         `Predator`  = ifelse(is.na(g$pred_rate), "—", sprintf("%.2f", g$pred_rate)),
-        `Traps` = g$n_traps, `Caught` = g$catches, `Neglected` = g$n_neglected,
+        # Traps reaching the line, with the NEGLECTED count folded in as "61 (24)" (parens = neglected).
+        `Traps` = ifelse(g$n_neglected > 0, sprintf("%d (%d)", g$n_traps, g$n_neglected), as.character(g$n_traps)),
+        `Caught` = g$catches,
         `Traps/km²` = ifelse(is.na(dens), "—", sprintf("%.0f", dens)),
         .status = g$status, .statuslab = unname(.COV_GAP_LAB[g$status]),   # hidden: drive the row tint + hover title
         check.names = FALSE, stringsAsFactors = FALSE)
@@ -460,8 +461,10 @@ coverage_server <- function(id, ik_data, prefer_scientific = reactive(FALSE),
       else DT::DTOutput(session$ns("gaps_drill_table"))
       showModal(modalDialog(
         title = .ik_modal_title(sprintf("Line %s · %s", row$line, row$reserve),
-                                sprintf("%d trap%s within %s of the line's cameras", if (is.null(d)) 0L else nrow(d),
-                                        if (!is.null(d) && nrow(d) == 1) "" else "s", rad_lab)),
+                                sprintf("%d trap%s within %s of the line's cameras%s", if (is.null(d)) 0L else nrow(d),
+                                        if (!is.null(d) && nrow(d) == 1) "" else "s", rad_lab,
+                                        { nn <- if (is.null(d)) 0L else sum(!is.na(d$status) & d$status == "neglected")
+                                          if (nn > 0) sprintf(" · %d neglected (parenthesised in the gaps table)", nn) else "" })),
         size = "l", easyClose = TRUE, footer = modalButton("Close"), body))
     })
 
