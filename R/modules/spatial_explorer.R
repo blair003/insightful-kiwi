@@ -22,6 +22,7 @@
 # mustelid from looking like a kiwi at the same camera.
 .SPEX_ROLE       <- c(predator = "#d62728", protected = "#2e9e3f", other = "#8a8a8a")   # red / green / grey
 .SPEX_ROLE_LABEL <- c(predator = "Predators", protected = "Protected", other = "Other")
+.SPEX_ROLE_ORDER <- names(.SPEX_ROLE)   # predator → protected → other (draw/sort/legend order)
 
 #' Body of the Spatial-explorer "how to read this" help modal — tabbed, matching the app help format.
 #' `cam_norm` = the per-camera scale the detection rates are shown at (project config). @keywords internal
@@ -247,7 +248,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       if (!isTRUE(modal_all())) { sp <- modal_sci(); if (length(sp)) obs <- obs[obs$scientificName %in% sp, , drop = FALSE] }  # default: selected species only
       if (!nrow(obs)) return(NULL)
       obs$role <- .role_of(obs$scientificName)
-      obs[order(match(obs$role, c("predator", "protected", "other")), obs$eventStart), , drop = FALSE]
+      obs[order(match(obs$role, .SPEX_ROLE_ORDER), obs$eventStart), , drop = FALSE]
     })
     .trap_modal_rows <- reactive({
       loc <- modal_loc(); if (is.null(loc) || !identical(modal_kind(), "trap")) return(NULL)
@@ -259,8 +260,9 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
         ch <- .trap_modal_rows(); validate(need(!is.null(ch) && nrow(ch), "No checks in the selected period."))
         df <- data.frame(Date = format(ch$check_date, "%d %b %Y"), Outcome = ch$outcome,
           Bait = ifelse(is.na(ch$bait), "—", ch$bait), Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer),
-          ObsID = ch$observationID, check.names = FALSE, stringsAsFactors = FALSE)
-        cdefs <- list(list(visible = FALSE, targets = ncol(df) - 1))
+          ObsID = ch$observationID, .when_sort = as.numeric(ch$check_date),   # sort Date chronologically, not as a string
+          check.names = FALSE, stringsAsFactors = FALSE)
+        cdefs <- .ik_dt_when_defs(df, "Date", hide = "ObsID")
       } else {
         det <- .camera_modal_rows()
         validate(need(!is.null(det) && nrow(det), if (isTRUE(modal_all())) "No detections here in this period." else "No detections of the selected species here in this period."))
@@ -367,7 +369,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       role_breakdown <- function(source) {
         sci <- sp_sci(); if (!length(sci)) return(NULL)
         roles <- .role_of(sci); out <- list()
-        for (r in c("predator", "protected", "other")) {
+        for (r in .SPEX_ROLE_ORDER) {
           s <- sci[roles == r]; if (!length(s)) next
           m <- ik_location_metric(ik_data, get_selection(), stats::setNames(list(s), "x"), source,
                                   norm = if (source == "camera") per_cam else NULL)
@@ -383,7 +385,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       .draw_pies <- function(p, source, group) {
         bd <- if (identical(mode(), "combined")) role_breakdown(source) else NULL
         if (is.null(bd) || !nrow(bd)) { leaflet::clearGroup(p, group); return(invisible(p)) }
-        ord  <- c("predator", "protected", "other")
+        ord  <- .SPEX_ROLE_ORDER
         recs <- lapply(split(seq_len(nrow(bd)), bd$loc), function(ix) {
           g <- bd[ix, , drop = FALSE]; g <- g[order(match(g$role, ord)), , drop = FALSE]
           list(loc = g$loc[1], name = g$name[1], lat = g$lat[1], lng = g$lng[1], roles = g$role, values = g$value, total = sum(g$value)) })
@@ -467,7 +469,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
 
       observe({                                                # legend (role key) + shape key + bottom-left SUMMARY
         p <- proxy(); leaflet::clearControls(p)
-        sci <- sp_sci(); present <- intersect(c("predator", "protected", "other"), unique(.role_of(sci)))
+        sci <- sp_sci(); present <- intersect(.SPEX_ROLE_ORDER, unique(.role_of(sci)))
         if (!length(present)) return()
         leaflet::addLegend(p, ctrl()$legend, colors = unname(.SPEX_ROLE[present]), labels = unname(.SPEX_ROLE_LABEL[present]),
           title = sprintf("%s &middot; by role", sp_lab()), opacity = 0.9)
@@ -513,7 +515,10 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
         bs <- .ik_nz(base$season); if (is.null(bs)) return(base)   # main = all data → no relative window
         new <- if (tok == "prior" && length(bs) == 1) ik_prior_season(bs, ik_data)  # single season → the season before
                else vapply(bs, function(s) ik_same_season_last_year(s, ik_data), character(1), USE.NAMES = FALSE)  # else (incl. rolling windows) → back a year
-        new <- new[!is.na(new)]; if (!length(new)) return(base)
+        new <- new[!is.na(new)]
+        # No prior window exists (e.g. the EARLIEST season → no season before it): show an EMPTY
+        # comparison rather than silently mirroring A (two identical maps reads as "no change").
+        if (!length(new)) { base$season <- character(0); base$period <- "compare:none"; return(base) }
         base$season <- new; base$period <- paste0("compare:", tok); return(base)    # the metric filters on $season; $period is display-only
       }
       if (is.null(tok) || !nzchar(tok)) return(base)            # ABSOLUTE period code
