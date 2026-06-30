@@ -172,9 +172,11 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     grp_taxa <- ik_group_taxa(ik_data)
     all_sci  <- sort(unique(stats::na.omit(ik_observations(ik_data, with_location = FALSE)$scientificName)))
     .sg      <- ik_species_groups(ik_data)
-    # Default the picker to the predator-role groups — a "pest pressure vs control" front door.
-    .pred_groups <- unique(.sg$label[!is.na(.sg$role) & .sg$role == "predator"])
-    .sp_default  <- if (length(.pred_groups)) paste0("grp:", .pred_groups) else "__all__"
+    # Default selection: the FIRST predator group + the FIRST protected group in species_groups order
+    # (priority order — Mustelids, then Kiwi for WKT), so the role split shows out of the box. Same
+    # "first of the role" rule the predator/protected pickers use elsewhere — not hard-coded names.
+    .first_role <- function(role) { l <- unique(.sg$label[!is.na(.sg$role) & .sg$role == role]); if (length(l)) paste0("grp:", l[1]) else NULL }
+    .sp_default  <- { d <- c(.first_role("predator"), .first_role("protected")); if (length(d)) d else "__all__" }
     # The conservation ROLE of each scientificName (predator / protected / other) — drives marker colour.
     .role_of <- function(sci) { r <- .sg$role[match(sci, .sg$scientificName)]
       r[is.na(r) | !(r %in% c("predator", "protected"))] <- "other"; r }
@@ -204,46 +206,92 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       if (!nrow(locs)) NULL else locs
     }
 
-    # ── Marker click → a MODAL of that location's data (a camera's per-species detections, or a trap's
-    # check history). `spec` is the clicked pane's selection (so the camera modal honours its period). ──
+    # ── Marker click → a tabbed MODAL of that location: a LIST (a camera's detections / a trap's checks
+    # in the selected period) that DRILLS into a record's full detail (second tab). Shared across both
+    # panes; one modal open at a time. ───────────────────────────────────────────────────────────────
+    modal_kind <- reactiveVal(NULL)   # "camera" | "trap"
+    modal_loc  <- reactiveVal(NULL)
+    modal_spec <- reactiveVal(NULL)   # the clicked pane's selection (its period)
+    modal_all  <- reactiveVal(FALSE)  # trap only: show the all-time history vs the selected period
+    modal_obs  <- reactiveVal(NULL)   # the observationID open in the Record-details tab
+
     .open_location_modal <- function(kind, loc, spec) {
-      nm   <- ik_data$app$geography$locations$name[match(loc, ik_data$app$geography$locations$location_id)] %||% loc
-      body <- tryCatch(if (identical(kind, "trap")) .trap_modal_body(loc) else .camera_modal_body(loc, spec),
-                       error = function(e) tags$p("Couldn't load this location's detail."))
+      modal_kind(kind); modal_loc(loc); modal_spec(spec); modal_all(FALSE); modal_obs(NULL)
+      nm  <- ik_data$app$geography$locations$name[match(loc, ik_data$app$geography$locations$location_id)] %||% loc
+      sub <- if (identical(kind, "trap")) "Trap · its check history" else "Camera · what was detected here, in the selected period"
+      lst <- if (identical(kind, "trap")) "Checks" else "Detections"
       showModal(modalDialog(
-        title = .ik_modal_title(nm, if (identical(kind, "trap")) "Trap · check history" else "Camera · what was detected here"),
-        size = "l", easyClose = TRUE, footer = modalButton("Close"), body))
+        title = .ik_modal_title(nm, sub), size = "l", easyClose = TRUE, footer = modalButton("Close"),
+        tabsetPanel(id = session$ns("spex_modal_tabs"),
+          tabPanel(lst, icon = icon("list"),
+                   DT::dataTableOutput(session$ns("spex_modal_list")), uiOutput(session$ns("spex_modal_more"))),
+          tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("spex_modal_record"))))))
+      hideTab(session = session, inputId = "spex_modal_tabs", target = "Record details")
     }
-    .camera_modal_body <- function(loc, spec) {
+
+    .camera_modal_rows <- reactive({
+      loc <- modal_loc(); if (is.null(loc) || !identical(modal_kind(), "camera")) return(NULL)
       obs <- ik_observations(ik_data, with_location = TRUE)
       obs <- obs[!is.na(obs$observationType) & obs$observationType == "animal" & !is.na(obs$locationID) &
                    obs$locationID == loc & !is.na(obs$eventStart), , drop = FALSE]
-      seas <- .ik_nz(spec$season)
+      seas <- .ik_nz(modal_spec()$season)
       if (!is.null(seas) && nrow(obs)) { op <- ik_observation_period(ik_data)
         osea <- op$calendar_season[match(obs$observationID, op$observationID)]
         obs <- obs[!is.na(osea) & osea %in% seas, , drop = FALSE] }
-      if (!nrow(obs)) return(tags$p(class = "ik-maps-hint", "No detections here in this period."))
-      obs$count[is.na(obs$count)] <- 1L
-      agg <- stats::aggregate(count ~ scientificName, data = obs, FUN = sum)
-      agg$role <- .role_of(agg$scientificName)
-      agg <- agg[order(match(agg$role, c("predator", "protected", "other")), -agg$count), , drop = FALSE]
-      tags$table(class = "table table-sm ik-spex-modal-table",
-        tags$thead(tags$tr(tags$th("Species"), tags$th("Role"), tags$th(class = "text-end", "Detections"))),
-        tags$tbody(lapply(seq_len(nrow(agg)), function(i) { r <- agg$role[i]
-          tags$tr(tags$td(ik_species_label(agg$scientificName[i], ik_data, prefer())),
-                  tags$td(tags$span(class = "ik-spex-role-dot", style = sprintf("background:%s", unname(.SPEX_ROLE[r]))), unname(.SPEX_ROLE_LABEL[r])),
-                  tags$td(class = "text-end", format(round(agg$count[i]), big.mark = ","))) })))
-    }
-    .trap_modal_body <- function(loc) {
-      ch <- ik_trap_checks(ik_data, loc, NULL)
-      if (is.null(ch) || !nrow(ch)) return(tags$p(class = "ik-maps-hint", "No checks recorded for this trap."))
-      tags$table(class = "table table-sm ik-spex-modal-table",
-        tags$thead(tags$tr(tags$th("Date"), tags$th("Outcome"), tags$th("Bait"), tags$th("Volunteer"))),
-        tags$tbody(lapply(seq_len(nrow(ch)), function(i) tags$tr(
-          tags$td(format(ch$check_date[i], "%d %b %Y")), tags$td(ch$outcome[i] %||% "—"),
-          tags$td(if (is.na(ch$bait[i])) "—" else ch$bait[i]),
-          tags$td(if (is.na(ch$volunteer[i])) "—" else ch$volunteer[i])))))
-    }
+      if (!nrow(obs)) return(NULL)
+      obs$role <- .role_of(obs$scientificName)
+      obs[order(match(obs$role, c("predator", "protected", "other")), obs$eventStart), , drop = FALSE]
+    })
+    .trap_modal_rows <- reactive({
+      loc <- modal_loc(); if (is.null(loc) || !identical(modal_kind(), "trap")) return(NULL)
+      ik_trap_checks(ik_data, loc, if (isTRUE(modal_all())) NULL else .ik_nz(modal_spec()$season))
+    })
+
+    output$spex_modal_list <- DT::renderDT({
+      if (identical(modal_kind(), "trap")) {
+        ch <- .trap_modal_rows(); validate(need(!is.null(ch) && nrow(ch), "No checks in the selected period."))
+        df <- data.frame(Date = format(ch$check_date, "%d %b %Y"), Outcome = ch$outcome,
+          Bait = ifelse(is.na(ch$bait), "—", ch$bait), Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer),
+          ObsID = ch$observationID, check.names = FALSE, stringsAsFactors = FALSE)
+        DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+          options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))
+      } else {
+        det <- .camera_modal_rows(); validate(need(!is.null(det) && nrow(det), "No detections here in this period."))
+        .lnk <- function(label, oid) sprintf(
+          "<a class='ik-link' onclick=\"Shiny.setInputValue('%s',{id:'%s'},{priority:'event'})\">%s</a>",
+          session$ns("spex_modal_view"), oid, htmltools::htmlEscape(label))
+        df <- data.frame(Species = mapply(.lnk, ik_species_label(det$scientificName, ik_data, prefer()), det$observationID),
+          Role = unname(.SPEX_ROLE_LABEL[det$role]), When = .ik_when_label(det$eventStart),
+          .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
+        DT::datatable(df, rownames = FALSE, selection = "none", escape = -1, class = "stripe hover row-border",
+          options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", columnDefs = .ik_dt_when_defs(df, "When")))
+      }
+    })
+    output$spex_modal_more <- renderUI({
+      if (!identical(modal_kind(), "trap") || isTRUE(modal_all())) return(NULL)
+      tags$div(class = "ik-spex-modal-more",
+        actionLink(session$ns("spex_modal_loadall"), tagList(icon("clock-rotate-left"), " Show the full history (all periods)")))
+    })
+    observeEvent(input$spex_modal_loadall, modal_all(TRUE))
+
+    observeEvent(input$spex_modal_view, {                      # camera: species link → its record
+      oid <- input$spex_modal_view$id
+      if (length(oid) && nzchar(oid)) { modal_obs(oid); showTab(session = session, inputId = "spex_modal_tabs", target = "Record details", select = TRUE) }
+    })
+    observeEvent(input$spex_modal_list_rows_selected, {        # trap: check row → its record
+      i <- input$spex_modal_list_rows_selected; ch <- .trap_modal_rows()
+      if (length(i) && !is.null(ch) && i <= nrow(ch)) { modal_obs(ch$observationID[i]); showTab(session = session, inputId = "spex_modal_tabs", target = "Record details", select = TRUE) }
+      DT::selectRows(DT::dataTableProxy("spex_modal_list"), NULL)
+    })
+    observeEvent(input$spex_modal_back, updateTabsetPanel(session, input$spex_modal_back$tabset, selected = input$spex_modal_back$to))
+    output$spex_modal_record <- renderUI({
+      if (is.null(modal_obs())) return(tags$p(class = "ik-maps-hint", "Pick a row in the list to see its full record here."))
+      ob <- ik_observation(ik_data, modal_obs()); if (is.null(ob)) return(tags$p("Record not found."))
+      tagList(.ik_tab_back(session$ns("spex_modal_back"), "spex_modal_tabs",
+                           if (identical(modal_kind(), "trap")) "Checks" else "Detections", "Back to the list"),
+              .ovw_title(ik_data, ob, prefer()),
+              .ovw_tabs(ik_data, ob, prefer(), tabset_id = session$ns("spex_modal_rec_sub")))
+    })
 
     # ── one PANE = the whole draw pipeline for a single leaflet output, parameterised by its input
     # getters (so panes A and B share every observer). Returns a handle of its data reactives so the
