@@ -152,6 +152,7 @@
 .ik-spex-role-dot { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%;
   margin-right: 0.4em; vertical-align: -1px; }
 .ik-spex-modal-more { margin-top: 0.5rem; font-size: 0.85rem; }
+.ik-spex-hint { cursor: help; color: var(--bs-secondary-color, #888); font-size: 0.85em; }
 @media (min-width: 576px) {
   .ik-map-fill > .ik-spex-row { flex: 1 1 auto; min-height: 0; margin-bottom: 0; }
   .ik-map-fill .ik-spex-row .leaflet, .ik-map-fill .ik-spex-row .html-widget { height: 100% !important; }

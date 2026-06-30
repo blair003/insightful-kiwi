@@ -113,7 +113,12 @@ spatial_explorer_controls <- function(id, ik_data = NULL) {
       choiceValues = c("single", "sbs", "swipe"), selected = "single"),
     conditionalPanel("input.display == 'sbs'", ns = ns,   # swipe always links (the two halves must align)
       checkboxInput(ns("link"), tagList(icon("link"), " Link views (pan/zoom together)"), value = TRUE)),
-    radioButtons(ns("mode"), "Markers",
+    radioButtons(ns("mode"),
+      label = tagList("Markers ", tags$span(class = "ik-spex-hint", `data-bs-toggle` = "tooltip",
+        title = paste("By role: one marker per location, split into predator / protected / other —",
+                      "click it for the full per-species breakdown. By species: each picked species gets",
+                      "its own toggleable layer of silhouette icons (fanned out where they share a spot)."),
+        icon("circle-question"))),
       choices = c("By role" = "combined", "By species" = "separate"), selected = "combined"),
     linkable("Data period", "link_period", per_input(selA),
       selectInput(ns("compare_period"), NULL, choices = cmp_choices, selected = "prior")),
@@ -213,11 +218,12 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     modal_kind <- reactiveVal(NULL)   # "camera" | "trap"
     modal_loc  <- reactiveVal(NULL)
     modal_spec <- reactiveVal(NULL)   # the clicked pane's selection (its period)
-    modal_all  <- reactiveVal(FALSE)  # trap only: show the all-time history vs the selected period
+    modal_sci  <- reactiveVal(NULL)   # the clicked pane's SELECTED species (the camera default filter)
+    modal_all  <- reactiveVal(FALSE)  # "show everything": trap → all periods; camera → all species
     modal_obs  <- reactiveVal(NULL)   # the observationID open in the Record-details tab
 
-    .open_location_modal <- function(kind, loc, spec) {
-      modal_kind(kind); modal_loc(loc); modal_spec(spec); modal_all(FALSE); modal_obs(NULL)
+    .open_location_modal <- function(kind, loc, spec, sci) {
+      modal_kind(kind); modal_loc(loc); modal_spec(spec); modal_sci(sci); modal_all(FALSE); modal_obs(NULL)
       nm  <- ik_data$app$geography$locations$name[match(loc, ik_data$app$geography$locations$location_id)] %||% loc
       sub <- if (identical(kind, "trap")) "Trap · its check history" else "Camera · what was detected here, in the selected period"
       lst <- if (identical(kind, "trap")) "Checks" else "Detections"
@@ -239,6 +245,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
       if (!is.null(seas) && nrow(obs)) { op <- ik_observation_period(ik_data)
         osea <- op$calendar_season[match(obs$observationID, op$observationID)]
         obs <- obs[!is.na(osea) & osea %in% seas, , drop = FALSE] }
+      if (!isTRUE(modal_all())) { sp <- modal_sci(); if (length(sp)) obs <- obs[obs$scientificName %in% sp, , drop = FALSE] }  # default: selected species only
       if (!nrow(obs)) return(NULL)
       obs$role <- .role_of(obs$scientificName)
       obs[order(match(obs$role, c("predator", "protected", "other")), obs$eventStart), , drop = FALSE]
@@ -254,34 +261,30 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
         df <- data.frame(Date = format(ch$check_date, "%d %b %Y"), Outcome = ch$outcome,
           Bait = ifelse(is.na(ch$bait), "—", ch$bait), Volunteer = ifelse(is.na(ch$volunteer), "—", ch$volunteer),
           ObsID = ch$observationID, check.names = FALSE, stringsAsFactors = FALSE)
-        DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
-          options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", columnDefs = list(list(visible = FALSE, targets = ncol(df) - 1))))
+        cdefs <- list(list(visible = FALSE, targets = ncol(df) - 1))
       } else {
-        det <- .camera_modal_rows(); validate(need(!is.null(det) && nrow(det), "No detections here in this period."))
-        .lnk <- function(label, oid) sprintf(
-          "<a class='ik-link' onclick=\"Shiny.setInputValue('%s',{id:'%s'},{priority:'event'})\">%s</a>",
-          session$ns("spex_modal_view"), oid, htmltools::htmlEscape(label))
-        df <- data.frame(Species = mapply(.lnk, ik_species_label(det$scientificName, ik_data, prefer()), det$observationID),
+        det <- .camera_modal_rows()
+        validate(need(!is.null(det) && nrow(det), if (isTRUE(modal_all())) "No detections here in this period." else "No detections of the selected species here in this period."))
+        df <- data.frame(Species = ik_species_label(det$scientificName, ik_data, prefer()),
           Role = unname(.SPEX_ROLE_LABEL[det$role]), When = .ik_when_label(det$eventStart),
-          .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
-        DT::datatable(df, rownames = FALSE, selection = "none", escape = -1, class = "stripe hover row-border",
-          options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", columnDefs = .ik_dt_when_defs(df, "When")))
+          ObsID = det$observationID, .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
+        cdefs <- .ik_dt_when_defs(df, "When", hide = "ObsID")
       }
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
+        options = list(pageLength = 10, scrollX = TRUE, dom = "ftip", columnDefs = cdefs))
     })
     output$spex_modal_more <- renderUI({
-      if (!identical(modal_kind(), "trap") || isTRUE(modal_all())) return(NULL)
-      tags$div(class = "ik-spex-modal-more",
-        actionLink(session$ns("spex_modal_loadall"), tagList(icon("clock-rotate-left"), " Show the full history (all periods)")))
+      if (isTRUE(modal_all())) return(NULL)
+      lbl <- if (identical(modal_kind(), "trap")) tagList(icon("clock-rotate-left"), " Show the full history (all periods)")
+             else tagList(icon("paw"), " Show ALL species detected here (not just the selected)")
+      tags$div(class = "ik-spex-modal-more", actionLink(session$ns("spex_modal_showall"), lbl))
     })
-    observeEvent(input$spex_modal_loadall, modal_all(TRUE))
+    observeEvent(input$spex_modal_showall, modal_all(TRUE))
 
-    observeEvent(input$spex_modal_view, {                      # camera: species link → its record
-      oid <- input$spex_modal_view$id
-      if (length(oid) && nzchar(oid)) { modal_obs(oid); showTab(session = session, inputId = "spex_modal_tabs", target = "Record details", select = TRUE) }
-    })
-    observeEvent(input$spex_modal_list_rows_selected, {        # trap: check row → its record
-      i <- input$spex_modal_list_rows_selected; ch <- .trap_modal_rows()
-      if (length(i) && !is.null(ch) && i <= nrow(ch)) { modal_obs(ch$observationID[i]); showTab(session = session, inputId = "spex_modal_tabs", target = "Record details", select = TRUE) }
+    observeEvent(input$spex_modal_list_rows_selected, {        # whole row → its record (camera detection or trap check)
+      i <- input$spex_modal_list_rows_selected
+      rows <- if (identical(modal_kind(), "trap")) .trap_modal_rows() else .camera_modal_rows()
+      if (length(i) && !is.null(rows) && i <= nrow(rows)) { modal_obs(rows$observationID[i]); showTab(session = session, inputId = "spex_modal_tabs", target = "Record details", select = TRUE) }
       DT::selectRows(DT::dataTableProxy("spex_modal_list"), NULL)
     })
     observeEvent(input$spex_modal_back, updateTabsetPanel(session, input$spex_modal_back$tabset, selected = input$spex_modal_back$to))
@@ -419,12 +422,14 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
         ang <- ifelse(rows$n > 1, 2 * pi * (rows$idx - 1) / rows$n, 0); rr <- 0.00038   # ~42 m fan radius
         rows$olat <- ifelse(rows$n > 1, rows$lat + rr * sin(ang), rows$lat)
         rows$olng <- ifelse(rows$n > 1, rows$lng + rr * cos(ang) / cos(rows$lat * pi / 180), rows$lng)
+        # SIZE on ONE scale across ALL species (per device) — else a species is sized to its own range
+        # and a high-for-mustelids value can dwarf a higher kiwi value.
+        rows$sz <- if (source == "camera") round(2 * ik_marker_radius(rows$value, 6, 18, cap_pctl = 0.98) + 6)
+                   else round(2 * ik_marker_radius(rows$value, 5, 15, cap = ik_robust_cap(rows$value, 0.9)) + 6)
         for (lbl in unique(rows$label)) {
           s  <- rows[rows$label == lbl, , drop = FALSE]
-          sz <- if (source == "camera") round(2 * ik_marker_radius(s$value, 6, 18, cap_pctl = 0.98) + 6)
-                else round(2 * ik_marker_radius(s$value, 5, 15, cap = ik_robust_cap(s$value, 0.9)) + 6)
           leaflet::addMarkers(p, lng = s$olng, lat = s$olat, group = lbl,
-            icon = ik_species_marker_icon(s$key, s$colour[1], if (source == "camera") "circle" else "square", sz),
+            icon = ik_species_marker_icon(s$key, s$colour[1], if (source == "camera") "circle" else "square", s$sz),
             layerId = paste0(prefix, lbl, "|", s$loc),
             label = sprintf("%s — %s %s · click for detail", s$name, lbl,
                             if (source == "camera") sprintf("RAI %.2f", s$value) else paste0(as.integer(s$value), " caught")))
@@ -472,7 +477,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
 
       observeEvent(input[[paste0(map_id, "_marker_click")]], {  # marker → MODAL for that location
         cid <- input[[paste0(map_id, "_marker_click")]]$id; if (is.null(cid)) return()
-        .open_location_modal(if (startsWith(cid, "K|")) "trap" else "camera", sub(".*\\|", "", cid), get_selection())
+        .open_location_modal(if (startsWith(cid, "K|")) "trap" else "camera", sub(".*\\|", "", cid), get_selection(), sp_sci())
       })
 
       list(detect_pts = detect_pts, catch_pts = catch_pts, detect_all = detect_all, catch_all = catch_all,
