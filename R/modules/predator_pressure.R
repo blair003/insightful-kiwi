@@ -262,12 +262,9 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
         title = "Trapping overlay", opacity = 0.9)
     })
 
-    observeEvent(input$map_marker_click, {                       # camera → filter table · trap → check history
+    observeEvent(input$map_marker_click, {                       # camera → detections modal · trap → check history
       cid <- input$map_marker_click$id; if (is.null(cid)) return()
-      if (startsWith(cid, "C|")) {
-        loc <- sub("^C\\|", "", cid); locs <- ik_data$app$geography$locations
-        selected(list(kind = "location", id = loc, label = locs$name[match(loc, locs$location_id)] %||% loc))
-      }
+      if (startsWith(cid, "C|")) .open_pp_modal(sub("^C\\|", "", cid))   # straight to the modal, no table step
       # trap markers (T|...) are handled by the check-history observer below.
     })
 
@@ -335,16 +332,25 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
         obs <- obs[!is.na(osea) & osea %in% seas, , drop = FALSE]
       }
       if (!nrow(obs)) return(NULL)
-      obs$role <- ifelse(obs$scientificName %in% pred_sci(), pred_lab(), prot_lab())
+      obs$role <- ifelse(obs$scientificName %in% pred_sci(), "Predator", "Protected")   # the side, not the group label
       obs[order(obs$eventStart), , drop = FALSE]
     }
-    observeEvent(input$table_rows_selected, {
-      i <- input$table_rows_selected; d <- prio_tbl()
-      if (!length(i) || is.null(d) || i > nrow(d)) return()
-      row <- d[i, , drop = FALSE]; prio_rec(.pp_detections(row$location_id)); prio_recobs(NULL)
-      sub <- sprintf("%s · Line %s — pressure %.2f (%s RAI %.2f vs %s RAI %.2f). The detections behind it:",
-                     row$reserve, ifelse(is.na(row$line), "—", row$line), row$metric,
-                     pred_lab(), row$predator, prot_lab(), row$protected)
+    # Open the per-camera detections modal — from a map marker (direct) OR a table row. The subtitle
+    # is the customised context line: reserve · line — pressure, with the predator/protected RAIs in
+    # bold, and the active period spelled out.
+    .open_pp_modal <- function(loc_id) {
+      d <- prio_pts(); if (is.null(d)) return()
+      row <- d[d$location_id == loc_id, , drop = FALSE]; if (!nrow(row)) return()
+      row <- row[1, , drop = FALSE]
+      prio_rec(.pp_detections(loc_id)); prio_recobs(NULL)
+      plab <- .ik_period_label(ik_data, selection()); span <- .ov_period_span(ik_data, selection())
+      ptxt <- if (length(plab) && nzchar(plab) && length(span) && nzchar(span)) sprintf("%s (%s)", plab, span)
+              else if (length(span) && nzchar(span)) span else if (length(plab)) plab else ""
+      sub <- HTML(sprintf(
+        "Camera &middot; %s &middot; Line %s &mdash; pressure <b>%.2f</b> (%s RAI <b>%.2f</b> vs %s RAI <b>%.2f</b>)%s",
+        htmltools::htmlEscape(row$reserve), ifelse(is.na(row$line), "—", htmltools::htmlEscape(as.character(row$line))),
+        row$metric, htmltools::htmlEscape(pred_lab()), row$predator, htmltools::htmlEscape(prot_lab()), row$protected,
+        if (nzchar(ptxt)) sprintf(" &middot; %s", htmltools::htmlEscape(ptxt)) else ""))
       showModal(modalDialog(
         title = .ik_modal_title(sprintf("Detections at %s", row$name), sub),
         size = "l", easyClose = TRUE, footer = modalButton("Close"),
@@ -352,29 +358,34 @@ predator_pressure_server <- function(id, ik_data, prefer_scientific = reactive(F
           tabPanel("Detections",     icon = icon("list"),        DT::dataTableOutput(session$ns("pp_detail"))),
           tabPanel("Record details", icon = icon("circle-info"), uiOutput(session$ns("pp_record"))))))
       hideTab(session = session, inputId = "pp_tabs", target = "Record details")
-      DT::selectRows(prio_dt_proxy, NULL)
+    }
+    observeEvent(input$table_rows_selected, {                    # table row → the same modal as a marker
+      i <- input$table_rows_selected; d <- prio_tbl()
+      if (!length(i) || is.null(d) || i > nrow(d)) return()
+      .open_pp_modal(d$location_id[i]); DT::selectRows(prio_dt_proxy, NULL)
     }, ignoreInit = TRUE)
 
     output$pp_detail <- DT::renderDT({
       det <- prio_rec(); validate(need(!is.null(det) && nrow(det), "No predator or protected detections at this camera."))
-      .lnk <- function(label, oid) sprintf(
-        "<a class='ik-link' onclick=\"Shiny.setInputValue('%s',{id:'%s'},{priority:'event'})\">%s</a>",
-        session$ns("pp_view"), oid, htmltools::htmlEscape(label))
       df <- data.frame(Role = det$role,
-        Species = mapply(.lnk, ik_species_label(det$scientificName, ik_data, prefer()), det$observationID),
+        Species = ik_species_label(det$scientificName, ik_data, prefer()),
         When = .ik_when_label(det$eventStart),
-        .when_sort = as.numeric(det$eventStart), check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(df, rownames = FALSE, selection = "none", escape = -2, class = "stripe hover row-border",
+        ObsID = det$observationID, .when_sort = as.numeric(det$eventStart),
+        check.names = FALSE, stringsAsFactors = FALSE)
+      DT::datatable(df, rownames = FALSE, selection = "single", class = "stripe hover row-border ik-row-click",
         options = list(pageLength = 12, scrollX = TRUE, dom = "ftip", destroy = TRUE,
-          columnDefs = .ik_dt_when_defs(df, "When")))
+          columnDefs = .ik_dt_when_defs(df, "When", hide = "ObsID")))
     })
-    observeEvent(input$pp_view, {
-      oid <- input$pp_view$id
-      if (length(oid) && nzchar(oid)) { prio_recobs(oid); showTab(session = session, inputId = "pp_tabs", target = "Record details", select = TRUE) }
+    observeEvent(input$pp_detail_rows_selected, {                # whole row → its record
+      i <- input$pp_detail_rows_selected; det <- prio_rec()
+      if (length(i) && !is.null(det) && i <= nrow(det)) {
+        prio_recobs(det$observationID[i])
+        showTab(session = session, inputId = "pp_tabs", target = "Record details", select = TRUE)
+      }
     })
     observeEvent(input$pp_tab_back, updateTabsetPanel(session, input$pp_tab_back$tabset, selected = input$pp_tab_back$to))
     output$pp_record <- renderUI({
-      if (is.null(prio_recobs())) return(tags$p(class = "ik-maps-hint", "Click a species in the Detections tab to see its record here."))
+      if (is.null(prio_recobs())) return(tags$p(class = "ik-maps-hint", "Click a detection in the Detections tab to see its record here."))
       ob <- ik_observation(ik_data, prio_recobs()); if (is.null(ob)) return(tags$p("Record not found."))
       tagList(.ik_tab_back(session$ns("pp_tab_back"), "pp_tabs", "Detections", "Back to detections"),
               .ovw_title(ik_data, ob, prefer()),

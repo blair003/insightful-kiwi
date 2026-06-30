@@ -123,6 +123,20 @@
 }
 .ovw-map-canvas .leaflet-container { background: var(--bs-body-bg, #fff); }
 .ovw-empty { color: var(--bs-secondary-color, #6c757d); font-style: italic; padding: 0.5rem 0.1rem; }
+/* The always-on reserve name centred on the record Map — text only, haloed for legibility over tiles. */
+.ovw-reserve-label,
+.ovw-reserve-label.leaflet-tooltip {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #495057;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff;
+  pointer-events: none;
+}
+.ovw-reserve-label.leaflet-tooltip::before { display: none; }   /* no pointer arrow */
 
 /* Make Records rows read as clickable. */
 #records-table table.dataTable tbody tr { cursor: pointer; }

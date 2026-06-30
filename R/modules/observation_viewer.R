@@ -184,6 +184,15 @@
   head <- tags$div(class = "ovw-sum-head", badge,
     tags$div(class = "ovw-sum-sp", subject,
       if (!is.na(count)) tags$span(class = "ovw-sum-count", sprintf("×%s", count))))
+  # the at-a-glance context that used to live on Details: a trap's outcome/status; a camera's
+  # diel + duplicate context (the deeper before/after relations stay on Details).
+  status <- if (!is_cam) { st <- .ovw_tag(ob$observationTags, "status")
+              if (!is.na(st) && tolower(st) != "caught") tools::toTitleCase(st) else NA } else NA
+  diel   <- if (is_cam) as.character(ik_diel_period(ik_data, ob$eventStart, ob$reserve)) else NA
+  dn     <- if (is_cam) ik_day_night(ik_data, ob$eventStart, ob$reserve) else NA
+  r      <- if (is_cam) { rel <- ik_relations(ik_data); rel[match(ob$observationID, rel$observationID), ] } else NULL
+  posdup <- if (is_cam && length(r$possible_duplicate) && !is.na(r$possible_duplicate))
+              (if (isTRUE(r$possible_duplicate)) "Yes" else "No") else NA
   facts <- Filter(Negate(is.null), list(
     .ovw_fact(if (is_cam) "Detected" else "Checked", if (is_cam) ob$eventStart else ob$eventEnd),
     .ovw_fact("Season",   .ovw_season(ik_data, ob)),
@@ -191,7 +200,12 @@
     .ovw_fact("Line",     ob$line),
     .ovw_fact("Location", ob$locationName),
     .ovw_fact("Device",   tools::toTitleCase(ob$source_type %||% "")),
-    if (!is_cam) .ovw_fact("Outcome", ik_obs_type_label(ob$observationType, TRUE)) else NULL))
+    if (!is_cam) .ovw_fact("Outcome", ik_obs_type_label(ob$observationType, TRUE)) else NULL,
+    if (!is_cam) .ovw_fact("Status", status) else NULL,
+    if (is_cam) .ovw_fact("Diel period", diel) else NULL,
+    if (is_cam) .ovw_fact("Day / night", dn) else NULL,
+    if (is_cam) .ovw_fact("Since prev (same sp.)", .ovw_duration(r$minutes_since_prev_same_species)) else NULL,
+    if (is_cam) .ovw_fact("Possible duplicate", posdup) else NULL))
   tags$div(class = "ovw-summary",
     head,
     tags$div(class = "ovw-sum-grid", facts),
@@ -216,54 +230,47 @@
   role <- .ovw_role(ik_data, ob)
   col  <- unname(.OVW_ROLE_COL[role %||% "other"]); if (is.null(col) || is.na(col)) col <- "#1f78b4"
   hull <- tryCatch(ik_reserve_boundary(ik_data, ob$reserve), error = function(e) NULL)
+  has_hull <- !is.null(hull) && nrow(hull) > 0
   m <- leaflet::leaflet(width = "100%", height = 380,
          options = leaflet::leafletOptions(attributionControl = FALSE))
   m <- leaflet::addProviderTiles(m, leaflet::providers$CartoDB.Positron)
-  if (!is.null(hull) && nrow(hull)) m <- ik_add_reserve_boundary(m, hull, color = "#6c757d", pane = NULL)
+  if (has_hull) {
+    m <- ik_add_reserve_boundary(m, hull, color = "#6c757d", pane = NULL)
+    # a PERMANENT (no-hover) reserve name, centred on the reserve, so the context reads at a glance
+    bb  <- tryCatch(sf::st_bbox(hull), error = function(e) NULL)
+    rnm <- if ("reserve" %in% names(hull)) hull$reserve[1] else ob$reserve
+    if (!is.null(bb) && length(rnm) && !is.na(rnm) && nzchar(rnm))
+      m <- leaflet::addLabelOnlyMarkers(m, lng = mean(c(bb[["xmin"]], bb[["xmax"]])),
+        lat = mean(c(bb[["ymin"]], bb[["ymax"]])), label = as.character(rnm),
+        labelOptions = leaflet::labelOptions(noHide = TRUE, direction = "center",
+          textOnly = TRUE, className = "ovw-reserve-label"))
+  }
   m <- leaflet::addCircleMarkers(m, lng = lng, lat = lat, radius = 9, weight = 2,
     color = "#ffffff", opacity = 1, fillColor = col, fillOpacity = 1)
-  m <- leaflet::setView(m, lng = lng, lat = lat, zoom = 15)
+  # With a boundary, leave the view UNSET so maps.js (shown.bs.tab) fits to boundary + point — the
+  # whole reserve in context. Without one, a lone point would zoom to max, so frame it zoomed out.
+  if (!has_hull) m <- leaflet::setView(m, lng = lng, lat = lat, zoom = 13)
   tags$div(class = "ovw-map", header, tags$div(class = "ovw-map-canvas", m))
 }
 
-#' Build the Details tab content from an enriched observation row. @keywords internal
+#' Build the Details tab content from an enriched observation row. Species, count, when & where and
+#' the at-a-glance context now lead on the Summary tab — this tab keeps the deeper, less-scanned
+#' detail: biology, the before/after neighbours, and the full trap log. @keywords internal
 .ovw_details <- function(ik_data, ob, prefer) {
   is_cam  <- identical(ob$source_type, "camera")
-  species <- .ovw_species(ik_data, ob, prefer)
   rel     <- ik_relations(ik_data)
   r       <- rel[match(ob$observationID, rel$observationID), ]
-  diel    <- if (is_cam) as.character(ik_diel_period(ik_data, ob$eventStart, ob$reserve)) else NA
-  dn      <- if (is_cam) ik_day_night(ik_data, ob$eventStart, ob$reserve) else NA
 
   tags$div(
     class = "ovw-details",
     .ovw_section("Identity",
-      .ovw_row("Species", species),
-      .ovw_row("Count", ob$count),
       .ovw_row("Type", ik_obs_type_label(ob$observationType, !is_cam)),
-      .ovw_row("Status", if (!is_cam) {                       # trap check status (still set/sprung/bait gone)
-        st <- .ovw_tag(ob$observationTags, "status")
-        if (!is.na(st) && tolower(st) != "caught") tools::toTitleCase(st) else NA
-      } else NA),
       .ovw_row("Camera setup", if (isTRUE(ob$cameraSetupType == "setup")) "Yes" else NA),
       .ovw_row("Life stage", ob$lifeStage),
       .ovw_row("Sex", ob$sex),
       .ovw_row("Behaviour", ob$behavior),
       .ovw_row("Individual", ob$individualID)),
-    .ovw_section("When & where",
-      .ovw_row(if (is_cam) "Detected" else "Checked", if (is_cam) ob$eventStart else ob$eventEnd),
-      .ovw_row("Season", .ovw_season(ik_data, ob)),                # the record's monitoring season
-      .ovw_row("Reserve", ob$reserve),
-      .ovw_row("Line", ob$line),
-      .ovw_row("Location", ob$locationName),
-      .ovw_row("Device", tools::toTitleCase(ob$source_type %||% ""))),  # coordinates moved to the Map tab
-    if (is_cam) .ovw_section("Detection context",
-      .ovw_row("Diel period", diel),
-      .ovw_row("Day / night", dn),
-      .ovw_row("Since prev (same sp.)", .ovw_duration(r$minutes_since_prev_same_species)),
-      .ovw_row("Possible duplicate",
-               if (length(r$possible_duplicate) && !is.na(r$possible_duplicate))
-                 (if (isTRUE(r$possible_duplicate)) "Yes" else "No") else NA),
+    if (is_cam) .ovw_section("Nearby activity",
       .ovw_row("Nearest animal before", .ovw_cooc(ik_data, prefer, r$animal_before_species, r$animal_before_min)),
       .ovw_row("Nearest animal after",  .ovw_cooc(ik_data, prefer, r$animal_after_species,  r$animal_after_min)),
       .ovw_row("Nearest predator before", .ovw_cooc(ik_data, prefer, r$predator_before_species,  r$predator_before_min)),
@@ -287,9 +294,26 @@
   )
 }
 
-#' The Provenance tab: how this record came to be (classification lineage), the deployment it belongs to,
-#' where it lives (dataset + ids + comments), and — for out-of-reserve records — its data-quality
-#' context. Split off the Details tab to keep it short. @keywords internal
+#' The taxonomy-authority link row for Provenance: the record's `taxon.taxonID` is a full URL to the
+#' resolved species (GBIF or Catalogue of Life), shown as "<Rank> · <source> ↗". Dropped when the
+#' record carries no taxonID. Built directly (not via `.ovw_row`) so the link renders. @keywords internal
+.ovw_taxon_row <- function(ob) {
+  id <- ob$`taxon.taxonID`
+  if (length(id) == 0 || is.na(id) || !nzchar(id)) return(NULL)
+  rank <- ob$`taxon.taxonRank`
+  rk   <- if (length(rank) && !is.na(rank) && nzchar(rank)) tools::toTitleCase(rank) else "Reference"
+  src  <- if (grepl("gbif", id, ignore.case = TRUE)) "GBIF"
+          else if (grepl("checklistbank|catalogueoflife|col2", id, ignore.case = TRUE)) "Catalogue of Life"
+          else sub("^https?://(www\\.)?([^/]+).*$", "\\2", id)
+  tags$div(class = "ovw-row",
+    tags$span(class = "ovw-k", "Taxon"),
+    tags$span(class = "ovw-v",
+      tags$a(href = id, target = "_blank", rel = "noopener", sprintf("%s · %s ↗", rk, src))))
+}
+
+#' The Provenance tab: how this record came to be (classification lineage + taxonomy authority), the
+#' deployment it belongs to, where it lives (dataset + ids + comments), and — for out-of-reserve
+#' records — its data-quality context. Split off the Details tab to keep it short. @keywords internal
 .ovw_provenance <- function(ik_data, ob, prefer) {
   is_cam <- identical(ob$source_type, "camera")
   tags$div(
@@ -298,7 +322,8 @@
       .ovw_row("Method", ob$classificationMethod),
       .ovw_row("Classified by", ob$classifiedBy),
       .ovw_row(if (isTRUE(ob$classificationMethod == "human")) "Validation" else "Confidence",
-               .ovw_classprob(ob$classificationMethod, ob$classificationProbability))),
+               .ovw_classprob(ob$classificationMethod, ob$classificationProbability)),
+      .ovw_taxon_row(ob)),
     .ovw_section("Deployment",
       .ovw_row("Deployed", .ovw_deploy_window(ob)),               # the device's start–end window
       .ovw_row(if (is_cam) "Camera ID" else "Trap ID", ob$cameraID),

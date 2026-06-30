@@ -222,10 +222,17 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
     modal_all  <- reactiveVal(FALSE)  # "show everything": trap → all periods; camera → all species
     modal_obs  <- reactiveVal(NULL)   # the observationID open in the Record-details tab
 
-    .open_location_modal <- function(kind, loc, spec, sci) {
+    .open_location_modal <- function(kind, loc, spec, sci, splab = NULL) {
       modal_kind(kind); modal_loc(loc); modal_spec(spec); modal_sci(sci); modal_all(FALSE); modal_obs(NULL)
       nm  <- ik_data$app$geography$locations$name[match(loc, ik_data$app$geography$locations$location_id)] %||% loc
-      sub <- if (identical(kind, "trap")) "Trap · its check history" else "Camera · what was detected here, in the selected period"
+      # the customised context line: what + when, spelled out (e.g. "Camera · Detections of
+      # Mustelids + Kiwi during Latest full season (1 Mar 2026 – 31 May 2026)")
+      plab <- .ik_period_label(ik_data, spec); span <- .ov_period_span(ik_data, spec)
+      ptxt <- if (length(plab) && nzchar(plab) && length(span) && nzchar(span)) sprintf("%s (%s)", plab, span)
+              else if (length(span) && nzchar(span)) span else if (length(plab)) plab else ""
+      sub <- if (identical(kind, "trap")) sprintf("Trap · check history%s", if (nzchar(ptxt)) sprintf(" · %s", ptxt) else "")
+             else sprintf("Camera · Detections of %s%s", splab %||% "the selected species",
+                          if (nzchar(ptxt)) sprintf(" during %s", ptxt) else "")
       lst <- if (identical(kind, "trap")) "Checks" else "Detections"
       showModal(modalDialog(
         title = .ik_modal_title(nm, sub), size = "l", easyClose = TRUE, footer = modalButton("Close"),
@@ -490,7 +497,7 @@ spatial_explorer_server <- function(id, ik_data, prefer_scientific = reactive(FA
 
       observeEvent(input[[paste0(map_id, "_marker_click")]], {  # marker → MODAL for that location
         cid <- input[[paste0(map_id, "_marker_click")]]$id; if (is.null(cid)) return()
-        .open_location_modal(if (startsWith(cid, "K|")) "trap" else "camera", sub(".*\\|", "", cid), get_selection(), sp_sci())
+        .open_location_modal(if (startsWith(cid, "K|")) "trap" else "camera", sub(".*\\|", "", cid), get_selection(), sp_sci(), sp_lab())
       })
 
       list(detect_pts = detect_pts, catch_pts = catch_pts, detect_all = detect_all, catch_all = catch_all,
